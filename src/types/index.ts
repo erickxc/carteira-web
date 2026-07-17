@@ -59,14 +59,17 @@ export interface EventoAgenda {
   type: EventoTipo;
   subject: string;
   description: string;
+  /** Serviços tratados nesta reunião (múltipla escolha, vindos do CRUD de serviços). */
+  servicos: string[];
   attachments: Anexo[];
   status: EventoStatus;
   createdAt: string;
   userId?: string;
 }
 
-export type NovoEvento = Omit<EventoAgenda, 'id' | 'createdAt' | 'attachments'> & {
+export type NovoEvento = Omit<EventoAgenda, 'id' | 'createdAt' | 'attachments' | 'servicos'> & {
   attachments?: Anexo[];
+  servicos?: string[];
 };
 
 // --- Lembretes ---

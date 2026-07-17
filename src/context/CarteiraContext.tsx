@@ -146,7 +146,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const criarEventoFn = useCallback(async (data: NovoEvento) => {
-    const novo: EventoAgenda = { id: uuidv4(), createdAt: new Date().toISOString(), attachments: [], ...data };
+    const novo: EventoAgenda = { id: uuidv4(), createdAt: new Date().toISOString(), attachments: [], servicos: [], ...data };
     const salvo = await api.criarEvento(novo);
     setAgenda((prev) => [...prev, salvo]);
     return salvo;

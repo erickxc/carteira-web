@@ -33,6 +33,8 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const [programados, setProgramados] = useState<Set<string>>(new Set());
   const [filtroTipo, setFiltroTipo] = useState<string>('Todos');
+  const [filtroMonitor, setFiltroMonitor] = useState<string>('Todos');
+  const [filtroTipoEvento, setFiltroTipoEvento] = useState<string>('Todos');
 
   const hoje = new Date();
   const [mes, setMes] = useState(hoje.getMonth());
@@ -40,10 +42,27 @@ export default function DashboardPage() {
   const periodo = new Date(ano, mes, 1);
   const periodoAnterior = subMonths(periodo, 1);
 
-  // Toda a operação considera apenas clientes ATIVOS (exclui suspensos etc.).
-  const ativos = useMemo(() => clientes.filter((c) => isStatusAtivo(c.status)), [clientes]);
+  // Opções de filtro derivadas da base (não mostra opção que não existe nos dados).
+  const monitoresDisponiveis = useMemo(
+    () => ['Todos', ...[...new Set(clientes.filter((c) => isStatusAtivo(c.status)).map((c) => c.monitor).filter(Boolean))].sort()],
+    [clientes]
+  );
+  const tiposEventoDisponiveis = useMemo(
+    () => ['Todos', ...[...new Set(agenda.map((a) => a.type).filter(Boolean))].sort()],
+    [agenda]
+  );
+
+  // Toda a operação considera apenas clientes ATIVOS (exclui suspensos), com os
+  // filtros globais de Monitor (carteira) e Tipo de evento aplicados em cascata.
+  const ativos = useMemo(
+    () => clientes.filter((c) => isStatusAtivo(c.status) && (filtroMonitor === 'Todos' || c.monitor === filtroMonitor)),
+    [clientes, filtroMonitor]
+  );
   const ativosIds = useMemo(() => new Set(ativos.map((c) => c.id)), [ativos]);
-  const agendaAtiva = useMemo(() => agenda.filter((a) => ativosIds.has(a.clientId)), [agenda, ativosIds]);
+  const agendaAtiva = useMemo(
+    () => agenda.filter((a) => ativosIds.has(a.clientId) && (filtroTipoEvento === 'Todos' || a.type === filtroTipoEvento)),
+    [agenda, ativosIds, filtroTipoEvento]
+  );
 
   const anosDisponiveis = useMemo(() => {
     const anos = new Set<number>([hoje.getFullYear()]);
@@ -80,29 +99,39 @@ export default function DashboardPage() {
 
   // --- Serviços da carteira: % dos clientes ATENDIDOS por serviço ---
   // "Atendido" = cliente ativo com reunião nos últimos 60 dias; mais que isso sem
-  // reunião não conta. Serviços não são exclusivos (um cliente pode ter vários) → barra, não pizza.
+  // reunião não conta. O serviço vem do que foi TRATADO nas reuniões dos últimos 60d
+  // (campo Serviços da reunião); se nenhuma reunião do cliente tiver serviço marcado
+  // (dado legado), cai no serviço contratado do cliente. Serviços não são exclusivos
+  // (um cliente pode ter vários) → barra, não pizza.
   const { servicosDist, totalAtendidos } = useMemo(() => {
-    const ultimo = new Map<string, Date>();
+    const JANELA = 60;
+    const dentroJanela = (d: Date) => !isNaN(d.getTime()) && d <= hoje && differenceInCalendarDays(hoje, d) <= JANELA;
+
+    const tratadosPorCliente = new Map<string, Set<string>>();
+    const atendidoSet = new Set<string>();
     agendaAtiva.forEach((a) => {
       const d = parseISO(a.date);
-      if (isNaN(d.getTime()) || d > hoje) return; // só reuniões já realizadas
-      const cur = ultimo.get(a.clientId);
-      if (!cur || d > cur) ultimo.set(a.clientId, d);
+      if (!dentroJanela(d)) return;
+      atendidoSet.add(a.clientId);
+      if (!tratadosPorCliente.has(a.clientId)) tratadosPorCliente.set(a.clientId, new Set());
+      (a.servicos ?? []).forEach((s) => tratadosPorCliente.get(a.clientId)!.add(s));
     });
-    const atendidos = ativos.filter((c) => {
-      const uc = ultimo.get(c.id);
-      return uc != null && differenceInCalendarDays(hoje, uc) <= 60;
-    });
+
+    const atendidos = ativos.filter((c) => atendidoSet.has(c.id));
     const total = atendidos.length;
-    const temServico = (c: Cliente, re: RegExp, flag: keyof Cliente) =>
-      (c.servicos ?? []).some((s) => re.test(s)) || Boolean(c[flag]);
+
+    const bate = (valores: Iterable<string>, re: RegExp) => [...valores].some((s) => re.test(s));
     const defs: { label: string; re: RegExp; flag: keyof Cliente; color: string }[] = [
       { label: 'Monitoria', re: /monitor/i, flag: 'monitoria', color: '#bd952f' },
       { label: 'Price', re: /(price|prec)/i, flag: 'price', color: '#9a9aa4' },
       { label: 'Controladoria', re: /controlad/i, flag: 'controladoria', color: '#d4d4d8' },
     ];
     const dist = defs.map((d) => {
-      const n = atendidos.filter((c) => temServico(c, d.re, d.flag)).length;
+      const n = atendidos.filter((c) => {
+        const tratados = tratadosPorCliente.get(c.id);
+        if (tratados && tratados.size > 0) return bate(tratados, d.re); // serviços da reunião
+        return (c.servicos ?? []).some((s) => d.re.test(s)) || Boolean(c[d.flag]); // fallback: cliente
+      }).length;
       return { label: d.label, n, pct: total > 0 ? Math.round((n / total) * 100) : 0, color: d.color };
     });
     return { servicosDist: dist, totalAtendidos: total };
@@ -179,7 +208,13 @@ export default function DashboardPage() {
           <h1 className="page-title">Dashboard</h1>
           <p className="page-subtitle" style={{ margin: 0 }}>Visão geral da carteira de monitoria — 2D Consultores.</p>
         </div>
-        <div className="flex-row" style={{ gap: '0.5rem' }}>
+        <div className="flex-row" style={{ gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <select className="custom-select" style={{ width: 'auto' }} value={filtroMonitor} onChange={(e) => setFiltroMonitor(e.target.value)} title="Filtrar por monitor">
+            {monitoresDisponiveis.map((m) => <option key={m} value={m}>{m === 'Todos' ? 'Todos os monitores' : m}</option>)}
+          </select>
+          <select className="custom-select" style={{ width: 'auto' }} value={filtroTipoEvento} onChange={(e) => setFiltroTipoEvento(e.target.value)} title="Filtrar por tipo de evento">
+            {tiposEventoDisponiveis.map((t) => <option key={t} value={t}>{t === 'Todos' ? 'Todos os tipos' : t}</option>)}
+          </select>
           <select className="custom-select" style={{ width: 'auto' }} value={mes} onChange={(e) => setMes(Number(e.target.value))}>
             {MESES.map((nome, i) => <option key={i} value={i}>{nome}</option>)}
           </select>

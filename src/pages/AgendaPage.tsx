@@ -15,7 +15,7 @@ import {
   subMonths,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Paperclip, Plus } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { EventFormModal } from '../components/EventFormModal';
 import { formatHolidayLabel, getHoliday } from '../utils/holidays';
@@ -180,27 +180,23 @@ export default function AgendaPage() {
                 </div>
 
                 <div className="calendar-events-big custom-scrollbar">
-                  {dayEvents.map((ev) => {
-                    const sub = ev.subject && ev.subject !== ev.clientName ? ev.subject : ev.type;
-                    return (
-                      <button
-                        key={ev.id}
-                        className={`calendar-chip ${chipClass(ev.status)}${draggedId === ev.id ? ' is-dragging' : ''}`}
-                        draggable
-                        onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); e.dataTransfer.effectAllowed = 'move'; setDraggedId(ev.id); }}
-                        onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
-                        onClick={() => setModalState({ editing: ev })}
-                        title={`${ev.clientName} — ${ev.subject || ev.type} (${ev.status})`}
-                      >
-                        <span className="calendar-chip-title">
-                          <i className="calendar-chip-dot" />
-                          {ev.clientName}
-                        </span>
-                        {sub && <span className="calendar-chip-sub">{sub}</span>}
-                        {ev.attachments.length > 0 && <span className="calendar-chip-clip">{ev.attachments.length} anexo(s)</span>}
-                      </button>
-                    );
-                  })}
+                  {dayEvents.map((ev) => (
+                    <button
+                      key={ev.id}
+                      className={`calendar-chip ${chipClass(ev.status)}${draggedId === ev.id ? ' is-dragging' : ''}`}
+                      draggable
+                      onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); e.dataTransfer.effectAllowed = 'move'; setDraggedId(ev.id); }}
+                      onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
+                      onClick={() => setModalState({ editing: ev })}
+                      title={`${ev.clientName} — ${ev.subject || ev.type} (${ev.status})`}
+                    >
+                      <span className="calendar-chip-title">{ev.clientName}</span>
+                      <span className="calendar-chip-meta">
+                        <span className="calendar-chip-type">{ev.type}</span>
+                        {ev.attachments.length > 0 && <Paperclip size={10} className="calendar-chip-clip" />}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
             );

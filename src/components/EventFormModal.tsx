@@ -16,12 +16,17 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
   const { clientes, agenda, criarEvento, atualizarEvento, removerEvento, enviarAnexoEvento, removerAnexoEvento, opcoesPorTipo } = useCarteira();
   const tipoOpcoes = opcoesPorTipo('tipo_evento');
   const statusOpcoes = opcoesPorTipo('status_evento');
+  const servicoOpcoes = opcoesPorTipo('servico');
   const [clientId, setClientId] = useState(initial?.clientId ?? initialClientId ?? clientes[0]?.id ?? '');
   const [subject, setSubject] = useState(initial?.subject ?? '');
   const [type, setType] = useState(initial?.type ?? tipoOpcoes[0] ?? '');
   const [date, setDate] = useState(format(initial ? new Date(initial.date) : defaultDate ?? new Date(), 'yyyy-MM-dd'));
   const [description, setDescription] = useState(initial?.description ?? '');
   const [status, setStatus] = useState(initial?.status ?? statusOpcoes[0] ?? 'Agendado');
+  const [servicos, setServicos] = useState<string[]>(initial?.servicos ?? []);
+
+  const toggleServico = (s: string) =>
+    setServicos((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -39,7 +44,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
     setSaving(true);
     try {
       const dataLocal = parse(date, 'yyyy-MM-dd', new Date());
-      const payload = { clientId, clientName: cliente.empresa, subject, type, date: dataLocal.toISOString(), description, status };
+      const payload = { clientId, clientName: cliente.empresa, subject, type, date: dataLocal.toISOString(), description, status, servicos };
       if (initial) {
         await atualizarEvento(initial.id, payload);
       } else {
@@ -116,6 +121,28 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
                 ))}
               </select>
             </label>
+
+            <div className="field">
+              Serviços tratados
+              {servicoOpcoes.length === 0 ? (
+                <p className="text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>
+                  Nenhum serviço cadastrado — adicione em Configurações.
+                </p>
+              ) : (
+                <div className="chip-select">
+                  {servicoOpcoes.map((s) => (
+                    <button
+                      type="button"
+                      key={s}
+                      className={`chip-toggle${servicos.includes(s) ? ' is-on' : ''}`}
+                      onClick={() => toggleServico(s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <label className="field">
               Descrição

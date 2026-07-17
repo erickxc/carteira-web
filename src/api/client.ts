@@ -55,12 +55,13 @@ function deserializeCliente(raw: Record<string, unknown>): Cliente {
 }
 
 function serializeEvento(e: EventoAgenda): Record<string, unknown> {
-  return { ...e, attachments: JSON.stringify(e.attachments ?? []) };
+  return { ...e, servicos: JSON.stringify(e.servicos ?? []), attachments: JSON.stringify(e.attachments ?? []) };
 }
 
 function deserializeEvento(raw: Record<string, unknown>): EventoAgenda {
   return {
     ...(raw as unknown as EventoAgenda),
+    servicos: parseListaJSON<string>(raw.servicos),
     attachments: parseListaJSON<Anexo>(raw.attachments),
     subject: (raw.subject as string) ?? '',
     description: (raw.description as string) ?? '',
@@ -86,6 +87,7 @@ export const criarEvento = async (data: EventoAgenda) =>
   deserializeEvento(await request<Record<string, unknown>>('/agenda', { method: 'POST', body: JSON.stringify(serializeEvento(data)) }));
 export const atualizarEvento = (id: string, data: Partial<EventoAgenda>) => {
   const payload: Record<string, unknown> = { ...data };
+  if (data.servicos) payload.servicos = JSON.stringify(data.servicos);
   if (data.attachments) payload.attachments = JSON.stringify(data.attachments);
   return request<{ success: boolean }>(`/agenda/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
 };
