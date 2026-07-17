@@ -78,6 +78,37 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agendaAtiva, mes, ano]);
 
+  // --- Serviços da carteira: % dos clientes ATENDIDOS por serviço ---
+  // "Atendido" = cliente ativo com reunião nos últimos 30 dias; mais que isso sem
+  // reunião não conta. Serviços não são exclusivos (um cliente pode ter vários) → barra, não pizza.
+  const { servicosDist, totalAtendidos } = useMemo(() => {
+    const ultimo = new Map<string, Date>();
+    agendaAtiva.forEach((a) => {
+      const d = parseISO(a.date);
+      if (isNaN(d.getTime()) || d > hoje) return; // só reuniões já realizadas
+      const cur = ultimo.get(a.clientId);
+      if (!cur || d > cur) ultimo.set(a.clientId, d);
+    });
+    const atendidos = ativos.filter((c) => {
+      const uc = ultimo.get(c.id);
+      return uc != null && differenceInCalendarDays(hoje, uc) <= 30;
+    });
+    const total = atendidos.length;
+    const temServico = (c: Cliente, re: RegExp, flag: keyof Cliente) =>
+      (c.servicos ?? []).some((s) => re.test(s)) || Boolean(c[flag]);
+    const defs: { label: string; re: RegExp; flag: keyof Cliente; color: string }[] = [
+      { label: 'Monitoria', re: /monitor/i, flag: 'monitoria', color: '#bd952f' },
+      { label: 'Price', re: /(price|prec)/i, flag: 'price', color: '#9a9aa4' },
+      { label: 'Controladoria', re: /controlad/i, flag: 'controladoria', color: '#d4d4d8' },
+    ];
+    const dist = defs.map((d) => {
+      const n = atendidos.filter((c) => temServico(c, d.re, d.flag)).length;
+      return { label: d.label, n, pct: total > 0 ? Math.round((n / total) * 100) : 0, color: d.color };
+    });
+    return { servicosDist: dist, totalAtendidos: total };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativos, agendaAtiva]);
+
   // --- Cobertura da carteira no período: clientes ativos com >= 1 reunião no mês ---
   const cobertura = useMemo(() => {
     const atendidosIds = new Set(
@@ -169,6 +200,29 @@ export default function DashboardPage() {
           trendUp={variacao === 0 ? undefined : variacao > 0}
         />
         <StatCard title="Reuniões agendadas" value={reunioesAgendadas} icon={CalendarClock} onClick={() => navigate('/agenda')} />
+      </div>
+
+      {/* Serviços da carteira */}
+      <div className="section glass-card">
+        <div className="section-header">
+          <h3>Serviços dos Clientes Atendidos</h3>
+          <span className="text-muted" style={{ fontSize: 12 }}>reunião nos últimos 30 dias · {totalAtendidos} clientes</span>
+        </div>
+        {totalAtendidos === 0 ? (
+          <div className="empty-state">Nenhum cliente atendido nos últimos 30 dias.</div>
+        ) : (
+          <div className="svc-bars">
+            {servicosDist.map((s) => (
+              <div key={s.label} className="svc-bar-row">
+                <span className="svc-bar-label">{s.label}</span>
+                <div className="svc-bar-track">
+                  <div className="svc-bar-fill" style={{ width: `${s.pct}%`, background: s.color }} />
+                </div>
+                <span className="svc-bar-value"><strong>{s.pct}%</strong><span className="text-muted"> · {s.n}</span></span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Composição + próximas agendas */}

@@ -1115,3 +1115,16 @@ textarea.field-input { resize: vertical; min-height: 74px; }
 .calendar-chip.is-agendado:hover { background: color-mix(in srgb, var(--accent) 20%, var(--card)); }
 .calendar-chip.is-agendado .calendar-chip-dot { background: var(--accent); }
 .legend-dot.is-agendado { background: var(--accent); }
+
+/* --- Dashboard: barras de serviços --- */
+.svc-bars { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+.svc-bar-row { display: grid; grid-template-columns: 130px 1fr 92px; align-items: center; gap: 14px; }
+.svc-bar-label { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); }
+.svc-bar-track { height: 12px; border-radius: 6px; background: color-mix(in srgb, var(--text-muted) 16%, var(--card)); overflow: hidden; }
+.svc-bar-fill { height: 100%; border-radius: 6px; transition: width 0.5s cubic-bezier(0.22,0.61,0.36,1); min-width: 2px; }
+.svc-bar-value { text-align: right; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+.svc-bar-value strong { font-size: 1.05rem; }
+
+@media (max-width: 600px) {
+  .svc-bar-row { grid-template-columns: 92px 1fr 70px; gap: 10px; }
+}
