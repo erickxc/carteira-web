@@ -44,6 +44,7 @@
   --radius-sm: 6px;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 14px 34px rgba(0, 0, 0, 0.6);
 }
 
 * {
@@ -200,7 +201,8 @@ a { color: inherit; }
   transition: background 0.12s ease, color 0.12s ease;
 }
 
-.sidebar-link:hover { background: var(--bg); color: var(--text-primary); }
+.sidebar-link { transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease; }
+.sidebar-link:hover { background: var(--card-hover); color: var(--accent); transform: translateX(4px); }
 
 .sidebar-link.is-active {
   background: var(--accent-soft);
@@ -266,12 +268,21 @@ a { color: inherit; }
   transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
-/* Hover em todos os cards — feedback visual em toda a UI. */
-.glass-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
+/* Hover nítido em todos os cards — elevação + sombra forte + borda destacada. */
+.glass-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-3px);
+}
 
 .glass-card-flat { box-shadow: none; }
 .interactive-card { cursor: pointer; }
-.interactive-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-strong); transform: translateY(-2px); }
+/* Cards clicáveis: hover ainda mais evidente, com borda dourada. */
+.interactive-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-3px);
+}
 
 .stat-grid {
   display: grid;
@@ -404,10 +415,15 @@ a { color: inherit; }
   cursor: pointer;
   font: inherit;
   color: inherit;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background 0.14s ease, border-color 0.14s ease, transform 0.14s ease, box-shadow 0.14s ease;
 }
 
-.agenda-row:hover { background: var(--card-hover); border-color: var(--border-strong); }
+.agenda-row:hover {
+  background: var(--card-hover);
+  border-color: var(--accent);
+  transform: translateX(4px);
+  box-shadow: var(--shadow-md);
+}
 
 .date-badge {
   flex-shrink: 0;
@@ -618,9 +634,9 @@ textarea.field-input { resize: vertical; min-height: 74px; }
   font-size: 0.72rem;
   font-weight: 500;
   line-height: 1.5;
-  transition: filter 0.12s ease;
+  transition: filter 0.12s ease, transform 0.12s ease;
 }
-.badge:hover { filter: brightness(1.18); }
+.badge:hover { filter: brightness(1.3); transform: scale(1.06); }
 
 .badge-accent { background: var(--accent-soft); color: var(--accent); }
 .badge-success { background: var(--success-bg); color: var(--success); }
@@ -689,7 +705,9 @@ textarea.field-input { resize: vertical; min-height: 74px; }
 .data-table td { padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .data-table tbody tr:last-child td { border-bottom: none; }
 .data-table tbody tr { transition: background 0.12s ease; }
+.data-table tbody tr { transition: background 0.12s ease; }
 .data-table tbody tr:hover td { background: var(--card-hover); }
+.data-table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 
 /* ---------------------------------------------------------------------------
    Modal
