@@ -1,5 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+/* Tailwind CSS (v4) — importado SEM o preflight para não resetar o design
+   atual (preto/branco/dourado). Utilities e theme ficam disponíveis em todo
+   o projeto; as classes semânticas existentes continuam valendo. */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
 /* ===========================================================================
    Carteira de Monitoria — UI corporativa limpa (SAP Fiori / produto enterprise)
    Canvas cinza-claro, tiles brancos com sombra sutil, tipografia neutra,
@@ -562,6 +569,29 @@ select.field-input {
 
 .field-input:hover { border-color: var(--text-muted); }
 .field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* Efeito de hover nos labels dos formulários: ao passar o mouse sobre o label,
+   o texto fica dourado + negrito e o campo destaca com brilho. Abrange todos os
+   labels de formulário e de modal. (CSS sem layer para vencer o .field base.) */
+.field,
+.check-row,
+.modal label,
+.modal .field {
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+.field:hover,
+.check-row:hover,
+.modal label:hover,
+.modal .field:hover {
+  color: var(--accent);
+  font-weight: 700;
+}
+.field:hover > .field-input,
+.modal label:hover > .field-input,
+.modal .field:hover > .field-input {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
 
 textarea.field-input { resize: vertical; min-height: 74px; }
 
