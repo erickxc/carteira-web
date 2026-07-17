@@ -130,7 +130,6 @@ export default function DashboardPage() {
     const defs: { label: string; re: RegExp; flag: keyof Cliente; color: string }[] = [
       { label: 'Monitoria', re: /monitor/i, flag: 'monitoria', color: '#bd952f' },
       { label: 'Price', re: /(price|prec)/i, flag: 'price', color: '#9a9aa4' },
-      { label: 'Controladoria', re: /controlad/i, flag: 'controladoria', color: '#d4d4d8' },
     ];
     const dist = defs.map((d) => {
       const n = atendidos.filter((c) => temProduto(c, d.re, d.flag)).length;
@@ -237,7 +236,7 @@ export default function DashboardPage() {
       <div className="section glass-card">
         <div className="section-header">
           <h3>Serviços dos Clientes Atendidos</h3>
-          <span className="text-muted" style={{ fontSize: 12 }}>reunião nos últimos 60 dias · {totalAtendidos} clientes</span>
+          <span className="text-muted" style={{ fontSize: 12 }}>reunião ou ação nos últimos 60 dias · {totalAtendidos} clientes</span>
         </div>
         {totalAtendidos === 0 ? (
           <div className="empty-state">Nenhum cliente atendido nos últimos 60 dias.</div>

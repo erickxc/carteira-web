@@ -119,7 +119,6 @@ export default function AcoesPage() {
     const has = (re: RegExp, flag: keyof Cliente) => (c.servicos ?? []).some((s) => re.test(s)) || Boolean(c[flag]);
     if (has(/monitor/i, 'monitoria')) out.push('Monitoria');
     if (has(/(price|prec)/i, 'price')) out.push('Price');
-    if (has(/controlad/i, 'controladoria')) out.push('Controladoria');
     return out;
   }
 

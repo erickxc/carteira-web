@@ -59,7 +59,6 @@ export default function ClientesPage() {
         const servicos: string[] = [];
         if (truthy(row.Monitoria ?? row.monitoria)) servicos.push('Monitoria');
         if (truthy(row.Price ?? row.price ?? row.Precificacao ?? row.Precificação)) servicos.push('Precificação');
-        if (truthy(row.Controladoria ?? row.controladoria)) servicos.push('Controladoria');
         return {
           empresa: String(row.Empresa ?? row.empresa ?? '').trim(),
           monitor: String(row.Monitor ?? row.monitor ?? '').trim(),

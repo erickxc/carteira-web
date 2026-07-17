@@ -63,7 +63,7 @@ const CADENCIAS_SEED = [
 
 // Modelos/materiais por segmento (o que enviar).
 const MODELOS_SEED = [
-  { segmento: 'frio', titulo: 'Apresentação institucional', conteudo: 'Olá, {empresa}! Aqui é da 2D Consultores. Trabalhamos com monitoria, precificação e controladoria para melhorar sua margem. Podemos agendar um diagnóstico rápido?' },
+  { segmento: 'frio', titulo: 'Apresentação institucional', conteudo: 'Olá, {empresa}! Aqui é da 2D Consultores. Trabalhamos com monitoria e precificação para melhorar sua margem. Podemos agendar um diagnóstico rápido?' },
   { segmento: 'frio', titulo: 'Case de resultado', conteudo: 'Olá, {empresa}! Um cliente do seu segmento reduziu perdas e ganhou margem com nossa monitoria. Posso te mostrar como em 20 min?' },
   { segmento: 'esfriando', titulo: 'Retomada de contato', conteudo: 'Olá, {empresa}! Faz um tempo que não conversamos. Preparei um panorama atualizado — quando podemos reunir?' },
   { segmento: 'engajado', titulo: 'Pauta de reunião mensal', conteudo: 'Pauta {empresa}: 1) Resultados do mês 2) Precificação 3) Próximas ações 4) Dúvidas.' },
@@ -77,7 +77,7 @@ function seedMwith(rows, extra) {
 
 // Seed inicial das categorias (a partir dos valores reais já existentes no banco).
 const CATEGORIAS_SEED = [
-  ['servico', ['Monitoria', 'Precificação', 'Controladoria']],
+  ['servico', ['Monitoria', 'Precificação']],
   ['tipo_evento', ['Reunião', 'Precificação', 'Contato']],
   ['status_cliente', ['Ativo', 'Suspenso']],
   ['status_evento', ['Agendado', 'Concluído', 'Cancelado', 'Realizado']],
