@@ -3,9 +3,12 @@
 /* Tailwind CSS (v4) — importado SEM o preflight para não resetar o design
    atual (preto/branco/dourado). Utilities e theme ficam disponíveis em todo
    o projeto; as classes semânticas existentes continuam valendo. */
-@layer theme, base, components, utilities;
+@config '../tailwind.config.js';
+/* theme (tokens) em layer; utilities SEM layer para vencer o reset `*` por
+   especificidade, mas ainda perder para as classes semânticas definidas
+   depois neste arquivo (migração incremental sem quebrar o que não migrou). */
 @import 'tailwindcss/theme.css' layer(theme);
-@import 'tailwindcss/utilities.css' layer(utilities);
+@import 'tailwindcss/utilities.css';
 
 /* ===========================================================================
    Carteira de Monitoria — UI corporativa limpa (SAP Fiori / produto enterprise)
@@ -132,127 +135,7 @@ a { color: inherit; }
    Sidebar (shell claro)
    --------------------------------------------------------------------------- */
 
-.sidebar {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  padding: 1.25rem 0.85rem;
-  background: var(--sidebar);
-  border-right: 1px solid var(--border);
-}
-
-.brand-mark {
-  width: 2rem;
-  height: 2rem;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--accent);
-  color: var(--accent-contrast);
-  border-radius: var(--radius-sm);
-}
-
-.brand-mark svg { width: 1.05rem; height: 1.05rem; }
-
-.sidebar-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.4rem 0.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.sidebar-brand-name {
-  font-weight: 600;
-  font-size: 0.95rem;
-  line-height: 1.1;
-  color: var(--text-primary);
-}
-
-.sidebar-brand-sub {
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-top: 2px;
-}
-
-.sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: 1.25rem;
-}
-
-.sidebar-link {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.55rem 0.7rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  text-decoration: none;
-  position: relative;
-  transition: background 0.12s ease, color 0.12s ease;
-}
-
-.sidebar-link { transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease; }
-.sidebar-link:hover { background: var(--card-hover); color: var(--accent); transform: translateX(4px); }
-
-.sidebar-link.is-active {
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.sidebar-link.is-active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 20%;
-  bottom: 20%;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: var(--accent);
-}
-
-.sidebar-section-label {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  font-weight: 600;
-  padding: 0.4rem 0.7rem;
-}
-
-.sidebar-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  border-top: 1px solid var(--border);
-  padding-top: 0.85rem;
-}
-
-.sidebar-nav-bottom {
-  margin-top: auto;
-  border-top: 1px solid var(--border);
-  padding-top: 0.85rem;
-  margin-bottom: 0;
-}
-
-.sidebar-footer {
-  padding-top: 0.85rem;
-  margin-top: 0.85rem;
-  font-size: 0.7rem;
-  line-height: 1.5;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border);
-}
+/* Sidebar migrada para utilities Tailwind (ver src/components/Sidebar.tsx) */
 
 /* ---------------------------------------------------------------------------
    Cards / tiles
@@ -483,16 +366,6 @@ a { color: inherit; }
 
 .btn-icon { padding: 0.5rem; }
 
-.sidebar-actions .btn {
-  justify-content: flex-start;
-  width: 100%;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-weight: 500;
-  padding: 0.55rem 0.7rem;
-}
-.sidebar-actions .btn:hover { background: var(--bg); color: var(--text-primary); }
 
 .link-button {
   background: none;
