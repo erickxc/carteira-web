@@ -7,8 +7,14 @@ const crypto = require('crypto');
 const multer = require('multer');
 
 const app = express();
+
+// Host de acesso na intranet. Se o IP da máquina mudar (DHCP), ajuste aqui
+// (ou defina a env APP_HOST). O app NÃO tem autenticação: expor na rede deixa
+// os dados acessíveis a qualquer um na intranet — decisão explícita do usuário.
+const HOST = process.env.APP_HOST || '192.168.1.18';
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173']
+  origin: [`http://${HOST}:5173`, 'http://localhost:5173', 'http://127.0.0.1:5173']
 }));
 app.use(express.json());
 
@@ -454,7 +460,7 @@ app.put('/api/cadencias', (req, res) => {
 });
 
 const PORT = 3001;
-app.listen(PORT, '127.0.0.1', () => {
-  console.log(`Server running on http://127.0.0.1:${PORT} (Acesso restrito à máquina local)`);
+app.listen(PORT, HOST, () => {
+  console.log(`Server running on http://${HOST}:${PORT} (acesso pela intranet)`);
   console.log(`Dados salvos em: ${DATA_DIR}`);
 });

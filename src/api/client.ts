@@ -1,6 +1,11 @@
 import type { Acao, Anexo, Cadencias, Categoria, Cliente, EventoAgenda, Lembrete, Modelo } from '../types';
 
-const API_BASE = 'http://127.0.0.1:3001/api';
+// A API roda na mesma máquina que serve o front (o "servidor" da intranet).
+// Derivamos o host da URL atual: abrindo em http://192.168.1.18:5173, a API é
+// http://192.168.1.18:3001 — funciona tanto local quanto pelas outras máquinas.
+const API_HOST = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
+const API_ORIGIN = `http://${API_HOST}:3001`;
+const API_BASE = `${API_ORIGIN}/api`;
 
 async function tratarResposta<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -139,10 +144,12 @@ export async function enviarAnexo(file: File): Promise<Anexo> {
   return tratarResposta<Anexo>(res);
 }
 
+// (urlAnexo abaixo usa API_ORIGIN — mesmo host do front)
+
 export async function removerAnexo(filename: string): Promise<void> {
   await request(`/uploads/${encodeURIComponent(filename)}`, { method: 'DELETE' });
 }
 
 export function urlAnexo(filename: string): string {
-  return `http://127.0.0.1:3001/uploads/${encodeURIComponent(filename)}`;
+  return `${API_ORIGIN}/uploads/${encodeURIComponent(filename)}`;
 }
