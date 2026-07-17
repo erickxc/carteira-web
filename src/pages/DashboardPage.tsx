@@ -182,20 +182,25 @@ export default function DashboardPage() {
         <div className="glass-card">
           <div className="section-header">
             <h3>Cobertura da Carteira</h3>
-            <span className="text-muted" style={{ fontSize: 12 }}>{MESES[mes].slice(0, 3)}/{ano}</span>
+            <span className="text-muted" style={{ fontSize: 12 }}>{MESES[mes].slice(0, 3)}/{ano} · {cobertura.total} ativos</span>
           </div>
           {cobertura.total === 0 ? (
             <div className="empty-state">Nenhum cliente ativo.</div>
           ) : (
-            <DonutChart
-              items={[
-                { label: 'Atendidos', value: cobertura.cobertos },
-                { label: 'Sem contato', value: cobertura.semContato },
-              ]}
-              colors={['#bd952f', '#3c3c44']}
-              centerValue={`${cobertura.pct}%`}
-              centerLabel="cobertura"
-            />
+            <>
+              <DonutChart
+                items={[
+                  { label: 'Atendidos', value: cobertura.cobertos },
+                  { label: 'Sem contato', value: cobertura.semContato },
+                ]}
+                colors={['#bd952f', '#3c3c44']}
+                centerValue={`${cobertura.pct}%`}
+                centerLabel="cobertura"
+              />
+              <p className="text-muted" style={{ fontSize: 12, marginTop: '0.85rem' }}>
+                Base: {cobertura.total} clientes ativos — suspensos não entram na cobertura.
+              </p>
+            </>
           )}
         </div>
 
