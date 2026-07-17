@@ -263,12 +263,15 @@ a { color: inherit; }
   padding: 1.25rem;
   box-shadow: var(--shadow-sm);
   position: relative;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
+
+/* Hover em todos os cards — feedback visual em toda a UI. */
+.glass-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
 
 .glass-card-flat { box-shadow: none; }
 .interactive-card { cursor: pointer; }
-.interactive-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+.interactive-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-strong); transform: translateY(-2px); }
 
 .stat-grid {
   display: grid;
@@ -277,58 +280,7 @@ a { color: inherit; }
   margin-bottom: 1.5rem;
 }
 
-.stat-card-container {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.5rem;
-  min-width: 0;
-  text-align: left;
-}
-
-.stat-card-content { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
-
-.stat-card-title {
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  font-weight: 500;
-  margin-bottom: 0.6rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.stat-card-value {
-  font-size: 2.2rem;
-  font-weight: 600;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.stat-card-trend {
-  font-size: 0.8rem;
-  margin-top: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 500;
-}
-
-.stat-card-icon-container {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.stat-icon { width: 19px; height: 19px; }
+/* StatCard migrado para utilities Tailwind (ver src/components/StatCard.tsx) */
 
 /* ---------------------------------------------------------------------------
    Sections
@@ -666,7 +618,9 @@ textarea.field-input { resize: vertical; min-height: 74px; }
   font-size: 0.72rem;
   font-weight: 500;
   line-height: 1.5;
+  transition: filter 0.12s ease;
 }
+.badge:hover { filter: brightness(1.18); }
 
 .badge-accent { background: var(--accent-soft); color: var(--accent); }
 .badge-success { background: var(--success-bg); color: var(--success); }
