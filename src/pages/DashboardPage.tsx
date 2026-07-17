@@ -171,15 +171,6 @@ export default function DashboardPage() {
         <StatCard title="Reuniões agendadas" value={reunioesAgendadas} icon={CalendarClock} onClick={() => navigate('/agenda')} />
       </div>
 
-      {/* Tendência mensal */}
-      <div className="section glass-card">
-        <div className="section-header">
-          <h3>Reuniões por Mês</h3>
-          <span className="text-muted" style={{ fontSize: 12 }}>desde a primeira reunião</span>
-        </div>
-        <LineChart points={linhaPorMes} highlightIndex={linhaHighlight} />
-      </div>
-
       {/* Composição + próximas agendas */}
       <div className="dash-two-col">
         <div className="glass-card">
@@ -311,6 +302,15 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Tendência mensal (fim da página) */}
+      <div className="section glass-card">
+        <div className="section-header">
+          <h3>Reuniões por Mês</h3>
+          <span className="text-muted" style={{ fontSize: 12 }}>desde a primeira reunião</span>
+        </div>
+        <LineChart points={linhaPorMes} highlightIndex={linhaHighlight} />
       </div>
     </div>
   );
