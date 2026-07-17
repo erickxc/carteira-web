@@ -12,7 +12,6 @@ const NAV_ITEMS = [
   { to: '/clientes', label: 'Clientes', icon: Users, end: false },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays, end: false },
   { to: '/acoes', label: 'Ações', icon: Target, end: false },
-  { to: '/config', label: 'Configurações', icon: Settings, end: false },
 ];
 
 export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder }: SidebarProps) {
@@ -29,6 +28,7 @@ export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder }: SidebarProp
       </div>
 
       <nav className="sidebar-nav">
+        <span className="sidebar-section-label">Menu</span>
         {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} className={({ isActive }) => `sidebar-link${isActive ? ' is-active' : ''}`}>
             <Icon size={17} />
@@ -38,6 +38,7 @@ export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder }: SidebarProp
       </nav>
 
       <div className="sidebar-actions">
+        <span className="sidebar-section-label">Ações rápidas</span>
         <button className="btn" onClick={onOpenSearch}>
           <Search size={16} /> Buscar <span className="text-muted" style={{ marginLeft: 'auto' }}>Ctrl+K</span>
         </button>
@@ -48,6 +49,14 @@ export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder }: SidebarProp
           <Bell size={16} /> Novo Lembrete
         </button>
       </div>
+
+      <nav className="sidebar-nav sidebar-nav-bottom">
+        <span className="sidebar-section-label">Sistema</span>
+        <NavLink to="/config" className={({ isActive }) => `sidebar-link${isActive ? ' is-active' : ''}`}>
+          <Settings size={17} />
+          Configurações
+        </NavLink>
+      </nav>
 
       <div className="sidebar-footer">Uso local — dados armazenados apenas nesta máquina.</div>
     </aside>
