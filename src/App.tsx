@@ -10,6 +10,7 @@ import DashboardPage from './pages/DashboardPage';
 import ClientesPage from './pages/ClientesPage';
 import ClienteDetailPage from './pages/ClienteDetailPage';
 import AgendaPage from './pages/AgendaPage';
+import AcoesPage from './pages/AcoesPage';
 import ConfiguracoesPage from './pages/ConfiguracoesPage';
 
 function Layout({ children }: { children: ReactNode }) {
@@ -65,6 +66,7 @@ function AppRoutes() {
         <Route path="/clientes" element={<ClientesPage />} />
         <Route path="/clientes/:id" element={<ClienteDetailPage />} />
         <Route path="/agenda" element={<AgendaPage />} />
+        <Route path="/acoes" element={<AcoesPage />} />
         <Route path="/config" element={<ConfiguracoesPage />} />
       </Routes>
     </Layout>

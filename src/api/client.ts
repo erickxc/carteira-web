@@ -1,4 +1,4 @@
-import type { Anexo, Categoria, Cliente, EventoAgenda, Lembrete } from '../types';
+import type { Acao, Anexo, Cadencias, Categoria, Cliente, EventoAgenda, Lembrete, Modelo } from '../types';
 
 const API_BASE = 'http://127.0.0.1:3001/api';
 
@@ -105,6 +105,27 @@ export const criarCategoria = (tipo: string, valor: string) =>
 export const atualizarCategoria = (id: string, data: Partial<Categoria>) =>
   request<{ success: boolean }>(`/categorias/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const removerCategoria = (id: string) => request<{ success: boolean }>(`/categorias/${id}`, { method: 'DELETE' });
+
+// --- Ações ---
+export const listarAcoes = () => request<Acao[]>('/acoes');
+export const criarAcao = (data: Omit<Acao, 'id' | 'createdAt' | 'updatedAt'>) =>
+  request<Acao>('/acoes', { method: 'POST', body: JSON.stringify(data) });
+export const atualizarAcao = (id: string, data: Partial<Acao>) =>
+  request<{ success: boolean }>(`/acoes/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const removerAcao = (id: string) => request<{ success: boolean }>(`/acoes/${id}`, { method: 'DELETE' });
+
+// --- Modelos ---
+export const listarModelos = () => request<Modelo[]>('/modelos');
+export const criarModelo = (data: Omit<Modelo, 'id' | 'createdAt'>) =>
+  request<Modelo>('/modelos', { method: 'POST', body: JSON.stringify(data) });
+export const atualizarModelo = (id: string, data: Partial<Modelo>) =>
+  request<{ success: boolean }>(`/modelos/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const removerModelo = (id: string) => request<{ success: boolean }>(`/modelos/${id}`, { method: 'DELETE' });
+
+// --- Cadências ---
+export const listarCadencias = () => request<Cadencias>('/cadencias');
+export const salvarCadencias = (data: Cadencias) =>
+  request<{ success: boolean }>('/cadencias', { method: 'PUT', body: JSON.stringify(data) });
 
 // --- Anexos ---
 export async function enviarAnexo(file: File): Promise<Anexo> {

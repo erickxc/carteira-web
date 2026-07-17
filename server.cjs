@@ -49,6 +49,31 @@ const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', '
 const AGENDA_HEADERS = ['id', 'createdAt', 'clientId', 'clientName', 'type', 'subject', 'date', 'description', 'status', 'attachments', 'userId'];
 const LEMBRETES_HEADERS = ['id', 'createdAt', 'title', 'datetime', 'description', 'status', 'clientId', 'eventId', 'recurrence', 'type', 'userId'];
 const CATEGORIAS_HEADERS = ['id', 'tipo', 'valor', 'ordem', 'createdAt'];
+const ACOES_HEADERS = ['id', 'clientId', 'tipo', 'segmento', 'status', 'notes', 'createdAt', 'updatedAt'];
+const MODELOS_HEADERS = ['id', 'segmento', 'titulo', 'conteudo', 'createdAt'];
+const CADENCIAS_HEADERS = ['chave', 'valor'];
+
+// Cadências padrão (dias) — prazos das recomendações.
+const CADENCIAS_SEED = [
+  { chave: 'reuniao_dias', valor: 30 },
+  { chave: 'relatorio_dias', valor: 45 },
+  { chave: 'primeiro_contato_dias', valor: 14 },
+  { chave: 'esfriando_dias', valor: 45 },
+];
+
+// Modelos/materiais por segmento (o que enviar).
+const MODELOS_SEED = [
+  { segmento: 'frio', titulo: 'Apresentação institucional', conteudo: 'Olá, {empresa}! Aqui é da 2D Consultores. Trabalhamos com monitoria, precificação e controladoria para melhorar sua margem. Podemos agendar um diagnóstico rápido?' },
+  { segmento: 'frio', titulo: 'Case de resultado', conteudo: 'Olá, {empresa}! Um cliente do seu segmento reduziu perdas e ganhou margem com nossa monitoria. Posso te mostrar como em 20 min?' },
+  { segmento: 'esfriando', titulo: 'Retomada de contato', conteudo: 'Olá, {empresa}! Faz um tempo que não conversamos. Preparei um panorama atualizado — quando podemos reunir?' },
+  { segmento: 'engajado', titulo: 'Pauta de reunião mensal', conteudo: 'Pauta {empresa}: 1) Resultados do mês 2) Precificação 3) Próximas ações 4) Dúvidas.' },
+  { segmento: 'engajado', titulo: 'Envio de relatório mensal', conteudo: 'Olá, {empresa}! Segue o relatório de monitoria do mês. Fico à disposição para comentar os pontos de atenção.' },
+];
+
+function seedMwith(rows, extra) {
+  const now = new Date().toISOString();
+  return rows.map((r) => ({ id: crypto.randomUUID(), createdAt: now, ...extra, ...r }));
+}
 
 // Seed inicial das categorias (a partir dos valores reais já existentes no banco).
 const CATEGORIAS_SEED = [
@@ -78,6 +103,9 @@ function initDB() {
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGENDA_HEADERS }), 'Agenda');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: LEMBRETES_HEADERS }), 'Lembretes');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(buildCategoriasSeed(), { header: CATEGORIAS_HEADERS }), 'Categorias');
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: ACOES_HEADERS }), 'Acoes');
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(seedMwith(MODELOS_SEED), { header: MODELOS_HEADERS }), 'Modelos');
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(CADENCIAS_SEED, { header: CADENCIAS_HEADERS }), 'Cadencias');
     comRetryIO(() => xlsx.writeFile(wb, DB_FILE));
   } else {
     // Banco já existe: garante a planilha Categorias e faz seed idempotente dos
@@ -105,6 +133,21 @@ function initDB() {
       if (!wb.SheetNames.includes('Categorias')) wb.SheetNames.push('Categorias');
       comRetryIO(() => xlsx.writeFile(wb, DB_FILE));
     }
+
+    // Garante as planilhas novas (Acoes/Modelos/Cadencias) sem tocar nas existentes.
+    const novas = [
+      { nome: 'Acoes', header: ACOES_HEADERS, rows: [] },
+      { nome: 'Modelos', header: MODELOS_HEADERS, rows: seedMwith(MODELOS_SEED) },
+      { nome: 'Cadencias', header: CADENCIAS_HEADERS, rows: CADENCIAS_SEED },
+    ];
+    let mudou2 = false;
+    for (const s of novas) {
+      if (!wb.SheetNames.includes(s.nome)) {
+        xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(s.rows, { header: s.header }), s.nome);
+        mudou2 = true;
+      }
+    }
+    if (mudou2) comRetryIO(() => xlsx.writeFile(wb, DB_FILE));
   }
 }
 initDB();
@@ -336,6 +379,77 @@ app.delete('/api/categorias/:id', (req, res) => {
   let data = getSheetData('Categorias');
   data = data.filter((c) => String(c.id) !== String(req.params.id));
   saveSheetData('Categorias', data);
+  res.json({ success: true });
+});
+
+// --- Ações (recomendações tratadas: programado/concluído/dispensado) ---
+app.get('/api/acoes', (req, res) => {
+  res.json(getSheetData('Acoes'));
+});
+
+app.post('/api/acoes', (req, res) => {
+  const data = getSheetData('Acoes');
+  const now = new Date().toISOString();
+  const nova = { id: crypto.randomUUID(), createdAt: now, updatedAt: now, ...req.body };
+  data.push(nova);
+  saveSheetData('Acoes', data);
+  res.json(nova);
+});
+
+app.put('/api/acoes/:id', (req, res) => {
+  let data = getSheetData('Acoes');
+  data = data.map((a) => (String(a.id) === String(req.params.id) ? { ...a, ...req.body, updatedAt: new Date().toISOString() } : a));
+  saveSheetData('Acoes', data);
+  res.json({ success: true });
+});
+
+app.delete('/api/acoes/:id', (req, res) => {
+  let data = getSheetData('Acoes');
+  data = data.filter((a) => String(a.id) !== String(req.params.id));
+  saveSheetData('Acoes', data);
+  res.json({ success: true });
+});
+
+// --- Modelos/materiais por segmento ---
+app.get('/api/modelos', (req, res) => {
+  res.json(getSheetData('Modelos'));
+});
+
+app.post('/api/modelos', (req, res) => {
+  const data = getSheetData('Modelos');
+  const nova = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...req.body };
+  data.push(nova);
+  saveSheetData('Modelos', data);
+  res.json(nova);
+});
+
+app.put('/api/modelos/:id', (req, res) => {
+  let data = getSheetData('Modelos');
+  data = data.map((m) => (String(m.id) === String(req.params.id) ? { ...m, ...req.body } : m));
+  saveSheetData('Modelos', data);
+  res.json({ success: true });
+});
+
+app.delete('/api/modelos/:id', (req, res) => {
+  let data = getSheetData('Modelos');
+  data = data.filter((m) => String(m.id) !== String(req.params.id));
+  saveSheetData('Modelos', data);
+  res.json({ success: true });
+});
+
+// --- Cadências (prazos das recomendações) ---
+app.get('/api/cadencias', (req, res) => {
+  const rows = getSheetData('Cadencias');
+  const obj = {};
+  rows.forEach((r) => { obj[r.chave] = Number(r.valor); });
+  res.json(obj);
+});
+
+app.put('/api/cadencias', (req, res) => {
+  // Recebe objeto { chave: valor } e regrava a planilha inteira.
+  const body = req.body || {};
+  const rows = Object.entries(body).map(([chave, valor]) => ({ chave, valor: Number(valor) }));
+  saveSheetData('Cadencias', rows);
   res.json({ success: true });
 });
 

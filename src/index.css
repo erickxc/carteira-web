@@ -899,3 +899,22 @@ textarea.field-input { resize: vertical; min-height: 74px; }
 
 .animate-spin { animation: app-spin 0.8s linear infinite; }
 @keyframes app-spin { to { transform: rotate(360deg); } }
+
+/* --- Central de Ações --- */
+.acao-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 0.85rem;
+}
+.acao-card { padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.85rem; }
+.acao-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+.acao-tipo {
+  flex-shrink: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.acao-card-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.acao-card-actions .btn { padding: 0.4rem 0.7rem; font-size: 13px; }

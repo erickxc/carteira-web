@@ -2,22 +2,35 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { v4 as uuidv4 } from 'uuid';
 import * as api from '../api/client';
 import type {
+  Acao,
   Anexo,
+  Cadencias,
   Categoria,
   CategoriaTipo,
   Cliente,
   EventoAgenda,
   Lembrete,
+  Modelo,
   NovoCliente,
   NovoEvento,
   NovoLembrete,
 } from '../types';
+
+const CADENCIAS_PADRAO: Cadencias = {
+  reuniao_dias: 30,
+  relatorio_dias: 45,
+  primeiro_contato_dias: 14,
+  esfriando_dias: 45,
+};
 
 interface CarteiraContextValue {
   clientes: Cliente[];
   agenda: EventoAgenda[];
   lembretes: Lembrete[];
   categorias: Categoria[];
+  acoes: Acao[];
+  modelos: Modelo[];
+  cadencias: Cadencias;
   loading: boolean;
   error: string | null;
   recarregar: () => Promise<void>;
@@ -43,6 +56,15 @@ interface CarteiraContextValue {
   criarCategoria: (tipo: CategoriaTipo, valor: string) => Promise<void>;
   atualizarCategoria: (id: string, valor: string) => Promise<void>;
   removerCategoria: (id: string) => Promise<void>;
+
+  registrarAcao: (data: Omit<Acao, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  atualizarAcao: (id: string, data: Partial<Acao>) => Promise<void>;
+
+  criarModelo: (data: Omit<Modelo, 'id' | 'createdAt'>) => Promise<void>;
+  atualizarModelo: (id: string, data: Partial<Modelo>) => Promise<void>;
+  removerModelo: (id: string) => Promise<void>;
+
+  salvarCadencias: (data: Cadencias) => Promise<void>;
 }
 
 const CarteiraContext = createContext<CarteiraContextValue | null>(null);
@@ -52,6 +74,9 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
   const [agenda, setAgenda] = useState<EventoAgenda[]>([]);
   const [lembretes, setLembretes] = useState<Lembrete[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [acoes, setAcoes] = useState<Acao[]>([]);
+  const [modelos, setModelos] = useState<Modelo[]>([]);
+  const [cadencias, setCadencias] = useState<Cadencias>(CADENCIAS_PADRAO);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,16 +84,22 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      const [clientesData, agendaData, lembretesData, categoriasData] = await Promise.all([
+      const [clientesData, agendaData, lembretesData, categoriasData, acoesData, modelosData, cadenciasData] = await Promise.all([
         api.listarClientes(),
         api.listarAgenda(),
         api.listarLembretes(),
         api.listarCategorias(),
+        api.listarAcoes(),
+        api.listarModelos(),
+        api.listarCadencias(),
       ]);
       setClientes(clientesData);
       setAgenda(agendaData);
       setLembretes(lembretesData);
       setCategorias(categoriasData);
+      setAcoes(acoesData);
+      setModelos(modelosData);
+      setCadencias({ ...CADENCIAS_PADRAO, ...cadenciasData });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar dados.');
     } finally {
@@ -183,12 +214,45 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     setCategorias((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
+  const registrarAcao = useCallback(async (data: Omit<Acao, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const nova = await api.criarAcao(data);
+    setAcoes((prev) => [...prev, nova]);
+  }, []);
+
+  const atualizarAcaoFn = useCallback(async (id: string, data: Partial<Acao>) => {
+    await api.atualizarAcao(id, data);
+    setAcoes((prev) => prev.map((a) => (a.id === id ? { ...a, ...data } : a)));
+  }, []);
+
+  const criarModeloFn = useCallback(async (data: Omit<Modelo, 'id' | 'createdAt'>) => {
+    const novo = await api.criarModelo(data);
+    setModelos((prev) => [...prev, novo]);
+  }, []);
+
+  const atualizarModeloFn = useCallback(async (id: string, data: Partial<Modelo>) => {
+    await api.atualizarModelo(id, data);
+    setModelos((prev) => prev.map((m) => (m.id === id ? { ...m, ...data } : m)));
+  }, []);
+
+  const removerModeloFn = useCallback(async (id: string) => {
+    await api.removerModelo(id);
+    setModelos((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+
+  const salvarCadenciasFn = useCallback(async (data: Cadencias) => {
+    await api.salvarCadencias(data);
+    setCadencias(data);
+  }, []);
+
   const value = useMemo<CarteiraContextValue>(
     () => ({
       clientes,
       agenda,
       lembretes,
       categorias,
+      acoes,
+      modelos,
+      cadencias,
       loading,
       error,
       recarregar,
@@ -208,13 +272,20 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       criarCategoria: criarCategoriaFn,
       atualizarCategoria: atualizarCategoriaFn,
       removerCategoria: removerCategoriaFn,
+      registrarAcao,
+      atualizarAcao: atualizarAcaoFn,
+      criarModelo: criarModeloFn,
+      atualizarModelo: atualizarModeloFn,
+      removerModelo: removerModeloFn,
+      salvarCadencias: salvarCadenciasFn,
     }),
     [
-      clientes, agenda, lembretes, categorias, loading, error, recarregar, opcoesPorTipo,
+      clientes, agenda, lembretes, categorias, acoes, modelos, cadencias, loading, error, recarregar, opcoesPorTipo,
       criarCliente, criarClientesEmLote, atualizarClienteFn, removerClienteFn,
       criarEventoFn, atualizarEventoFn, removerEventoFn, enviarAnexoEvento, removerAnexoEvento,
       criarLembreteFn, atualizarLembreteFn, removerLembreteFn,
       criarCategoriaFn, atualizarCategoriaFn, removerCategoriaFn,
+      registrarAcao, atualizarAcaoFn, criarModeloFn, atualizarModeloFn, removerModeloFn, salvarCadenciasFn,
     ]
   );
 

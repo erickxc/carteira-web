@@ -95,3 +95,47 @@ export interface Holiday {
   name: string;
   scope: 'nacional' | 'estadual-rj' | 'municipal-dc';
 }
+
+// --- Ações / Recomendações ---
+export type Segmento = 'engajado' | 'esfriando' | 'frio';
+export type AcaoTipo = 'reuniao' | 'relatorio' | 'primeiro_contato';
+export type AcaoStatus = 'programado' | 'concluido' | 'dispensado';
+
+export const SEGMENTO_LABEL: Record<Segmento, string> = {
+  engajado: 'Engajado',
+  esfriando: 'Esfriando',
+  frio: 'Não atendido',
+};
+
+export const ACAO_TIPO_LABEL: Record<AcaoTipo, string> = {
+  reuniao: 'Agendar reunião',
+  relatorio: 'Enviar relatório',
+  primeiro_contato: 'Primeiro contato',
+};
+
+/** Registro persistido de uma recomendação já tratada (programada/concluída/dispensada). */
+export interface Acao {
+  id: string;
+  clientId: string;
+  tipo: AcaoTipo;
+  segmento: Segmento;
+  status: AcaoStatus;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Modelo {
+  id: string;
+  segmento: Segmento;
+  titulo: string;
+  conteudo: string;
+  createdAt: string;
+}
+
+export interface Cadencias {
+  reuniao_dias: number;
+  relatorio_dias: number;
+  primeiro_contato_dias: number;
+  esfriando_dias: number;
+}

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Bell, CalendarDays, CalendarPlus, LayoutDashboard, Search, Settings, TrendingUp, Users } from 'lucide-react';
+import { Bell, CalendarDays, CalendarPlus, LayoutDashboard, Search, Settings, Target, TrendingUp, Users } from 'lucide-react';
 
 interface SidebarProps {
   onOpenSearch: () => void;
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/clientes', label: 'Clientes', icon: Users, end: false },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays, end: false },
+  { to: '/acoes', label: 'Ações', icon: Target, end: false },
   { to: '/config', label: 'Configurações', icon: Settings, end: false },
 ];
 
