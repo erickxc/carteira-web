@@ -52,7 +52,7 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
         {itens.length === 0 && <div className="empty-state">Nenhum item.</div>}
         {itens.map((cat) => (
-          <div key={cat.id} className="flex-between" style={{ padding: '0.4rem 0.5rem', borderRadius: 3, background: 'var(--paper-2)' }}>
+          <div key={cat.id} className="flex-between" style={{ padding: '0.5rem 0.65rem', borderRadius: 6, background: 'var(--card-hover)', border: '1px solid var(--border)' }}>
             {editandoId === cat.id ? (
               <>
                 <input
