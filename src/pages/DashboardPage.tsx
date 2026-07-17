@@ -79,7 +79,7 @@ export default function DashboardPage() {
   }, [agendaAtiva, mes, ano]);
 
   // --- Serviços da carteira: % dos clientes ATENDIDOS por serviço ---
-  // "Atendido" = cliente ativo com reunião nos últimos 30 dias; mais que isso sem
+  // "Atendido" = cliente ativo com reunião nos últimos 60 dias; mais que isso sem
   // reunião não conta. Serviços não são exclusivos (um cliente pode ter vários) → barra, não pizza.
   const { servicosDist, totalAtendidos } = useMemo(() => {
     const ultimo = new Map<string, Date>();
@@ -91,7 +91,7 @@ export default function DashboardPage() {
     });
     const atendidos = ativos.filter((c) => {
       const uc = ultimo.get(c.id);
-      return uc != null && differenceInCalendarDays(hoje, uc) <= 30;
+      return uc != null && differenceInCalendarDays(hoje, uc) <= 60;
     });
     const total = atendidos.length;
     const temServico = (c: Cliente, re: RegExp, flag: keyof Cliente) =>
@@ -206,10 +206,10 @@ export default function DashboardPage() {
       <div className="section glass-card">
         <div className="section-header">
           <h3>Serviços dos Clientes Atendidos</h3>
-          <span className="text-muted" style={{ fontSize: 12 }}>reunião nos últimos 30 dias · {totalAtendidos} clientes</span>
+          <span className="text-muted" style={{ fontSize: 12 }}>reunião nos últimos 60 dias · {totalAtendidos} clientes</span>
         </div>
         {totalAtendidos === 0 ? (
-          <div className="empty-state">Nenhum cliente atendido nos últimos 30 dias.</div>
+          <div className="empty-state">Nenhum cliente atendido nos últimos 60 dias.</div>
         ) : (
           <div className="svc-bars">
             {servicosDist.map((s) => (
