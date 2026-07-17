@@ -26,7 +26,7 @@ export function StatCard({ title, value, icon: Icon, trend, trendUp, onClick }: 
           </p>
         )}
       </div>
-      <div className="stat-card-icon-container" style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}>
+      <div className="stat-card-icon-container">
         <Icon className="stat-icon" />
       </div>
     </div>

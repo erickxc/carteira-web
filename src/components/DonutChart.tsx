@@ -11,10 +11,10 @@ interface DonutChartProps {
   centerLabel?: string;
 }
 
-// Rampa monocromática (identidade P&B) — passos de luminosidade distintos,
-// legíveis sobre a superfície escura. Identidade nunca é só cor: há legenda
-// com rótulo + valor + %, e um <title> por fatia no hover.
-const RAMP = ['#ffffff', '#a3a3a3', '#6f6f6f', '#4a4a4a', '#333333', '#8a8a8a'];
+// Rampa em tons de tinta sobre papel — passos de luminosidade distintos.
+// Identidade nunca é só cor: há legenda com rótulo + valor + %, e um <title>
+// por fatia no hover.
+const RAMP = ['#1b1a15', '#6c6757', '#a8a294', '#cbc6b8', '#8b8676', '#403c33'];
 
 export function DonutChart({ items, size = 168, thickness = 26, centerValue, centerLabel }: DonutChartProps) {
   const total = items.reduce((s, it) => s + it.value, 0);
@@ -43,7 +43,7 @@ export function DonutChart({ items, size = 168, thickness = 26, centerValue, cen
       <div className="donut-svg-wrap" style={{ width: size, height: size }}>
         <svg width={size} height={size} role="img" aria-label="Distribuição por tipo">
           {/* trilho de fundo */}
-          <circle cx={cx} cy={cx} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={thickness} />
+          <circle cx={cx} cy={cx} r={r} fill="none" stroke="#eae7dd" strokeWidth={thickness} />
           {total > 0 &&
             slices.map((s) => (
               <circle

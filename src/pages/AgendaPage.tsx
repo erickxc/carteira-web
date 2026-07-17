@@ -141,7 +141,7 @@ export default function AgendaPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {selectedDayEvents.map((event) => (
-                <div key={event.id} className="glass-card glass-card-flat" style={{ padding: 12, background: 'rgba(255,255,255,0.03)' }}>
+                <div key={event.id} className="glass-card glass-card-flat" style={{ padding: 12 }}>
                   <div className="flex-between">
                     <div>
                       <strong style={{ fontSize: 14 }}>{event.subject || event.type}</strong>
