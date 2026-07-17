@@ -45,12 +45,14 @@ function serializeCliente(c: Cliente): Record<string, unknown> {
 }
 
 function deserializeCliente(raw: Record<string, unknown>): Cliente {
+  const bool = (v: unknown) => v === true || v === 1 || /^(true|1|sim|x)$/i.test(String(v ?? '').trim());
   return {
     ...(raw as unknown as Cliente),
     servicos: parseListaJSON<string>(raw.servicos),
     observacao: (raw.observacao as string) ?? '',
     monitor: (raw.monitor as string) ?? '',
     status: (raw.status as string) ?? '',
+    atendidoMarco: bool(raw.atendidoMarco),
   };
 }
 

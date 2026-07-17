@@ -59,6 +59,7 @@ interface CarteiraContextValue {
 
   registrarAcao: (data: Omit<Acao, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   atualizarAcao: (id: string, data: Partial<Acao>) => Promise<void>;
+  removerAcao: (id: string) => Promise<void>;
 
   criarModelo: (data: Omit<Modelo, 'id' | 'createdAt'>) => Promise<void>;
   atualizarModelo: (id: string, data: Partial<Modelo>) => Promise<void>;
@@ -224,6 +225,11 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     setAcoes((prev) => prev.map((a) => (a.id === id ? { ...a, ...data } : a)));
   }, []);
 
+  const removerAcaoFn = useCallback(async (id: string) => {
+    await api.removerAcao(id);
+    setAcoes((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
   const criarModeloFn = useCallback(async (data: Omit<Modelo, 'id' | 'createdAt'>) => {
     const novo = await api.criarModelo(data);
     setModelos((prev) => [...prev, novo]);
@@ -274,6 +280,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       removerCategoria: removerCategoriaFn,
       registrarAcao,
       atualizarAcao: atualizarAcaoFn,
+      removerAcao: removerAcaoFn,
       criarModelo: criarModeloFn,
       atualizarModelo: atualizarModeloFn,
       removerModelo: removerModeloFn,
@@ -285,7 +292,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       criarEventoFn, atualizarEventoFn, removerEventoFn, enviarAnexoEvento, removerAnexoEvento,
       criarLembreteFn, atualizarLembreteFn, removerLembreteFn,
       criarCategoriaFn, atualizarCategoriaFn, removerCategoriaFn,
-      registrarAcao, atualizarAcaoFn, criarModeloFn, atualizarModeloFn, removerModeloFn, salvarCadenciasFn,
+      registrarAcao, atualizarAcaoFn, removerAcaoFn, criarModeloFn, atualizarModeloFn, removerModeloFn, salvarCadenciasFn,
     ]
   );
 

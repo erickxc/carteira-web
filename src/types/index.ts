@@ -26,6 +26,8 @@ export interface Cliente {
   servicos: string[];
   observacao: string;
   status: string;
+  /** Cliente atendido diretamente pelo Marco (fora da monitoria) — vira "neutro". */
+  atendidoMarco?: boolean;
   createdAt: string;
   // Colunas legadas do banco real, mantidas em sincronia pelo backend:
   suspenso?: boolean;
@@ -101,8 +103,10 @@ export interface Holiday {
 
 // --- Ações / Recomendações ---
 export type Segmento = 'engajado' | 'esfriando' | 'frio';
-export type AcaoTipo = 'reuniao' | 'relatorio' | 'primeiro_contato';
+export type AcaoTipo = 'contato' | 'reuniao' | 'relatorio' | 'price';
 export type AcaoStatus = 'programado' | 'concluido' | 'dispensado';
+
+export const ACAO_TIPOS: AcaoTipo[] = ['contato', 'reuniao', 'relatorio', 'price'];
 
 export const SEGMENTO_LABEL: Record<Segmento, string> = {
   engajado: 'Engajado',
@@ -111,9 +115,10 @@ export const SEGMENTO_LABEL: Record<Segmento, string> = {
 };
 
 export const ACAO_TIPO_LABEL: Record<AcaoTipo, string> = {
-  reuniao: 'Agendar reunião',
-  relatorio: 'Enviar relatório',
-  primeiro_contato: 'Primeiro contato',
+  contato: 'Contato',
+  reuniao: 'Reunião',
+  relatorio: 'Relatório',
+  price: 'Price',
 };
 
 /** Registro persistido de uma recomendação já tratada (programada/concluída/dispensada). */
@@ -124,6 +129,8 @@ export interface Acao {
   segmento: Segmento;
   status: AcaoStatus;
   notes?: string;
+  /** Data planejada da ação (para ações agendadas). */
+  dueAt?: string;
   createdAt: string;
   updatedAt: string;
 }

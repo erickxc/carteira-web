@@ -16,9 +16,10 @@ export interface Recomendacao {
 }
 
 const ACAO_LABEL: Record<AcaoTipo, string> = {
+  contato: 'Fazer contato',
   reuniao: 'Agendar reunião',
   relatorio: 'Enviar relatório',
-  primeiro_contato: 'Fazer primeiro contato',
+  price: 'Fazer precificação',
 };
 
 export function labelAcao(t: AcaoTipo): string {
@@ -88,7 +89,7 @@ export function gerarRecomendacoes(
 
     if (!ultimoContato) {
       segmento = 'frio';
-      tipo = 'primeiro_contato';
+      tipo = 'contato';
       motivo = 'Nunca atendido — buscar primeiro contato';
       prioridade = 100;
     } else if ((diasSemContato ?? 0) >= cadencias.esfriando_dias) {

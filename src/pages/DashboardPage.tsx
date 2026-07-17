@@ -97,41 +97,30 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agendaAtiva, mes, ano]);
 
-  // --- Serviços da carteira: % dos clientes ATENDIDOS por serviço ---
-  // "Atendido" = cliente ativo com reunião nos últimos 60 dias; mais que isso sem
-  // reunião não conta. O serviço vem do que foi TRATADO nas reuniões dos últimos 60d
-  // (campo Serviços da reunião); se nenhuma reunião do cliente tiver serviço marcado
-  // (dado legado), cai no serviço contratado do cliente. Serviços não são exclusivos
-  // (um cliente pode ter vários) → barra, não pizza.
+  // --- Serviços da carteira: % dos clientes ATENDIDOS por produto CONTRATADO ---
+  // "Atendido" = cliente ativo com reunião nos últimos 60 dias. O produto vem
+  // exclusivamente do CADASTRO do cliente (servicos/flags) — não do que foi tratado
+  // na reunião. Serviços não são exclusivos (um cliente pode ter vários) → barra, não pizza.
   const { servicosDist, totalAtendidos } = useMemo(() => {
     const JANELA = 60;
-    const dentroJanela = (d: Date) => !isNaN(d.getTime()) && d <= hoje && differenceInCalendarDays(hoje, d) <= JANELA;
-
-    const tratadosPorCliente = new Map<string, Set<string>>();
     const atendidoSet = new Set<string>();
     agendaAtiva.forEach((a) => {
       const d = parseISO(a.date);
-      if (!dentroJanela(d)) return;
+      if (isNaN(d.getTime()) || d > hoje || differenceInCalendarDays(hoje, d) > JANELA) return;
       atendidoSet.add(a.clientId);
-      if (!tratadosPorCliente.has(a.clientId)) tratadosPorCliente.set(a.clientId, new Set());
-      (a.servicos ?? []).forEach((s) => tratadosPorCliente.get(a.clientId)!.add(s));
     });
-
     const atendidos = ativos.filter((c) => atendidoSet.has(c.id));
     const total = atendidos.length;
 
-    const bate = (valores: Iterable<string>, re: RegExp) => [...valores].some((s) => re.test(s));
+    const temProduto = (c: Cliente, re: RegExp, flag: keyof Cliente) =>
+      (c.servicos ?? []).some((s) => re.test(s)) || Boolean(c[flag]);
     const defs: { label: string; re: RegExp; flag: keyof Cliente; color: string }[] = [
       { label: 'Monitoria', re: /monitor/i, flag: 'monitoria', color: '#bd952f' },
       { label: 'Price', re: /(price|prec)/i, flag: 'price', color: '#9a9aa4' },
       { label: 'Controladoria', re: /controlad/i, flag: 'controladoria', color: '#d4d4d8' },
     ];
     const dist = defs.map((d) => {
-      const n = atendidos.filter((c) => {
-        const tratados = tratadosPorCliente.get(c.id);
-        if (tratados && tratados.size > 0) return bate(tratados, d.re); // serviços da reunião
-        return (c.servicos ?? []).some((s) => d.re.test(s)) || Boolean(c[d.flag]); // fallback: cliente
-      }).length;
+      const n = atendidos.filter((c) => temProduto(c, d.re, d.flag)).length;
       return { label: d.label, n, pct: total > 0 ? Math.round((n / total) * 100) : 0, color: d.color };
     });
     return { servicosDist: dist, totalAtendidos: total };

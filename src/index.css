@@ -1216,3 +1216,51 @@ textarea.field-input { resize: vertical; min-height: 74px; }
   text-overflow: ellipsis;
 }
 .calendar-chip-clip { color: var(--text-muted); flex-shrink: 0; }
+
+/* --- Módulo Ação: tabs, tabela de chamados, cards --- */
+.tabs { display: inline-flex; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+.tab {
+  padding: 0.5rem 1.1rem;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.tab:hover { color: var(--text-primary); }
+.tab.is-active { background: var(--accent); color: #000; }
+
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.data-table thead th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--card-hover);
+}
+.data-table tbody td { padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); vertical-align: middle; }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr:hover { background: var(--card-hover); }
+
+/* cards de acompanhamento (parte 4) */
+.acao-card { gap: 0.7rem; }
+.acao-card-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.acao-card-info {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  padding: 0.55rem 0.7rem;
+  background: var(--card-hover);
+  border-radius: 8px;
+}
+.acao-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; }
+.acao-dot.is-ok { background: var(--success); }

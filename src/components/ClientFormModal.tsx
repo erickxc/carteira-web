@@ -17,6 +17,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const [monitor, setMonitor] = useState(initial?.monitor ?? '');
   const [servicos, setServicos] = useState<string[]>(initial?.servicos ?? []);
   const [status, setStatus] = useState(initial?.status ?? statusOpcoes[0] ?? 'Ativo');
+  const [atendidoMarco, setAtendidoMarco] = useState<boolean>(initial?.atendidoMarco ?? false);
   const [observacao, setObservacao] = useState(initial?.observacao ?? '');
   const [saving, setSaving] = useState(false);
 
@@ -29,7 +30,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
     if (!empresa.trim()) return;
     setSaving(true);
     try {
-      const payload = { empresa, monitor, servicos, status, observacao };
+      const payload = { empresa, monitor, servicos, status, observacao, atendidoMarco };
       if (initial) {
         await atualizarCliente(initial.id, payload);
       } else {
@@ -88,6 +89,10 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                 ))}
               </div>
             </div>
+
+            <label className="check-row" style={{ margin: '0.25rem 0' }}>
+              <input type="checkbox" checked={atendidoMarco} onChange={(e) => setAtendidoMarco(e.target.checked)} /> Atendido pelo Marco (fora da monitoria)
+            </label>
 
             <label className="field">
               Observação
