@@ -81,17 +81,24 @@ export default function AgendaPage() {
 
       <div className="two-col-grid" style={{ gridTemplateColumns: '1.6fr 1fr', alignItems: 'start' }}>
         <div className="glass-card glass-card-flat">
-          <div className="flex-between" style={{ marginBottom: 16 }}>
-            <button className="btn btn-secondary btn-icon" onClick={() => setCurrentMonth((m) => subMonths(m, 1))}>
-              <ChevronLeft size={16} />
-            </button>
-            <strong style={{ textTransform: 'capitalize' }}>{format(currentMonth, 'MMMM yyyy', { locale: ptBR })}</strong>
-            <button className="btn btn-secondary btn-icon" onClick={() => setCurrentMonth((m) => addMonths(m, 1))}>
-              <ChevronRight size={16} />
-            </button>
+          <div className="flex-between" style={{ marginBottom: 18 }}>
+            <strong style={{ textTransform: 'capitalize', fontSize: '1.15rem', fontFamily: 'var(--font)' }}>
+              {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+            </strong>
+            <div className="flex-row" style={{ gap: 6 }}>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem 0.7rem' }} onClick={() => { setCurrentMonth(startOfMonth(new Date())); setSelectedDate(new Date()); }}>
+                Hoje
+              </button>
+              <button className="btn btn-secondary btn-icon" onClick={() => setCurrentMonth((m) => subMonths(m, 1))} aria-label="Mês anterior">
+                <ChevronLeft size={16} />
+              </button>
+              <button className="btn btn-secondary btn-icon" onClick={() => setCurrentMonth((m) => addMonths(m, 1))} aria-label="Próximo mês">
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
 
-          <div className="calendar-grid" style={{ marginBottom: 6 }}>
+          <div className="calendar-grid" style={{ marginBottom: 8 }}>
             {WEEKDAY_LABELS.map((d) => (
               <div key={d} className="calendar-weekday">{d}</div>
             ))}
@@ -107,16 +114,19 @@ export default function AgendaPage() {
                 !isSameMonth(day, currentMonth) && 'is-outside',
                 isSameDay(day, new Date()) && 'is-today',
                 isSameDay(day, selectedDate) && 'is-selected',
-                holiday && !isSameDay(day, selectedDate) && 'is-holiday',
+                holiday && 'is-holiday',
               ].filter(Boolean).join(' ');
 
               return (
                 <div key={key} className={classes} onClick={() => setSelectedDate(day)} title={holiday ? formatHolidayLabel(holiday) : undefined}>
                   <span className="calendar-day-number">{format(day, 'd')}</span>
                   {dayEvents.length > 0 && (
-                    <span className="badge badge-accent calendar-day-badge" style={{ fontSize: 10, padding: '1px 6px' }}>
-                      {dayEvents.length}
-                    </span>
+                    <div className="calendar-events">
+                      {dayEvents.slice(0, 2).map((ev) => (
+                        <span key={ev.id} className="calendar-event">{ev.subject || ev.clientName}</span>
+                      ))}
+                      {dayEvents.length > 2 && <span className="calendar-event-more">+{dayEvents.length - 2} mais</span>}
+                    </div>
                   )}
                 </div>
               );

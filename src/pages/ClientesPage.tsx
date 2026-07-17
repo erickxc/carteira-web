@@ -1,32 +1,45 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
-import { FileUp, Pencil, Plus, Trash2 } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { FileUp, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
-import { truthy } from '../utils/formatters';
+import { truthy, isStatusAtivo } from '../utils/formatters';
 import { clienteStatusBadge } from '../utils/badges';
 import { ClientFormModal } from '../components/ClientFormModal';
 import type { Cliente, NovoCliente } from '../types';
 
 export default function ClientesPage() {
-  const { clientes, removerCliente, criarClientesEmLote, opcoesPorTipo } = useCarteira();
+  const { clientes, agenda, removerCliente, criarClientesEmLote } = useCarteira();
   const navigate = useNavigate();
-  const statusOpcoes = opcoesPorTipo('status_cliente');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 200);
-  const [statusFiltro, setStatusFiltro] = useState<string>('');
+  const [somenteAtivos, setSomenteAtivos] = useState(true);
   const [modalState, setModalState] = useState<{ editing: Cliente | null } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Última reunião por cliente (data do evento mais recente).
+  const ultimaReuniao = useMemo(() => {
+    const map = new Map<string, Date>();
+    agenda.forEach((a) => {
+      const d = parseISO(a.date);
+      if (isNaN(d.getTime())) return;
+      const atual = map.get(a.clientId);
+      if (!atual || d > atual) map.set(a.clientId, d);
+    });
+    return map;
+  }, [agenda]);
+
   const filtrados = useMemo(() => {
     const termo = debouncedSearch.trim().toLowerCase();
-    return clientes.filter((c) => {
-      const combinaTermo = !termo || c.empresa.toLowerCase().includes(termo) || (c.monitor ?? '').toLowerCase().includes(termo);
-      const combinaStatus = !statusFiltro || c.status === statusFiltro;
-      return combinaTermo && combinaStatus;
-    });
-  }, [clientes, debouncedSearch, statusFiltro]);
+    return clientes
+      .filter((c) => (somenteAtivos ? isStatusAtivo(c.status) : true))
+      .filter((c) => !termo || c.empresa.toLowerCase().includes(termo) || (c.monitor ?? '').toLowerCase().includes(termo))
+      .sort((a, b) => a.empresa.localeCompare(b.empresa));
+  }, [clientes, debouncedSearch, somenteAtivos]);
+
+  const totalAtivos = useMemo(() => clientes.filter((c) => isStatusAtivo(c.status)).length, [clientes]);
 
   async function handleDelete(cliente: Cliente) {
     if (!confirm(`Excluir o cliente "${cliente.empresa}"? Isso também remove os eventos de agenda vinculados.`)) return;
@@ -68,32 +81,18 @@ export default function ClientesPage() {
 
   return (
     <div className="page-container">
-      <div className="flex-between" style={{ marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+      <div className="flex-between" style={{ marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 className="page-title" style={{ marginBottom: 4 }}>Clientes</h1>
-          <p className="text-muted" style={{ fontSize: 14 }}>{clientes.length} cliente(s) cadastrado(s)</p>
+          <p className="page-subtitle" style={{ margin: 0 }}>
+            {somenteAtivos
+              ? `${filtrados.length} cliente(s) ativo(s)`
+              : `${filtrados.length} de ${clientes.length} · ${totalAtivos} ativos`}
+          </p>
         </div>
-        <div className="flex-row">
-          <input
-            className="field-input"
-            placeholder="Buscar empresa ou monitor..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: 220 }}
-          />
-          <select
-            className="field-input custom-select"
-            style={{ width: 170 }}
-            value={statusFiltro}
-            onChange={(e) => setStatusFiltro(e.target.value)}
-          >
-            <option value="">Todos os status</option>
-            {statusOpcoes.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
+        <div className="flex-row" style={{ gap: 10 }}>
           <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}>
-            <FileUp size={16} /> Importar Excel
+            <FileUp size={16} /> Importar
           </button>
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImportFile} />
           <button className="btn btn-primary" onClick={() => setModalState({ editing: null })}>
@@ -102,7 +101,23 @@ export default function ClientesPage() {
         </div>
       </div>
 
-      <div className="glass-card glass-card-flat" style={{ padding: 8 }}>
+      {/* Barra de filtros */}
+      <div className="glass-card glass-card-flat clientes-toolbar">
+        <div className="clientes-search">
+          <Search size={16} className="text-muted" />
+          <input
+            placeholder="Buscar empresa ou monitor..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <label className="check-row" style={{ whiteSpace: 'nowrap' }}>
+          <input type="checkbox" checked={somenteAtivos} onChange={(e) => setSomenteAtivos(e.target.checked)} />
+          Ver somente ativos
+        </label>
+      </div>
+
+      <div className="glass-card glass-card-flat" style={{ padding: 0, overflow: 'hidden' }}>
         {filtrados.length === 0 ? (
           <div className="empty-state">Nenhum cliente encontrado.</div>
         ) : (
@@ -114,40 +129,45 @@ export default function ClientesPage() {
                   <th>Monitor</th>
                   <th>Serviços</th>
                   <th>Status</th>
-                  <th style={{ width: 100 }}></th>
+                  <th>Última reunião</th>
+                  <th style={{ width: 96 }}></th>
                 </tr>
               </thead>
               <tbody>
-                {filtrados.map((cliente) => (
-                  <tr key={cliente.id}>
-                    <td>
-                      <button className="link-button" onClick={() => navigate(`/clientes/${cliente.id}`)}>
-                        {cliente.empresa}
-                      </button>
-                    </td>
-                    <td className="text-muted">{cliente.monitor || '—'}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {cliente.servicos.length > 0
-                          ? cliente.servicos.map((s) => <span key={s} className="badge badge-accent">{s}</span>)
-                          : <span className="text-muted">—</span>}
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`badge ${clienteStatusBadge(cliente.status)}`}>{cliente.status || '—'}</span>
-                    </td>
-                    <td>
-                      <div className="flex-row">
-                        <button className="btn btn-secondary btn-icon" onClick={() => setModalState({ editing: cliente })}>
-                          <Pencil size={15} />
+                {filtrados.map((cliente) => {
+                  const ult = ultimaReuniao.get(cliente.id);
+                  return (
+                    <tr key={cliente.id}>
+                      <td>
+                        <button className="link-button" style={{ fontWeight: 600 }} onClick={() => navigate(`/clientes/${cliente.id}`)}>
+                          {cliente.empresa}
                         </button>
-                        <button className="btn btn-danger btn-icon" onClick={() => handleDelete(cliente)}>
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="text-muted">{cliente.monitor || '—'}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {cliente.servicos.length > 0
+                            ? cliente.servicos.map((s) => <span key={s} className="badge badge-accent">{s}</span>)
+                            : <span className="text-muted">—</span>}
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`badge ${clienteStatusBadge(cliente.status)}`}>{cliente.status || '—'}</span>
+                      </td>
+                      <td className="text-muted">{ult ? format(ult, 'dd/MM/yyyy') : '—'}</td>
+                      <td>
+                        <div className="flex-row" style={{ justifyContent: 'flex-end' }}>
+                          <button className="btn btn-secondary btn-icon" onClick={() => setModalState({ editing: cliente })} aria-label="Editar">
+                            <Pencil size={15} />
+                          </button>
+                          <button className="btn btn-danger btn-icon" onClick={() => handleDelete(cliente)} aria-label="Excluir">
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

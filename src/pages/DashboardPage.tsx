@@ -11,10 +11,10 @@ import { StatCard } from '../components/StatCard';
 import { DonutChart } from '../components/DonutChart';
 import { LineChart } from '../components/LineChart';
 import { eventoStatusBadge } from '../utils/badges';
+import { isStatusAtivo } from '../utils/formatters';
 import type { Cliente } from '../types';
 
 const FOLLOW_UP_THRESHOLD_DAYS = 30;
-const STATUS_ATIVO = /(ativ|normaliz|em dia)/i;
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 function rotuloRelativo(iso: string): { texto: string; atrasado: boolean } {
@@ -40,72 +40,75 @@ export default function DashboardPage() {
   const periodo = new Date(ano, mes, 1);
   const periodoAnterior = subMonths(periodo, 1);
 
+  // Toda a operação considera apenas clientes ATIVOS (exclui suspensos etc.).
+  const ativos = useMemo(() => clientes.filter((c) => isStatusAtivo(c.status)), [clientes]);
+  const ativosIds = useMemo(() => new Set(ativos.map((c) => c.id)), [ativos]);
+  const agendaAtiva = useMemo(() => agenda.filter((a) => ativosIds.has(a.clientId)), [agenda, ativosIds]);
+
   const anosDisponiveis = useMemo(() => {
     const anos = new Set<number>([hoje.getFullYear()]);
-    agenda.forEach((a) => { const d = parseISO(a.date); if (!isNaN(d.getTime())) anos.add(d.getFullYear()); });
+    agendaAtiva.forEach((a) => { const d = parseISO(a.date); if (!isNaN(d.getTime())) anos.add(d.getFullYear()); });
     return [...anos].sort((a, b) => a - b);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agenda]);
+  }, [agendaAtiva]);
 
-  // --- KPIs (escopo do período) ---
-  const reunioesMes = agenda.filter((a) => isSameMonth(parseISO(a.date), periodo)).length;
-  const reunioesMesAnterior = agenda.filter((a) => isSameMonth(parseISO(a.date), periodoAnterior)).length;
+  // --- KPIs (escopo do período, base de ativos) ---
+  const reunioesMes = agendaAtiva.filter((a) => isSameMonth(parseISO(a.date), periodo)).length;
+  const reunioesMesAnterior = agendaAtiva.filter((a) => isSameMonth(parseISO(a.date), periodoAnterior)).length;
   const variacao = reunioesMesAnterior === 0
     ? (reunioesMes > 0 ? 100 : 0)
     : Math.round(((reunioesMes - reunioesMesAnterior) / reunioesMesAnterior) * 100);
-  const reunioesAgendadas = agenda.filter((a) => /agend/i.test(a.status || '') && differenceInCalendarDays(parseISO(a.date), hoje) >= 0).length;
+  const reunioesAgendadas = agendaAtiva.filter((a) => /agend/i.test(a.status || '') && differenceInCalendarDays(parseISO(a.date), hoje) >= 0).length;
 
   // --- Linha: reuniões por mês, desde o 1º mês com reunião até hoje/período ---
   const { linhaPorMes, linhaHighlight } = useMemo(() => {
-    const datas = agenda.map((a) => parseISO(a.date)).filter((d) => !isNaN(d.getTime()));
+    const datas = agendaAtiva.map((a) => parseISO(a.date)).filter((d) => !isNaN(d.getTime()));
     if (datas.length === 0) return { linhaPorMes: [], linhaHighlight: -1 };
     const inicio = startOfMonth(minDate(datas));
-    let fim = startOfMonth(maxDate([...datas, hoje, periodo]));
+    const fim = startOfMonth(maxDate([...datas, hoje, periodo]));
     let meses = eachMonthOfInterval({ start: inicio, end: fim });
     if (meses.length > 24) meses = meses.slice(meses.length - 24); // teto de segurança
     const pts = meses.map((m, i) => ({
       label: m.getMonth() === 0 || i === 0 ? format(m, 'MMM/yy', { locale: ptBR }).replace('.', '') : format(m, 'MMM', { locale: ptBR }).replace('.', ''),
       full: format(m, "MMMM 'de' yyyy", { locale: ptBR }),
-      value: agenda.filter((a) => isSameMonth(parseISO(a.date), m)).length,
+      value: agendaAtiva.filter((a) => isSameMonth(parseISO(a.date), m)).length,
     }));
     const hi = meses.findIndex((m) => isSameMonth(m, periodo));
     return { linhaPorMes: pts, linhaHighlight: hi };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agenda, mes, ano]);
+  }, [agendaAtiva, mes, ano]);
 
   // --- Cobertura da carteira no período: clientes ativos com >= 1 reunião no mês ---
   const cobertura = useMemo(() => {
-    const ativos = clientes.filter((c) => STATUS_ATIVO.test(c.status || ''));
     const atendidosIds = new Set(
-      agenda.filter((a) => isSameMonth(parseISO(a.date), periodo)).map((a) => a.clientId)
+      agendaAtiva.filter((a) => isSameMonth(parseISO(a.date), periodo)).map((a) => a.clientId)
     );
     const cobertos = ativos.filter((c) => atendidosIds.has(c.id)).length;
     const total = ativos.length;
     const pct = total > 0 ? Math.round((cobertos / total) * 100) : 0;
     return { cobertos, semContato: total - cobertos, total, pct };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agenda, clientes, mes, ano]);
+  }, [agendaAtiva, ativos, mes, ano]);
 
   // --- Próximas agendas (forward-looking) ---
-  const tiposDisponiveis = useMemo(() => ['Todos', ...new Set(agenda.map((a) => a.type).filter(Boolean))], [agenda]);
+  const tiposDisponiveis = useMemo(() => ['Todos', ...new Set(agendaAtiva.map((a) => a.type).filter(Boolean))], [agendaAtiva]);
   const proximos = useMemo(() =>
-    agenda
+    agendaAtiva
       .filter((a) => differenceInCalendarDays(parseISO(a.date), hoje) >= 0)
       .filter((a) => filtroTipo === 'Todos' || a.type === filtroTipo)
       .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
       .slice(0, 5),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agenda, filtroTipo]);
+    [agendaAtiva, filtroTipo]);
 
   // --- Alertas de acompanhamento ---
   const ultimoContato = new Map<string, Date>();
-  agenda.forEach((item) => {
+  agendaAtiva.forEach((item) => {
     const atual = ultimoContato.get(item.clientId);
     const d = parseISO(item.date);
     if (!atual || d > atual) ultimoContato.set(item.clientId, d);
   });
-  const alertas = clientes
-    .filter((c) => STATUS_ATIVO.test(c.status || ''))
+  const alertas = ativos
     .map((cliente) => {
       const uc = ultimoContato.get(cliente.id);
       const dias = uc ? differenceInCalendarDays(hoje, uc) : null;
@@ -157,7 +160,7 @@ export default function DashboardPage() {
 
       {/* KPIs */}
       <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-        <StatCard title="Clientes na carteira" value={clientes.length} icon={Users} onClick={() => navigate('/clientes')} />
+        <StatCard title="Clientes ativos" value={ativos.length} icon={Users} onClick={() => navigate('/clientes')} />
         <StatCard
           title={`Reuniões em ${MESES[mes].slice(0, 3)}/${ano}`}
           value={reunioesMes}
