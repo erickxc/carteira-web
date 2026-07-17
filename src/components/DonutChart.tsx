@@ -9,6 +9,7 @@ interface DonutChartProps {
   thickness?: number;
   centerValue?: string | number;
   centerLabel?: string;
+  colors?: string[];
 }
 
 // Paleta da marca: dourado escuro + neutros (preto/cinza).
@@ -16,7 +17,8 @@ interface DonutChartProps {
 // por fatia no hover.
 const RAMP = ['#bd952f', '#e0c473', '#f4f4f2', '#8a8a92', '#5a5a62', '#9c7d2a'];
 
-export function DonutChart({ items, size = 168, thickness = 26, centerValue, centerLabel }: DonutChartProps) {
+export function DonutChart({ items, size = 168, thickness = 26, centerValue, centerLabel, colors }: DonutChartProps) {
+  const ramp = colors ?? RAMP;
   const total = items.reduce((s, it) => s + it.value, 0);
   const r = (size - thickness) / 2;
   const cx = size / 2;
@@ -28,7 +30,7 @@ export function DonutChart({ items, size = 168, thickness = 26, centerValue, cen
     const frac = total > 0 ? it.value / total : 0;
     const len = Math.max(frac * circ - gap, 0);
     const el = {
-      cor: RAMP[i % RAMP.length],
+      cor: ramp[i % ramp.length],
       dasharray: `${len} ${circ - len}`,
       dashoffset: -acc,
       pct: total > 0 ? Math.round(frac * 100) : 0,

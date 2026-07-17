@@ -73,14 +73,18 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agenda, mes, ano]);
 
-  // --- Donut: por tipo no período ---
-  const reunioesPorTipo = useMemo(() => {
-    const mapa = new Map<string, number>();
-    agenda.filter((a) => isSameMonth(parseISO(a.date), periodo)).forEach((a) => mapa.set(a.type || '—', (mapa.get(a.type || '—') ?? 0) + 1));
-    return [...mapa.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
+  // --- Cobertura da carteira no período: clientes ativos com >= 1 reunião no mês ---
+  const cobertura = useMemo(() => {
+    const ativos = clientes.filter((c) => STATUS_ATIVO.test(c.status || ''));
+    const atendidosIds = new Set(
+      agenda.filter((a) => isSameMonth(parseISO(a.date), periodo)).map((a) => a.clientId)
+    );
+    const cobertos = ativos.filter((c) => atendidosIds.has(c.id)).length;
+    const total = ativos.length;
+    const pct = total > 0 ? Math.round((cobertos / total) * 100) : 0;
+    return { cobertos, semContato: total - cobertos, total, pct };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agenda, mes, ano]);
-  const totalPeriodo = reunioesPorTipo.reduce((s, x) => s + x.value, 0);
+  }, [agenda, clientes, mes, ano]);
 
   // --- Próximas agendas (forward-looking) ---
   const tiposDisponiveis = useMemo(() => ['Todos', ...new Set(agenda.map((a) => a.type).filter(Boolean))], [agenda]);
@@ -177,13 +181,21 @@ export default function DashboardPage() {
       <div className="dash-two-col">
         <div className="glass-card">
           <div className="section-header">
-            <h3>Reuniões por Tipo</h3>
-            <span className="text-muted" style={{ fontSize: 12 }}>{MESES[mes].slice(0, 3)}/{ano} · {totalPeriodo}</span>
+            <h3>Cobertura da Carteira</h3>
+            <span className="text-muted" style={{ fontSize: 12 }}>{MESES[mes].slice(0, 3)}/{ano}</span>
           </div>
-          {totalPeriodo === 0 ? (
-            <div className="empty-state">Nenhuma reunião neste mês.</div>
+          {cobertura.total === 0 ? (
+            <div className="empty-state">Nenhum cliente ativo.</div>
           ) : (
-            <DonutChart items={reunioesPorTipo} centerValue={totalPeriodo} centerLabel="no mês" />
+            <DonutChart
+              items={[
+                { label: 'Atendidos', value: cobertura.cobertos },
+                { label: 'Sem contato', value: cobertura.semContato },
+              ]}
+              colors={['#bd952f', '#3c3c44']}
+              centerValue={`${cobertura.pct}%`}
+              centerLabel="cobertura"
+            />
           )}
         </div>
 
