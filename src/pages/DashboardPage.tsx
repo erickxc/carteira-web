@@ -29,7 +29,7 @@ function rotuloRelativo(iso: string): { texto: string; atrasado: boolean } {
 }
 
 export default function DashboardPage() {
-  const { clientes, agenda, lembretes, criarLembrete } = useCarteira();
+  const { clientes, agenda, acoes, lembretes, criarLembrete } = useCarteira();
   const navigate = useNavigate();
   const [programados, setProgramados] = useState<Set<string>>(new Set());
   const [filtroTipo, setFiltroTipo] = useState<string>('Todos');
@@ -63,6 +63,22 @@ export default function DashboardPage() {
     () => agenda.filter((a) => ativosIds.has(a.clientId) && (filtroTipoEvento === 'Todos' || a.type === filtroTipoEvento)),
     [agenda, ativosIds, filtroTipoEvento]
   );
+
+  // Última interação por cliente ativo = reuniões passadas + AÇÕES concluídas.
+  // É isto que "acompanhamento" considera — registrar uma ação (Contato/Relatório/
+  // Price) conta como contato, não só reunião.
+  const ultimaInteracao = useMemo(() => {
+    const m = new Map<string, Date>();
+    const push = (cid: string, d: Date) => {
+      if (!ativosIds.has(cid) || isNaN(d.getTime()) || d > hoje) return;
+      const cur = m.get(cid);
+      if (!cur || d > cur) m.set(cid, d);
+    };
+    agendaAtiva.forEach((a) => push(a.clientId, parseISO(a.date)));
+    acoes.filter((a) => a.status === 'concluido').forEach((a) => push(a.clientId, parseISO(a.dueAt || a.updatedAt || a.createdAt)));
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agendaAtiva, acoes, ativosIds]);
 
   const anosDisponiveis = useMemo(() => {
     const anos = new Set<number>([hoje.getFullYear()]);
@@ -98,18 +114,15 @@ export default function DashboardPage() {
   }, [agendaAtiva, mes, ano]);
 
   // --- Serviços da carteira: % dos clientes ATENDIDOS por produto CONTRATADO ---
-  // "Atendido" = cliente ativo com reunião nos últimos 60 dias. O produto vem
-  // exclusivamente do CADASTRO do cliente (servicos/flags) — não do que foi tratado
-  // na reunião. Serviços não são exclusivos (um cliente pode ter vários) → barra, não pizza.
+  // "Atendido" = cliente ativo com interação (reunião OU ação) nos últimos 60 dias.
+  // O produto vem exclusivamente do CADASTRO do cliente (servicos/flags) — não do
+  // que foi tratado. Serviços não são exclusivos (vários por cliente) → barra, não pizza.
   const { servicosDist, totalAtendidos } = useMemo(() => {
     const JANELA = 60;
-    const atendidoSet = new Set<string>();
-    agendaAtiva.forEach((a) => {
-      const d = parseISO(a.date);
-      if (isNaN(d.getTime()) || d > hoje || differenceInCalendarDays(hoje, d) > JANELA) return;
-      atendidoSet.add(a.clientId);
+    const atendidos = ativos.filter((c) => {
+      const uc = ultimaInteracao.get(c.id);
+      return uc != null && differenceInCalendarDays(hoje, uc) <= JANELA;
     });
-    const atendidos = ativos.filter((c) => atendidoSet.has(c.id));
     const total = atendidos.length;
 
     const temProduto = (c: Cliente, re: RegExp, flag: keyof Cliente) =>
@@ -125,7 +138,7 @@ export default function DashboardPage() {
     });
     return { servicosDist: dist, totalAtendidos: total };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ativos, agendaAtiva]);
+  }, [ativos, ultimaInteracao]);
 
   // --- Cobertura da carteira no período: clientes ativos com >= 1 reunião no mês ---
   const cobertura = useMemo(() => {
@@ -150,16 +163,10 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [agendaAtiva, filtroTipo]);
 
-  // --- Alertas de acompanhamento ---
-  const ultimoContato = new Map<string, Date>();
-  agendaAtiva.forEach((item) => {
-    const atual = ultimoContato.get(item.clientId);
-    const d = parseISO(item.date);
-    if (!atual || d > atual) ultimoContato.set(item.clientId, d);
-  });
+  // --- Alertas de acompanhamento (reunião OU ação concluída) ---
   const alertas = ativos
     .map((cliente) => {
-      const uc = ultimoContato.get(cliente.id);
+      const uc = ultimaInteracao.get(cliente.id);
       const dias = uc ? differenceInCalendarDays(hoje, uc) : null;
       return { cliente, uc, dias };
     })
