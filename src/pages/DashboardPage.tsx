@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  addDays, differenceInCalendarDays, format, isSameMonth, isToday, isTomorrow,
-  parseISO, setHours, setMinutes, subMonths,
+  addDays, differenceInCalendarDays, eachMonthOfInterval, format, isSameMonth, isToday, isTomorrow,
+  max as maxDate, min as minDate, parseISO, setHours, setMinutes, startOfMonth, subMonths,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarCheck, CalendarClock, Check, FileText, Users } from 'lucide-react';
@@ -55,13 +55,21 @@ export default function DashboardPage() {
     : Math.round(((reunioesMes - reunioesMesAnterior) / reunioesMesAnterior) * 100);
   const reunioesAgendadas = agenda.filter((a) => /agend/i.test(a.status || '') && differenceInCalendarDays(parseISO(a.date), hoje) >= 0).length;
 
-  // --- Linha: reuniões por mês (12 meses até o período selecionado) ---
-  const linhaPorMes = useMemo(() => {
-    return Array.from({ length: 12 }, (_, i) => {
-      const m = subMonths(periodo, 11 - i);
-      const value = agenda.filter((a) => isSameMonth(parseISO(a.date), m)).length;
-      return { label: format(m, 'MMM', { locale: ptBR }).replace('.', ''), full: format(m, "MMMM 'de' yyyy", { locale: ptBR }), value };
-    });
+  // --- Linha: reuniões por mês, desde o 1º mês com reunião até hoje/período ---
+  const { linhaPorMes, linhaHighlight } = useMemo(() => {
+    const datas = agenda.map((a) => parseISO(a.date)).filter((d) => !isNaN(d.getTime()));
+    if (datas.length === 0) return { linhaPorMes: [], linhaHighlight: -1 };
+    const inicio = startOfMonth(minDate(datas));
+    let fim = startOfMonth(maxDate([...datas, hoje, periodo]));
+    let meses = eachMonthOfInterval({ start: inicio, end: fim });
+    if (meses.length > 24) meses = meses.slice(meses.length - 24); // teto de segurança
+    const pts = meses.map((m, i) => ({
+      label: m.getMonth() === 0 || i === 0 ? format(m, 'MMM/yy', { locale: ptBR }).replace('.', '') : format(m, 'MMM', { locale: ptBR }).replace('.', ''),
+      full: format(m, "MMMM 'de' yyyy", { locale: ptBR }),
+      value: agenda.filter((a) => isSameMonth(parseISO(a.date), m)).length,
+    }));
+    const hi = meses.findIndex((m) => isSameMonth(m, periodo));
+    return { linhaPorMes: pts, linhaHighlight: hi };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agenda, mes, ano]);
 
@@ -160,9 +168,9 @@ export default function DashboardPage() {
       <div className="section glass-card">
         <div className="section-header">
           <h3>Reuniões por Mês</h3>
-          <span className="text-muted" style={{ fontSize: 12 }}>últimos 12 meses</span>
+          <span className="text-muted" style={{ fontSize: 12 }}>desde a primeira reunião</span>
         </div>
-        <LineChart points={linhaPorMes} highlightIndex={11} />
+        <LineChart points={linhaPorMes} highlightIndex={linhaHighlight} />
       </div>
 
       {/* Composição + próximas agendas */}

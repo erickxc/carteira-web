@@ -58,12 +58,26 @@ export function LineChart({ points, highlightIndex = -1, height = 240 }: LineCha
 
       {points.map((p, i) => {
         const sel = i === highlightIndex;
+        const py = y(p.value);
+        // rótulo de dados: acima do ponto; se muito no topo, joga pra baixo
+        const labelAbove = py - 12 > padT;
         return (
           <g key={i}>
             {sel && <line x1={x(i)} y1={padT} x2={x(i)} y2={padT + plotH} stroke="var(--accent)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" opacity="0.5" />}
-            <circle cx={x(i)} cy={y(p.value)} r={sel ? 5 : 3.5} fill={sel ? 'var(--accent)' : 'var(--bg)'} stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke">
+            <circle cx={x(i)} cy={py} r={sel ? 5 : 3.5} fill={sel ? 'var(--accent)' : 'var(--bg)'} stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke">
               <title>{`${p.full ?? p.label}: ${p.value} reunião(ões)`}</title>
             </circle>
+            <text
+              x={x(i)}
+              y={labelAbove ? py - 10 : py + 16}
+              textAnchor="middle"
+              fontSize="11"
+              fontWeight="600"
+              fill="var(--text-primary)"
+              fontFamily="var(--font)"
+            >
+              {p.value}
+            </text>
             <text x={x(i)} y={H - 10} textAnchor="middle" fontSize="10" fill={sel ? 'var(--accent)' : 'var(--text-muted)'} fontFamily="var(--font)" fontWeight={sel ? 600 : 400}>
               {p.label}
             </text>
