@@ -8,13 +8,14 @@ import {
   format,
   isSameDay,
   isSameMonth,
+  parse,
   parseISO,
   startOfMonth,
   startOfWeek,
   subMonths,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Paperclip, Pencil, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { EventFormModal } from '../components/EventFormModal';
 import { formatHolidayLabel, getHoliday } from '../utils/holidays';
@@ -28,22 +29,31 @@ interface AgendaLocationState {
   openNewEvent?: boolean;
 }
 
+/** Classe de cor do chip a partir do badge de status (verde/amarelo/vermelho/neutro). */
+function chipClass(status: string): string {
+  const b = eventoStatusBadge(status);
+  if (b.includes('success')) return 'is-ok';
+  if (b.includes('accent')) return 'is-agendado';
+  if (b.includes('warning')) return 'is-warn';
+  if (b.includes('danger')) return 'is-danger';
+  return '';
+}
+
 export default function AgendaPage() {
-  const { agenda } = useCarteira();
+  const { agenda, atualizarEvento } = useCarteira();
   const location = useLocation();
   const navigate = useNavigate();
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
-  const [selectedDate, setSelectedDate] = useState(new Date());
   const [modalState, setModalState] = useState<{ editing?: EventoAgenda; defaultDate?: Date } | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
   useEffect(() => {
     const state = location.state as AgendaLocationState | null;
     if (!state) return;
 
     if (state.focusDate) {
-      const date = new Date(state.focusDate);
-      setCurrentMonth(startOfMonth(date));
-      setSelectedDate(date);
+      setCurrentMonth(startOfMonth(new Date(state.focusDate)));
     }
     if (state.openNewEvent) {
       setModalState({ defaultDate: state.focusDate ? new Date(state.focusDate) : new Date() });
@@ -65,120 +75,136 @@ export default function AgendaPage() {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(item);
     });
+    for (const list of map.values()) list.sort((a, b) => (a.subject || a.clientName).localeCompare(b.subject || b.clientName));
     return map;
   }, [agenda]);
 
-  const selectedDayEvents = (eventsByDay.get(format(selectedDate, 'yyyy-MM-dd')) ?? [])
-    .slice()
-    .sort((a, b) => a.clientName.localeCompare(b.clientName));
+  async function moverEvento(id: string, targetKey: string) {
+    const ev = agenda.find((e) => e.id === id);
+    if (!ev) return;
+    const atualKey = format(parseISO(ev.date), 'yyyy-MM-dd');
+    if (atualKey === targetKey) return;
+    // Grava como meia-noite local (mesmo formato do EventFormModal) para evitar shift de fuso.
+    const novaData = parse(targetKey, 'yyyy-MM-dd', new Date()).toISOString();
+    await atualizarEvento(id, { date: novaData });
+  }
 
-  const holidaySelecionado = getHoliday(selectedDate);
+  function onDrop(e: React.DragEvent, targetKey: string) {
+    e.preventDefault();
+    const id = e.dataTransfer.getData('text/plain') || draggedId;
+    setDragOverKey(null);
+    setDraggedId(null);
+    if (id) moverEvento(id, targetKey);
+  }
 
   return (
     <div className="page-container">
-      <h1 className="page-title">Agenda</h1>
-      <p className="page-subtitle">Calendário de reuniões, precificações e follow-ups.</p>
+      <div className="flex-between" style={{ marginBottom: 4 }}>
+        <div>
+          <h1 className="page-title">Agenda</h1>
+          <p className="page-subtitle" style={{ marginBottom: 0 }}>
+            Arraste um card para outro dia para remarcar a reunião.
+          </p>
+        </div>
+        <button className="btn btn-primary" onClick={() => setModalState({ defaultDate: new Date() })}>
+          <Plus size={16} /> Novo evento
+        </button>
+      </div>
 
-      <div className="two-col-grid" style={{ gridTemplateColumns: '1.6fr 1fr', alignItems: 'start' }}>
-        <div className="glass-card glass-card-flat">
-          <div className="flex-between" style={{ marginBottom: 18 }}>
-            <strong style={{ textTransform: 'capitalize', fontSize: '1.15rem', fontFamily: 'var(--font)' }}>
-              {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
-            </strong>
+      <div className="glass-card glass-card-flat agenda-board">
+        <div className="flex-between" style={{ marginBottom: 16 }}>
+          <strong style={{ textTransform: 'capitalize', fontSize: '1.35rem', fontFamily: 'var(--font)' }}>
+            {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+          </strong>
+          <div className="flex-row" style={{ gap: 14 }}>
+            <div className="agenda-legend">
+              <span><i className="legend-dot is-ok" /> Concluído</span>
+              <span><i className="legend-dot is-agendado" /> Agendado</span>
+              <span><i className="legend-dot is-danger" /> Cancelado</span>
+            </div>
             <div className="flex-row" style={{ gap: 6 }}>
-              <button className="btn btn-secondary" style={{ padding: '0.4rem 0.7rem' }} onClick={() => { setCurrentMonth(startOfMonth(new Date())); setSelectedDate(new Date()); }}>
+              <button className="btn btn-secondary" style={{ padding: '0.45rem 0.8rem' }} onClick={() => setCurrentMonth(startOfMonth(new Date()))}>
                 Hoje
               </button>
               <button className="btn btn-secondary btn-icon" onClick={() => setCurrentMonth((m) => subMonths(m, 1))} aria-label="Mês anterior">
-                <ChevronLeft size={16} />
+                <ChevronLeft size={18} />
               </button>
               <button className="btn btn-secondary btn-icon" onClick={() => setCurrentMonth((m) => addMonths(m, 1))} aria-label="Próximo mês">
-                <ChevronRight size={16} />
+                <ChevronRight size={18} />
               </button>
             </div>
-          </div>
-
-          <div className="calendar-grid" style={{ marginBottom: 8 }}>
-            {WEEKDAY_LABELS.map((d) => (
-              <div key={d} className="calendar-weekday">{d}</div>
-            ))}
-          </div>
-
-          <div className="calendar-grid">
-            {days.map((day) => {
-              const key = format(day, 'yyyy-MM-dd');
-              const dayEvents = eventsByDay.get(key) ?? [];
-              const holiday = getHoliday(day);
-              const classes = [
-                'calendar-day',
-                !isSameMonth(day, currentMonth) && 'is-outside',
-                isSameDay(day, new Date()) && 'is-today',
-                isSameDay(day, selectedDate) && 'is-selected',
-                holiday && 'is-holiday',
-              ].filter(Boolean).join(' ');
-
-              return (
-                <div key={key} className={classes} onClick={() => setSelectedDate(day)} title={holiday ? formatHolidayLabel(holiday) : undefined}>
-                  <span className="calendar-day-number">{format(day, 'd')}</span>
-                  {dayEvents.length > 0 && (
-                    <div className="calendar-events">
-                      {dayEvents.slice(0, 2).map((ev) => (
-                        <span key={ev.id} className="calendar-event">{ev.subject || ev.clientName}</span>
-                      ))}
-                      {dayEvents.length > 2 && <span className="calendar-event-more">+{dayEvents.length - 2} mais</span>}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
           </div>
         </div>
 
-        <div className="glass-card glass-card-flat">
-          <div className="section-header">
-            <h3 style={{ textTransform: 'capitalize' }}>{format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}</h3>
-            <button className="btn btn-primary btn-icon" onClick={() => setModalState({ defaultDate: selectedDate })}>
-              <Plus size={15} />
-            </button>
-          </div>
+        <div className="calendar-grid" style={{ marginBottom: 8 }}>
+          {WEEKDAY_LABELS.map((d) => (
+            <div key={d} className="calendar-weekday">{d}</div>
+          ))}
+        </div>
 
-          {holidaySelecionado && (
-            <div className="badge badge-warning" style={{ marginBottom: 12 }}>{formatHolidayLabel(holidaySelecionado)}</div>
-          )}
+        <div className="calendar-grid calendar-grid-big">
+          {days.map((day) => {
+            const key = format(day, 'yyyy-MM-dd');
+            const dayEvents = eventsByDay.get(key) ?? [];
+            const holiday = getHoliday(day);
+            const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+            const classes = [
+              'calendar-day',
+              'calendar-day-big',
+              !isSameMonth(day, currentMonth) && 'is-outside',
+              isSameDay(day, new Date()) && 'is-today',
+              isWeekend && 'is-weekend',
+              holiday && 'is-holiday',
+              dragOverKey === key && 'is-drop-target',
+            ].filter(Boolean).join(' ');
 
-          {selectedDayEvents.length === 0 ? (
-            <div className="empty-state">Nenhum evento nesta data.</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {selectedDayEvents.map((event) => (
-                <div key={event.id} className="glass-card glass-card-flat" style={{ padding: 12 }}>
-                  <div className="flex-between">
-                    <div>
-                      <strong style={{ fontSize: 14 }}>{event.subject || event.type}</strong>
-                      <div>
-                        <button className="link-button text-muted" style={{ fontSize: 13 }} onClick={() => navigate(`/clientes/${event.clientId}`)}>
-                          {event.clientName}
-                        </button>
-                      </div>
-                    </div>
-                    <button className="btn btn-secondary btn-icon" onClick={() => setModalState({ editing: event })}>
-                      <Pencil size={13} />
-                    </button>
-                  </div>
-                  <div className="flex-row" style={{ marginTop: 6 }}>
-                    <span className="badge badge-accent">{event.type}</span>
-                    <span className={`badge ${eventoStatusBadge(event.status)}`}>{event.status}</span>
-                    {event.attachments.length > 0 && (
-                      <span className="badge badge-muted"><Paperclip size={11} /> {event.attachments.length}</span>
-                    )}
-                  </div>
-                  {event.description && (
-                    <p className="text-muted" style={{ fontSize: 13, marginTop: 8 }}>{event.description}</p>
-                  )}
+            return (
+              <div
+                key={key}
+                className={classes}
+                onDragOver={(e) => { e.preventDefault(); if (dragOverKey !== key) setDragOverKey(key); }}
+                onDragLeave={() => setDragOverKey((k) => (k === key ? null : k))}
+                onDrop={(e) => onDrop(e, key)}
+                title={holiday ? formatHolidayLabel(holiday) : undefined}
+              >
+                <div className="calendar-day-head">
+                  <span className="calendar-day-number">{format(day, 'd')}</span>
+                  <button
+                    className="calendar-add"
+                    onClick={() => setModalState({ defaultDate: day })}
+                    aria-label="Adicionar evento neste dia"
+                    title="Adicionar evento"
+                  >
+                    <Plus size={13} />
+                  </button>
                 </div>
-              ))}
-            </div>
-          )}
+
+                <div className="calendar-events-big custom-scrollbar">
+                  {dayEvents.map((ev) => {
+                    const sub = ev.subject && ev.subject !== ev.clientName ? ev.subject : ev.type;
+                    return (
+                      <button
+                        key={ev.id}
+                        className={`calendar-chip ${chipClass(ev.status)}${draggedId === ev.id ? ' is-dragging' : ''}`}
+                        draggable
+                        onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); e.dataTransfer.effectAllowed = 'move'; setDraggedId(ev.id); }}
+                        onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
+                        onClick={() => setModalState({ editing: ev })}
+                        title={`${ev.clientName} — ${ev.subject || ev.type} (${ev.status})`}
+                      >
+                        <span className="calendar-chip-title">
+                          <i className="calendar-chip-dot" />
+                          {ev.clientName}
+                        </span>
+                        {sub && <span className="calendar-chip-sub">{sub}</span>}
+                        {ev.attachments.length > 0 && <span className="calendar-chip-clip">{ev.attachments.length} anexo(s)</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

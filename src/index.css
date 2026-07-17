@@ -918,3 +918,200 @@ textarea.field-input { resize: vertical; min-height: 74px; }
 }
 .acao-card-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .acao-card-actions .btn { padding: 0.4rem 0.7rem; font-size: 13px; }
+
+/* --- Agenda: quadro grande com drag & drop --- */
+.agenda-board { padding: 1.4rem 1.5rem; }
+.calendar-grid-big { gap: 8px; grid-auto-rows: 1fr; }
+
+.calendar-day-big {
+  min-height: 156px;
+  padding: 6px 6px 4px;
+  gap: 4px;
+}
+.calendar-day-big.is-drop-target {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.calendar-day-head { display: flex; align-items: center; justify-content: space-between; }
+
+.calendar-add {
+  opacity: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card-hover);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.calendar-day-big:hover .calendar-add { opacity: 1; }
+.calendar-add:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+.calendar-events-big {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  max-height: 122px;
+  padding-right: 2px;
+}
+
+.calendar-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  text-align: left;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text-muted);
+  border-radius: 6px;
+  background: var(--card-hover);
+  color: var(--text-primary);
+  cursor: grab;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.12s ease;
+}
+.calendar-chip:hover { background: var(--card); border-color: var(--border-strong); box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+.calendar-chip:active { cursor: grabbing; }
+.calendar-chip.is-dragging { opacity: 0.4; }
+.calendar-chip.is-ok { border-left-color: var(--success); }
+.calendar-chip.is-warn { border-left-color: var(--warning); }
+.calendar-chip.is-danger { border-left-color: var(--danger); }
+
+.calendar-chip-title {
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.calendar-chip-sub {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 900px) {
+  .calendar-day-big { min-height: 96px; }
+  .calendar-events-big { max-height: 70px; }
+  .calendar-chip-sub { display: none; }
+}
+
+/* --- Agenda: refinamento visual (especialista) --- */
+.agenda-board { padding: 1.5rem 1.6rem; }
+
+.calendar-grid-big { gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.calendar-grid-big .calendar-day-big { border: none; border-radius: 0; background: var(--card); }
+.calendar-grid-big .calendar-day-big:hover { background: var(--card-hover); }
+
+.calendar-weekday { padding-bottom: 10px; font-size: 0.7rem; }
+
+.calendar-day-big { min-height: 168px; }
+.calendar-day-big.is-weekend { background: color-mix(in srgb, var(--card) 92%, var(--border) 8%); }
+.calendar-day-big.is-outside { opacity: 1; }
+.calendar-day-big.is-outside .calendar-day-number { color: var(--text-muted); opacity: 0.5; }
+.calendar-day-big.is-outside .calendar-chip { opacity: 0.55; }
+
+.calendar-day-big.is-today {
+  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+  box-shadow: inset 0 3px 0 0 var(--accent);
+}
+.calendar-day-big.is-today .calendar-day-number {
+  background: var(--accent);
+  color: #000;
+  border-radius: 6px;
+  min-width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+}
+
+.calendar-day-big.is-drop-target { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* chips com tint por status */
+.calendar-chip { border: 1px solid var(--border); border-left-width: 3px; background: var(--card-hover); }
+.calendar-chip.is-ok { background: color-mix(in srgb, var(--success) 12%, var(--card)); border-color: color-mix(in srgb, var(--success) 30%, var(--border)); border-left-color: var(--success); }
+.calendar-chip.is-warn { background: color-mix(in srgb, var(--warning) 12%, var(--card)); border-color: color-mix(in srgb, var(--warning) 30%, var(--border)); border-left-color: var(--warning); }
+.calendar-chip.is-danger { background: color-mix(in srgb, var(--danger) 12%, var(--card)); border-color: color-mix(in srgb, var(--danger) 30%, var(--border)); border-left-color: var(--danger); }
+.calendar-chip:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+
+/* legenda */
+.agenda-legend { display: flex; align-items: center; gap: 14px; }
+.agenda-legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--text-muted); }
+.legend-dot { width: 9px; height: 9px; border-radius: 2px; background: var(--text-muted); }
+.legend-dot.is-ok { background: var(--success); }
+.legend-dot.is-warn { background: var(--warning); }
+.legend-dot.is-danger { background: var(--danger); }
+
+@media (max-width: 1100px) { .agenda-legend { display: none; } }
+
+/* --- Agenda: card (chip) mais bonito --- */
+.calendar-chip {
+  position: relative;
+  gap: 2px;
+  padding: 6px 9px;
+  border: none;
+  border-left: 3px solid var(--text-muted);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--text-muted) 10%, var(--card));
+  box-shadow: none;
+  transition: transform 0.1s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.calendar-chip.is-ok      { border-left-color: var(--success); background: color-mix(in srgb, var(--success) 14%, var(--card)); }
+.calendar-chip.is-warn    { border-left-color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, var(--card)); }
+.calendar-chip.is-danger  { border-left-color: var(--danger);  background: color-mix(in srgb, var(--danger) 14%, var(--card)); }
+.calendar-chip:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--text-muted) 16%, var(--card)); box-shadow: 0 6px 16px rgba(0,0,0,0.35); }
+.calendar-chip.is-ok:hover     { background: color-mix(in srgb, var(--success) 22%, var(--card)); }
+.calendar-chip.is-warn:hover   { background: color-mix(in srgb, var(--warning) 22%, var(--card)); }
+.calendar-chip.is-danger:hover { background: color-mix(in srgb, var(--danger) 22%, var(--card)); }
+
+.calendar-chip-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.calendar-chip-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: var(--text-muted); }
+.calendar-chip.is-ok .calendar-chip-dot     { background: var(--success); }
+.calendar-chip.is-warn .calendar-chip-dot   { background: var(--warning); }
+.calendar-chip.is-danger .calendar-chip-dot { background: var(--danger); }
+
+.calendar-chip-sub {
+  font-size: 0.66rem;
+  color: var(--text-secondary);
+  padding-left: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.calendar-chip-clip {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  padding-left: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Agenda: status "Agendado" (dourado da identidade) */
+.calendar-chip.is-agendado { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--card)); }
+.calendar-chip.is-agendado:hover { background: color-mix(in srgb, var(--accent) 20%, var(--card)); }
+.calendar-chip.is-agendado .calendar-chip-dot { background: var(--accent); }
+.legend-dot.is-agendado { background: var(--accent); }
