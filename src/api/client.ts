@@ -1,4 +1,4 @@
-import type { Acao, Anexo, Cadencias, Categoria, Cliente, EventoAgenda, Lembrete, Modelo } from '../types';
+import type { Acao, Anexo, Cadencias, Categoria, ChecklistItem, Cliente, EventoAgenda, Lembrete, Modelo } from '../types';
 
 // A API roda na mesma máquina que serve o front (o "servidor" da intranet).
 // Derivamos o host da URL atual: abrindo em http://192.168.1.18:5173, a API é
@@ -64,16 +64,23 @@ function deserializeCliente(raw: Record<string, unknown>): Cliente {
 }
 
 function serializeEvento(e: EventoAgenda): Record<string, unknown> {
-  return { ...e, servicos: JSON.stringify(e.servicos ?? []), attachments: JSON.stringify(e.attachments ?? []) };
+  return {
+    ...e,
+    servicos: JSON.stringify(e.servicos ?? []),
+    checklist: JSON.stringify(e.checklist ?? []),
+    attachments: JSON.stringify(e.attachments ?? []),
+  };
 }
 
 function deserializeEvento(raw: Record<string, unknown>): EventoAgenda {
   return {
     ...(raw as unknown as EventoAgenda),
     servicos: parseListaJSON<string>(raw.servicos),
+    checklist: parseListaJSON<ChecklistItem>(raw.checklist),
     attachments: parseListaJSON<Anexo>(raw.attachments),
     subject: (raw.subject as string) ?? '',
     description: (raw.description as string) ?? '',
+    time: (raw.time as string) ?? '',
   };
 }
 
@@ -97,6 +104,7 @@ export const criarEvento = async (data: EventoAgenda) =>
 export const atualizarEvento = (id: string, data: Partial<EventoAgenda>) => {
   const payload: Record<string, unknown> = { ...data };
   if (data.servicos) payload.servicos = JSON.stringify(data.servicos);
+  if (data.checklist) payload.checklist = JSON.stringify(data.checklist);
   if (data.attachments) payload.attachments = JSON.stringify(data.attachments);
   return request<{ success: boolean }>(`/agenda/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
 };

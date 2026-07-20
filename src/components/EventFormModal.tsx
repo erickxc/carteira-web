@@ -1,9 +1,10 @@
 import { useRef, useState, type FormEvent } from 'react';
-import { format, parse } from 'date-fns';
-import { Paperclip, Trash2, X } from 'lucide-react';
+import { addMonths, addWeeks, format, parse } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
+import { AlertTriangle, Check, Paperclip, Plus, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { urlAnexo } from '../api/client';
-import type { EventoAgenda } from '../types';
+import type { ChecklistItem, EventoAgenda } from '../types';
 
 interface EventFormModalProps {
   initial?: EventoAgenda;
@@ -12,45 +13,91 @@ interface EventFormModalProps {
   onClose: () => void;
 }
 
+type Freq = 'semanal' | 'quinzenal' | 'mensal';
+
 export function EventFormModal({ initial, defaultDate, initialClientId, onClose }: EventFormModalProps) {
   const { clientes, agenda, criarEvento, atualizarEvento, removerEvento, enviarAnexoEvento, removerAnexoEvento, opcoesPorTipo } = useCarteira();
   const tipoOpcoes = opcoesPorTipo('tipo_evento');
   const statusOpcoes = opcoesPorTipo('status_evento');
   const servicoOpcoes = opcoesPorTipo('servico');
+  const editando = !!initial;
+
   const [clientId, setClientId] = useState(initial?.clientId ?? initialClientId ?? clientes[0]?.id ?? '');
   const [subject, setSubject] = useState(initial?.subject ?? '');
   const [type, setType] = useState(initial?.type ?? tipoOpcoes[0] ?? '');
   const [date, setDate] = useState(format(initial ? new Date(initial.date) : defaultDate ?? new Date(), 'yyyy-MM-dd'));
+  const [time, setTime] = useState(initial?.time ?? '');
+  const [duracao, setDuracao] = useState<number>(initial?.duracao ?? 60);
   const [description, setDescription] = useState(initial?.description ?? '');
   const [status, setStatus] = useState(initial?.status ?? statusOpcoes[0] ?? 'Agendado');
   const [servicos, setServicos] = useState<string[]>(initial?.servicos ?? []);
-
-  const toggleServico = (s: string) =>
-    setServicos((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(initial?.checklist ?? []);
+  const [novoItem, setNovoItem] = useState('');
+  const [recorrente, setRecorrente] = useState(false);
+  const [freq, setFreq] = useState<Freq>('semanal');
+  const [ocorrencias, setOcorrencias] = useState(4);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const eventoAtual = initial ? agenda.find((a) => a.id === initial.id) : undefined;
 
+  const toggleServico = (s: string) =>
+    setServicos((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+
+  function addItem() {
+    const t = novoItem.trim();
+    if (!t) return;
+    setChecklist((prev) => [...prev, { id: uuidv4(), text: t, done: false }]);
+    setNovoItem('');
+  }
+  const toggleItem = (id: string) => setChecklist((prev) => prev.map((i) => (i.id === id ? { ...i, done: !i.done } : i)));
+  const removeItem = (id: string) => setChecklist((prev) => prev.filter((i) => i.id !== id));
+
+  // Conflito: outra reunião no mesmo dia e horário.
+  const conflito = time
+    ? agenda.some((a) => a.id !== initial?.id && a.time === time && format(parse(date, 'yyyy-MM-dd', new Date()), 'yyyy-MM-dd') === format(new Date(a.date), 'yyyy-MM-dd'))
+    : false;
+
+  function gerarDatas(baseISO: Date): Date[] {
+    if (!recorrente) return [baseISO];
+    const out: Date[] = [];
+    for (let i = 0; i < Math.max(1, ocorrencias); i++) {
+      out.push(freq === 'semanal' ? addWeeks(baseISO, i) : freq === 'quinzenal' ? addWeeks(baseISO, i * 2) : addMonths(baseISO, i));
+    }
+    return out;
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const cliente = clientes.find((c) => c.id === clientId);
-    if (!cliente) {
-      alert('Selecione um cliente.');
-      return;
-    }
+    if (!cliente) { alert('Selecione um cliente.'); return; }
     if (!subject.trim()) return;
     setSaving(true);
     try {
-      const dataLocal = parse(date, 'yyyy-MM-dd', new Date());
-      const payload = { clientId, clientName: cliente.empresa, subject, type, date: dataLocal.toISOString(), description, status, servicos };
-      if (initial) {
-        await atualizarEvento(initial.id, payload);
+      const baseData = parse(date, 'yyyy-MM-dd', new Date());
+      const comum = {
+        clientId, clientName: cliente.empresa, subject, type, time,
+        duracao: duracao || undefined, description, status, servicos,
+      };
+      if (editando) {
+        await atualizarEvento(initial.id, { ...comum, date: baseData.toISOString(), checklist });
+      } else if (recorrente) {
+        const serie = uuidv4();
+        for (const d of gerarDatas(baseData)) {
+          await criarEvento({
+            ...comum,
+            date: d.toISOString(),
+            serie,
+            checklist: checklist.map((i) => ({ id: uuidv4(), text: i.text, done: false })),
+          });
+        }
       } else {
-        await criarEvento(payload);
+        await criarEvento({ ...comum, date: baseData.toISOString(), checklist });
       }
       onClose();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Falha ao salvar o evento.');
     } finally {
       setSaving(false);
     }
@@ -67,9 +114,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
     if (!initial || !files || files.length === 0) return;
     setUploading(true);
     try {
-      for (const file of Array.from(files)) {
-        await enviarAnexoEvento(initial.id, file);
-      }
+      for (const file of Array.from(files)) await enviarAnexoEvento(initial.id, file);
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -80,7 +125,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{initial ? 'Editar Evento' : 'Novo Evento'}</h2>
+          <h2>{editando ? 'Editar Evento' : 'Novo Evento'}</h2>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
@@ -88,9 +133,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
               Cliente
               <select className="field-input custom-select" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
                 <option value="" disabled>Selecione...</option>
-                {clientes.map((c) => (
-                  <option key={c.id} value={c.id}>{c.empresa}</option>
-                ))}
+                {clientes.map((c) => (<option key={c.id} value={c.id}>{c.empresa}</option>))}
               </select>
             </label>
 
@@ -102,46 +145,103 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
             <label className="field">
               Tipo
               <select className="field-input custom-select" value={type} onChange={(e) => setType(e.target.value)}>
-                {tipoOpcoes.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
+                {tipoOpcoes.map((t) => (<option key={t} value={t}>{t}</option>))}
               </select>
             </label>
 
-            <label className="field">
-              Data
-              <input type="date" className="field-input" value={date} onChange={(e) => setDate(e.target.value)} required />
-            </label>
+            <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
+              <label className="field" style={{ flex: 1 }}>
+                Data
+                <input type="date" className="field-input" value={date} onChange={(e) => setDate(e.target.value)} required />
+              </label>
+              <label className="field" style={{ width: 110 }}>
+                Hora
+                <input type="time" className="field-input" value={time} onChange={(e) => setTime(e.target.value)} />
+              </label>
+              <label className="field" style={{ width: 120 }}>
+                Duração
+                <select className="field-input custom-select" value={duracao} onChange={(e) => setDuracao(Number(e.target.value))}>
+                  <option value={0}>—</option>
+                  <option value={30}>30 min</option>
+                  <option value={60}>1h</option>
+                  <option value={90}>1h30</option>
+                  <option value={120}>2h</option>
+                </select>
+              </label>
+            </div>
+
+            {conflito && (
+              <div className="badge badge-warning" style={{ marginBottom: 12 }}>
+                <AlertTriangle size={12} /> Já existe reunião neste dia e horário
+              </div>
+            )}
 
             <label className="field">
               Status
               <select className="field-input custom-select" value={status} onChange={(e) => setStatus(e.target.value)}>
-                {statusOpcoes.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
+                {statusOpcoes.map((s) => (<option key={s} value={s}>{s}</option>))}
               </select>
             </label>
+
+            {!editando && (
+              <>
+                <div className="field">
+                  Recorrência
+                  <div className="chip-select">
+                    <button type="button" className={`chip-toggle${!recorrente ? ' is-on' : ''}`} onClick={() => setRecorrente(false)}>Única</button>
+                    <button type="button" className={`chip-toggle${recorrente ? ' is-on' : ''}`} onClick={() => setRecorrente(true)}>Recorrente</button>
+                  </div>
+                </div>
+                {recorrente && (
+                  <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
+                    <label className="field" style={{ flex: 1 }}>
+                      Frequência
+                      <select className="field-input custom-select" value={freq} onChange={(e) => setFreq(e.target.value as Freq)}>
+                        <option value="semanal">Semanal</option>
+                        <option value="quinzenal">Quinzenal</option>
+                        <option value="mensal">Mensal</option>
+                      </select>
+                    </label>
+                    <label className="field" style={{ width: 130 }}>
+                      Ocorrências
+                      <input type="number" min={2} max={52} className="field-input" value={ocorrencias} onChange={(e) => setOcorrencias(Number(e.target.value))} />
+                    </label>
+                  </div>
+                )}
+              </>
+            )}
 
             <div className="field">
               Serviços tratados
               {servicoOpcoes.length === 0 ? (
-                <p className="text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>
-                  Nenhum serviço cadastrado — adicione em Configurações.
-                </p>
+                <p className="text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>Nenhum serviço cadastrado — adicione em Configurações.</p>
               ) : (
                 <div className="chip-select">
                   {servicoOpcoes.map((s) => (
-                    <button
-                      type="button"
-                      key={s}
-                      className={`chip-toggle${servicos.includes(s) ? ' is-on' : ''}`}
-                      onClick={() => toggleServico(s)}
-                    >
-                      {s}
-                    </button>
+                    <button type="button" key={s} className={`chip-toggle${servicos.includes(s) ? ' is-on' : ''}`} onClick={() => toggleServico(s)}>{s}</button>
                   ))}
                 </div>
               )}
+            </div>
+
+            <div className="field">
+              Checklist / pauta
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 4, marginBottom: 8 }}>
+                {checklist.length === 0 && <span className="text-muted" style={{ fontSize: 13, textTransform: 'none' }}>Nenhum item.</span>}
+                {checklist.map((it) => (
+                  <div key={it.id} className="check-item">
+                    <button type="button" className={`filter-check${it.done ? ' is-on' : ''}`} onClick={() => toggleItem(it.id)}>
+                      {it.done && <Check size={11} strokeWidth={3} />}
+                    </button>
+                    <span style={{ flex: 1, textDecoration: it.done ? 'line-through' : 'none', color: it.done ? 'var(--text-muted)' : 'var(--text-primary)' }}>{it.text}</span>
+                    <button type="button" className="btn btn-secondary btn-icon" onClick={() => removeItem(it.id)} aria-label="Remover"><X size={12} /></button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex-row">
+                <input className="field-input" placeholder="Nova atividade..." value={novoItem} onChange={(e) => setNovoItem(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }} />
+                <button type="button" className="btn btn-primary btn-icon" onClick={addItem} disabled={!novoItem.trim()}><Plus size={16} /></button>
+              </div>
             </div>
 
             <label className="field">
@@ -151,10 +251,8 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
 
             <div className="field">
               Anexos
-              {!initial ? (
-                <p className="text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>
-                  Salve o evento primeiro para anexar arquivos.
-                </p>
+              {!editando ? (
+                <p className="text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>Salve o evento primeiro para anexar arquivos.</p>
               ) : (
                 <>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
@@ -162,14 +260,10 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
                       <span key={anexo.id} className="attachment-chip">
                         <Paperclip size={12} />
                         <a href={urlAnexo(anexo.filename)} target="_blank" rel="noreferrer">{anexo.originalName}</a>
-                        <button type="button" onClick={() => removerAnexoEvento(initial.id, anexo)} aria-label="Remover anexo">
-                          <X size={12} />
-                        </button>
+                        <button type="button" onClick={() => removerAnexoEvento(initial.id, anexo)} aria-label="Remover anexo"><X size={12} /></button>
                       </span>
                     ))}
-                    {(eventoAtual?.attachments ?? []).length === 0 && (
-                      <span className="text-muted" style={{ fontSize: 13, textTransform: 'none' }}>Nenhum anexo.</span>
-                    )}
+                    {(eventoAtual?.attachments ?? []).length === 0 && (<span className="text-muted" style={{ fontSize: 13, textTransform: 'none' }}>Nenhum anexo.</span>)}
                   </div>
                   <button type="button" className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
                     <Paperclip size={14} /> {uploading ? 'Enviando...' : 'Adicionar arquivo'}
@@ -181,14 +275,14 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
           </div>
 
           <div className="modal-footer">
-            {initial && (
+            {editando && (
               <button type="button" className="btn btn-danger" onClick={handleDelete} style={{ marginRight: 'auto' }}>
                 <Trash2 size={15} /> Excluir
               </button>
             )}
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
             <button type="submit" className="btn btn-primary" disabled={saving || clientes.length === 0}>
-              {saving ? 'Salvando...' : 'Salvar'}
+              {saving ? 'Salvando...' : recorrente && !editando ? `Criar ${Math.max(1, ocorrencias)} reuniões` : 'Salvar'}
             </button>
           </div>
         </form>

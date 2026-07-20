@@ -67,18 +67,32 @@ export interface Anexo {
   uploadedAt: string;
 }
 
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
 export interface EventoAgenda {
   id: string;
   clientId: string;
   clientName: string;
   date: string;
+  /** Hora HH:mm (opcional). Manhã < 12:00, Tarde >= 12:00. */
+  time?: string;
+  /** Duração em minutos. */
+  duracao?: number;
   type: EventoTipo;
   subject: string;
   description: string;
   /** Serviços tratados nesta reunião (múltipla escolha, vindos do CRUD de serviços). */
   servicos: string[];
+  /** Checklist de atividades/pauta da reunião. */
+  checklist?: ChecklistItem[];
   attachments: Anexo[];
   status: EventoStatus;
+  /** Id da série de recorrência (agrupa ocorrências geradas juntas). */
+  serie?: string;
   createdAt: string;
   userId?: string;
 }

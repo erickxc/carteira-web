@@ -1227,3 +1227,60 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
   .filter-grid { grid-template-columns: 1fr 1fr; }
   .filter-grid .filter-search { grid-column: span 2; }
 }
+
+/* --- Agenda: faixa de próximas reuniões --- */
+.agenda-upcoming { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.agenda-up-card {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+  min-width: 210px; max-width: 260px; text-align: left;
+  padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); cursor: pointer;
+  transition: border-color 0.14s ease, transform 0.14s ease, box-shadow 0.14s ease;
+}
+.agenda-up-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.agenda-up-date { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
+.agenda-up-day { font-size: 1.05rem; font-weight: 700; line-height: 1; }
+.agenda-up-mon { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.agenda-up-main { min-width: 0; display: flex; flex-direction: column; }
+.agenda-up-title { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agenda-up-sub { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* --- Agenda: Kanban semana × turno --- */
+.kanban { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.kanban-col { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; display: flex; flex-direction: column; }
+.kanban-col.is-today { border-color: var(--accent); box-shadow: inset 0 2px 0 0 var(--accent); }
+.kanban-col-head { display: flex; align-items: center; gap: 6px; padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--border); background: var(--card-hover); }
+.kanban-col-day { font-weight: 700; font-size: 0.8rem; text-transform: capitalize; }
+.kanban-col-date { font-size: 0.72rem; color: var(--text-muted); }
+.kanban-turno { padding: 8px; display: flex; flex-direction: column; gap: 6px; min-height: 120px; transition: background 0.12s ease; }
+.kanban-turno + .kanban-turno { border-top: 1px dashed var(--border); }
+.kanban-turno.is-drop-target { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+.kanban-turno-label { font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+
+.kanban-card {
+  display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
+  padding: 7px 9px 7px 11px; border: 1px solid var(--border); border-left: 3px solid var(--text-muted);
+  border-radius: 7px; background: var(--card-hover); cursor: grab;
+  transition: transform 0.1s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.kanban-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+.kanban-card.is-dragging { opacity: 0.4; }
+.kanban-card.is-ok { border-left-color: var(--success); }
+.kanban-card.is-agendado { border-left-color: var(--accent); }
+.kanban-card.is-warn { border-left-color: var(--warning); }
+.kanban-card.is-danger { border-left-color: var(--danger); }
+.kanban-card-top { display: flex; align-items: center; gap: 6px; }
+.kanban-card-time { font-size: 0.68rem; font-weight: 700; color: var(--text-secondary); flex: 1; }
+.kanban-card-done { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--border-strong); color: var(--text-muted); cursor: pointer; }
+.kanban-card-done:hover { background: var(--success); border-color: var(--success); color: #fff; }
+.kanban-card-title { font-size: 0.78rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kanban-card-sub { font-size: 0.66rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kanban-add { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; color: var(--text-muted); background: none; border: 1px dashed var(--border); border-radius: 6px; padding: 4px 6px; cursor: pointer; transition: all 0.12s ease; }
+.kanban-add:hover { color: var(--accent); border-color: var(--accent); }
+
+@media (max-width: 1000px) { .kanban { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .kanban { grid-template-columns: 1fr; } }
+
+/* --- Checklist (modal de evento) --- */
+.check-item { display: flex; align-items: center; gap: 9px; font-size: 0.88rem; }
+.check-item .filter-check { cursor: pointer; }
