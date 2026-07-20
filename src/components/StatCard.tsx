@@ -50,11 +50,12 @@ export function StatCard({ title, value, icon: Icon, trend, trendUp, secondary, 
       </div>
 
       {secondary && secondary.length > 0 && (
-        <div className="flex items-center gap-3 flex-wrap pt-1.5 mt-0.5 border-t border-border">
+        <div className="flex-1 flex flex-col justify-center gap-2 pt-2.5 mt-1 border-t border-border">
           {secondary.map((s) => (
-            <span key={s.label} className="text-[0.72rem] text-[color:var(--text-muted)] whitespace-nowrap">
-              {s.label} <strong style={{ color: toneColor(s.tone), fontWeight: 700 }}>{s.value}</strong>
-            </span>
+            <div key={s.label} className="flex items-center justify-between gap-3">
+              <span className="text-[0.86rem] text-[color:var(--text-secondary)]">{s.label}</span>
+              <strong className="text-[0.95rem] tabular-nums" style={{ color: toneColor(s.tone), fontWeight: 700 }}>{s.value}</strong>
+            </div>
           ))}
         </div>
       )}
