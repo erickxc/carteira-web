@@ -59,18 +59,15 @@
    Burnt Caramel (cc6300) → destaque de alerta
    --------------------------------------------------------------------------- */
 .theme-coolors-test {
-  /* body pinta o fundo com --bg do :root e fica FORA deste escopo (é ancestral,
-     não descendente) — sem isto, só os cards (descendentes) mudariam de tom e
-     o fundo real da página continuaria escuro demais por trás deles. */
-  background-color: #1c1c21;
-  min-height: 100vh;
-  --bg: #1c1c21;
-  --card: #25252c;
-  --card-hover: #2c2c34;
-  --sidebar: #18181c;
+  /* Fundo volta a ser o original (preto quase puro) — os cards (Shadow Grey)
+     é que se aproximam dele, em vez do fundo clarear para perto do card. */
+  --bg: #0b0b0d;
+  --card: #131316;
+  --card-hover: #1a1a1e;
+  --sidebar: #08080a;
 
-  --border: #302f38;
-  --border-strong: #3d3c46;
+  --border: #222226;
+  --border-strong: #2c2c31;
 
   --accent: #dabb6c;
   --accent-hover: #e8cc86;
