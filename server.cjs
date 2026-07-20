@@ -78,7 +78,7 @@ const MODELOS_SEED = [
   { segmento: 'engajado', titulo: 'Envio de relatório mensal', conteudo: 'Olá, {empresa}! Segue o relatório de monitoria do mês. Fico à disposição para comentar os pontos de atenção.' },
 ];
 
-function seedMwith(rows, extra) {
+function seedComMetadados(rows, extra) {
   const now = new Date().toISOString();
   return rows.map((r) => ({ id: crypto.randomUUID(), createdAt: now, ...extra, ...r }));
 }
@@ -112,7 +112,7 @@ function initDB() {
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: LEMBRETES_HEADERS }), 'Lembretes');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(buildCategoriasSeed(), { header: CATEGORIAS_HEADERS }), 'Categorias');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: ACOES_HEADERS }), 'Acoes');
-    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(seedMwith(MODELOS_SEED), { header: MODELOS_HEADERS }), 'Modelos');
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(seedComMetadados(MODELOS_SEED), { header: MODELOS_HEADERS }), 'Modelos');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(CADENCIAS_SEED, { header: CADENCIAS_HEADERS }), 'Cadencias');
     comRetryIO(() => xlsx.writeFile(wb, DB_FILE));
   } else {
@@ -145,7 +145,7 @@ function initDB() {
     // Garante as planilhas novas (Acoes/Modelos/Cadencias) sem tocar nas existentes.
     const novas = [
       { nome: 'Acoes', header: ACOES_HEADERS, rows: [] },
-      { nome: 'Modelos', header: MODELOS_HEADERS, rows: seedMwith(MODELOS_SEED) },
+      { nome: 'Modelos', header: MODELOS_HEADERS, rows: seedComMetadados(MODELOS_SEED) },
       { nome: 'Cadencias', header: CADENCIAS_HEADERS, rows: CADENCIAS_SEED },
     ];
     let mudou2 = false;
@@ -196,10 +196,54 @@ function getSheetData(sheetName) {
   return xlsx.utils.sheet_to_json(sheet) || [];
 }
 
+// Headers explícitos por planilha — evita que o SheetJS derive as colunas
+// apenas das chaves da primeira linha do array (se a primeira linha for uma
+// legada faltando algum campo novo, a coluna inteira sumiria da planilha).
+const HEADERS_BY_SHEET = {
+  Clientes: CLIENTES_HEADERS,
+  Agenda: AGENDA_HEADERS,
+  Lembretes: LEMBRETES_HEADERS,
+  Categorias: CATEGORIAS_HEADERS,
+  Acoes: ACOES_HEADERS,
+  Modelos: MODELOS_HEADERS,
+  Cadencias: CADENCIAS_HEADERS,
+};
+
 function saveSheetData(sheetName, data) {
   const wb = comRetryIO(() => xlsx.readFile(DB_FILE));
-  wb.Sheets[sheetName] = xlsx.utils.json_to_sheet(data);
+  const header = HEADERS_BY_SHEET[sheetName];
+  wb.Sheets[sheetName] = header ? xlsx.utils.json_to_sheet(data, { header }) : xlsx.utils.json_to_sheet(data);
   comRetryIO(() => xlsx.writeFile(wb, DB_FILE));
+}
+
+/**
+ * Atualiza (merge) a linha de id `id` na planilha `sheetName`. `transform`,
+ * se passado, recebe o objeto já mesclado e devolve o objeto final a gravar
+ * (usado por rotas que precisam normalizar/derivar campos, ex.: Clientes e
+ * Acoes). Devolve a linha atualizada, ou `null` se nenhum id bateu — permite
+ * às rotas responderem 404 em vez de "success: true" silencioso.
+ */
+function updateSheetRow(sheetName, id, patch, transform) {
+  const data = getSheetData(sheetName);
+  let updated = null;
+  const next = data.map((row) => {
+    if (String(row.id) !== String(id)) return row;
+    const merged = { ...row, ...patch };
+    updated = transform ? transform(merged) : merged;
+    return updated;
+  });
+  if (updated) saveSheetData(sheetName, next);
+  return updated;
+}
+
+/** Remove a linha de id `id` na planilha `sheetName`. Devolve `true` se algo
+ * foi de fato removido — permite às rotas responderem 404 quando o id não existe. */
+function deleteSheetRow(sheetName, id) {
+  const data = getSheetData(sheetName);
+  const next = data.filter((row) => String(row.id) !== String(id));
+  const found = next.length !== data.length;
+  if (found) saveSheetData(sheetName, next);
+  return found;
 }
 
 /**
@@ -213,7 +257,10 @@ function syncClienteColumns(cliente) {
   let servicos = [];
   try {
     servicos = Array.isArray(cliente.servicos) ? cliente.servicos : JSON.parse(cliente.servicos || '[]');
-  } catch { servicos = []; }
+  } catch {
+    console.error(`syncClienteColumns: servicos não era JSON válido para "${cliente.empresa}" — resetado para [] em vez de perder o save. Valor recebido:`, cliente.servicos);
+    servicos = [];
+  }
   const has = (nome) => servicos.some((s) => String(s).toLowerCase() === nome);
   return {
     ...cliente,
@@ -275,21 +322,23 @@ app.post('/api/clients/bulk', (req, res) => {
 });
 
 app.put('/api/clients/:id', (req, res) => {
-  let data = getSheetData('Clientes');
-  data = data.map(c => c.id === req.params.id ? syncClienteColumns({ ...c, ...req.body }) : c);
-  saveSheetData('Clientes', data);
+  const updated = updateSheetRow('Clientes', req.params.id, req.body, syncClienteColumns);
+  if (!updated) return res.status(404).json({ error: 'Cliente não encontrado.' });
   res.json({ success: true });
 });
 
 app.delete('/api/clients/:id', (req, res) => {
-  let data = getSheetData('Clientes');
-  data = data.filter(c => String(c.id) !== String(req.params.id));
-  saveSheetData('Clientes', data);
+  const found = deleteSheetRow('Clientes', req.params.id);
+  if (!found) return res.status(404).json({ error: 'Cliente não encontrado.' });
 
-  // Cascade delete agenda items
-  let agendaData = getSheetData('Agenda');
-  agendaData = agendaData.filter(a => String(a.clientId) !== String(req.params.id));
-  saveSheetData('Agenda', agendaData);
+  // Cascade delete: agenda, lembretes e ações vinculados a este cliente
+  // (antes só cascateava para Agenda — Lembretes/Acoes ficavam órfãos).
+  const agendaRestante = getSheetData('Agenda').filter(a => String(a.clientId) !== String(req.params.id));
+  saveSheetData('Agenda', agendaRestante);
+  const lembretesRestantes = getSheetData('Lembretes').filter(r => String(r.clientId) !== String(req.params.id));
+  saveSheetData('Lembretes', lembretesRestantes);
+  const acoesRestantes = getSheetData('Acoes').filter(a => String(a.clientId) !== String(req.params.id));
+  saveSheetData('Acoes', acoesRestantes);
 
   res.json({ success: true });
 });
@@ -364,18 +413,15 @@ app.post('/api/agenda/export-json', (req, res) => {
 });
 
 app.put('/api/agenda/:id', (req, res) => {
-  let data = getSheetData('Agenda');
-  let atualizado = null;
-  data = data.map(a => { if (a.id === req.params.id) { atualizado = { ...a, ...req.body }; return atualizado; } return a; });
-  saveSheetData('Agenda', data);
-  if (atualizado) gravarReuniaoJson(atualizado);
+  const updated = updateSheetRow('Agenda', req.params.id, req.body);
+  if (!updated) return res.status(404).json({ error: 'Evento não encontrado.' });
+  gravarReuniaoJson(updated);
   res.json({ success: true });
 });
 
 app.delete('/api/agenda/:id', (req, res) => {
-  let data = getSheetData('Agenda');
-  data = data.filter(a => String(a.id) !== String(req.params.id));
-  saveSheetData('Agenda', data);
+  const found = deleteSheetRow('Agenda', req.params.id);
+  if (!found) return res.status(404).json({ error: 'Evento não encontrado.' });
   removerReuniaoJson(req.params.id);
   res.json({ success: true });
 });
@@ -394,16 +440,14 @@ app.post('/api/reminders', (req, res) => {
 });
 
 app.put('/api/reminders/:id', (req, res) => {
-  let data = getSheetData('Lembretes');
-  data = data.map(r => r.id === req.params.id ? { ...r, ...req.body } : r);
-  saveSheetData('Lembretes', data);
+  const updated = updateSheetRow('Lembretes', req.params.id, req.body);
+  if (!updated) return res.status(404).json({ error: 'Lembrete não encontrado.' });
   res.json({ success: true });
 });
 
 app.delete('/api/reminders/:id', (req, res) => {
-  let data = getSheetData('Lembretes');
-  data = data.filter(r => String(r.id) !== String(req.params.id));
-  saveSheetData('Lembretes', data);
+  const found = deleteSheetRow('Lembretes', req.params.id);
+  if (!found) return res.status(404).json({ error: 'Lembrete não encontrado.' });
   res.json({ success: true });
 });
 
@@ -428,16 +472,14 @@ app.post('/api/categorias', (req, res) => {
 });
 
 app.put('/api/categorias/:id', (req, res) => {
-  let data = getSheetData('Categorias');
-  data = data.map((c) => (String(c.id) === String(req.params.id) ? { ...c, ...req.body } : c));
-  saveSheetData('Categorias', data);
+  const updated = updateSheetRow('Categorias', req.params.id, req.body);
+  if (!updated) return res.status(404).json({ error: 'Categoria não encontrada.' });
   res.json({ success: true });
 });
 
 app.delete('/api/categorias/:id', (req, res) => {
-  let data = getSheetData('Categorias');
-  data = data.filter((c) => String(c.id) !== String(req.params.id));
-  saveSheetData('Categorias', data);
+  const found = deleteSheetRow('Categorias', req.params.id);
+  if (!found) return res.status(404).json({ error: 'Categoria não encontrada.' });
   res.json({ success: true });
 });
 
@@ -456,16 +498,14 @@ app.post('/api/acoes', (req, res) => {
 });
 
 app.put('/api/acoes/:id', (req, res) => {
-  let data = getSheetData('Acoes');
-  data = data.map((a) => (String(a.id) === String(req.params.id) ? { ...a, ...req.body, updatedAt: new Date().toISOString() } : a));
-  saveSheetData('Acoes', data);
+  const updated = updateSheetRow('Acoes', req.params.id, req.body, (row) => ({ ...row, updatedAt: new Date().toISOString() }));
+  if (!updated) return res.status(404).json({ error: 'Ação não encontrada.' });
   res.json({ success: true });
 });
 
 app.delete('/api/acoes/:id', (req, res) => {
-  let data = getSheetData('Acoes');
-  data = data.filter((a) => String(a.id) !== String(req.params.id));
-  saveSheetData('Acoes', data);
+  const found = deleteSheetRow('Acoes', req.params.id);
+  if (!found) return res.status(404).json({ error: 'Ação não encontrada.' });
   res.json({ success: true });
 });
 
@@ -483,16 +523,14 @@ app.post('/api/modelos', (req, res) => {
 });
 
 app.put('/api/modelos/:id', (req, res) => {
-  let data = getSheetData('Modelos');
-  data = data.map((m) => (String(m.id) === String(req.params.id) ? { ...m, ...req.body } : m));
-  saveSheetData('Modelos', data);
+  const updated = updateSheetRow('Modelos', req.params.id, req.body);
+  if (!updated) return res.status(404).json({ error: 'Modelo não encontrado.' });
   res.json({ success: true });
 });
 
 app.delete('/api/modelos/:id', (req, res) => {
-  let data = getSheetData('Modelos');
-  data = data.filter((m) => String(m.id) !== String(req.params.id));
-  saveSheetData('Modelos', data);
+  const found = deleteSheetRow('Modelos', req.params.id);
+  if (!found) return res.status(404).json({ error: 'Modelo não encontrado.' });
   res.json({ success: true });
 });
 
@@ -507,6 +545,11 @@ app.get('/api/cadencias', (req, res) => {
 app.put('/api/cadencias', (req, res) => {
   // Recebe objeto { chave: valor } e regrava a planilha inteira.
   const body = req.body || {};
+  for (const [chave, valor] of Object.entries(body)) {
+    if (!Number.isFinite(Number(valor))) {
+      return res.status(400).json({ error: `Valor inválido para "${chave}": ${JSON.stringify(valor)} não é um número.` });
+    }
+  }
   const rows = Object.entries(body).map(([chave, valor]) => ({ chave, valor: Number(valor) }));
   saveSheetData('Cadencias', rows);
   res.json({ success: true });
