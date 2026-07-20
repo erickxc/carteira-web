@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { format, parseISO } from 'date-fns';
 import { useCarteira } from '../context/CarteiraContext';
 import { toastError } from '../utils/toast';
+import { ModalShell } from './ModalShell';
 import type { Lembrete, Recorrencia } from '../types';
 
 const RECURRENCE_OPTIONS: { value: Recorrencia; label: string }[] = [
@@ -64,13 +65,19 @@ export function ReminderFormModal({ initial, initialClientId, onClose }: Reminde
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{initial ? 'Editar Lembrete' : 'Novo Lembrete'}</h2>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body">
+    <ModalShell
+      title={initial ? 'Editar Lembrete' : 'Novo Lembrete'}
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      footer={
+        <>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+        </>
+      }
+    >
             <label className="field">
               Título
               <input className="field-input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} required />
@@ -127,16 +134,6 @@ export function ReminderFormModal({ initial, initialClientId, onClose }: Reminde
               Descrição
               <textarea className="field-input" value={description} onChange={(e) => setDescription(e.target.value)} />
             </label>
-          </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Salvando...' : 'Salvar'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

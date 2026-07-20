@@ -8,6 +8,7 @@ import { gerarAta } from '../utils/ata';
 import { gerarAtaPdf } from '../utils/ataPdf';
 import { toastError } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
+import { ModalShell } from './ModalShell';
 import type { ChecklistItem, EventoAgenda, OrientacaoItem } from '../types';
 
 interface EventFormModalProps {
@@ -171,13 +172,28 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{editando ? 'Editar Evento' : 'Novo Evento'}</h2>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body">
+    <ModalShell
+      title={editando ? 'Editar Evento' : 'Novo Evento'}
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      size="lg"
+      footer={
+        <>
+          {editando && (
+            <button type="button" className="btn btn-danger" onClick={handleDelete} style={{ marginRight: 'auto' }}>
+              <Trash2 size={15} /> Excluir
+            </button>
+          )}
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn btn-success" onClick={handleConcluir} disabled={saving || clientes.length === 0} title="Salvar marcando a reunião como concluída">
+            <Check size={15} /> Concluir
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={saving || clientes.length === 0}>
+            {saving ? 'Salvando...' : recorrente && !editando ? `Criar ${Math.max(1, ocorrencias)} reuniões` : 'Salvar'}
+          </button>
+        </>
+      }
+    >
             <label className="field">
               Cliente
               <select className="field-input custom-select" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
@@ -389,24 +405,6 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
                 </>
               )}
             </div>
-          </div>
-
-          <div className="modal-footer">
-            {editando && (
-              <button type="button" className="btn btn-danger" onClick={handleDelete} style={{ marginRight: 'auto' }}>
-                <Trash2 size={15} /> Excluir
-              </button>
-            )}
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-            <button type="button" className="btn btn-success" onClick={handleConcluir} disabled={saving || clientes.length === 0} title="Salvar marcando a reunião como concluída">
-              <Check size={15} /> Concluir
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={saving || clientes.length === 0}>
-              {saving ? 'Salvando...' : recorrente && !editando ? `Criar ${Math.max(1, ocorrencias)} reuniões` : 'Salvar'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

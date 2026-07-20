@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { format, parse, parseISO, differenceInCalendarDays } from 'date-fns';
 import { useCarteira } from '../context/CarteiraContext';
 import { toastError } from '../utils/toast';
+import { ModalShell } from './ModalShell';
 import { ACAO_TIPOS, ACAO_TIPO_LABEL, type AcaoTipo, type Segmento } from '../types';
 
 interface AcaoFormModalProps {
@@ -66,13 +67,19 @@ export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFor
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{modo === 'nova' ? 'Nova ação (realizada)' : 'Agendar ação'}</h2>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body">
+    <ModalShell
+      title={modo === 'nova' ? 'Nova ação (realizada)' : 'Agendar ação'}
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      footer={
+        <>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+          <button type="submit" className="btn btn-primary" disabled={saving || clientes.length === 0}>
+            {saving ? 'Salvando...' : modo === 'nova' ? 'Registrar' : 'Agendar'}
+          </button>
+        </>
+      }
+    >
             <label className="field">
               Cliente
               <select className="field-input custom-select" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
@@ -101,16 +108,6 @@ export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFor
               Observação
               <textarea className="field-input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="O que foi tratado / o que planejar..." />
             </label>
-          </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn btn-primary" disabled={saving || clientes.length === 0}>
-              {saving ? 'Salvando...' : modo === 'nova' ? 'Registrar' : 'Agendar'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

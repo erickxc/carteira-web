@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { toastError } from '../utils/toast';
+import { ModalShell } from './ModalShell';
 import { TIPO_ANALISE_LABEL, type Cliente, type NovoCliente, type TipoAnalise } from '../types';
 
 interface ClientFormModalProps {
@@ -74,13 +75,19 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{editando ? 'Editar Cliente' : 'Novo Cliente'}</h2>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body">
+    <ModalShell
+      title={editando ? 'Editar Cliente' : 'Novo Cliente'}
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      footer={
+        <>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            {saving ? 'Salvando...' : segmentadoNovo ? `Criar ${lojasFinais.length || ''} loja(s)` : 'Salvar'}
+          </button>
+        </>
+      }
+    >
             {editando && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
                 <span className="badge badge-muted">
@@ -182,16 +189,6 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
               Observação
               <textarea className="field-input" value={observacao} onChange={(e) => setObservacao(e.target.value)} />
             </label>
-          </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Salvando...' : segmentadoNovo ? `Criar ${lojasFinais.length || ''} loja(s)` : 'Salvar'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 }
