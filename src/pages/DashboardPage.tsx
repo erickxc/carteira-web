@@ -139,13 +139,16 @@ export default function DashboardPage() {
         .slice(0, 3);
     }
 
-    const defs: { label: string; re: RegExp; flag: keyof Cliente; color: string }[] = [
-      { label: 'Monitoria', re: /monitor/i, flag: 'monitoria', color: '#bd952f' },
-      { label: 'Price', re: /(price|prec)/i, flag: 'price', color: '#9a9aa4' },
+    // `re` casa com o cadastro do cliente (servicos/flag); `tema` casa com o TIPO do
+    // evento na agenda — os tipos de evento são Reunião/Precificação/Contato/Relatório,
+    // não "Monitoria", então o tema de uma reunião de monitoria é "Reunião".
+    const defs: { label: string; re: RegExp; tema: RegExp; flag: keyof Cliente; color: string }[] = [
+      { label: 'Monitoria', re: /monitor/i, tema: /reuni/i, flag: 'monitoria', color: '#bd952f' },
+      { label: 'Price', re: /(price|prec)/i, tema: /(price|prec)/i, flag: 'price', color: '#9a9aa4' },
     ];
     const dist = defs.map((d) => {
       const n = atendidos.filter((c) => temProduto(c, d.re, d.flag)).length;
-      return { label: d.label, n, pct: total > 0 ? Math.round((n / total) * 100) : 0, color: d.color, top: topClientesPorTema(d.re) };
+      return { label: d.label, n, pct: total > 0 ? Math.round((n / total) * 100) : 0, color: d.color, top: topClientesPorTema(d.tema) };
     });
     return { servicosDist: dist, totalAtendidos: total };
     // eslint-disable-next-line react-hooks/exhaustive-deps
