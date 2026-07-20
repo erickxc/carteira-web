@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
 
 export interface DropdownOption {
@@ -18,22 +19,44 @@ interface DropdownProps {
   defaultValue?: string;
 }
 
-/** Dropdown padronizado para TODOS os filtros (single e múltipla escolha). */
+/**
+ * Dropdown padronizado para TODOS os filtros (single e múltipla escolha).
+ * O popover é renderizado via portal no <body> com posição fixa — assim nunca
+ * fica preso atrás da tabela (contexto de empilhamento dos cards).
+ */
 export function Dropdown({ label, options, value, onChange, multiple, defaultValue }: DropdownProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!open) return;
     function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!triggerRef.current?.contains(t) && !popRef.current?.contains(t)) setOpen(false);
+    }
+    function reposicionaOuFecha() {
+      if (triggerRef.current) setRect(triggerRef.current.getBoundingClientRect());
     }
     document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, []);
+    window.addEventListener('resize', reposicionaOuFecha);
+    window.addEventListener('scroll', reposicionaOuFecha, true);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      window.removeEventListener('resize', reposicionaOuFecha);
+      window.removeEventListener('scroll', reposicionaOuFecha, true);
+    };
+  }, [open]);
+
+  function toggleOpen() {
+    if (open) { setOpen(false); return; }
+    if (triggerRef.current) setRect(triggerRef.current.getBoundingClientRect());
+    setOpen(true);
+  }
 
   const arr = Array.isArray(value) ? value : [];
   const isSel = (v: string) => (multiple ? arr.includes(v) : value === v);
-
   const ativo = multiple ? arr.length > 0 : !!value && value !== (defaultValue ?? '');
   const triggerText = multiple ? label : (options.find((o) => o.value === value)?.label ?? label);
 
@@ -47,10 +70,11 @@ export function Dropdown({ label, options, value, onChange, multiple, defaultVal
   }
 
   return (
-    <div className={`relative min-w-0${open ? ' z-40' : ''}`} ref={ref}>
+    <div className="relative min-w-0">
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggleOpen}
         className={`filter-ctl w-full justify-between${ativo ? ' is-active' : ''}${open ? ' is-open' : ''}`}
       >
         <span className="truncate">
@@ -59,8 +83,13 @@ export function Dropdown({ label, options, value, onChange, multiple, defaultVal
         </span>
         <ChevronDown size={15} className="filter-ctl-chevron shrink-0" />
       </button>
-      {open && (
-        <div className="filter-pop">
+
+      {open && rect && createPortal(
+        <div
+          ref={popRef}
+          className="filter-pop"
+          style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width }}
+        >
           {options.length === 0 ? (
             <div className="px-3 py-2 text-[0.8rem] text-text-muted">Sem opções</div>
           ) : (
@@ -73,7 +102,8 @@ export function Dropdown({ label, options, value, onChange, multiple, defaultVal
               </button>
             ))
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
