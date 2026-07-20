@@ -30,7 +30,7 @@ export function StatCard({ title, value, icon: Icon, trend, trendUp, onClick }: 
           </p>
         )}
       </div>
-      <div className="w-[40px] h-[40px] rounded-[var(--radius-sm)] shrink-0 flex items-center justify-center bg-[var(--accent)] text-[color:var(--accent-contrast)] shadow-[0_2px_10px_rgba(189,149,47,0.35)]">
+      <div className="w-[40px] h-[40px] rounded-[var(--radius-sm)] shrink-0 flex items-center justify-center bg-[var(--accent)] text-[color:var(--accent-contrast)] shadow-[0_2px_10px_rgba(218,187,108,0.35)]">
         <Icon className="w-[20px] h-[20px]" />
       </div>
     </div>

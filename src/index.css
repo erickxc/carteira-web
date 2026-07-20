@@ -17,24 +17,37 @@
    =========================================================================== */
 
 :root {
-  /* Marca: PRETO predominante, BRANCO secundário, DOURADO escuro terciário */
+  /* Marca (paleta Coolors: coolors.co/25252c-dabb6c-304373-68818d-cc6300):
+     PRETO predominante (levemente mais quente/Shadow Grey), Soft Fawn como
+     acento principal, French Blue / Slate Grey / Burnt Caramel como cores
+     de apoio (tipos de evento, gráficos secundários). Validada antes só no
+     Dashboard (classe .theme-coolors-test, removida) e agora promovida
+     para todo o app. */
   --bg: #0b0b0d;
-  --card: #151519;
-  --card-hover: #1c1c22;
-  --sidebar: #060607;
+  --card: #131316;
+  --card-hover: #1a1a1e;
+  --sidebar: #08080a;
 
-  --border: #26262c;
-  --border-strong: #37373f;
+  --border: #222226;
+  --border-strong: #2c2c31;
 
   --text-primary: #f4f4f2;
   --text-secondary: #a6a6ad;
   --text-muted: #6d6d76;
 
-  --accent: #bd952f;
-  --accent-hover: #d3ab45;
-  --accent-soft: rgba(189, 149, 47, 0.14);
+  --accent: #dabb6c;
+  --accent-hover: #e8cc86;
+  --accent-soft: rgba(218, 187, 108, 0.16);
   --accent-contrast: #0b0b0d;
 
+  /* Cores de apoio da paleta (tipos de evento, gráficos, variedade visual) */
+  --accent-secondary: #304373;
+  --accent-secondary-soft: rgba(48, 67, 115, 0.22);
+  --accent-tertiary: #68818d;
+  --alert-warm: #cc6300;
+
+  /* Semânticas (sucesso/erro/atenção) — mantidas fixas por convenção universal,
+     não seguem o rebrand de marca. */
   --success: #4cae7a;
   --success-bg: rgba(76, 174, 122, 0.14);
   --danger: #e0645c;
@@ -48,36 +61,6 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 14px 34px rgba(0, 0, 0, 0.6);
-}
-
-/* ---------------------------------------------------------------------------
-   TESTE de paleta (Coolors: coolors.co/25252c-dabb6c-304373-68818d-cc6300)
-   Aplicado só no Dashboard (classe .theme-coolors-test) para avaliação —
-   sobrescreve as variáveis de marca sem afetar o resto do app.
-   Shadow Grey (25252c) → card/sidebar · Soft Fawn (dabb6c) → acento
-   French Blue (304373) → acento secundário (gráficos) · Slate Grey (68818d) → neutro secundário
-   Burnt Caramel (cc6300) → destaque de alerta
-   --------------------------------------------------------------------------- */
-.theme-coolors-test {
-  /* Fundo volta a ser o original (preto quase puro) — os cards (Shadow Grey)
-     é que se aproximam dele, em vez do fundo clarear para perto do card. */
-  --bg: #0b0b0d;
-  --card: #131316;
-  --card-hover: #1a1a1e;
-  --sidebar: #08080a;
-
-  --border: #222226;
-  --border-strong: #2c2c31;
-
-  --accent: #dabb6c;
-  --accent-hover: #e8cc86;
-  --accent-soft: rgba(218, 187, 108, 0.16);
-  --accent-contrast: #1a1a20;
-
-  --accent-secondary: #304373;
-  --accent-secondary-soft: rgba(48, 67, 115, 0.22);
-  --accent-tertiary: #68818d;
-  --alert-warm: #cc6300;
 }
 
 * {

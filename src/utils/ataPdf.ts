@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import { format, parseISO } from 'date-fns';
 import type { EventoAgenda } from '../types';
 
-const GOLD: [number, number, number] = [189, 149, 47];
+const GOLD: [number, number, number] = [218, 187, 108];
 const DARK: [number, number, number] = [20, 20, 22];
 const MUT: [number, number, number] = [110, 110, 118];
 const TXT: [number, number, number] = [38, 38, 42];

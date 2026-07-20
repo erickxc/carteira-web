@@ -12,10 +12,10 @@ interface DonutChartProps {
   colors?: string[];
 }
 
-// Paleta da marca: dourado escuro + neutros (preto/cinza).
-// Identidade nunca é só cor: há legenda com rótulo + valor + %, e um <title>
-// por fatia no hover.
-const RAMP = ['#bd952f', '#e0c473', '#f4f4f2', '#8a8a92', '#5a5a62', '#9c7d2a'];
+// Paleta da marca: Soft Fawn (acento) + French Blue/Slate Grey/Burnt Caramel
+// (apoio) + neutros. Identidade nunca é só cor: há legenda com rótulo + valor
+// + %, e um <title> por fatia no hover.
+const RAMP = ['#dabb6c', '#6f8cc4', '#8aa3ad', '#e0975a', '#f4f4f2', '#5a5a62'];
 
 export function DonutChart({ items, size = 168, thickness = 26, centerValue, centerLabel, colors }: DonutChartProps) {
   const ramp = colors ?? RAMP;

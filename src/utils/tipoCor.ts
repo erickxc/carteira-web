@@ -1,11 +1,14 @@
 /** Cor por TIPO de evento (Reunião/Precificação/Contato/Relatório/...), consistente
- * em todo o app. Tipos conhecidos têm cor fixa; desconhecidos caem num hash
- * determinístico sobre uma paleta de reserva (nunca quebra com categoria nova). */
+ * em todo o app. Tipos conhecidos têm cor fixa — tons derivados da paleta de
+ * marca (Soft Fawn/French Blue/Slate Grey/Burnt Caramel), clareados o
+ * suficiente para servirem de texto legível sobre fundo quase preto — e
+ * desconhecidos caem num hash determinístico sobre uma paleta de reserva
+ * (nunca quebra com categoria nova). */
 const CORES_CONHECIDAS: Record<string, string> = {
-  'Reunião': '#bd952f',
-  'Precificação': '#5a9bd4',
-  'Contato': '#4cae7a',
-  'Relatório': '#c77dba',
+  'Reunião': '#dabb6c',
+  'Precificação': '#6f8cc4',
+  'Contato': '#8aa3ad',
+  'Relatório': '#e0975a',
 };
 
 const PALETA_RESERVA = ['#d69a3c', '#7b8794', '#e0645c', '#6dc0d1'];
