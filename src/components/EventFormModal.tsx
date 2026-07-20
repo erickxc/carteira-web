@@ -24,7 +24,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
   const servicoOpcoes = opcoesPorTipo('servico');
   const editando = !!initial;
 
-  const [clientId, setClientId] = useState(initial?.clientId ?? initialClientId ?? clientes[0]?.id ?? '');
+  const [clientId, setClientId] = useState(initial?.clientId ?? initialClientId ?? '');
   const [subject, setSubject] = useState(initial?.subject ?? '');
   const [type, setType] = useState(initial?.type ?? tipoOpcoes[0] ?? '');
   const [date, setDate] = useState(format(initial ? new Date(initial.date) : defaultDate ?? new Date(), 'yyyy-MM-dd'));

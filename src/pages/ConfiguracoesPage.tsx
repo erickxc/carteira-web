@@ -136,7 +136,7 @@ function ModelosCard() {
       <div className="field" style={{ marginBottom: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 600 }}>{editando ? 'Editando modelo' : 'Novo modelo'}</span>
         <div className="flex-row" style={{ gap: 8, marginBottom: 8 }}>
-          <select className="field-input" value={novoSeg} onChange={(e) => setNovoSeg(e.target.value as Segmento)} style={{ maxWidth: 160 }}>
+          <select className="field-input custom-select" value={novoSeg} onChange={(e) => setNovoSeg(e.target.value as Segmento)} style={{ maxWidth: 160 }}>
             {SEGMENTOS.map((s) => <option key={s} value={s}>{SEGMENTO_LABEL[s]}</option>)}
           </select>
           <input className="field-input" placeholder="Título" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
