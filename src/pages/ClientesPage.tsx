@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { FileUp, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
-import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { useSearchFilter } from '../hooks/useSearchFilter';
 import { truthy } from '../utils/formatters';
 import { clienteStatusBadge } from '../utils/badges';
 import { toastError, toastSuccess } from '../utils/toast';
@@ -26,8 +26,7 @@ export default function ClientesPage() {
   const navigate = useNavigate();
   const hoje = new Date();
 
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebouncedValue(search, 200);
+  const { value: search, debounced: debouncedSearch, setValue: setSearch } = useSearchFilter();
   const [fMonitores, setFMonitores] = useState<string[]>([]);
   const [fTipoAnalise, setFTipoAnalise] = useState<string>('Todos');
   const [fServicos, setFServicos] = useState<string[]>([]);

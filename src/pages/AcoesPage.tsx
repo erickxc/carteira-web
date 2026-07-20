@@ -8,7 +8,7 @@ import { AcaoFormModal } from '../components/AcaoFormModal';
 import { Dropdown } from '../components/Dropdown';
 import { CardCliente } from '../components/acoes/CardCliente';
 import { Grupo } from '../components/acoes/Grupo';
-import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { useSearchFilter } from '../hooks/useSearchFilter';
 import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
 import { confirmDialog } from '../utils/confirmDialog';
 import { isStatusAtivo } from '../utils/formatters';
@@ -27,16 +27,14 @@ export default function AcoesPage() {
   const [aba, setAba] = useState<'acompanhamento' | 'acoes'>('acompanhamento');
   const [visaoAcompanhamento, setVisaoAcompanhamento] = useState<'grupos' | 'sugestoes'>('grupos');
   const [modal, setModal] = useState<{ modo: 'nova' | 'agendar'; clienteId?: string; tipo?: AcaoTipo } | null>(null);
-  const [fCliente, setFCliente] = useState('');
-  const debouncedFCliente = useDebouncedValue(fCliente, 200);
+  const { value: fCliente, debounced: debouncedFCliente, setValue: setFCliente } = useSearchFilter();
   const [fTipos, setFTipos] = useState<string[]>([]);
   const [fOrigem, setFOrigem] = useState<string[]>([]);
   const [fStatus, setFStatus] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'data' | 'cliente' | 'tipo' | 'origem' | 'status'>('data');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc'); // padrão: mais recente
   // filtros da aba Acompanhamento
-  const [acCliente, setAcCliente] = useState('');
-  const debouncedAcCliente = useDebouncedValue(acCliente, 200);
+  const { value: acCliente, debounced: debouncedAcCliente, setValue: setAcCliente } = useSearchFilter();
   const [acMonitores, setAcMonitores] = useState<string[]>([]);
   const [acProdutos, setAcProdutos] = useState<string[]>([]);
   const [acOrd, setAcOrd] = useState('contato-recente');
