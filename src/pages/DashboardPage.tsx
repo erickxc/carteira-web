@@ -265,8 +265,10 @@ export default function DashboardPage() {
                 colors={['#bd952f', '#3c3c44']}
                 centerValue={`${cobertura.pct}%`}
                 centerLabel="cobertura"
+                size={116}
+                thickness={16}
               />
-              <p className="text-muted" style={{ fontSize: 12, marginTop: '0.85rem' }}>
+              <p className="text-muted" style={{ fontSize: 11, marginTop: '0.6rem' }}>
                 Base: {cobertura.total} clientes ativos — suspensos não entram na cobertura.
               </p>
             </>
