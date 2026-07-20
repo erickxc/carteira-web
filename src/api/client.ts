@@ -93,6 +93,7 @@ function deserializeEvento(raw: Record<string, unknown>): EventoAgenda {
     description: (raw.description as string) ?? '',
     time: (raw.time as string) ?? '',
     ata: (raw.ata as string) ?? '',
+    resumo: (raw.resumo as string) ?? '',
   };
 }
 

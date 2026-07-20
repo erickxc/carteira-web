@@ -1312,6 +1312,9 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 
 /* --- Modal largo (evento) + tabela de pré-análise --- */
 .modal.modal-lg { width: min(720px, 100%); }
+/* Garante que o <form> ocupe o modal e só o corpo role (rodapé fixo, sem cortar). */
+.modal > form { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.modal > form > .modal-body { flex: 1; min-height: 0; }
 .pa-table { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
 .pa-row { display: grid; grid-template-columns: 1fr 1fr 1.4fr auto; gap: 6px; align-items: center; }
 .pa-row.pa-head { padding: 0 2px; }

@@ -151,7 +151,8 @@ export default function AgendaPage() {
   }
 
   function concluir(ev: EventoAgenda) {
-    atualizarEvento(ev.id, { status: statusConcluido, ata: gerarAta(ev) });
+    // Não sobrescreve ata editada manualmente.
+    atualizarEvento(ev.id, { status: statusConcluido, ata: ev.ata?.trim() ? ev.ata : gerarAta(ev) });
   }
 
   function tituloPeriodo() {

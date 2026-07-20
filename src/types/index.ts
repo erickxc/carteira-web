@@ -106,8 +106,10 @@ export interface EventoAgenda {
   checklist?: ChecklistItem[];
   /** Pré-análise (preparação) — disponível após criar a reunião. */
   preAnalise?: PreAnalise;
-  /** Ata da reunião — gerada automaticamente (checklist + pré-análise). */
+  /** Ata da reunião — gerada automaticamente (editável). */
   ata?: string;
+  /** Resumo da reunião (texto livre). */
+  resumo?: string;
   attachments: Anexo[];
   status: EventoStatus;
   /** Id da série de recorrência (agrupa ocorrências geradas juntas). */

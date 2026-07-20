@@ -37,6 +37,8 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
   const [orientacoes, setOrientacoes] = useState<OrientacaoItem[]>(initial?.preAnalise?.orientacoes ?? []);
   const [clientesGeral, setClientesGeral] = useState(initial?.preAnalise?.clientesGeral ?? '');
   const [produtosGeral, setProdutosGeral] = useState(initial?.preAnalise?.produtosGeral ?? '');
+  const [ata, setAta] = useState(initial?.ata ?? '');
+  const [resumo, setResumo] = useState(initial?.resumo ?? '');
   const [lembreteAntes, setLembreteAntes] = useState<'none' | '1h' | '1d' | '2d' | '7d'>('none');
   const [recorrente, setRecorrente] = useState(false);
   const [freq, setFreq] = useState<Freq>('semanal');
@@ -66,8 +68,8 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
   const removeOrientacao = (id: string) => setOrientacoes((prev) => prev.filter((o) => o.id !== id));
 
   const preAnalise = { orientacoes, clientesGeral, produtosGeral };
-  // Ata gerada automaticamente (prévia ao vivo).
-  const ataPreview = gerarAta({
+  // Ata automática (base para o botão "Gerar" e para preencher se vazia).
+  const ataAuto = gerarAta({
     clientName: clientes.find((c) => c.id === clientId)?.empresa ?? '',
     date: parse(date, 'yyyy-MM-dd', new Date()).toISOString(),
     time, type, checklist, preAnalise, description,
@@ -97,10 +99,11 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
       const baseData = parse(date, 'yyyy-MM-dd', new Date());
       const comum = {
         clientId, clientName: cliente.empresa, subject, type, time,
-        duracao: duracao || undefined, description, status, servicos, preAnalise,
+        duracao: duracao || undefined, description, status, servicos, preAnalise, resumo,
       };
+      // Ata manual tem prioridade; se vazia, gera automaticamente.
       const ataDe = (iso: string, cl: ChecklistItem[]) =>
-        gerarAta({ clientName: cliente.empresa, date: iso, time, type, checklist: cl, preAnalise, description });
+        ata.trim() ? ata : gerarAta({ clientName: cliente.empresa, date: iso, time, type, checklist: cl, preAnalise, description });
       async function lembretePara(evId: string, d: Date) {
         if (lembreteAntes === 'none') return;
         const [h, m] = (time || '09:00').split(':').map(Number);
@@ -314,9 +317,19 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
               </div>
             )}
 
+            <label className="field">
+              Resumo da Reunião
+              <textarea className="field-input" value={resumo} onChange={(e) => setResumo(e.target.value)} rows={3} placeholder="Resumo do que foi tratado na reunião..." />
+            </label>
+
             <div className="field">
-              Ata <span className="text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· gerada automaticamente</span>
-              <textarea className="field-input" value={ataPreview} readOnly rows={4} style={{ color: 'var(--text-secondary)', background: 'var(--bg)' }} />
+              <div className="flex-between" style={{ marginBottom: 2 }}>
+                <span>Ata <span className="text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· automática, editável</span></span>
+                <button type="button" className="btn btn-secondary" style={{ padding: '0.25rem 0.55rem', fontSize: 12 }} onClick={() => setAta(ataAuto)}>
+                  Gerar automática
+                </button>
+              </div>
+              <textarea className="field-input" value={ata} onChange={(e) => setAta(e.target.value)} rows={5} placeholder="Vazia = gerada automaticamente ao salvar (pré-análise + checklist). Você pode editar." />
             </div>
 
             <label className="field">
