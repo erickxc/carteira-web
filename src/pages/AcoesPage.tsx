@@ -44,6 +44,8 @@ export default function AcoesPage() {
   const [fCliente, setFCliente] = useState('');
   const [fTipos, setFTipos] = useState<string[]>([]);
   const [fOrigem, setFOrigem] = useState<string[]>([]);
+  const [fStatus, setFStatus] = useState<string[]>([]);
+  const [ordenacao, setOrdenacao] = useState<'recente' | 'antiga' | 'cliente' | 'status'>('recente');
 
   const nomeCliente = (id: string) => clientes.find((c) => c.id === id)?.empresa ?? '—';
 
@@ -93,15 +95,23 @@ export default function AcoesPage() {
   }, [clientes, info]);
 
   const tipoOpcoes = useMemo(() => [...new Set(itens.map((i) => i.tipoLabel))].sort(), [itens]);
+  const statusOpcoes = useMemo(() => [...new Set(itens.map((i) => i.statusLabel))].filter(Boolean).sort(), [itens]);
 
   const itensFiltrados = useMemo(() => {
     const termo = fCliente.trim().toLowerCase();
-    return itens
+    const lista = itens
       .filter((i) => !termo || nomeCliente(i.clientId).toLowerCase().includes(termo))
       .filter((i) => fTipos.length === 0 || fTipos.includes(i.tipoLabel))
-      .filter((i) => fOrigem.length === 0 || fOrigem.includes(i.origem));
+      .filter((i) => fOrigem.length === 0 || fOrigem.includes(i.origem))
+      .filter((i) => fStatus.length === 0 || fStatus.includes(i.statusLabel));
+    const cmpData = (a: Item, b: Item) => b.date.getTime() - a.date.getTime();
+    if (ordenacao === 'antiga') lista.sort((a, b) => a.date.getTime() - b.date.getTime());
+    else if (ordenacao === 'cliente') lista.sort((a, b) => nomeCliente(a.clientId).localeCompare(nomeCliente(b.clientId)) || cmpData(a, b));
+    else if (ordenacao === 'status') lista.sort((a, b) => a.statusLabel.localeCompare(b.statusLabel) || cmpData(a, b));
+    else lista.sort(cmpData); // recente (padrão)
+    return lista;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itens, fCliente, fTipos, fOrigem, clientes]);
+  }, [itens, fCliente, fTipos, fOrigem, fStatus, ordenacao, clientes]);
 
   const produtos = (c: Cliente) => {
     const out: string[] = [];
@@ -209,6 +219,13 @@ export default function AcoesPage() {
               </label>
               <Dropdown label="Tipo" multiple options={tipoOpcoes.map((t) => ({ value: t, label: t }))} value={fTipos} onChange={(v) => setFTipos(v as string[])} />
               <Dropdown label="Origem" multiple options={[{ value: 'reuniao', label: 'Reunião' }, { value: 'acao', label: 'Ação registrada' }]} value={fOrigem} onChange={(v) => setFOrigem(v as string[])} />
+              <Dropdown label="Status" multiple options={statusOpcoes.map((s) => ({ value: s, label: s }))} value={fStatus} onChange={(v) => setFStatus(v as string[])} />
+              <Dropdown label="Ordenar" defaultValue="recente" options={[
+                { value: 'recente', label: 'Mais recente' },
+                { value: 'antiga', label: 'Mais antiga' },
+                { value: 'cliente', label: 'Cliente (A-Z)' },
+                { value: 'status', label: 'Status' },
+              ]} value={ordenacao} onChange={(v) => setOrdenacao(v as typeof ordenacao)} />
             </div>
           </div>
 
