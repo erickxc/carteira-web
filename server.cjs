@@ -307,7 +307,13 @@ app.get('/api/clients', (req, res) => {
 
 app.post('/api/clients', (req, res) => {
   const data = getSheetData('Clientes');
-  const newClient = syncClienteColumns(req.body);
+  // id gerado aqui, não confiado do cliente (o frontend já usa a resposta desta
+  // rota, não o id que ele mesmo enviou, para popular o estado local — troca
+  // segura, sem mudança de contrato). O create em lote abaixo é a exceção: ainda
+  // confia no id do cliente, pois o caller (criarClientesEmLote) usa os ids que
+  // ele mesmo gerou para popular o estado local sem reler a resposta — mudar
+  // exigiria também mudar esse contrato, fora do escopo desta correção pontual.
+  const newClient = syncClienteColumns({ ...req.body, id: crypto.randomUUID() });
   data.push(newClient);
   saveSheetData('Clientes', data);
   res.json(newClient);
@@ -389,7 +395,10 @@ function gravarReuniaoJson(ev) {
 
 app.post('/api/agenda', (req, res) => {
   const data = getSheetData('Agenda');
-  const newItem = req.body;
+  // id gerado aqui (não confiado do cliente) — o frontend já usa a resposta
+  // desta rota (não o id que ele mesmo enviou) para popular estado local e
+  // encadear ações seguintes (ex.: criar lembrete vinculado ao evento recém-criado).
+  const newItem = { ...req.body, id: crypto.randomUUID() };
   data.push(newItem);
   saveSheetData('Agenda', data);
   gravarReuniaoJson(newItem);
@@ -433,7 +442,8 @@ app.get('/api/reminders', (req, res) => {
 
 app.post('/api/reminders', (req, res) => {
   const data = getSheetData('Lembretes');
-  const newItem = req.body;
+  // id gerado aqui, mesma razão das rotas de Clientes/Agenda acima.
+  const newItem = { ...req.body, id: crypto.randomUUID() };
   data.push(newItem);
   saveSheetData('Lembretes', data);
   res.json(newItem);
