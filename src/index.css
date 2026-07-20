@@ -196,9 +196,11 @@ a { color: inherit; }
 .stat-card-sm { padding: 1.4rem 1.4rem 1.4rem 1.6rem; overflow: hidden; }
 .stat-card-accent-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
 .dash-hero .cobertura-card { margin-bottom: 0; padding: 0.85rem 1rem; display: flex; flex-direction: column; }
-.dash-hero .cobertura-card .section-header { margin-bottom: 0.6rem; }
-.dash-hero .cobertura-card .donut-wrap { gap: 1rem; }
-.dash-hero .cobertura-card .donut-legend li { font-size: 0.78rem; }
+.dash-hero .cobertura-card .section-header { margin-bottom: 0.5rem; }
+.dash-hero .cobertura-card .donut-wrap { justify-content: center; }
+.dash-hero .cobertura-card .donut-legend { display: none; }
+.dash-hero .cobertura-card .donut-center-value { font-size: 1.05rem; }
+.dash-hero .cobertura-card .donut-center-label { font-size: 0.56rem; }
 @media (max-width: 1080px) { .dash-hero { grid-template-columns: 1fr; } }
 
 .section-header {
