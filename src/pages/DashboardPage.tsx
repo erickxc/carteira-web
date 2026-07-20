@@ -256,22 +256,17 @@ export default function DashboardPage() {
           {cobertura.total === 0 ? (
             <div className="empty-state">Nenhum cliente ativo.</div>
           ) : (
-            <>
-              <DonutChart
-                items={[
-                  { label: 'Atendidos', value: cobertura.cobertos },
-                  { label: 'Sem contato', value: cobertura.semContato },
-                ]}
-                colors={['#bd952f', '#3c3c44']}
-                centerValue={`${cobertura.pct}%`}
-                centerLabel="cobertura"
-                size={116}
-                thickness={16}
-              />
-              <p className="text-muted" style={{ fontSize: 11, marginTop: '0.6rem' }}>
-                Base: {cobertura.total} clientes ativos — suspensos não entram na cobertura.
-              </p>
-            </>
+            <DonutChart
+              items={[
+                { label: 'Atendidos', value: cobertura.cobertos },
+                { label: 'Sem contato', value: cobertura.semContato },
+              ]}
+              colors={['#bd952f', '#3c3c44']}
+              centerValue={`${cobertura.pct}%`}
+              centerLabel="cobertura"
+              size={96}
+              thickness={13}
+            />
           )}
         </div>
       </div>

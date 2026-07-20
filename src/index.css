@@ -193,10 +193,12 @@ a { color: inherit; }
 .dash-hero .stat-grid { margin-bottom: 0; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 
 /* StatCard compacto (topo do dashboard) com barra de acento à esquerda */
-.stat-card-sm { padding: 1.1rem 1.25rem 1.1rem 1.4rem; overflow: hidden; }
+.stat-card-sm { padding: 1.4rem 1.4rem 1.4rem 1.6rem; overflow: hidden; }
 .stat-card-accent-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
-.dash-hero .cobertura-card { margin-bottom: 0; padding: 1rem 1.15rem; display: flex; flex-direction: column; }
-.dash-hero .cobertura-card .donut-wrap { gap: 1.15rem; }
+.dash-hero .cobertura-card { margin-bottom: 0; padding: 0.85rem 1rem; display: flex; flex-direction: column; }
+.dash-hero .cobertura-card .section-header { margin-bottom: 0.6rem; }
+.dash-hero .cobertura-card .donut-wrap { gap: 1rem; }
+.dash-hero .cobertura-card .donut-legend li { font-size: 0.78rem; }
 @media (max-width: 1080px) { .dash-hero { grid-template-columns: 1fr; } }
 
 .section-header {
