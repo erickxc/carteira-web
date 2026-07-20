@@ -263,9 +263,8 @@ export default function DashboardPage() {
               ]}
               colors={['#bd952f', '#3c3c44']}
               centerValue={`${cobertura.pct}%`}
-              centerLabel="cobertura"
-              size={76}
-              thickness={10}
+              size={96}
+              thickness={13}
             />
           )}
         </div>
