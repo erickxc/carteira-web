@@ -5,14 +5,16 @@ import {
   format, isSameDay, isSameMonth, parse, parseISO, startOfMonth, startOfWeek, subMonths, subWeeks,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, LayoutGrid, Paperclip, Plus } from 'lucide-react';
+import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, LayoutGrid, Paperclip, Plus, Printer } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { EventFormModal } from '../components/EventFormModal';
+import { Dropdown } from '../components/Dropdown';
 import { formatHolidayLabel, getHoliday } from '../utils/holidays';
 import { eventoStatusBadge } from '../utils/badges';
 import type { EventoAgenda } from '../types';
 
 const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const TYPE_PALETTE = ['#bd952f', '#5a9bd4', '#4cae7a', '#c77dba', '#d69a3c', '#7b8794'];
 
 interface AgendaLocationState { focusDate?: string; openNewEvent?: boolean; }
 
@@ -33,7 +35,7 @@ function ordenaPorHora(a: EventoAgenda, b: EventoAgenda) {
 }
 
 export default function AgendaPage() {
-  const { agenda, atualizarEvento, opcoesPorTipo } = useCarteira();
+  const { agenda, clientes, atualizarEvento, opcoesPorTipo } = useCarteira();
   const location = useLocation();
   const navigate = useNavigate();
   const hoje = new Date();
@@ -43,11 +45,35 @@ export default function AgendaPage() {
   const [modalState, setModalState] = useState<{ editing?: EventoAgenda; defaultDate?: Date } | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  const [fMonitores, setFMonitores] = useState<string[]>([]);
+  const [fTipos, setFTipos] = useState<string[]>([]);
 
   const statusConcluido = useMemo(
     () => opcoesPorTipo('status_evento').find((s) => /conclu|realiz/i.test(s)) ?? 'Concluído',
     [opcoesPorTipo]
   );
+
+  const monitorPorCliente = useMemo(() => {
+    const m = new Map<string, string>();
+    clientes.forEach((c) => m.set(c.id, c.monitor || ''));
+    return m;
+  }, [clientes]);
+  const monitorOpcoes = useMemo(() => [...new Set(clientes.map((c) => c.monitor).filter(Boolean))].sort(), [clientes]);
+  const tiposUnicos = useMemo(() => [...new Set(agenda.map((a) => a.type).filter(Boolean))].sort(), [agenda]);
+  const corTipo = (t: string) => TYPE_PALETTE[Math.max(0, tiposUnicos.indexOf(t)) % TYPE_PALETTE.length];
+
+  // Agenda com filtros de monitor/tipo aplicados (para exibição).
+  const agendaFiltrada = useMemo(
+    () => agenda.filter((a) =>
+      (fMonitores.length === 0 || fMonitores.includes(monitorPorCliente.get(a.clientId) || '')) &&
+      (fTipos.length === 0 || fTipos.includes(a.type))),
+    [agenda, fMonitores, fTipos, monitorPorCliente]
+  );
+
+  function gerarAta(ev: EventoAgenda): string {
+    const linhas = (ev.checklist ?? []).map((i) => `${i.done ? '[x]' : '[ ]'} ${i.text}`);
+    return [`Ata — ${format(parseISO(ev.date), 'dd/MM/yyyy')}`, ...linhas, ev.description ? `\n${ev.description}` : ''].filter(Boolean).join('\n');
+  }
 
   useEffect(() => {
     const state = location.state as AgendaLocationState | null;
@@ -60,19 +86,19 @@ export default function AgendaPage() {
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, EventoAgenda[]>();
-    agenda.forEach((item) => {
+    agendaFiltrada.forEach((item) => {
       const key = format(parseISO(item.date), 'yyyy-MM-dd');
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(item);
     });
     for (const list of map.values()) list.sort(ordenaPorHora);
     return map;
-  }, [agenda]);
+  }, [agendaFiltrada]);
 
   // Conflitos: mesmo dia + mesma hora (não vazia).
   const conflitos = useMemo(() => {
     const m = new Map<string, string[]>();
-    agenda.forEach((a) => {
+    agendaFiltrada.forEach((a) => {
       if (!a.time) return;
       const k = `${format(parseISO(a.date), 'yyyy-MM-dd')}|${a.time}`;
       if (!m.has(k)) m.set(k, []);
@@ -81,15 +107,15 @@ export default function AgendaPage() {
     const s = new Set<string>();
     m.forEach((ids) => { if (ids.length > 1) ids.forEach((id) => s.add(id)); });
     return s;
-  }, [agenda]);
+  }, [agendaFiltrada]);
 
   const proximos = useMemo(
-    () => agenda
+    () => agendaFiltrada
       .filter((a) => differenceInCalendarDays(parseISO(a.date), hoje) >= 0)
       .sort((a, b) => (parseISO(a.date).getTime() - parseISO(b.date).getTime()) || ordenaPorHora(a, b))
       .slice(0, 10),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agenda]
+    [agendaFiltrada]
   );
 
   const monthDays = useMemo(() => {
@@ -119,7 +145,9 @@ export default function AgendaPage() {
   }
 
   function concluir(ev: EventoAgenda) {
-    atualizarEvento(ev.id, { status: statusConcluido });
+    const patch: Partial<EventoAgenda> = { status: statusConcluido };
+    if ((ev.checklist?.length ?? 0) > 0 && !ev.ata) patch.ata = gerarAta(ev);
+    atualizarEvento(ev.id, patch);
   }
 
   function tituloPeriodo() {
@@ -134,7 +162,8 @@ export default function AgendaPage() {
   function CardEvento({ ev }: { ev: EventoAgenda }) {
     return (
       <button
-        className={`kanban-card ${chipClass(ev.status)}${draggedId === ev.id ? ' is-dragging' : ''}`}
+        className={`kanban-card${draggedId === ev.id ? ' is-dragging' : ''}${/conclu|realiz/i.test(ev.status) ? ' is-done' : ''}`}
+        style={{ borderLeftColor: corTipo(ev.type) }}
         draggable
         onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); setDraggedId(ev.id); }}
         onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
@@ -164,7 +193,7 @@ export default function AgendaPage() {
       </div>
 
       {/* Faixa de próximas reuniões */}
-      <div className="section" style={{ marginTop: '1rem' }}>
+      <div className="section agenda-noprint" style={{ marginTop: '1rem' }}>
         <div className="section-header"><h3>Próximas reuniões</h3><span className="text-muted" style={{ fontSize: 12 }}>{proximos.length}</span></div>
         {proximos.length === 0 ? (
           <div className="glass-card glass-card-flat"><div className="empty-state">Nenhuma reunião futura.</div></div>
@@ -201,7 +230,27 @@ export default function AgendaPage() {
             <button className="btn btn-secondary" style={{ padding: '0.45rem 0.8rem' }} onClick={irHoje}>Hoje</button>
             <button className="btn btn-secondary btn-icon" onClick={irAnterior} aria-label="Anterior"><ChevronLeft size={18} /></button>
             <button className="btn btn-secondary btn-icon" onClick={irProximo} aria-label="Próximo"><ChevronRight size={18} /></button>
+            <button className="btn btn-secondary btn-icon agenda-noprint" onClick={() => window.print()} aria-label="Imprimir / PDF" title="Imprimir / exportar PDF"><Printer size={16} /></button>
           </div>
+        </div>
+
+        {/* Filtros + legenda de tipos */}
+        <div className="agenda-toolbar agenda-noprint">
+          <div className="flex-row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 150 }}>
+              <Dropdown label="Monitor" multiple options={monitorOpcoes.map((m) => ({ value: m, label: m }))} value={fMonitores} onChange={(v) => setFMonitores(v as string[])} />
+            </div>
+            <div style={{ minWidth: 150 }}>
+              <Dropdown label="Tipo" multiple options={tiposUnicos.map((t) => ({ value: t, label: t }))} value={fTipos} onChange={(v) => setFTipos(v as string[])} />
+            </div>
+          </div>
+          {view === 'kanban' && (
+            <div className="agenda-legend-tipos">
+              {tiposUnicos.map((t) => (
+                <span key={t}><i style={{ background: corTipo(t) }} /> {t}</span>
+              ))}
+            </div>
+          )}
         </div>
 
         {view === 'mes' ? (

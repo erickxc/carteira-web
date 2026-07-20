@@ -52,7 +52,7 @@ if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 // monitoria/price/controladoria + suspenso são mantidas e sincronizadas a
 // partir de servicos/status no save, para não quebrar o schema real na virada.
 const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'observacao', 'status', 'atendidoMarco', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'userId'];
-const AGENDA_HEADERS = ['id', 'createdAt', 'clientId', 'clientName', 'type', 'subject', 'date', 'time', 'duracao', 'description', 'status', 'servicos', 'checklist', 'serie', 'attachments', 'userId'];
+const AGENDA_HEADERS = ['id', 'createdAt', 'clientId', 'clientName', 'type', 'subject', 'date', 'time', 'duracao', 'description', 'status', 'servicos', 'checklist', 'ata', 'serie', 'attachments', 'userId'];
 const LEMBRETES_HEADERS = ['id', 'createdAt', 'title', 'datetime', 'description', 'status', 'clientId', 'eventId', 'recurrence', 'type', 'userId'];
 const CATEGORIAS_HEADERS = ['id', 'tipo', 'valor', 'ordem', 'createdAt'];
 const ACOES_HEADERS = ['id', 'clientId', 'tipo', 'segmento', 'status', 'notes', 'dueAt', 'createdAt', 'updatedAt'];

@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
-import { addMonths, addWeeks, format, parse } from 'date-fns';
+import { addMonths, addWeeks, format, parse, setHours, setMinutes, subDays, subHours } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import { AlertTriangle, Check, Paperclip, Plus, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
@@ -16,7 +16,7 @@ interface EventFormModalProps {
 type Freq = 'semanal' | 'quinzenal' | 'mensal';
 
 export function EventFormModal({ initial, defaultDate, initialClientId, onClose }: EventFormModalProps) {
-  const { clientes, agenda, criarEvento, atualizarEvento, removerEvento, enviarAnexoEvento, removerAnexoEvento, opcoesPorTipo } = useCarteira();
+  const { clientes, agenda, criarEvento, atualizarEvento, removerEvento, enviarAnexoEvento, removerAnexoEvento, criarLembrete, opcoesPorTipo } = useCarteira();
   const tipoOpcoes = opcoesPorTipo('tipo_evento');
   const statusOpcoes = opcoesPorTipo('status_evento');
   const servicoOpcoes = opcoesPorTipo('servico');
@@ -33,6 +33,8 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
   const [servicos, setServicos] = useState<string[]>(initial?.servicos ?? []);
   const [checklist, setChecklist] = useState<ChecklistItem[]>(initial?.checklist ?? []);
   const [novoItem, setNovoItem] = useState('');
+  const [ata, setAta] = useState(initial?.ata ?? '');
+  const [lembreteAntes, setLembreteAntes] = useState<'none' | '1h' | '1d' | '2d' | '7d'>('none');
   const [recorrente, setRecorrente] = useState(false);
   const [freq, setFreq] = useState<Freq>('semanal');
   const [ocorrencias, setOcorrencias] = useState(4);
@@ -53,6 +55,12 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
   }
   const toggleItem = (id: string) => setChecklist((prev) => prev.map((i) => (i.id === id ? { ...i, done: !i.done } : i)));
   const removeItem = (id: string) => setChecklist((prev) => prev.filter((i) => i.id !== id));
+
+  function gerarAtaDoChecklist() {
+    const linhas = checklist.map((i) => `${i.done ? '[x]' : '[ ]'} ${i.text}`);
+    const cab = `Ata — ${date.split('-').reverse().join('/')}`;
+    setAta([cab, ...linhas, description ? `\n${description}` : ''].filter(Boolean).join('\n'));
+  }
 
   // Conflito: outra reunião no mesmo dia e horário.
   const conflito = time
@@ -78,22 +86,34 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
       const baseData = parse(date, 'yyyy-MM-dd', new Date());
       const comum = {
         clientId, clientName: cliente.empresa, subject, type, time,
-        duracao: duracao || undefined, description, status, servicos,
+        duracao: duracao || undefined, description, status, servicos, ata,
       };
+      async function lembretePara(evId: string, d: Date) {
+        if (lembreteAntes === 'none') return;
+        const [h, m] = (time || '09:00').split(':').map(Number);
+        let alvo = setMinutes(setHours(d, isNaN(h) ? 9 : h), isNaN(m) ? 0 : m);
+        if (lembreteAntes === '1h') alvo = subHours(alvo, 1);
+        else if (lembreteAntes === '1d') alvo = subDays(alvo, 1);
+        else if (lembreteAntes === '2d') alvo = subDays(alvo, 2);
+        else if (lembreteAntes === '7d') alvo = subDays(alvo, 7);
+        await criarLembrete({ title: `Reunião — ${cliente!.empresa}${subject ? ': ' + subject : ''}`, type: 'Reunião', datetime: alvo.toISOString(), clientId, eventId: evId, recurrence: 'none', description });
+      }
       if (editando) {
         await atualizarEvento(initial.id, { ...comum, date: baseData.toISOString(), checklist });
       } else if (recorrente) {
         const serie = uuidv4();
         for (const d of gerarDatas(baseData)) {
-          await criarEvento({
+          const salvo = await criarEvento({
             ...comum,
             date: d.toISOString(),
             serie,
             checklist: checklist.map((i) => ({ id: uuidv4(), text: i.text, done: false })),
           });
+          await lembretePara(salvo.id, d);
         }
       } else {
-        await criarEvento({ ...comum, date: baseData.toISOString(), checklist });
+        const salvo = await criarEvento({ ...comum, date: baseData.toISOString(), checklist });
+        await lembretePara(salvo.id, baseData);
       }
       onClose();
     } catch (err) {
@@ -208,6 +228,17 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
                     </label>
                   </div>
                 )}
+
+                <label className="field">
+                  Lembrete automático
+                  <select className="field-input custom-select" value={lembreteAntes} onChange={(e) => setLembreteAntes(e.target.value as typeof lembreteAntes)}>
+                    <option value="none">Sem lembrete</option>
+                    <option value="1h">1 hora antes</option>
+                    <option value="1d">1 dia antes</option>
+                    <option value="2d">2 dias antes</option>
+                    <option value="7d">1 semana antes</option>
+                  </select>
+                </label>
               </>
             )}
 
@@ -242,6 +273,16 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
                 <input className="field-input" placeholder="Nova atividade..." value={novoItem} onChange={(e) => setNovoItem(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }} />
                 <button type="button" className="btn btn-primary btn-icon" onClick={addItem} disabled={!novoItem.trim()}><Plus size={16} /></button>
               </div>
+            </div>
+
+            <div className="field">
+              <div className="flex-between" style={{ marginBottom: 2 }}>
+                <span>Ata</span>
+                <button type="button" className="btn btn-secondary" style={{ padding: '0.25rem 0.55rem', fontSize: 12 }} onClick={gerarAtaDoChecklist} disabled={checklist.length === 0}>
+                  Gerar do checklist
+                </button>
+              </div>
+              <textarea className="field-input" value={ata} onChange={(e) => setAta(e.target.value)} placeholder="Resumo / ata da reunião..." rows={3} />
             </div>
 
             <label className="field">

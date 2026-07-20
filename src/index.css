@@ -1284,3 +1284,28 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 /* --- Checklist (modal de evento) --- */
 .check-item { display: flex; align-items: center; gap: 9px; font-size: 0.88rem; }
 .check-item .filter-check { cursor: pointer; }
+
+/* --- Agenda: toolbar de filtros + legenda de tipos + impressão --- */
+.agenda-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+  padding-bottom: 14px; border-bottom: 1px solid var(--border);
+}
+.agenda-legend-tipos { display: flex; flex-wrap: wrap; gap: 12px; }
+.agenda-legend-tipos span { display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; color: var(--text-secondary); }
+.agenda-legend-tipos i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+.kanban-card.is-done { opacity: 0.6; }
+.kanban-card.is-done .kanban-card-title { text-decoration: line-through; }
+
+@media print {
+  aside, .agenda-noprint, .btn, .tabs { display: none !important; }
+  .app-shell { display: block !important; }
+  .page-container { padding: 0 !important; max-width: none !important; }
+  .agenda-board { box-shadow: none !important; border: none !important; padding: 0 !important; }
+  .agenda-board > .flex-between { margin-bottom: 8px !important; }
+  .kanban { grid-template-columns: repeat(5, 1fr) !important; }
+  .kanban-turno { min-height: auto !important; }
+  .kanban-card, .calendar-chip { break-inside: avoid; }
+  body { background: #fff !important; }
+}

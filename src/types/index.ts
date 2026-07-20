@@ -89,6 +89,8 @@ export interface EventoAgenda {
   servicos: string[];
   /** Checklist de atividades/pauta da reunião. */
   checklist?: ChecklistItem[];
+  /** Ata da reunião (gerada do checklist ao concluir, editável). */
+  ata?: string;
   attachments: Anexo[];
   status: EventoStatus;
   /** Id da série de recorrência (agrupa ocorrências geradas juntas). */
