@@ -8,7 +8,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { truthy } from '../utils/formatters';
 import { clienteStatusBadge } from '../utils/badges';
 import { ClientFormModal } from '../components/ClientFormModal';
-import { MultiSelect } from '../components/MultiSelect';
+import { Dropdown } from '../components/Dropdown';
 import { TIPO_ANALISE_LABEL, type Cliente, type NovoCliente } from '../types';
 
 const PERIODOS = [
@@ -150,35 +150,49 @@ export default function ClientesPage() {
             />
           </label>
 
-          <MultiSelect label="Monitor" options={monitorOpcoes} selected={fMonitores} onChange={setFMonitores} />
+          <Dropdown
+            label="Monitor"
+            multiple
+            options={monitorOpcoes.map((m) => ({ value: m, label: m }))}
+            value={fMonitores}
+            onChange={(v) => setFMonitores(v as string[])}
+          />
 
-          <select
-            className={`filter-ctl${fTipoAnalise !== 'Todos' ? ' is-active' : ''}`}
+          <Dropdown
+            label="Análise: todas"
+            defaultValue="Todos"
+            options={[
+              { value: 'Todos', label: 'Análise: todas' },
+              { value: 'unitaria', label: TIPO_ANALISE_LABEL.unitaria },
+              { value: 'segmentado', label: 'Segmentado' },
+            ]}
             value={fTipoAnalise}
-            onChange={(e) => setFTipoAnalise(e.target.value)}
-          >
-            <option value="Todos">Análise: todas</option>
-            <option value="unitaria">{TIPO_ANALISE_LABEL.unitaria}</option>
-            <option value="segmentado">Segmentado</option>
-          </select>
+            onChange={(v) => setFTipoAnalise(v as string)}
+          />
 
-          <MultiSelect label="Serviços" options={servicoOpcoes} selected={fServicos} onChange={setFServicos} />
+          <Dropdown
+            label="Serviços"
+            multiple
+            options={servicoOpcoes.map((s) => ({ value: s, label: s }))}
+            value={fServicos}
+            onChange={(v) => setFServicos(v as string[])}
+          />
 
-          <select
-            className={`filter-ctl${fStatus !== 'Ativo' ? ' is-active' : ''}`}
+          <Dropdown
+            label="Status: todos"
+            defaultValue="Ativo"
+            options={statusOpcoes.map((s) => ({ value: s, label: s === 'Todos' ? 'Status: todos' : s }))}
             value={fStatus}
-            onChange={(e) => setFStatus(e.target.value)}
-          >
-            {statusOpcoes.map((s) => <option key={s} value={s}>{s === 'Todos' ? 'Status: todos' : s}</option>)}
-          </select>
+            onChange={(v) => setFStatus(v as string)}
+          />
 
-          <select
-            className={`filter-ctl${fPeriodo !== 'Todos' ? ' is-active' : ''}`}
+          <Dropdown
+            label="Últ. reunião: todas"
+            defaultValue="Todos"
+            options={PERIODOS.map((p) => ({ value: p.valor, label: p.label }))}
             value={fPeriodo}
-            onChange={(e) => setFPeriodo(e.target.value)}
-          >
-            {PERIODOS.map((p) => <option key={p.valor} value={p.valor}>{p.label}</option>)}
-          </select>
+            onChange={(v) => setFPeriodo(v as string)}
+          />
         </div>
 
         {filtrosAtivos && (

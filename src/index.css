@@ -1197,7 +1197,7 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .filter-search svg { color: var(--text-muted); flex-shrink: 0; }
 
 .filter-pop {
-  position: absolute; z-index: 30; top: calc(100% + 4px); left: 0;
+  position: absolute; z-index: 50; top: calc(100% + 4px); left: 0;
   width: 100%; min-width: 210px; max-height: 260px; overflow: auto;
   background: var(--card); border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); padding: 5px;
