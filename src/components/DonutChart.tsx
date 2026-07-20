@@ -45,7 +45,7 @@ export function DonutChart({ items, size = 168, thickness = 26, centerValue, cen
       <div className="donut-svg-wrap" style={{ width: size, height: size }}>
         <svg width={size} height={size} role="img" aria-label="Distribuição por tipo">
           {/* trilho de fundo */}
-          <circle cx={cx} cy={cx} r={r} fill="none" stroke="#26262c" strokeWidth={thickness} />
+          <circle cx={cx} cy={cx} r={r} fill="none" stroke="var(--border)" strokeWidth={thickness} />
           {total > 0 &&
             slices.map((s) => (
               <circle

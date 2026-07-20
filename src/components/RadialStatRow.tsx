@@ -23,7 +23,7 @@ function Ring({ it, size, thickness }: { it: RadialItem; size: number; thickness
     <div className="radial-item">
       <div className="radial-svg-wrap" style={{ width: size, height: size }}>
         <svg width={size} height={size} role="img" aria-label={`${it.label}: ${it.pct}%`}>
-          <circle cx={cx} cy={cx} r={r} fill="none" stroke="#26262c" strokeWidth={thickness} />
+          <circle cx={cx} cy={cx} r={r} fill="none" stroke="var(--border)" strokeWidth={thickness} />
           <circle
             cx={cx} cy={cx} r={r} fill="none"
             stroke={it.color} strokeWidth={thickness} strokeLinecap="round"

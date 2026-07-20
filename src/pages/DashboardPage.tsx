@@ -143,8 +143,8 @@ export default function DashboardPage() {
     // evento na agenda — os tipos de evento são Reunião/Precificação/Contato/Relatório,
     // não "Monitoria", então o tema de uma reunião de monitoria é "Reunião".
     const defs: { label: string; re: RegExp; tema: RegExp; flag: keyof Cliente; color: string }[] = [
-      { label: 'Monitoria', re: /monitor/i, tema: /reuni/i, flag: 'monitoria', color: '#bd952f' },
-      { label: 'Price', re: /(price|prec)/i, tema: /(price|prec)/i, flag: 'price', color: '#9a9aa4' },
+      { label: 'Monitoria', re: /monitor/i, tema: /reuni/i, flag: 'monitoria', color: 'var(--accent)' },
+      { label: 'Price', re: /(price|prec)/i, tema: /(price|prec)/i, flag: 'price', color: 'var(--accent-tertiary, #9a9aa4)' },
     ];
     const dist = defs.map((d) => {
       const n = atendidos.filter((c) => temProduto(c, d.re, d.flag)).length;
@@ -212,7 +212,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="page-container">
+    <div className="page-container theme-coolors-test">
       <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
         <div>
           <h1 className="page-title">Dashboard</h1>
@@ -261,7 +261,7 @@ export default function DashboardPage() {
                 { label: 'Atendidos', value: cobertura.cobertos },
                 { label: 'Sem contato', value: cobertura.semContato },
               ]}
-              colors={['#bd952f', '#3c3c44']}
+              colors={['var(--accent)', 'var(--border-strong)']}
               centerValue={`${cobertura.pct}%`}
               size={96}
               thickness={13}
