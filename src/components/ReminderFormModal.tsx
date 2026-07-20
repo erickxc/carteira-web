@@ -55,6 +55,8 @@ export function ReminderFormModal({ initial, initialClientId, onClose }: Reminde
         await criarLembrete(payload);
       }
       onClose();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Falha ao salvar o lembrete.');
     } finally {
       setSaving(false);
     }

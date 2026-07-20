@@ -36,14 +36,19 @@ export function Dropdown({ label, options, value, onChange, multiple, defaultVal
       const t = e.target as Node;
       if (!triggerRef.current?.contains(t) && !popRef.current?.contains(t)) setOpen(false);
     }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') { setOpen(false); triggerRef.current?.focus(); }
+    }
     function reposicionaOuFecha() {
       if (triggerRef.current) setRect(triggerRef.current.getBoundingClientRect());
     }
     document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKeyDown);
     window.addEventListener('resize', reposicionaOuFecha);
     window.addEventListener('scroll', reposicionaOuFecha, true);
     return () => {
       document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('resize', reposicionaOuFecha);
       window.removeEventListener('scroll', reposicionaOuFecha, true);
     };
@@ -75,6 +80,8 @@ export function Dropdown({ label, options, value, onChange, multiple, defaultVal
         ref={triggerRef}
         type="button"
         onClick={toggleOpen}
+        aria-haspopup="listbox"
+        aria-expanded={open}
         className={`filter-ctl w-full justify-between${ativo ? ' is-active' : ''}${open ? ' is-open' : ''}`}
       >
         <span className="truncate">
@@ -87,6 +94,8 @@ export function Dropdown({ label, options, value, onChange, multiple, defaultVal
       {open && rect && createPortal(
         <div
           ref={popRef}
+          role="listbox"
+          aria-multiselectable={multiple}
           className="filter-pop"
           style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width }}
         >
@@ -94,7 +103,7 @@ export function Dropdown({ label, options, value, onChange, multiple, defaultVal
             <div className="px-3 py-2 text-[0.8rem] text-text-muted">Sem opções</div>
           ) : (
             options.map((o) => (
-              <button type="button" key={o.value} onClick={() => pick(o.value)} className="filter-pop-item">
+              <button type="button" key={o.value} role="option" aria-selected={isSel(o.value)} onClick={() => pick(o.value)} className="filter-pop-item">
                 <span className={`filter-check${isSel(o.value) ? ' is-on' : ''}`}>
                   {isSel(o.value) && <Check size={11} strokeWidth={3} />}
                 </span>

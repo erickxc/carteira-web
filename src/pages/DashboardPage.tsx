@@ -14,6 +14,7 @@ import { LineChart } from '../components/LineChart';
 import { eventoStatusBadge } from '../utils/badges';
 import { corTipo, corTipoBg } from '../utils/tipoCor';
 import { isStatusAtivo } from '../utils/formatters';
+import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
 import type { Cliente } from '../types';
 
 const FOLLOW_UP_THRESHOLD_DAYS = 30;
@@ -69,18 +70,11 @@ export default function DashboardPage() {
   // Última interação por cliente ativo = reuniões passadas + AÇÕES concluídas.
   // É isto que "acompanhamento" considera — registrar uma ação (Contato/Relatório/
   // Price) conta como contato, não só reunião.
-  const ultimaInteracao = useMemo(() => {
-    const m = new Map<string, Date>();
-    const push = (cid: string, d: Date) => {
-      if (!ativosIds.has(cid) || isNaN(d.getTime()) || d > hoje) return;
-      const cur = m.get(cid);
-      if (!cur || d > cur) m.set(cid, d);
-    };
-    agendaAtiva.forEach((a) => push(a.clientId, parseISO(a.date)));
-    acoes.filter((a) => a.status === 'concluido').forEach((a) => push(a.clientId, parseISO(a.dueAt || a.updatedAt || a.createdAt)));
-    return m;
+  const ultimaInteracao = useMemo(
+    () => buildUltimaInteracaoMap(agendaAtiva, acoes, { now: hoje, isRelevant: (cid) => ativosIds.has(cid) }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agendaAtiva, acoes, ativosIds]);
+    [agendaAtiva, acoes, ativosIds]
+  );
 
   const anosDisponiveis = useMemo(() => {
     const anos = new Set<number>([hoje.getFullYear()]);

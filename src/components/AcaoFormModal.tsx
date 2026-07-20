@@ -57,6 +57,8 @@ export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFor
         });
       }
       onClose();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Falha ao salvar a ação.');
     } finally {
       setSaving(false);
     }

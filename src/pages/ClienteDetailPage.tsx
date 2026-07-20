@@ -63,6 +63,7 @@ export default function ClienteDetailPage() {
 
   async function handleExcluir() {
     if (!id) return;
+    // Seguro: o guard `if (!cliente) return` acima já garante isto no momento do render.
     if (!confirm(`Excluir o cliente "${cliente!.empresa}"? Isso também remove os eventos de agenda vinculados.`)) return;
     await removerCliente(id);
     navigate('/clientes');

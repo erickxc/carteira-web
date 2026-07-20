@@ -6,6 +6,8 @@ import { CalendarDays, CalendarPlus, Check, Plus, Search, Trash2 } from 'lucide-
 import { useCarteira } from '../context/CarteiraContext';
 import { AcaoFormModal } from '../components/AcaoFormModal';
 import { Dropdown } from '../components/Dropdown';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
 import { isStatusAtivo } from '../utils/formatters';
 import { eventoStatusBadge } from '../utils/badges';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../types';
@@ -44,6 +46,7 @@ export default function AcoesPage() {
   const [visaoAcompanhamento, setVisaoAcompanhamento] = useState<'grupos' | 'sugestoes'>('grupos');
   const [modal, setModal] = useState<{ modo: 'nova' | 'agendar'; clienteId?: string; tipo?: AcaoTipo } | null>(null);
   const [fCliente, setFCliente] = useState('');
+  const debouncedFCliente = useDebouncedValue(fCliente, 200);
   const [fTipos, setFTipos] = useState<string[]>([]);
   const [fOrigem, setFOrigem] = useState<string[]>([]);
   const [fStatus, setFStatus] = useState<string[]>([]);
@@ -51,6 +54,7 @@ export default function AcoesPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc'); // padrão: mais recente
   // filtros da aba Acompanhamento
   const [acCliente, setAcCliente] = useState('');
+  const debouncedAcCliente = useDebouncedValue(acCliente, 200);
   const [acMonitores, setAcMonitores] = useState<string[]>([]);
   const [acProdutos, setAcProdutos] = useState<string[]>([]);
   const [acOrd, setAcOrd] = useState('contato-recente');
@@ -80,11 +84,9 @@ export default function AcoesPage() {
   }, [itens]);
 
   const info = useMemo(() => {
-    const ult = new Map<string, Date>();
+    const ult = buildUltimaInteracaoMap(agenda, acoes);
     const nReun = new Map<string, number>();
-    const push = (cid: string, d: Date) => { if (isNaN(d.getTime()) || d > new Date()) return; const c = ult.get(cid); if (!c || d > c) ult.set(cid, d); };
-    agenda.forEach((a) => { push(a.clientId, parseISO(a.date)); nReun.set(a.clientId, (nReun.get(a.clientId) ?? 0) + 1); });
-    acoes.filter((a) => a.status === 'concluido').forEach((a) => push(a.clientId, parseISO(a.dueAt || a.updatedAt || a.createdAt)));
+    agenda.forEach((a) => nReun.set(a.clientId, (nReun.get(a.clientId) ?? 0) + 1));
     return { ult, nReun };
   }, [agenda, acoes]);
 
@@ -115,7 +117,7 @@ export default function AcoesPage() {
   const statusOpcoes = useMemo(() => [...new Set(itens.map((i) => i.statusLabel))].filter(Boolean).sort(), [itens]);
 
   const itensFiltrados = useMemo(() => {
-    const termo = fCliente.trim().toLowerCase();
+    const termo = debouncedFCliente.trim().toLowerCase();
     const lista = itens
       .filter((i) => !termo || nomeCliente(i.clientId).toLowerCase().includes(termo))
       .filter((i) => fTipos.length === 0 || fTipos.includes(i.tipoLabel))
@@ -133,7 +135,7 @@ export default function AcoesPage() {
     });
     return lista;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itens, fCliente, fTipos, fOrigem, fStatus, sortBy, sortDir, clientes]);
+  }, [itens, debouncedFCliente, fTipos, fOrigem, fStatus, sortBy, sortDir, clientes]);
 
   function ordenarPor(col: typeof sortBy) {
     if (sortBy === col) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -160,7 +162,7 @@ export default function AcoesPage() {
   const produtoOpcoes = useMemo(() => [...new Set(clientes.flatMap((c) => produtos(c)))].sort(), [clientes]);
 
   function filtrarOrdenar(lista: Cliente[]): Cliente[] {
-    const termo = acCliente.trim().toLowerCase();
+    const termo = debouncedAcCliente.trim().toLowerCase();
     const out = lista.filter((c) =>
       (!termo || c.empresa.toLowerCase().includes(termo)) &&
       (acMonitores.length === 0 || acMonitores.includes(c.monitor || '')) &&

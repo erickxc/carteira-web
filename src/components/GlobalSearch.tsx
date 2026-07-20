@@ -100,9 +100,13 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
           <div className="section">
             <div className="search-section-label">Lembretes</div>
             {results.lembretes.map((r) => (
-              <div key={r.id} className="flex-row" style={{ padding: '0.5rem' }}>
-                <Bell size={15} className="text-muted" /> {r.title}
-              </div>
+              <button
+                key={r.id}
+                className="list-row"
+                onClick={() => { if (r.clientId) navigate(`/clientes/${r.clientId}`); onClose(); }}
+              >
+                <span className="flex-row"><Bell size={15} /> {r.title}</span>
+              </button>
             ))}
           </div>
         )}
