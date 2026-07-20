@@ -1,36 +1,26 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  addDays, differenceInCalendarDays, eachMonthOfInterval, format, isSameMonth, isToday, isTomorrow,
+  addDays, differenceInCalendarDays, eachMonthOfInterval, format, isSameMonth,
   max as maxDate, min as minDate, parseISO, setHours, setMinutes, startOfMonth, subMonths,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarCheck, CalendarClock, Check, FileText, Users } from 'lucide-react';
+import { CalendarCheck, CalendarClock, Users } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { StatCard } from '../components/StatCard';
 import { Dropdown } from '../components/Dropdown';
-import { DonutChart } from '../components/DonutChart';
-import { RadialStatRow } from '../components/RadialStatRow';
-import { LineChart } from '../components/LineChart';
-import { eventoStatusBadge } from '../utils/badges';
-import { corTipo, corTipoBg } from '../utils/tipoCor';
+import { CoberturaCard } from '../components/dashboard/CoberturaCard';
+import { ServicosCard } from '../components/dashboard/ServicosCard';
+import { ProximasAgendasCard } from '../components/dashboard/ProximasAgendasCard';
+import { AlertasSemAcompanhamentoCard } from '../components/dashboard/AlertasSemAcompanhamentoCard';
+import { AlertasProgramadosCard } from '../components/dashboard/AlertasProgramadosCard';
+import { TendenciaMensalCard } from '../components/dashboard/TendenciaMensalCard';
 import { isStatusAtivo } from '../utils/formatters';
 import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
 import type { Cliente } from '../types';
 
 const FOLLOW_UP_THRESHOLD_DAYS = 30;
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-
-function rotuloRelativo(iso: string): { texto: string; atrasado: boolean } {
-  const d = parseISO(iso);
-  const now = new Date();
-  const dias = differenceInCalendarDays(d, now);
-  if (dias < 0) return { texto: `atrasado · ${format(d, 'dd/MM')}`, atrasado: true };
-  if (isToday(d)) return { texto: `hoje · ${format(d, 'HH:mm')}`, atrasado: false };
-  if (isTomorrow(d)) return { texto: `amanhã · ${format(d, 'HH:mm')}`, atrasado: false };
-  if (dias <= 7) return { texto: `em ${dias} dias`, atrasado: false };
-  return { texto: format(d, 'dd/MM/yyyy'), atrasado: false };
-}
 
 export default function DashboardPage() {
   const { clientes, agenda, acoes, lembretes, criarLembrete } = useCarteira();
@@ -202,11 +192,6 @@ export default function DashboardPage() {
     setProgramados((prev) => new Set(prev).add(cliente.id));
   }
 
-  function severidade(dias: number | null): string {
-    if (dias === null || dias >= 60) return 'badge-danger';
-    return 'badge-warning';
-  }
-
   return (
     <div className="page-container">
       <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -266,167 +251,47 @@ export default function DashboardPage() {
           <StatCard title="Reuniões agendadas" value={reunioesAgendadas} icon={CalendarClock} onClick={() => navigate('/agenda')} />
         </div>
 
-        <div className="glass-card cobertura-card">
-          <div className="section-header">
-            <h3>Cobertura da Carteira</h3>
-            <span className="text-muted" style={{ fontSize: 12 }}>{MESES[mes].slice(0, 3)}/{ano} · {cobertura.total} ativos</span>
-          </div>
-          {cobertura.total === 0 ? (
-            <div className="empty-state">Nenhum cliente ativo.</div>
-          ) : (
-            <DonutChart
-              items={[
-                { label: 'Atendidos', value: cobertura.cobertos },
-                { label: 'Sem contato', value: cobertura.semContato },
-              ]}
-              colors={['var(--accent)', 'var(--border-strong)']}
-              centerValue={`${cobertura.pct}%`}
-              size={96}
-              thickness={13}
-            />
-          )}
-        </div>
+        <CoberturaCard
+          total={cobertura.total}
+          cobertos={cobertura.cobertos}
+          semContato={cobertura.semContato}
+          pct={cobertura.pct}
+          mesAno={`${MESES[mes].slice(0, 3)}/${ano}`}
+        />
       </div>
 
       {/* Serviços + próximas agendas */}
       <div className="dash-two-col">
-        <div className="glass-card">
-          <div className="section-header">
-            <h3>Serviços dos Clientes Atendidos</h3>
-            <span className="text-muted" style={{ fontSize: 12 }}>reunião ou ação · últ. 60 dias · {totalAtendidos}</span>
-          </div>
-          {totalAtendidos === 0 ? (
-            <div className="empty-state">Nenhum cliente atendido nos últimos 60 dias.</div>
-          ) : (
-            <RadialStatRow items={servicosDist} />
-          )}
-        </div>
+        <ServicosCard totalAtendidos={totalAtendidos} servicosDist={servicosDist} />
 
-        <div className="glass-card">
-          <div className="section-header">
-            <h3>Próximas Agendas</h3>
-            <button className="link-button" style={{ fontSize: 12 }} onClick={() => navigate('/agenda')}>ver agenda →</button>
-          </div>
-          <div className="chip-row">
-            {tiposDisponiveis.map((t) => {
-              const ativo = filtroTipo === t;
-              const cor = t === 'Todos' ? undefined : corTipo(t);
-              return (
-                <button
-                  key={t}
-                  className={`chip${ativo ? ' is-active' : ''}`}
-                  style={ativo && cor ? { background: cor, borderColor: cor, color: '#0b0b0d' } : undefined}
-                  onClick={() => setFiltroTipo(t)}
-                >
-                  {t}
-                </button>
-              );
-            })}
-          </div>
-          {proximos.length === 0 ? (
-            <div className="empty-state">Nenhuma agenda futura{filtroTipo !== 'Todos' ? ` de ${filtroTipo}` : ''}.</div>
-          ) : (
-            <div className="agenda-preview">
-              {proximos.map((ev) => {
-                const d = parseISO(ev.date);
-                return (
-                  <button key={ev.id} className="agenda-row" onClick={() => navigate('/agenda', { state: { focusDate: ev.date } })}>
-                    <span className="date-badge">
-                      <span className="date-badge-day">{format(d, 'dd')}</span>
-                      <span className="date-badge-mon">{format(d, 'MMM', { locale: ptBR })}</span>
-                    </span>
-                    <span className="agenda-row-main">
-                      <span className="agenda-row-title">{ev.subject || ev.clientName}</span>
-                      <span className="agenda-row-sub">{ev.clientName}</span>
-                    </span>
-                    <span className="agenda-row-tags">
-                      <span className="badge" style={{ color: corTipo(ev.type), background: corTipoBg(ev.type) }}>{ev.type}</span>
-                      <span className={`badge ${eventoStatusBadge(ev.status)}`}>{ev.status}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <ProximasAgendasCard
+          tiposDisponiveis={tiposDisponiveis}
+          filtroTipo={filtroTipo}
+          onFiltroTipo={setFiltroTipo}
+          proximos={proximos}
+          onVerAgenda={() => navigate('/agenda')}
+          onSelecionarEvento={(ev) => navigate('/agenda', { state: { focusDate: ev.date } })}
+        />
       </div>
 
       {/* Alertas */}
       <div className="dash-two-col">
-        <div className="glass-card">
-          <div className="section-header">
-            <h3>Clientes sem Acompanhamento</h3>
-            <span className="text-muted" style={{ fontSize: 12 }}>{FOLLOW_UP_THRESHOLD_DAYS}+ dias sem contato</span>
-          </div>
-          {alertas.length === 0 ? (
-            <div className="empty-state">Nenhum alerta — carteira em dia.</div>
-          ) : (
-            <div className="agenda-preview">
-              {alertas.map(({ cliente, uc, dias }) => (
-                <div key={cliente.id} className="agenda-row" style={{ cursor: 'default' }}>
-                  <span className="agenda-row-main">
-                    <button className="link-button agenda-row-title" style={{ textAlign: 'left' }} onClick={() => navigate(`/clientes/${cliente.id}`)}>
-                      {cliente.empresa}
-                    </button>
-                    <span className="agenda-row-sub">
-                      {cliente.monitor || 'sem monitor'} · {uc ? `últ. contato ${format(uc, 'dd/MM/yy')}` : 'sem registro'}
-                    </span>
-                  </span>
-                  <span className={`badge ${severidade(dias)}`} style={{ flexShrink: 0 }}>
-                    {dias === null ? 'Sem histórico' : `${dias} dias`}
-                  </span>
-                  {programados.has(cliente.id) ? (
-                    <span className="badge badge-success" style={{ flexShrink: 0 }}><Check size={12} /> Programado</span>
-                  ) : (
-                    <button className="btn btn-secondary" style={{ flexShrink: 0, padding: '0.35rem 0.6rem', fontSize: 12 }} onClick={() => programarRelatorio(cliente)} title="Programar envio de relatório">
-                      <FileText size={13} /> Relatório
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <AlertasSemAcompanhamentoCard
+          alertas={alertas}
+          followUpDays={FOLLOW_UP_THRESHOLD_DAYS}
+          programados={programados}
+          onAbrirCliente={(clienteId) => navigate(`/clientes/${clienteId}`)}
+          onProgramarRelatorio={programarRelatorio}
+        />
 
-        <div className="glass-card">
-          <div className="section-header">
-            <h3>Alertas Programados</h3>
-            <span className="text-muted" style={{ fontSize: 12 }}>próximos disparos</span>
-          </div>
-          {alertasProgramados.length === 0 ? (
-            <div className="empty-state">Nenhum alerta programado.</div>
-          ) : (
-            <div className="agenda-preview">
-              {alertasProgramados.map((r) => {
-                const cliente = r.clientId ? clientes.find((c) => c.id === r.clientId) : undefined;
-                const rel = rotuloRelativo(r.datetime);
-                const isRelatorio = /relat/i.test(r.type || '');
-                return (
-                  <div key={r.id} className="agenda-row" style={{ cursor: 'default' }}>
-                    <span className="agenda-row-main">
-                      <span className="agenda-row-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {r.type && <span className={`badge ${isRelatorio ? 'badge-warning' : 'badge-accent'}`}>{r.type}</span>}
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
-                      </span>
-                      <span className="agenda-row-sub">{cliente ? cliente.empresa : 'geral'}</span>
-                    </span>
-                    <span className={`badge ${rel.atrasado ? 'badge-danger' : 'badge-muted'}`} style={{ flexShrink: 0 }}>{rel.texto}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <AlertasProgramadosCard
+          alertasProgramados={alertasProgramados}
+          nomeCliente={(clientId) => clientes.find((c) => c.id === clientId)?.empresa}
+        />
       </div>
 
       {/* Tendência mensal (fim da página) */}
-      <div className="section glass-card">
-        <div className="section-header">
-          <h3>Reuniões por Mês</h3>
-          <span className="text-muted" style={{ fontSize: 12 }}>desde a primeira reunião</span>
-        </div>
-        <LineChart points={linhaPorMes} highlightIndex={linhaHighlight} />
-      </div>
+      <TendenciaMensalCard linhaPorMes={linhaPorMes} linhaHighlight={linhaHighlight} />
     </div>
   );
 }

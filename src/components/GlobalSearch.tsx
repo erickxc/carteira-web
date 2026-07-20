@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type KeyboardEvent } from 'react';
 import { format, isValid, parse } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { Bell, CalendarDays, Search, Users } from 'lucide-react';
@@ -17,7 +17,17 @@ function tryParseDate(term: string): Date | null {
 export function GlobalSearch({ onClose }: { onClose: () => void }) {
   const { clientes, agenda, lembretes } = useCarteira();
   const [query, setQuery] = useState('');
+  const [selected, setSelected] = useState(0);
+  const [queryAnterior, setQueryAnterior] = useState(query);
   const navigate = useNavigate();
+
+  // Reseta a seleção quando a busca muda — ajuste durante o render (padrão
+  // recomendado pelo React para "resetar estado quando uma prop/derivado
+  // muda"), em vez de useEffect + setState.
+  if (query !== queryAnterior) {
+    setQueryAnterior(query);
+    setSelected(0);
+  }
 
   const results = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -47,6 +57,29 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
     onClose();
   }
 
+  // Lista plana de todas as linhas ativáveis, na mesma ordem em que são
+  // renderizadas — permite navegar com ↑/↓ e ativar com Enter, sem depender
+  // só do mouse (o Ctrl+K é a "paleta de comandos" do app).
+  const flatItems = useMemo(() => {
+    const arr: { key: string; onActivate: () => void }[] = [];
+    if (results.date) arr.push({ key: 'date', onActivate: () => irParaAgenda(results.date!) });
+    results.clientes.forEach((c) => arr.push({ key: `c-${c.id}`, onActivate: () => { navigate(`/clientes/${c.id}`); onClose(); } }));
+    results.agenda.forEach((a) => arr.push({ key: `a-${a.id}`, onActivate: () => irParaAgenda(new Date(a.date)) }));
+    results.lembretes.forEach((r) => arr.push({ key: `r-${r.id}`, onActivate: () => { if (r.clientId) navigate(`/clientes/${r.clientId}`); onClose(); } }));
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results]);
+
+  function idxOf(key: string): number {
+    return flatItems.findIndex((it) => it.key === key);
+  }
+
+  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSelected((i) => Math.min(i + 1, flatItems.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSelected((i) => Math.max(i - 1, 0)); }
+    else if (e.key === 'Enter') { e.preventDefault(); flatItems[selected]?.onActivate(); }
+  }
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal glass-card search-modal" onClick={(e) => e.stopPropagation()}>
@@ -57,6 +90,7 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
             placeholder="Buscar clientes, eventos, lembretes ou datas (dd/mm/aaaa)..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
           />
         </div>
 
@@ -66,7 +100,7 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
         {results.date && (
           <div className="section">
             <div className="search-section-label">Data</div>
-            <button className="list-row" onClick={() => irParaAgenda(results.date!)}>
+            <button className={`list-row${selected === idxOf('date') ? ' is-selected' : ''}`} onClick={() => irParaAgenda(results.date!)}>
               <span className="flex-row"><CalendarDays size={15} /> Ir para {format(results.date, 'dd/MM/yyyy')} na agenda</span>
             </button>
           </div>
@@ -76,7 +110,7 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
           <div className="section">
             <div className="search-section-label">Clientes</div>
             {results.clientes.map((c) => (
-              <button key={c.id} className="list-row" onClick={() => { navigate(`/clientes/${c.id}`); onClose(); }}>
+              <button key={c.id} className={`list-row${selected === idxOf(`c-${c.id}`) ? ' is-selected' : ''}`} onClick={() => { navigate(`/clientes/${c.id}`); onClose(); }}>
                 <span className="flex-row"><Users size={15} /> {c.empresa}</span>
               </button>
             ))}
@@ -87,7 +121,7 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
           <div className="section">
             <div className="search-section-label">Eventos</div>
             {results.agenda.map((a) => (
-              <button key={a.id} className="list-row" onClick={() => irParaAgenda(new Date(a.date))}>
+              <button key={a.id} className={`list-row${selected === idxOf(`a-${a.id}`) ? ' is-selected' : ''}`} onClick={() => irParaAgenda(new Date(a.date))}>
                 <span className="flex-row">
                   <CalendarDays size={15} /> {a.subject || a.type} — {a.clientName} ({format(new Date(a.date), 'dd/MM/yyyy')})
                 </span>
@@ -102,7 +136,7 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
             {results.lembretes.map((r) => (
               <button
                 key={r.id}
-                className="list-row"
+                className={`list-row${selected === idxOf(`r-${r.id}`) ? ' is-selected' : ''}`}
                 onClick={() => { if (r.clientId) navigate(`/clientes/${r.clientId}`); onClose(); }}
               >
                 <span className="flex-row"><Bell size={15} /> {r.title}</span>

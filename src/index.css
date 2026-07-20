@@ -250,6 +250,7 @@ a { color: inherit; }
 }
 
 .list-row:hover { background: var(--card-hover); }
+.list-row.is-selected { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
 
 .empty-state {
   text-align: center;
