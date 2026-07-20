@@ -10,6 +10,7 @@ import { useCarteira } from '../context/CarteiraContext';
 import { EventFormModal } from '../components/EventFormModal';
 import { Dropdown } from '../components/Dropdown';
 import { formatHolidayLabel, getHoliday } from '../utils/holidays';
+import { gerarAta } from '../utils/ata';
 import { eventoStatusBadge } from '../utils/badges';
 import type { EventoAgenda } from '../types';
 
@@ -79,10 +80,6 @@ export default function AgendaPage() {
     [agenda, fMonitores, fTipos, monitorPorCliente]
   );
 
-  function gerarAta(ev: EventoAgenda): string {
-    const linhas = (ev.checklist ?? []).map((i) => `${i.done ? '[x]' : '[ ]'} ${i.text}`);
-    return [`Ata — ${format(parseISO(ev.date), 'dd/MM/yyyy')}`, ...linhas, ev.description ? `\n${ev.description}` : ''].filter(Boolean).join('\n');
-  }
 
   useEffect(() => {
     const state = location.state as AgendaLocationState | null;
@@ -154,9 +151,7 @@ export default function AgendaPage() {
   }
 
   function concluir(ev: EventoAgenda) {
-    const patch: Partial<EventoAgenda> = { status: statusConcluido };
-    if ((ev.checklist?.length ?? 0) > 0 && !ev.ata) patch.ata = gerarAta(ev);
-    atualizarEvento(ev.id, patch);
+    atualizarEvento(ev.id, { status: statusConcluido, ata: gerarAta(ev) });
   }
 
   function tituloPeriodo() {

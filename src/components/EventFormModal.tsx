@@ -4,7 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { AlertTriangle, Check, Paperclip, Plus, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { urlAnexo } from '../api/client';
-import type { ChecklistItem, EventoAgenda } from '../types';
+import { gerarAta } from '../utils/ata';
+import type { ChecklistItem, EventoAgenda, OrientacaoItem } from '../types';
 
 interface EventFormModalProps {
   initial?: EventoAgenda;
@@ -33,7 +34,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
   const [servicos, setServicos] = useState<string[]>(initial?.servicos ?? []);
   const [checklist, setChecklist] = useState<ChecklistItem[]>(initial?.checklist ?? []);
   const [novoItem, setNovoItem] = useState('');
-  const [ata, setAta] = useState(initial?.ata ?? '');
+  const [orientacoes, setOrientacoes] = useState<OrientacaoItem[]>(initial?.preAnalise?.orientacoes ?? []);
+  const [clientesGeral, setClientesGeral] = useState(initial?.preAnalise?.clientesGeral ?? '');
+  const [produtosGeral, setProdutosGeral] = useState(initial?.preAnalise?.produtosGeral ?? '');
   const [lembreteAntes, setLembreteAntes] = useState<'none' | '1h' | '1d' | '2d' | '7d'>('none');
   const [recorrente, setRecorrente] = useState(false);
   const [freq, setFreq] = useState<Freq>('semanal');
@@ -56,11 +59,19 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
   const toggleItem = (id: string) => setChecklist((prev) => prev.map((i) => (i.id === id ? { ...i, done: !i.done } : i)));
   const removeItem = (id: string) => setChecklist((prev) => prev.filter((i) => i.id !== id));
 
-  function gerarAtaDoChecklist() {
-    const linhas = checklist.map((i) => `${i.done ? '[x]' : '[ ]'} ${i.text}`);
-    const cab = `Ata — ${date.split('-').reverse().join('/')}`;
-    setAta([cab, ...linhas, description ? `\n${description}` : ''].filter(Boolean).join('\n'));
-  }
+  // Pré-análise (orientações por cliente/produto).
+  const addOrientacao = () => setOrientacoes((prev) => [...prev, { id: uuidv4(), cliente: '', produto: '', orientacao: '' }]);
+  const updOrientacao = (id: string, campo: keyof OrientacaoItem, valor: string) =>
+    setOrientacoes((prev) => prev.map((o) => (o.id === id ? { ...o, [campo]: valor } : o)));
+  const removeOrientacao = (id: string) => setOrientacoes((prev) => prev.filter((o) => o.id !== id));
+
+  const preAnalise = { orientacoes, clientesGeral, produtosGeral };
+  // Ata gerada automaticamente (prévia ao vivo).
+  const ataPreview = gerarAta({
+    clientName: clientes.find((c) => c.id === clientId)?.empresa ?? '',
+    date: parse(date, 'yyyy-MM-dd', new Date()).toISOString(),
+    time, type, checklist, preAnalise, description,
+  });
 
   // Conflito: outra reunião no mesmo dia e horário.
   const conflito = time
@@ -86,8 +97,10 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
       const baseData = parse(date, 'yyyy-MM-dd', new Date());
       const comum = {
         clientId, clientName: cliente.empresa, subject, type, time,
-        duracao: duracao || undefined, description, status, servicos, ata,
+        duracao: duracao || undefined, description, status, servicos, preAnalise,
       };
+      const ataDe = (iso: string, cl: ChecklistItem[]) =>
+        gerarAta({ clientName: cliente.empresa, date: iso, time, type, checklist: cl, preAnalise, description });
       async function lembretePara(evId: string, d: Date) {
         if (lembreteAntes === 'none') return;
         const [h, m] = (time || '09:00').split(':').map(Number);
@@ -99,20 +112,19 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
         await criarLembrete({ title: `Reunião — ${cliente!.empresa}${subject ? ': ' + subject : ''}`, type: 'Reunião', datetime: alvo.toISOString(), clientId, eventId: evId, recurrence: 'none', description });
       }
       if (editando) {
-        await atualizarEvento(initial.id, { ...comum, date: baseData.toISOString(), checklist });
+        const iso = baseData.toISOString();
+        await atualizarEvento(initial.id, { ...comum, date: iso, checklist, ata: ataDe(iso, checklist) });
       } else if (recorrente) {
         const serie = uuidv4();
         for (const d of gerarDatas(baseData)) {
-          const salvo = await criarEvento({
-            ...comum,
-            date: d.toISOString(),
-            serie,
-            checklist: checklist.map((i) => ({ id: uuidv4(), text: i.text, done: false })),
-          });
+          const cl = checklist.map((i) => ({ id: uuidv4(), text: i.text, done: false }));
+          const iso = d.toISOString();
+          const salvo = await criarEvento({ ...comum, date: iso, serie, checklist: cl, ata: ataDe(iso, cl) });
           await lembretePara(salvo.id, d);
         }
       } else {
-        const salvo = await criarEvento({ ...comum, date: baseData.toISOString(), checklist });
+        const iso = baseData.toISOString();
+        const salvo = await criarEvento({ ...comum, date: iso, checklist, ata: ataDe(iso, checklist) });
         await lembretePara(salvo.id, baseData);
       }
       onClose();
@@ -143,7 +155,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{editando ? 'Editar Evento' : 'Novo Evento'}</h2>
         </div>
@@ -275,14 +287,36 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
               </div>
             </div>
 
-            <div className="field">
-              <div className="flex-between" style={{ marginBottom: 2 }}>
-                <span>Ata</span>
-                <button type="button" className="btn btn-secondary" style={{ padding: '0.25rem 0.55rem', fontSize: 12 }} onClick={gerarAtaDoChecklist} disabled={checklist.length === 0}>
-                  Gerar do checklist
-                </button>
+            {editando && (
+              <div className="field">
+                Pré-Análise <span className="text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· preparação da reunião</span>
+                <div className="pa-table">
+                  <div className="pa-row pa-head"><span>Cliente</span><span>Produto</span><span>Orientação</span><span /></div>
+                  {orientacoes.length === 0 && <span className="text-muted" style={{ fontSize: 13, textTransform: 'none', padding: '2px 0' }}>Nenhuma orientação.</span>}
+                  {orientacoes.map((o) => (
+                    <div key={o.id} className="pa-row">
+                      <input className="field-input" value={o.cliente} placeholder="Cliente" onChange={(e) => updOrientacao(o.id, 'cliente', e.target.value)} />
+                      <input className="field-input" value={o.produto} placeholder="Produto" onChange={(e) => updOrientacao(o.id, 'produto', e.target.value)} />
+                      <input className="field-input" value={o.orientacao} placeholder="Orientação" onChange={(e) => updOrientacao(o.id, 'orientacao', e.target.value)} />
+                      <button type="button" className="btn btn-danger btn-icon" onClick={() => removeOrientacao(o.id)} aria-label="Remover"><X size={13} /></button>
+                    </div>
+                  ))}
+                  <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start', marginTop: 6 }} onClick={addOrientacao}><Plus size={14} /> Orientação</button>
+                </div>
+                <label className="field" style={{ marginTop: 12 }}>
+                  Clientes em geral
+                  <textarea className="field-input" rows={2} value={clientesGeral} onChange={(e) => setClientesGeral(e.target.value)} />
+                </label>
+                <label className="field">
+                  Produtos em geral
+                  <textarea className="field-input" rows={2} value={produtosGeral} onChange={(e) => setProdutosGeral(e.target.value)} />
+                </label>
               </div>
-              <textarea className="field-input" value={ata} onChange={(e) => setAta(e.target.value)} placeholder="Resumo / ata da reunião..." rows={3} />
+            )}
+
+            <div className="field">
+              Ata <span className="text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· gerada automaticamente</span>
+              <textarea className="field-input" value={ataPreview} readOnly rows={4} style={{ color: 'var(--text-secondary)', background: 'var(--bg)' }} />
             </div>
 
             <label className="field">

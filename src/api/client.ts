@@ -1,4 +1,13 @@
-import type { Acao, Anexo, Cadencias, Categoria, ChecklistItem, Cliente, EventoAgenda, Lembrete, Modelo } from '../types';
+import type { Acao, Anexo, Cadencias, Categoria, ChecklistItem, Cliente, EventoAgenda, Lembrete, Modelo, PreAnalise } from '../types';
+
+const PRE_ANALISE_VAZIA: PreAnalise = { orientacoes: [], clientesGeral: '', produtosGeral: '' };
+function parsePreAnalise(raw: unknown): PreAnalise {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return { ...PRE_ANALISE_VAZIA, ...(raw as PreAnalise) };
+  if (typeof raw === 'string' && raw.trim()) {
+    try { const p = JSON.parse(raw); return { ...PRE_ANALISE_VAZIA, ...p }; } catch { /* ignore */ }
+  }
+  return { ...PRE_ANALISE_VAZIA };
+}
 
 // A API roda na mesma máquina que serve o front (o "servidor" da intranet).
 // Derivamos o host da URL atual: abrindo em http://192.168.1.18:5173, a API é
@@ -68,6 +77,7 @@ function serializeEvento(e: EventoAgenda): Record<string, unknown> {
     ...e,
     servicos: JSON.stringify(e.servicos ?? []),
     checklist: JSON.stringify(e.checklist ?? []),
+    preAnalise: JSON.stringify(e.preAnalise ?? PRE_ANALISE_VAZIA),
     attachments: JSON.stringify(e.attachments ?? []),
   };
 }
@@ -77,6 +87,7 @@ function deserializeEvento(raw: Record<string, unknown>): EventoAgenda {
     ...(raw as unknown as EventoAgenda),
     servicos: parseListaJSON<string>(raw.servicos),
     checklist: parseListaJSON<ChecklistItem>(raw.checklist),
+    preAnalise: parsePreAnalise(raw.preAnalise),
     attachments: parseListaJSON<Anexo>(raw.attachments),
     subject: (raw.subject as string) ?? '',
     description: (raw.description as string) ?? '',
@@ -106,6 +117,7 @@ export const atualizarEvento = (id: string, data: Partial<EventoAgenda>) => {
   const payload: Record<string, unknown> = { ...data };
   if (data.servicos) payload.servicos = JSON.stringify(data.servicos);
   if (data.checklist) payload.checklist = JSON.stringify(data.checklist);
+  if (data.preAnalise) payload.preAnalise = JSON.stringify(data.preAnalise);
   if (data.attachments) payload.attachments = JSON.stringify(data.attachments);
   return request<{ success: boolean }>(`/agenda/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
 };

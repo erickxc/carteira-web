@@ -1309,3 +1309,15 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
   .kanban-card, .calendar-chip { break-inside: avoid; }
   body { background: #fff !important; }
 }
+
+/* --- Modal largo (evento) + tabela de pré-análise --- */
+.modal.modal-lg { width: min(720px, 100%); }
+.pa-table { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.pa-row { display: grid; grid-template-columns: 1fr 1fr 1.4fr auto; gap: 6px; align-items: center; }
+.pa-row.pa-head { padding: 0 2px; }
+.pa-row.pa-head span { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); font-weight: 600; }
+.pa-row .field-input { padding: 0.4rem 0.55rem; font-size: 0.85rem; }
+@media (max-width: 640px) {
+  .pa-row { grid-template-columns: 1fr 1fr; }
+  .pa-row.pa-head { display: none; }
+}

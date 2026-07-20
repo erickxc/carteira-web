@@ -73,6 +73,21 @@ export interface ChecklistItem {
   done: boolean;
 }
 
+/** Linha da pré-análise: orientação por cliente/produto. */
+export interface OrientacaoItem {
+  id: string;
+  cliente: string;
+  produto: string;
+  orientacao: string;
+}
+
+/** Pré-análise da reunião (preparação): orientações + visões gerais. */
+export interface PreAnalise {
+  orientacoes: OrientacaoItem[];
+  clientesGeral: string;
+  produtosGeral: string;
+}
+
 export interface EventoAgenda {
   id: string;
   clientId: string;
@@ -89,7 +104,9 @@ export interface EventoAgenda {
   servicos: string[];
   /** Checklist de atividades/pauta da reunião. */
   checklist?: ChecklistItem[];
-  /** Ata da reunião (gerada do checklist ao concluir, editável). */
+  /** Pré-análise (preparação) — disponível após criar a reunião. */
+  preAnalise?: PreAnalise;
+  /** Ata da reunião — gerada automaticamente (checklist + pré-análise). */
   ata?: string;
   attachments: Anexo[];
   status: EventoStatus;
