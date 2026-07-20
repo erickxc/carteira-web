@@ -1332,3 +1332,7 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .acao-hist-item { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-secondary); }
 .acao-sug { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
 .acao-sug .chip-toggle { padding: 0.25rem 0.6rem; font-size: 0.75rem; }
+
+/* Cabeçalho de tabela clicável (ordenação) */
+.data-table th.th-sort { cursor: pointer; user-select: none; white-space: nowrap; }
+.data-table th.th-sort:hover { color: var(--accent); }

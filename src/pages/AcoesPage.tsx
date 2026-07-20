@@ -45,7 +45,8 @@ export default function AcoesPage() {
   const [fTipos, setFTipos] = useState<string[]>([]);
   const [fOrigem, setFOrigem] = useState<string[]>([]);
   const [fStatus, setFStatus] = useState<string[]>([]);
-  const [ordenacao, setOrdenacao] = useState<'recente' | 'antiga' | 'cliente' | 'status'>('recente');
+  const [sortBy, setSortBy] = useState<'data' | 'cliente' | 'tipo' | 'origem' | 'status'>('data');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc'); // padrão: mais recente
 
   const nomeCliente = (id: string) => clientes.find((c) => c.id === id)?.empresa ?? '—';
 
@@ -104,14 +105,32 @@ export default function AcoesPage() {
       .filter((i) => fTipos.length === 0 || fTipos.includes(i.tipoLabel))
       .filter((i) => fOrigem.length === 0 || fOrigem.includes(i.origem))
       .filter((i) => fStatus.length === 0 || fStatus.includes(i.statusLabel));
-    const cmpData = (a: Item, b: Item) => b.date.getTime() - a.date.getTime();
-    if (ordenacao === 'antiga') lista.sort((a, b) => a.date.getTime() - b.date.getTime());
-    else if (ordenacao === 'cliente') lista.sort((a, b) => nomeCliente(a.clientId).localeCompare(nomeCliente(b.clientId)) || cmpData(a, b));
-    else if (ordenacao === 'status') lista.sort((a, b) => a.statusLabel.localeCompare(b.statusLabel) || cmpData(a, b));
-    else lista.sort(cmpData); // recente (padrão)
+    lista.sort((a, b) => {
+      let r = 0;
+      if (sortBy === 'data') r = a.date.getTime() - b.date.getTime();
+      else if (sortBy === 'cliente') r = nomeCliente(a.clientId).localeCompare(nomeCliente(b.clientId));
+      else if (sortBy === 'tipo') r = a.tipoLabel.localeCompare(b.tipoLabel);
+      else if (sortBy === 'origem') r = a.origem.localeCompare(b.origem);
+      else if (sortBy === 'status') r = a.statusLabel.localeCompare(b.statusLabel);
+      if (r === 0) r = a.date.getTime() - b.date.getTime();
+      return sortDir === 'asc' ? r : -r;
+    });
     return lista;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itens, fCliente, fTipos, fOrigem, fStatus, ordenacao, clientes]);
+  }, [itens, fCliente, fTipos, fOrigem, fStatus, sortBy, sortDir, clientes]);
+
+  function ordenarPor(col: typeof sortBy) {
+    if (sortBy === col) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortBy(col); setSortDir(col === 'data' ? 'desc' : 'asc'); }
+  }
+  const seta = (col: typeof sortBy) => (sortBy === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
+  const preset = sortBy === 'data' ? (sortDir === 'desc' ? 'recente' : 'antiga') : sortBy === 'cliente' ? 'cliente' : sortBy === 'status' ? 'status' : '';
+  function aplicarPreset(v: string) {
+    if (v === 'recente') { setSortBy('data'); setSortDir('desc'); }
+    else if (v === 'antiga') { setSortBy('data'); setSortDir('asc'); }
+    else if (v === 'cliente') { setSortBy('cliente'); setSortDir('asc'); }
+    else if (v === 'status') { setSortBy('status'); setSortDir('asc'); }
+  }
 
   const produtos = (c: Cliente) => {
     const out: string[] = [];
@@ -225,14 +244,21 @@ export default function AcoesPage() {
                 { value: 'antiga', label: 'Mais antiga' },
                 { value: 'cliente', label: 'Cliente (A-Z)' },
                 { value: 'status', label: 'Status' },
-              ]} value={ordenacao} onChange={(v) => setOrdenacao(v as typeof ordenacao)} />
+              ]} value={preset} onChange={(v) => aplicarPreset(v as string)} />
             </div>
           </div>
 
           <div className="glass-card glass-card-flat" style={{ padding: 0, overflow: 'hidden' }}>
             {itensFiltrados.length === 0 ? <div className="empty-state" style={{ padding: '2rem' }}>Nenhuma ação encontrada.</div> : (
               <table className="data-table">
-                <thead><tr><th>Data</th><th>Cliente</th><th>Tipo</th><th>Origem</th><th>Status</th><th>Observação</th><th></th></tr></thead>
+                <thead><tr>
+                  <th className="th-sort" onClick={() => ordenarPor('data')}>Data{seta('data')}</th>
+                  <th className="th-sort" onClick={() => ordenarPor('cliente')}>Cliente{seta('cliente')}</th>
+                  <th className="th-sort" onClick={() => ordenarPor('tipo')}>Tipo{seta('tipo')}</th>
+                  <th className="th-sort" onClick={() => ordenarPor('origem')}>Origem{seta('origem')}</th>
+                  <th className="th-sort" onClick={() => ordenarPor('status')}>Status{seta('status')}</th>
+                  <th>Observação</th><th></th>
+                </tr></thead>
                 <tbody>
                   {itensFiltrados.map((i) => (
                     <tr key={i.key}>
