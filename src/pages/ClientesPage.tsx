@@ -139,39 +139,55 @@ export default function ClientesPage() {
       </div>
 
       {/* Barra de filtros */}
-      <div className="glass-card glass-card-flat flex flex-wrap items-center gap-2.5 mb-4">
-        <div className="flex items-center gap-2 flex-1 min-w-[220px] rounded-sm border border-border-strong bg-card px-[0.7rem] py-[0.4rem]">
-          <Search size={16} className="text-text-muted shrink-0" />
-          <input
-            className="w-full bg-transparent outline-none text-[0.9rem] text-text-primary placeholder:text-text-muted"
-            placeholder="Cliente ou monitor..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div className="glass-card glass-card-flat mb-4">
+        <div className="filter-grid">
+          <label className="filter-ctl filter-search">
+            <Search size={16} />
+            <input
+              placeholder="Buscar cliente ou monitor..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
+
+          <MultiSelect label="Monitor" options={monitorOpcoes} selected={fMonitores} onChange={setFMonitores} />
+
+          <select
+            className={`filter-ctl${fTipoAnalise !== 'Todos' ? ' is-active' : ''}`}
+            value={fTipoAnalise}
+            onChange={(e) => setFTipoAnalise(e.target.value)}
+          >
+            <option value="Todos">Análise: todas</option>
+            <option value="unitaria">{TIPO_ANALISE_LABEL.unitaria}</option>
+            <option value="segmentado">Segmentado</option>
+          </select>
+
+          <MultiSelect label="Serviços" options={servicoOpcoes} selected={fServicos} onChange={setFServicos} />
+
+          <select
+            className={`filter-ctl${fStatus !== 'Ativo' ? ' is-active' : ''}`}
+            value={fStatus}
+            onChange={(e) => setFStatus(e.target.value)}
+          >
+            {statusOpcoes.map((s) => <option key={s} value={s}>{s === 'Todos' ? 'Status: todos' : s}</option>)}
+          </select>
+
+          <select
+            className={`filter-ctl${fPeriodo !== 'Todos' ? ' is-active' : ''}`}
+            value={fPeriodo}
+            onChange={(e) => setFPeriodo(e.target.value)}
+          >
+            {PERIODOS.map((p) => <option key={p.valor} value={p.valor}>{p.label}</option>)}
+          </select>
         </div>
 
-        <MultiSelect label="Monitor" options={monitorOpcoes} selected={fMonitores} onChange={setFMonitores} />
-
-        <select className="custom-select" style={{ width: 'auto' }} value={fTipoAnalise} onChange={(e) => setFTipoAnalise(e.target.value)}>
-          <option value="Todos">Tipo análise: todos</option>
-          <option value="unitaria">{TIPO_ANALISE_LABEL.unitaria}</option>
-          <option value="segmentado">{TIPO_ANALISE_LABEL.segmentado}</option>
-        </select>
-
-        <MultiSelect label="Serviços" options={servicoOpcoes} selected={fServicos} onChange={setFServicos} />
-
-        <select className="custom-select" style={{ width: 'auto' }} value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
-          {statusOpcoes.map((s) => <option key={s} value={s}>{s === 'Todos' ? 'Status: todos' : s}</option>)}
-        </select>
-
-        <select className="custom-select" style={{ width: 'auto' }} value={fPeriodo} onChange={(e) => setFPeriodo(e.target.value)}>
-          {PERIODOS.map((p) => <option key={p.valor} value={p.valor}>{p.label}</option>)}
-        </select>
-
         {filtrosAtivos && (
-          <button className="btn btn-secondary" onClick={limparFiltros}>
-            <X size={15} /> Limpar
-          </button>
+          <div className="flex items-center justify-end gap-3 mt-3 pt-3 border-t border-border">
+            <span className="text-[0.8rem] text-text-muted">{filtrados.length} resultado(s)</span>
+            <button className="btn btn-secondary" onClick={limparFiltros}>
+              <X size={15} /> Limpar filtros
+            </button>
+          </div>
         )}
       </div>
 

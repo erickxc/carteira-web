@@ -24,20 +24,22 @@ export function MultiSelect({ label, options, selected, onChange }: MultiSelectP
   const toggle = (o: string) =>
     onChange(selected.includes(o) ? selected.filter((x) => x !== o) : [...selected, o]);
 
-  const texto = selected.length === 0 ? label : `${label} (${selected.length})`;
+  const ativo = selected.length > 0;
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative min-w-0" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center justify-between gap-2 min-w-[150px] rounded-sm border border-border-strong bg-card px-[0.7rem] py-[0.5rem] text-[0.85rem] hover:border-text-muted transition-colors"
+        className={`filter-ctl w-full justify-between${ativo ? ' is-active' : ''}${open ? ' is-open' : ''}`}
       >
-        <span className={selected.length ? 'text-accent font-medium' : 'text-text-secondary'}>{texto}</span>
-        <ChevronDown size={15} className="text-text-muted" />
+        <span className="truncate">
+          {label}{ativo && <span className="filter-ctl-count">{selected.length}</span>}
+        </span>
+        <ChevronDown size={15} className="filter-ctl-chevron shrink-0" />
       </button>
       {open && (
-        <div className="absolute z-20 mt-1 w-full min-w-[190px] max-h-64 overflow-auto rounded-sm border border-border-strong bg-card shadow-lg p-1">
+        <div className="filter-pop">
           {options.length === 0 ? (
             <div className="px-3 py-2 text-[0.8rem] text-text-muted">Sem opções</div>
           ) : (
@@ -46,10 +48,10 @@ export function MultiSelect({ label, options, selected, onChange }: MultiSelectP
                 type="button"
                 key={o}
                 onClick={() => toggle(o)}
-                className="flex items-center gap-2 w-full text-left rounded-sm px-2 py-[0.4rem] text-[0.85rem] text-text-secondary hover:bg-card-hover transition-colors"
+                className="filter-pop-item"
               >
-                <span className={`w-4 h-4 rounded-[3px] border flex items-center justify-center shrink-0 ${selected.includes(o) ? 'bg-accent border-accent' : 'border-border-strong'}`}>
-                  {selected.includes(o) && <Check size={11} className="text-black" />}
+                <span className={`filter-check${selected.includes(o) ? ' is-on' : ''}`}>
+                  {selected.includes(o) && <Check size={11} strokeWidth={3} />}
                 </span>
                 {o}
               </button>
