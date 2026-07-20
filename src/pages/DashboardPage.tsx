@@ -95,17 +95,6 @@ export default function DashboardPage() {
     ? (reunioesMes > 0 ? 100 : 0)
     : Math.round(((reunioesMes - reunioesMesAnterior) / reunioesMesAnterior) * 100);
   const reunioesAgendadas = agendaAtiva.filter((a) => /agend/i.test(a.status || '') && differenceInCalendarDays(parseISO(a.date), hoje) >= 0).length;
-  const reunioesCanceladasMes = agendaAtiva.filter((a) => isSameMonth(parseISO(a.date), periodo) && /cancel/i.test(a.status || '')).length;
-  const reunioesConcluidasMes = agendaAtiva.filter((a) => isSameMonth(parseISO(a.date), periodo) && /conclu|realiz/i.test(a.status || '')).length;
-
-  // Clientes suspensos + novos cadastros no período (mesmo recorte de Monitor do topo).
-  const clientesEscopo = useMemo(
-    () => clientes.filter((c) => filtroMonitor === 'Todos' || c.monitor === filtroMonitor),
-    [clientes, filtroMonitor]
-  );
-  const suspensosCount = clientesEscopo.filter((c) => !isStatusAtivo(c.status)).length;
-  const novosMes = clientesEscopo.filter((c) => { const d = parseISO(c.createdAt); return !isNaN(d.getTime()) && isSameMonth(d, periodo); }).length;
-  const novosMesAnterior = clientesEscopo.filter((c) => { const d = parseISO(c.createdAt); return !isNaN(d.getTime()) && isSameMonth(d, periodoAnterior); }).length;
 
   // --- Linha: reuniões por mês, desde o 1º mês com reunião até hoje/período ---
   const { linhaPorMes, linhaHighlight } = useMemo(() => {
@@ -248,34 +237,15 @@ export default function DashboardPage() {
       {/* Topo: KPIs + Cobertura lado a lado */}
       <div className="dash-hero">
         <div className="stat-grid">
-          <StatCard
-            title="Clientes ativos"
-            value={ativos.length}
-            icon={Users}
-            onClick={() => navigate('/clientes')}
-            secondary={[
-              { label: 'Suspensos', value: suspensosCount },
-              { label: 'Novos no mês', value: novosMesAnterior === 0 ? novosMes : `${novosMes} (${novosMes >= novosMesAnterior ? '+' : ''}${novosMes - novosMesAnterior})`, tone: novosMes === novosMesAnterior ? undefined : novosMes > novosMesAnterior },
-            ]}
-          />
+          <StatCard title="Clientes ativos" value={ativos.length} icon={Users} onClick={() => navigate('/clientes')} />
           <StatCard
             title={`Reuniões em ${MESES[mes].slice(0, 3)}/${ano}`}
             value={reunioesMes}
             icon={CalendarCheck}
             trend={`${Math.abs(variacao)}% vs mês anterior`}
             trendUp={variacao === 0 ? undefined : variacao > 0}
-            secondary={[{ label: `${MESES[periodoAnterior.getMonth()].slice(0, 3)}/${periodoAnterior.getFullYear()}`, value: reunioesMesAnterior }]}
           />
-          <StatCard
-            title="Reuniões agendadas"
-            value={reunioesAgendadas}
-            icon={CalendarClock}
-            onClick={() => navigate('/agenda')}
-            secondary={[
-              { label: 'Concluídas', value: reunioesConcluidasMes, tone: true },
-              { label: 'Canceladas', value: reunioesCanceladasMes, tone: reunioesCanceladasMes > 0 ? false : undefined },
-            ]}
-          />
+          <StatCard title="Reuniões agendadas" value={reunioesAgendadas} icon={CalendarClock} onClick={() => navigate('/agenda')} />
         </div>
 
         <div className="glass-card cobertura-card">
