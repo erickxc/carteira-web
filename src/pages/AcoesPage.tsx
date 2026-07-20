@@ -11,6 +11,7 @@ import { eventoStatusBadge } from '../utils/badges';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../types';
 
 const JANELA = 60;
+const JANELA_SUGESTAO = 30;
 const ACAO_STATUS_BADGE: Record<string, string> = { programado: 'badge-accent', concluido: 'badge-success', dispensado: 'badge-muted' };
 const ACAO_STATUS_LABEL: Record<string, string> = { programado: 'Programada', concluido: 'Concluída', dispensado: 'Dispensada' };
 
@@ -39,7 +40,7 @@ function sugestoes(ult: Date | null): AcaoTipo[] {
 export default function AcoesPage() {
   const { clientes, agenda, acoes, atualizarAcao, removerAcao } = useCarteira();
   const navigate = useNavigate();
-  const [aba, setAba] = useState<'acompanhamento' | 'acoes'>('acompanhamento');
+  const [aba, setAba] = useState<'acompanhamento' | 'sugestoes' | 'acoes'>('acompanhamento');
   const [modal, setModal] = useState<{ modo: 'nova' | 'agendar'; clienteId?: string; tipo?: AcaoTipo } | null>(null);
   const [fCliente, setFCliente] = useState('');
   const [fTipos, setFTipos] = useState<string[]>([]);
@@ -98,6 +99,22 @@ export default function AcoesPage() {
     sem.sort((a, b) => (info.ult.get(a.id)?.getTime() ?? 0) - (info.ult.get(b.id)?.getTime() ?? 0));
     mar.sort((a, b) => a.empresa.localeCompare(b.empresa));
     return { recorrentes: rec, semContato: sem, marco: mar };
+  }, [clientes, info]);
+
+  // Sugestão de Ações na Semana: clientes ativos (fora do Marco) sem contato
+  // há +30 dias (ou nunca contatados) — prioridade: sem histórico primeiro,
+  // depois do mais atrasado para o menos.
+  const sugestaoSemana = useMemo(() => {
+    const ativos = clientes.filter((c) => isStatusAtivo(c.status) && !c.atendidoMarco);
+    return ativos
+      .map((c) => {
+        const u = info.ult.get(c.id) ?? null;
+        const dias = u ? differenceInCalendarDays(new Date(), u) : null;
+        return { c, dias };
+      })
+      .filter((x) => x.dias === null || x.dias >= JANELA_SUGESTAO)
+      .sort((a, b) => (b.dias ?? Infinity) - (a.dias ?? Infinity))
+      .map((x) => x.c);
   }, [clientes, info]);
 
   const tipoOpcoes = useMemo(() => [...new Set(itens.map((i) => i.tipoLabel))].sort(), [itens]);
@@ -240,6 +257,9 @@ export default function AcoesPage() {
 
       <div className="tabs" style={{ margin: '1.25rem 0 1.5rem' }}>
         <button className={`tab${aba === 'acompanhamento' ? ' is-active' : ''}`} onClick={() => setAba('acompanhamento')}>Acompanhamento</button>
+        <button className={`tab${aba === 'sugestoes' ? ' is-active' : ''}`} onClick={() => setAba('sugestoes')}>
+          Sugestão de Ações na Semana{sugestaoSemana.length > 0 && <span className="badge badge-warning" style={{ marginLeft: 8 }}>{sugestaoSemana.length}</span>}
+        </button>
         <button className={`tab${aba === 'acoes' ? ' is-active' : ''}`} onClick={() => setAba('acoes')}>Ações</button>
       </div>
 
@@ -264,6 +284,13 @@ export default function AcoesPage() {
           <Grupo titulo="Recorrentes" sub={`reuniões nos últimos ${JANELA} dias`} lista={filtrarOrdenar(recorrentes)} comHistorico />
           <Grupo titulo="Sem contato" sub={`+${JANELA} dias sem contato`} lista={filtrarOrdenar(semContato)} />
           <Grupo titulo="Atendidos pelo Marco" sub="fora da monitoria" lista={filtrarOrdenar(marco)} />
+        </>
+      ) : aba === 'sugestoes' ? (
+        <>
+          <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
+            Clientes ativos sem nenhum contato (reunião ou ação) há {JANELA_SUGESTAO}+ dias, ou nunca contatados — priorizados do mais atrasado para o menos. Sugestão de ação por cliente conforme o tempo parado.
+          </p>
+          <Grupo titulo="Precisam de ação" sub={`+${JANELA_SUGESTAO} dias sem contato`} lista={sugestaoSemana} comHistorico />
         </>
       ) : (
         <>
