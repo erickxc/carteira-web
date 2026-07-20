@@ -117,7 +117,7 @@ export default function DashboardPage() {
   // --- Serviços da carteira: % dos clientes ATENDIDOS por produto CONTRATADO ---
   // "Atendido" = cliente ativo com interação (reunião OU ação) nos últimos 60 dias.
   // O produto vem exclusivamente do CADASTRO do cliente (servicos/flags) — não do
-  // que foi tratado. Serviços não são exclusivos (vários por cliente) → barra, não pizza.
+  // que foi tratado. Serviços não são exclusivos (vários por cliente) → anel, não pizza.
   const { servicosDist, totalAtendidos } = useMemo(() => {
     const JANELA = 60;
     const atendidos = ativos.filter((c) => {
@@ -128,17 +128,32 @@ export default function DashboardPage() {
 
     const temProduto = (c: Cliente, re: RegExp, flag: keyof Cliente) =>
       (c.servicos ?? []).some((s) => re.test(s)) || Boolean(c[flag]);
+
+    // Top clientes por nº de reuniões cujo "serviço tratado" bate com o produto.
+    function topClientes(re: RegExp) {
+      const contagem = new Map<string, number>();
+      agendaAtiva.forEach((a) => {
+        if ((a.servicos ?? []).some((s) => re.test(s))) {
+          contagem.set(a.clientId, (contagem.get(a.clientId) ?? 0) + 1);
+        }
+      });
+      return [...contagem.entries()]
+        .map(([clientId, n]) => ({ empresa: clientes.find((c) => c.id === clientId)?.empresa ?? '—', n }))
+        .sort((a, b) => b.n - a.n)
+        .slice(0, 3);
+    }
+
     const defs: { label: string; re: RegExp; flag: keyof Cliente; color: string }[] = [
       { label: 'Monitoria', re: /monitor/i, flag: 'monitoria', color: '#bd952f' },
       { label: 'Price', re: /(price|prec)/i, flag: 'price', color: '#9a9aa4' },
     ];
     const dist = defs.map((d) => {
       const n = atendidos.filter((c) => temProduto(c, d.re, d.flag)).length;
-      return { label: d.label, n, pct: total > 0 ? Math.round((n / total) * 100) : 0, color: d.color };
+      return { label: d.label, n, pct: total > 0 ? Math.round((n / total) * 100) : 0, color: d.color, top: topClientes(d.re) };
     });
     return { servicosDist: dist, totalAtendidos: total };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ativos, ultimaInteracao]);
+  }, [ativos, ultimaInteracao, agendaAtiva, clientes]);
 
   // --- Cobertura da carteira no período: clientes ativos com >= 1 reunião no mês ---
   const cobertura = useMemo(() => {
