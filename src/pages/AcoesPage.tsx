@@ -47,6 +47,11 @@ export default function AcoesPage() {
   const [fStatus, setFStatus] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'data' | 'cliente' | 'tipo' | 'origem' | 'status'>('data');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc'); // padrão: mais recente
+  // filtros da aba Acompanhamento
+  const [acCliente, setAcCliente] = useState('');
+  const [acMonitores, setAcMonitores] = useState<string[]>([]);
+  const [acProdutos, setAcProdutos] = useState<string[]>([]);
+  const [acOrd, setAcOrd] = useState('contato-recente');
 
   const nomeCliente = (id: string) => clientes.find((c) => c.id === id)?.empresa ?? '—';
 
@@ -140,6 +145,27 @@ export default function AcoesPage() {
     return out;
   };
 
+  const monitorOpcoes = useMemo(() => [...new Set(clientes.map((c) => c.monitor).filter(Boolean) as string[])].sort(), [clientes]);
+  const produtoOpcoes = useMemo(() => [...new Set(clientes.flatMap((c) => produtos(c)))].sort(), [clientes]);
+
+  function filtrarOrdenar(lista: Cliente[]): Cliente[] {
+    const termo = acCliente.trim().toLowerCase();
+    const out = lista.filter((c) =>
+      (!termo || c.empresa.toLowerCase().includes(termo)) &&
+      (acMonitores.length === 0 || acMonitores.includes(c.monitor || '')) &&
+      (acProdutos.length === 0 || produtos(c).some((p) => acProdutos.includes(p)))
+    );
+    const t = (c: Cliente) => info.ult.get(c.id)?.getTime() ?? 0;
+    out.sort((a, b) => {
+      if (acOrd === 'contato-recente') return t(b) - t(a);
+      if (acOrd === 'contato-antigo') return t(a) - t(b);
+      if (acOrd === 'cliente') return a.empresa.localeCompare(b.empresa);
+      if (acOrd === 'reunioes') return (info.nReun.get(b.id) ?? 0) - (info.nReun.get(a.id) ?? 0);
+      return 0;
+    });
+    return out;
+  }
+
   function CardCliente({ c, comHistorico }: { c: Cliente; comHistorico?: boolean }) {
     const u = info.ult.get(c.id) ?? null;
     const hist = (itensPorCliente.get(c.id) ?? []).slice(0, 3);
@@ -219,9 +245,25 @@ export default function AcoesPage() {
 
       {aba === 'acompanhamento' ? (
         <>
-          <Grupo titulo="Recorrentes" sub={`reuniões nos últimos ${JANELA} dias`} lista={recorrentes} comHistorico />
-          <Grupo titulo="Sem contato" sub={`+${JANELA} dias sem contato`} lista={semContato} />
-          <Grupo titulo="Atendidos pelo Marco" sub="fora da monitoria" lista={marco} />
+          <div className="glass-card glass-card-flat mb-4">
+            <div className="filter-grid">
+              <label className="filter-ctl filter-search">
+                <Search size={16} />
+                <input placeholder="Buscar cliente..." value={acCliente} onChange={(e) => setAcCliente(e.target.value)} />
+              </label>
+              <Dropdown label="Monitor" multiple options={monitorOpcoes.map((m) => ({ value: m, label: m }))} value={acMonitores} onChange={(v) => setAcMonitores(v as string[])} />
+              <Dropdown label="Produto" multiple options={produtoOpcoes.map((p) => ({ value: p, label: p }))} value={acProdutos} onChange={(v) => setAcProdutos(v as string[])} />
+              <Dropdown label="Ordenar" defaultValue="contato-recente" options={[
+                { value: 'contato-recente', label: 'Contato recente' },
+                { value: 'contato-antigo', label: 'Contato antigo' },
+                { value: 'cliente', label: 'Cliente (A-Z)' },
+                { value: 'reunioes', label: 'Mais reuniões' },
+              ]} value={acOrd} onChange={(v) => setAcOrd(v as string)} />
+            </div>
+          </div>
+          <Grupo titulo="Recorrentes" sub={`reuniões nos últimos ${JANELA} dias`} lista={filtrarOrdenar(recorrentes)} comHistorico />
+          <Grupo titulo="Sem contato" sub={`+${JANELA} dias sem contato`} lista={filtrarOrdenar(semContato)} />
+          <Grupo titulo="Atendidos pelo Marco" sub="fora da monitoria" lista={filtrarOrdenar(marco)} />
         </>
       ) : (
         <>
