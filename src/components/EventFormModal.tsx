@@ -6,6 +6,8 @@ import { useCarteira } from '../context/CarteiraContext';
 import { urlAnexo } from '../api/client';
 import { gerarAta } from '../utils/ata';
 import { gerarAtaPdf } from '../utils/ataPdf';
+import { toastError } from '../utils/toast';
+import { confirmDialog } from '../utils/confirmDialog';
 import type { ChecklistItem, EventoAgenda, OrientacaoItem } from '../types';
 
 interface EventFormModalProps {
@@ -103,8 +105,8 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
 
   async function salvar(statusOverride?: string) {
     const cliente = clientes.find((c) => c.id === clientId);
-    if (!cliente) { alert('Selecione um cliente.'); return; }
-    if (!subject.trim()) { alert('Informe o assunto da reunião.'); return; }
+    if (!cliente) { toastError('Selecione um cliente.'); return; }
+    if (!subject.trim()) { toastError('Informe o assunto da reunião.'); return; }
     const statusFinal = statusOverride ?? status;
     setSaving(true);
     try {
@@ -144,7 +146,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
       }
       onClose();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Falha ao salvar o evento.');
+      toastError(err instanceof Error ? err.message : 'Falha ao salvar o evento.');
     } finally {
       setSaving(false);
     }
@@ -152,7 +154,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
 
   async function handleDelete() {
     if (!initial) return;
-    if (!confirm('Excluir este evento?')) return;
+    if (!(await confirmDialog('Excluir este evento?', { danger: true, confirmLabel: 'Excluir' }))) return;
     await removerEvento(initial.id);
     onClose();
   }

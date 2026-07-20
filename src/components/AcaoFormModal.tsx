@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { format, parse, parseISO, differenceInCalendarDays } from 'date-fns';
 import { useCarteira } from '../context/CarteiraContext';
+import { toastError } from '../utils/toast';
 import { ACAO_TIPOS, ACAO_TIPO_LABEL, type AcaoTipo, type Segmento } from '../types';
 
 interface AcaoFormModalProps {
@@ -34,7 +35,7 @@ export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFor
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const cliente = clientes.find((c) => c.id === clientId);
-    if (!cliente) { alert('Selecione um cliente.'); return; }
+    if (!cliente) { toastError('Selecione um cliente.'); return; }
     setSaving(true);
     try {
       const dataIso = parse(data, 'yyyy-MM-dd', new Date()).toISOString();
@@ -58,7 +59,7 @@ export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFor
       }
       onClose();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Falha ao salvar a ação.');
+      toastError(err instanceof Error ? err.message : 'Falha ao salvar a ação.');
     } finally {
       setSaving(false);
     }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
+import { toastError } from '../utils/toast';
+import { confirmDialog } from '../utils/confirmDialog';
 import { CATEGORIA_TIPO_LABEL, SEGMENTO_LABEL, type Cadencias, type CategoriaTipo, type Modelo, type Segmento } from '../types';
 
 const TIPOS: CategoriaTipo[] = ['servico', 'tipo_evento', 'status_cliente', 'status_evento', 'monitor', 'tipo_lembrete'];
@@ -99,7 +101,7 @@ function ModelosCard() {
   }
 
   async function excluir(m: Modelo) {
-    if (!confirm(`Remover o modelo "${m.titulo}"?`)) return;
+    if (!(await confirmDialog(`Remover o modelo "${m.titulo}"?`, { danger: true, confirmLabel: 'Remover' }))) return;
     await removerModelo(m.id);
     if (editando?.id === m.id) limpar();
   }
@@ -172,7 +174,7 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
       await criarCategoria(tipo, valor);
       setNovoValor('');
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Falha ao adicionar.');
+      toastError(e instanceof Error ? e.message : 'Falha ao adicionar.');
     } finally {
       setSalvando(false);
     }
@@ -186,7 +188,7 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
   }
 
   async function excluir(id: string, valor: string) {
-    if (!confirm(`Remover "${valor}"? Registros que já usam esse valor não são alterados.`)) return;
+    if (!(await confirmDialog(`Remover "${valor}"? Registros que já usam esse valor não são alterados.`, { danger: true, confirmLabel: 'Remover' }))) return;
     await removerCategoria(id);
   }
 

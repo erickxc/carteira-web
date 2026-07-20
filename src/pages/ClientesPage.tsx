@@ -7,6 +7,8 @@ import { useCarteira } from '../context/CarteiraContext';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { truthy } from '../utils/formatters';
 import { clienteStatusBadge } from '../utils/badges';
+import { toastError, toastSuccess } from '../utils/toast';
+import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
 import { Dropdown } from '../components/Dropdown';
 import { TIPO_ANALISE_LABEL, type Cliente, type NovoCliente } from '../types';
@@ -82,7 +84,7 @@ export default function ClientesPage() {
   }, [clientes, debouncedSearch, fMonitores, fTipoAnalise, fServicos, fStatus, fPeriodo, ultimaReuniao]);
 
   async function handleDelete(cliente: Cliente) {
-    if (!confirm(`Excluir o cliente "${cliente.empresa}"? Isso também remove os eventos de agenda vinculados.`)) return;
+    if (!(await confirmDialog(`Excluir o cliente "${cliente.empresa}"? Isso também remove os eventos de agenda vinculados.`, { danger: true, confirmLabel: 'Excluir' }))) return;
     await removerCliente(cliente.id);
   }
 
@@ -110,10 +112,10 @@ export default function ClientesPage() {
       .filter((c) => c.empresa);
 
     if (parsed.length === 0) {
-      alert('Nenhum cliente válido encontrado na planilha (coluna "Empresa" é obrigatória).');
+      toastError('Nenhum cliente válido encontrado na planilha (coluna "Empresa" é obrigatória).');
     } else {
       await criarClientesEmLote(parsed);
-      alert(`${parsed.length} cliente(s) importado(s) com sucesso.`);
+      toastSuccess(`${parsed.length} cliente(s) importado(s) com sucesso.`);
     }
     e.target.value = '';
   }

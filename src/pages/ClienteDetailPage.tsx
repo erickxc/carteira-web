@@ -5,6 +5,7 @@ import { ArrowLeft, Bell as BellIcon, CalendarPlus, Paperclip, Pencil, Save, Tra
 import { useCarteira } from '../context/CarteiraContext';
 import { urlAnexo } from '../api/client';
 import { clienteStatusBadge, eventoStatusBadge } from '../utils/badges';
+import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
 import { EventFormModal } from '../components/EventFormModal';
 import { ReminderFormModal } from '../components/ReminderFormModal';
@@ -64,7 +65,8 @@ export default function ClienteDetailPage() {
   async function handleExcluir() {
     if (!id) return;
     // Seguro: o guard `if (!cliente) return` acima já garante isto no momento do render.
-    if (!confirm(`Excluir o cliente "${cliente!.empresa}"? Isso também remove os eventos de agenda vinculados.`)) return;
+    const ok = await confirmDialog(`Excluir o cliente "${cliente!.empresa}"? Isso também remove os eventos de agenda vinculados.`, { danger: true, confirmLabel: 'Excluir' });
+    if (!ok) return;
     await removerCliente(id);
     navigate('/clientes');
   }

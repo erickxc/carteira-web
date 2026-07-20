@@ -8,6 +8,7 @@ import { AcaoFormModal } from '../components/AcaoFormModal';
 import { Dropdown } from '../components/Dropdown';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
+import { confirmDialog } from '../utils/confirmDialog';
 import { isStatusAtivo } from '../utils/formatters';
 import { eventoStatusBadge } from '../utils/badges';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../types';
@@ -349,7 +350,7 @@ export default function AcoesPage() {
                           ) : (
                             <>
                               {i.acaoStatus === 'programado' && <button className="btn btn-secondary btn-icon" title="Concluir" onClick={() => atualizarAcao(i.refId, { status: 'concluido' })}><Check size={14} /></button>}
-                              <button className="btn btn-danger btn-icon" title="Excluir" onClick={() => { if (confirm('Excluir esta ação?')) removerAcao(i.refId); }}><Trash2 size={13} /></button>
+                              <button className="btn btn-danger btn-icon" title="Excluir" onClick={async () => { if (await confirmDialog('Excluir esta ação?', { danger: true, confirmLabel: 'Excluir' })) removerAcao(i.refId); }}><Trash2 size={13} /></button>
                             </>
                           )}
                         </div>

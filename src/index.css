@@ -804,6 +804,11 @@ textarea.field-input { resize: vertical; min-height: 74px; }
 
 .reminder-toast-stack { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 12px; z-index: 2000; }
 .reminder-toast { width: 320px; box-shadow: var(--shadow-md); }
+.reminder-toast.toast-error { border-color: var(--danger); }
+.reminder-toast.toast-success { border-color: var(--success); }
+.toast-icon-error { color: var(--danger); flex-shrink: 0; }
+.toast-icon-success { color: var(--success); flex-shrink: 0; }
+.toast-icon-info { color: var(--accent); flex-shrink: 0; }
 
 /* ---------------------------------------------------------------------------
    Utility

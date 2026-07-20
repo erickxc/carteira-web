@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
+import { toastError } from '../utils/toast';
 import { TIPO_ANALISE_LABEL, type Cliente, type NovoCliente, type TipoAnalise } from '../types';
 
 interface ClientFormModalProps {
@@ -53,7 +54,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
       if (editando) {
         await atualizarCliente(initial.id, { empresa: base, monitor, servicos, status, observacao, atendidoMarco });
       } else if (tipoAnalise === 'segmentado') {
-        if (lojasFinais.length === 0) { alert('Adicione ao menos uma loja para a análise segmentada.'); setSaving(false); return; }
+        if (lojasFinais.length === 0) { toastError('Adicione ao menos uma loja para a análise segmentada.'); setSaving(false); return; }
         const novos: NovoCliente[] = lojasFinais.map((nome) => ({
           empresa: `${base} - ${nome}`,
           grupo: base,
@@ -66,7 +67,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
       }
       onClose();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Falha ao salvar o cliente.');
+      toastError(err instanceof Error ? err.message : 'Falha ao salvar o cliente.');
     } finally {
       setSaving(false);
     }

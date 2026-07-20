@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { format, parseISO } from 'date-fns';
 import { useCarteira } from '../context/CarteiraContext';
+import { toastError } from '../utils/toast';
 import type { Lembrete, Recorrencia } from '../types';
 
 const RECURRENCE_OPTIONS: { value: Recorrencia; label: string }[] = [
@@ -56,7 +57,7 @@ export function ReminderFormModal({ initial, initialClientId, onClose }: Reminde
       }
       onClose();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Falha ao salvar o lembrete.');
+      toastError(err instanceof Error ? err.message : 'Falha ao salvar o lembrete.');
     } finally {
       setSaving(false);
     }

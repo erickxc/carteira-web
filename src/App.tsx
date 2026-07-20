@@ -4,6 +4,8 @@ import { Sidebar } from './components/Sidebar';
 import { GlobalSearch } from './components/GlobalSearch';
 import { ReminderFormModal } from './components/ReminderFormModal';
 import { ReminderPopup } from './components/ReminderPopup';
+import { ToastHost } from './components/ToastHost';
+import { ConfirmHost } from './components/ConfirmHost';
 import { LoadingScreen } from './components/LoadingScreen';
 import { useCarteira } from './context/CarteiraContext';
 import DashboardPage from './pages/DashboardPage';
@@ -41,6 +43,8 @@ function Layout({ children }: { children: ReactNode }) {
       {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} />}
       {reminderModalOpen && <ReminderFormModal onClose={() => setReminderModalOpen(false)} />}
       <ReminderPopup />
+      <ToastHost />
+      <ConfirmHost />
     </div>
   );
 }
