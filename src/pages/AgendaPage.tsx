@@ -59,7 +59,11 @@ export default function AgendaPage() {
     return m;
   }, [clientes]);
   const monitorOpcoes = useMemo(() => [...new Set(clientes.map((c) => c.monitor).filter(Boolean))].sort(), [clientes]);
-  const tiposUnicos = useMemo(() => [...new Set(agenda.map((a) => a.type).filter(Boolean))].sort(), [agenda]);
+  // Tipos considerados = os cadastrados (categoria) + os presentes nos dados.
+  const tiposUnicos = useMemo(
+    () => [...new Set([...opcoesPorTipo('tipo_evento'), ...agenda.map((a) => a.type)])].filter(Boolean).sort(),
+    [opcoesPorTipo, agenda]
+  );
   const corTipo = (t: string) => TYPE_PALETTE[Math.max(0, tiposUnicos.indexOf(t)) % TYPE_PALETTE.length];
   const corTipoBg = (t: string) => {
     const h = corTipo(t).replace('#', '');

@@ -84,7 +84,7 @@ function seedMwith(rows, extra) {
 // Seed inicial das categorias (a partir dos valores reais já existentes no banco).
 const CATEGORIAS_SEED = [
   ['servico', ['Monitoria', 'Precificação']],
-  ['tipo_evento', ['Reunião', 'Precificação', 'Contato']],
+  ['tipo_evento', ['Reunião', 'Precificação', 'Contato', 'Relatório']],
   ['status_cliente', ['Ativo', 'Suspenso']],
   ['status_evento', ['Agendado', 'Concluído', 'Cancelado', 'Realizado']],
   ['monitor', ['Yann Cruz', 'Erick Cardoso', 'Karol Santana', 'Administrador']],
