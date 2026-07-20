@@ -61,6 +61,11 @@ export default function AgendaPage() {
   const monitorOpcoes = useMemo(() => [...new Set(clientes.map((c) => c.monitor).filter(Boolean))].sort(), [clientes]);
   const tiposUnicos = useMemo(() => [...new Set(agenda.map((a) => a.type).filter(Boolean))].sort(), [agenda]);
   const corTipo = (t: string) => TYPE_PALETTE[Math.max(0, tiposUnicos.indexOf(t)) % TYPE_PALETTE.length];
+  const corTipoBg = (t: string) => {
+    const h = corTipo(t).replace('#', '');
+    const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, 0.16)`;
+  };
 
   // Agenda com filtros de monitor/tipo aplicados (para exibição).
   const agendaFiltrada = useMemo(
@@ -163,7 +168,7 @@ export default function AgendaPage() {
     return (
       <button
         className={`kanban-card${draggedId === ev.id ? ' is-dragging' : ''}${/conclu|realiz/i.test(ev.status) ? ' is-done' : ''}`}
-        style={{ borderLeftColor: corTipo(ev.type) }}
+        style={{ borderLeftColor: corTipo(ev.type), background: corTipoBg(ev.type) }}
         draggable
         onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); setDraggedId(ev.id); }}
         onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}

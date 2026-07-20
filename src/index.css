@@ -1259,7 +1259,7 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 
 .kanban-card {
   display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
-  padding: 7px 9px 7px 11px; border: 1px solid var(--border); border-left: 3px solid var(--text-muted);
+  padding: 7px 9px 7px 11px; border: 1px solid var(--border-strong); border-left: 4px solid var(--text-muted);
   border-radius: 7px; background: var(--card-hover); cursor: grab;
   transition: transform 0.1s ease, box-shadow 0.12s ease, border-color 0.12s ease;
 }
@@ -1270,11 +1270,11 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .kanban-card.is-warn { border-left-color: var(--warning); }
 .kanban-card.is-danger { border-left-color: var(--danger); }
 .kanban-card-top { display: flex; align-items: center; gap: 6px; }
-.kanban-card-time { font-size: 0.68rem; font-weight: 700; color: var(--text-secondary); flex: 1; }
-.kanban-card-done { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--border-strong); color: var(--text-muted); cursor: pointer; }
+.kanban-card-time { font-size: 0.72rem; font-weight: 700; color: var(--accent); flex: 1; }
+.kanban-card-done { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--border-strong); background: var(--card); color: var(--text-secondary); cursor: pointer; }
 .kanban-card-done:hover { background: var(--success); border-color: var(--success); color: #fff; }
-.kanban-card-title { font-size: 0.78rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kanban-card-sub { font-size: 0.66rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kanban-card-title { font-size: 0.8rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kanban-card-sub { font-size: 0.68rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kanban-add { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; color: var(--text-muted); background: none; border: 1px dashed var(--border); border-radius: 6px; padding: 4px 6px; cursor: pointer; transition: all 0.12s ease; }
 .kanban-add:hover { color: var(--accent); border-color: var(--accent); }
 
