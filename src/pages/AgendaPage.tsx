@@ -251,7 +251,7 @@ export default function AgendaPage() {
                           draggable onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); setDraggedId(ev.id); }}
                           onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
                           onClick={() => setModalState({ editing: ev })}
-                          title={`${ev.clientName} — ${ev.subject || ev.type}${ev.time ? ' ' + ev.time : ''}`}>
+                          title={`${ev.clientName} — ${ev.subject || ev.type}${ev.time ? ' ' + ev.time : ''} · clique para editar/reagendar (ou arraste para outro dia)`}>
                           <span className="calendar-chip-title">{ev.time ? `${ev.time} ` : ''}{ev.clientName}</span>
                           <span className="calendar-chip-meta">
                             <span className="calendar-chip-type">{ev.type}</span>

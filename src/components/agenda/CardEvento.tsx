@@ -24,6 +24,7 @@ export function CardEvento({ ev, isDragging, hasConflito, onDragStart, onDragEnd
       onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); onDragStart(); }}
       onDragEnd={onDragEnd}
       onClick={onClick}
+      title={`${ev.clientName} — ${ev.subject || ev.type} · clique para editar/reagendar (ou arraste para outro dia/turno)`}
     >
       <div className="kanban-card-top">
         <span className="kanban-card-time">{ev.time || '—'}{ev.duracao ? ` · ${ev.duracao}min` : ''}</span>
