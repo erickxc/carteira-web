@@ -1,25 +1,40 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
-import { format, parseISO } from 'date-fns';
-import { FileUp, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { differenceInCalendarDays, format, parseISO } from 'date-fns';
+import { FileUp, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
-import { truthy, isStatusAtivo } from '../utils/formatters';
+import { truthy } from '../utils/formatters';
 import { clienteStatusBadge } from '../utils/badges';
 import { ClientFormModal } from '../components/ClientFormModal';
-import type { Cliente, NovoCliente } from '../types';
+import { MultiSelect } from '../components/MultiSelect';
+import { TIPO_ANALISE_LABEL, type Cliente, type NovoCliente } from '../types';
+
+const PERIODOS = [
+  { valor: 'Todos', label: 'Últ. reunião: todas' },
+  { valor: '7', label: 'Sem reunião +7d' },
+  { valor: '15', label: 'Sem reunião +15d' },
+  { valor: '30', label: 'Sem reunião +30d' },
+  { valor: '60', label: 'Sem reunião +60d' },
+];
 
 export default function ClientesPage() {
-  const { clientes, agenda, removerCliente, criarClientesEmLote } = useCarteira();
+  const { clientes, agenda, removerCliente, criarClientesEmLote, opcoesPorTipo } = useCarteira();
   const navigate = useNavigate();
+  const hoje = new Date();
+
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 200);
-  const [somenteAtivos, setSomenteAtivos] = useState(true);
+  const [fMonitores, setFMonitores] = useState<string[]>([]);
+  const [fTipoAnalise, setFTipoAnalise] = useState<string>('Todos');
+  const [fServicos, setFServicos] = useState<string[]>([]);
+  const [fStatus, setFStatus] = useState<string>('Ativo');
+  const [fPeriodo, setFPeriodo] = useState<string>('Todos');
   const [modalState, setModalState] = useState<{ editing: Cliente | null } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Última reunião por cliente (data do evento mais recente).
+  // Última reunião por cliente (evento mais recente).
   const ultimaReuniao = useMemo(() => {
     const map = new Map<string, Date>();
     agenda.forEach((a) => {
@@ -31,15 +46,40 @@ export default function ClientesPage() {
     return map;
   }, [agenda]);
 
+  // Opções derivadas dos dados / categorias.
+  const monitorOpcoes = useMemo(
+    () => [...new Set(clientes.map((c) => c.monitor).filter(Boolean))].sort(),
+    [clientes]
+  );
+  const servicoOpcoes = useMemo(() => opcoesPorTipo('servico'), [opcoesPorTipo]);
+  const statusOpcoes = useMemo(() => ['Todos', ...opcoesPorTipo('status_cliente')], [opcoesPorTipo]);
+
+  const filtrosAtivos =
+    !!debouncedSearch.trim() || fMonitores.length > 0 || fTipoAnalise !== 'Todos' ||
+    fServicos.length > 0 || fStatus !== 'Ativo' || fPeriodo !== 'Todos';
+
+  function limparFiltros() {
+    setSearch(''); setFMonitores([]); setFTipoAnalise('Todos'); setFServicos([]); setFStatus('Ativo'); setFPeriodo('Todos');
+  }
+
   const filtrados = useMemo(() => {
     const termo = debouncedSearch.trim().toLowerCase();
     return clientes
-      .filter((c) => (somenteAtivos ? isStatusAtivo(c.status) : true))
+      .filter((c) => fStatus === 'Todos' || c.status === fStatus)
       .filter((c) => !termo || c.empresa.toLowerCase().includes(termo) || (c.monitor ?? '').toLowerCase().includes(termo))
+      .filter((c) => fMonitores.length === 0 || fMonitores.includes(c.monitor))
+      .filter((c) => fTipoAnalise === 'Todos' || (c.tipoAnalise ?? 'unitaria') === fTipoAnalise)
+      .filter((c) => fServicos.length === 0 || fServicos.some((s) => (c.servicos ?? []).includes(s)))
+      .filter((c) => {
+        if (fPeriodo === 'Todos') return true;
+        const n = Number(fPeriodo);
+        const ult = ultimaReuniao.get(c.id);
+        const dias = ult ? differenceInCalendarDays(hoje, ult) : Infinity; // nunca = sempre "vencido"
+        return dias > n;
+      })
       .sort((a, b) => a.empresa.localeCompare(b.empresa));
-  }, [clientes, debouncedSearch, somenteAtivos]);
-
-  const totalAtivos = useMemo(() => clientes.filter((c) => isStatusAtivo(c.status)).length, [clientes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientes, debouncedSearch, fMonitores, fTipoAnalise, fServicos, fStatus, fPeriodo, ultimaReuniao]);
 
   async function handleDelete(cliente: Cliente) {
     if (!confirm(`Excluir o cliente "${cliente.empresa}"? Isso também remove os eventos de agenda vinculados.`)) return;
@@ -84,9 +124,7 @@ export default function ClientesPage() {
         <div>
           <h1 className="page-title" style={{ marginBottom: 4 }}>Clientes</h1>
           <p className="page-subtitle" style={{ margin: 0 }}>
-            {somenteAtivos
-              ? `${filtrados.length} cliente(s) ativo(s)`
-              : `${filtrados.length} de ${clientes.length} · ${totalAtivos} ativos`}
+            {filtrados.length} de {clientes.length} cliente(s)
           </p>
         </div>
         <div className="flex-row" style={{ gap: 10 }}>
@@ -101,19 +139,40 @@ export default function ClientesPage() {
       </div>
 
       {/* Barra de filtros */}
-      <div className="glass-card glass-card-flat clientes-toolbar">
-        <div className="clientes-search">
-          <Search size={16} className="text-muted" />
+      <div className="glass-card glass-card-flat flex flex-wrap items-center gap-2.5 mb-4">
+        <div className="flex items-center gap-2 flex-1 min-w-[220px] rounded-sm border border-border-strong bg-card px-[0.7rem] py-[0.4rem]">
+          <Search size={16} className="text-text-muted shrink-0" />
           <input
-            placeholder="Buscar empresa ou monitor..."
+            className="w-full bg-transparent outline-none text-[0.9rem] text-text-primary placeholder:text-text-muted"
+            placeholder="Cliente ou monitor..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <label className="check-row" style={{ whiteSpace: 'nowrap' }}>
-          <input type="checkbox" checked={somenteAtivos} onChange={(e) => setSomenteAtivos(e.target.checked)} />
-          Ver somente ativos
-        </label>
+
+        <MultiSelect label="Monitor" options={monitorOpcoes} selected={fMonitores} onChange={setFMonitores} />
+
+        <select className="custom-select" style={{ width: 'auto' }} value={fTipoAnalise} onChange={(e) => setFTipoAnalise(e.target.value)}>
+          <option value="Todos">Tipo análise: todos</option>
+          <option value="unitaria">{TIPO_ANALISE_LABEL.unitaria}</option>
+          <option value="segmentado">{TIPO_ANALISE_LABEL.segmentado}</option>
+        </select>
+
+        <MultiSelect label="Serviços" options={servicoOpcoes} selected={fServicos} onChange={setFServicos} />
+
+        <select className="custom-select" style={{ width: 'auto' }} value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
+          {statusOpcoes.map((s) => <option key={s} value={s}>{s === 'Todos' ? 'Status: todos' : s}</option>)}
+        </select>
+
+        <select className="custom-select" style={{ width: 'auto' }} value={fPeriodo} onChange={(e) => setFPeriodo(e.target.value)}>
+          {PERIODOS.map((p) => <option key={p.valor} value={p.valor}>{p.label}</option>)}
+        </select>
+
+        {filtrosAtivos && (
+          <button className="btn btn-secondary" onClick={limparFiltros}>
+            <X size={15} /> Limpar
+          </button>
+        )}
       </div>
 
       <div className="glass-card glass-card-flat" style={{ padding: 0, overflow: 'hidden' }}>
@@ -127,6 +186,7 @@ export default function ClientesPage() {
                   <th>Empresa</th>
                   <th>Monitor</th>
                   <th>Serviços</th>
+                  <th>Análise</th>
                   <th>Status</th>
                   <th>Última reunião</th>
                   <th style={{ width: 96 }}></th>
@@ -135,6 +195,7 @@ export default function ClientesPage() {
               <tbody>
                 {filtrados.map((cliente) => {
                   const ult = ultimaReuniao.get(cliente.id);
+                  const segmentado = cliente.tipoAnalise === 'segmentado';
                   return (
                     <tr key={cliente.id}>
                       <td>
@@ -149,6 +210,11 @@ export default function ClientesPage() {
                             ? cliente.servicos.map((s) => <span key={s} className="badge badge-accent">{s}</span>)
                             : <span className="text-muted">—</span>}
                         </div>
+                      </td>
+                      <td>
+                        {segmentado
+                          ? <span className="badge badge-warning">Segmentado · {cliente.lojas?.length ?? 0}</span>
+                          : <span className="text-muted">Unitária</span>}
                       </td>
                       <td>
                         <span className={`badge ${clienteStatusBadge(cliente.status)}`}>{cliente.status || '—'}</span>

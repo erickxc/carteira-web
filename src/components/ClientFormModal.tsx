@@ -46,10 +46,12 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
     if (!empresa.trim()) return;
     setSaving(true);
     try {
+      // Inclui uma loja digitada mas ainda não adicionada (sem exigir clicar em +).
+      const lojasFinais = novaLoja.trim() ? [...lojas, { id: uuidv4(), nome: novaLoja.trim() }] : lojas;
       const payload = {
         empresa, monitor, servicos, status, observacao, atendidoMarco,
         tipoAnalise,
-        lojas: tipoAnalise === 'segmentado' ? lojas : [],
+        lojas: tipoAnalise === 'segmentado' ? lojasFinais : [],
       };
       if (initial) {
         await atualizarCliente(initial.id, payload);
