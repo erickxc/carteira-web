@@ -10,6 +10,7 @@ import { useCarteira } from '../context/CarteiraContext';
 import { EventFormModal } from '../components/EventFormModal';
 import { Dropdown } from '../components/Dropdown';
 import { CardEvento } from '../components/agenda/CardEvento';
+import { ReagendarButton } from '../components/agenda/ReagendarButton';
 import { formatHolidayLabel, getHoliday } from '../utils/holidays';
 import { gerarAta } from '../utils/ata';
 import { corTipo } from '../utils/tipoCor';
@@ -257,6 +258,7 @@ export default function AgendaPage() {
                             <span className="calendar-chip-type">{ev.type}</span>
                             {conflitos.has(ev.id) && <AlertTriangle size={10} className="text-[color:var(--danger)]" />}
                             {ev.attachments.length > 0 && <Paperclip size={10} className="calendar-chip-clip" />}
+                            <ReagendarButton className="calendar-chip-reagendar" dataAtual={ev.date} onReagendar={(novaData) => moverParaDia(ev.id, novaData)} />
                           </span>
                         </button>
                       ))}
@@ -300,6 +302,7 @@ export default function AgendaPage() {
                             onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
                             onClick={() => setModalState({ editing: ev })}
                             onConcluir={() => concluir(ev)}
+                            onReagendar={(novaData) => moverParaDia(ev.id, novaData)}
                           />
                         ))}
                         <button className="kanban-add" onClick={() => setModalState({ defaultDate: day })}><Plus size={13} /> reunião</button>

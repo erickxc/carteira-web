@@ -1163,6 +1163,12 @@ textarea.field-input { resize: vertical; min-height: 74px; }
   text-overflow: ellipsis;
 }
 .calendar-chip-clip { color: var(--text-muted); flex-shrink: 0; }
+.calendar-chip-reagendar {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0;
+  color: var(--text-muted); cursor: pointer;
+}
+.calendar-chip-reagendar:hover { background: var(--accent-soft); color: var(--accent); }
 
 /* --- Módulo Ação: tabs, tabela de chamados, cards --- */
 .tabs { display: inline-flex; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }

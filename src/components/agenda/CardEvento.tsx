@@ -1,5 +1,6 @@
 import { AlertTriangle, Check } from 'lucide-react';
 import { corTipo, corTipoBg } from '../../utils/tipoCor';
+import { ReagendarButton } from './ReagendarButton';
 import type { EventoAgenda } from '../../types';
 
 interface CardEventoProps {
@@ -10,12 +11,13 @@ interface CardEventoProps {
   onDragEnd: () => void;
   onClick: () => void;
   onConcluir: () => void;
+  onReagendar: (novaData: string) => void;
 }
 
 /** Card de evento da view Semana/Kanban — extraído de AgendaPage para não ser
  * redefinido a cada render; recebe estado de drag/conflito via props em vez
  * de fechar sobre o state da página. */
-export function CardEvento({ ev, isDragging, hasConflito, onDragStart, onDragEnd, onClick, onConcluir }: CardEventoProps) {
+export function CardEvento({ ev, isDragging, hasConflito, onDragStart, onDragEnd, onClick, onConcluir, onReagendar }: CardEventoProps) {
   return (
     <button
       className={`kanban-card${isDragging ? ' is-dragging' : ''}${/conclu|realiz/i.test(ev.status) ? ' is-done' : ''}`}
@@ -29,6 +31,7 @@ export function CardEvento({ ev, isDragging, hasConflito, onDragStart, onDragEnd
       <div className="kanban-card-top">
         <span className="kanban-card-time">{ev.time || '—'}{ev.duracao ? ` · ${ev.duracao}min` : ''}</span>
         {hasConflito && <AlertTriangle size={12} className="text-[color:var(--danger)]" />}
+        <ReagendarButton dataAtual={ev.date} onReagendar={onReagendar} />
         {!/conclu|realiz/i.test(ev.status) && (
           <span className="kanban-card-done" onClick={(e) => { e.stopPropagation(); onConcluir(); }} title="Concluir reunião"><Check size={12} /></span>
         )}
