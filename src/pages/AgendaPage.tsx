@@ -11,7 +11,6 @@ import { EventFormModal } from '../components/EventFormModal';
 import { Dropdown } from '../components/Dropdown';
 import { formatHolidayLabel, getHoliday } from '../utils/holidays';
 import { gerarAta } from '../utils/ata';
-import { eventoStatusBadge } from '../utils/badges';
 import type { EventoAgenda } from '../types';
 
 const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -19,14 +18,6 @@ const TYPE_PALETTE = ['#bd952f', '#5a9bd4', '#4cae7a', '#c77dba', '#d69a3c', '#7
 
 interface AgendaLocationState { focusDate?: string; openNewEvent?: boolean; }
 
-function chipClass(status: string): string {
-  const b = eventoStatusBadge(status);
-  if (b.includes('success')) return 'is-ok';
-  if (b.includes('accent')) return 'is-agendado';
-  if (b.includes('warning')) return 'is-warn';
-  if (b.includes('danger')) return 'is-danger';
-  return '';
-}
 function turnoDe(ev: EventoAgenda): 'manha' | 'tarde' {
   if (!ev.time) return 'manha';
   return Number(ev.time.slice(0, 2)) >= 12 ? 'tarde' : 'manha';
@@ -249,13 +240,11 @@ export default function AgendaPage() {
               <Dropdown label="Tipo" multiple options={tiposUnicos.map((t) => ({ value: t, label: t }))} value={fTipos} onChange={(v) => setFTipos(v as string[])} />
             </div>
           </div>
-          {view === 'kanban' && (
-            <div className="agenda-legend-tipos">
-              {tiposUnicos.map((t) => (
-                <span key={t}><i style={{ background: corTipo(t) }} /> {t}</span>
-              ))}
-            </div>
-          )}
+          <div className="agenda-legend-tipos">
+            {tiposUnicos.map((t) => (
+              <span key={t}><i style={{ background: corTipo(t) }} /> {t}</span>
+            ))}
+          </div>
         </div>
 
         {view === 'mes' ? (
@@ -284,7 +273,9 @@ export default function AgendaPage() {
                     </div>
                     <div className="calendar-events-big custom-scrollbar">
                       {dayEvents.map((ev) => (
-                        <button key={ev.id} className={`calendar-chip ${chipClass(ev.status)}${draggedId === ev.id ? ' is-dragging' : ''}`}
+                        <button key={ev.id}
+                          className={`calendar-chip${draggedId === ev.id ? ' is-dragging' : ''}${/conclu|realiz/i.test(ev.status) ? ' is-done' : ''}`}
+                          style={{ ['--chip-color' as string]: corTipo(ev.type) }}
                           draggable onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); setDraggedId(ev.id); }}
                           onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
                           onClick={() => setModalState({ editing: ev })}

@@ -1,10 +1,11 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { addMonths, addWeeks, format, parse, setHours, setMinutes, subDays, subHours } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
-import { AlertTriangle, Check, Paperclip, Plus, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Check, FileText, Paperclip, Plus, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { urlAnexo } from '../api/client';
 import { gerarAta } from '../utils/ata';
+import { gerarAtaPdf } from '../utils/ataPdf';
 import type { ChecklistItem, EventoAgenda, OrientacaoItem } from '../types';
 
 interface EventFormModalProps {
@@ -324,12 +325,27 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
 
             <div className="field">
               <div className="flex-between" style={{ marginBottom: 2 }}>
-                <span>Ata <span className="text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· automática, editável</span></span>
+                <span>Ata <span className="text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· observações, editável</span></span>
                 <button type="button" className="btn btn-secondary" style={{ padding: '0.25rem 0.55rem', fontSize: 12 }} onClick={() => setAta(ataAuto)}>
-                  Gerar automática
+                  Preencher automático
                 </button>
               </div>
-              <textarea className="field-input" value={ata} onChange={(e) => setAta(e.target.value)} rows={5} placeholder="Vazia = gerada automaticamente ao salvar (pré-análise + checklist). Você pode editar." />
+              <textarea className="field-input" value={ata} onChange={(e) => setAta(e.target.value)} rows={4} placeholder="Observações da reunião (entram na ata em PDF). Vazia = gera automática ao salvar." />
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ marginTop: 8, alignSelf: 'flex-start' }}
+                onClick={() => gerarAtaPdf({
+                  clientName: clientes.find((c) => c.id === clientId)?.empresa ?? '',
+                  date: parse(date, 'yyyy-MM-dd', new Date()).toISOString(),
+                  time, type, status, subject, servicos,
+                  checklist, preAnalise, resumo,
+                  ata: ata.trim() ? ata : ataAuto,
+                  description,
+                })}
+              >
+                <FileText size={15} /> Gerar Ata (PDF)
+              </button>
             </div>
 
             <label className="field">

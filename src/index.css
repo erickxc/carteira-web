@@ -602,11 +602,14 @@ textarea.field-input { resize: vertical; min-height: 74px; }
   max-height: min(88vh, 900px);
   display: flex;
   flex-direction: column;
-  background: var(--card);
+  background: #1e1e24;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  box-shadow: 0 20px 40px rgba(16, 24, 40, 0.2);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
   overflow: hidden;
 }
+/* Campos mais escuros que o fundo do modal, criando profundidade. */
+.modal .field-input { background: var(--bg); }
 
 .modal-header {
   display: flex;
@@ -1055,12 +1058,10 @@ textarea.field-input { resize: vertical; min-height: 74px; }
   left: 0; top: 0; bottom: 0;
   width: 3px;
   border-radius: 3px 0 0 3px;
-  background: var(--text-muted);
+  background: var(--chip-color, var(--text-muted));
 }
-.calendar-chip.is-ok::before       { background: var(--success); }
-.calendar-chip.is-agendado::before { background: var(--accent); }
-.calendar-chip.is-warn::before     { background: var(--warning); }
-.calendar-chip.is-danger::before   { background: var(--danger); }
+.calendar-chip.is-done { opacity: 0.62; }
+.calendar-chip.is-done .calendar-chip-title { text-decoration: line-through; }
 
 .calendar-chip:hover {
   background: var(--card-hover);
