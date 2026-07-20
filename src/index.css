@@ -190,7 +190,11 @@ a { color: inherit; }
   margin-bottom: 1.5rem;
   align-items: stretch;
 }
-.dash-hero .stat-grid { margin-bottom: 0; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.dash-hero .stat-grid { margin-bottom: 0; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: stretch; }
+
+/* StatCard compacto (topo do dashboard) com barra de acento à esquerda */
+.stat-card-sm { padding: 0.9rem 1.1rem 0.9rem 1.25rem; overflow: hidden; }
+.stat-card-accent-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
 .dash-hero .cobertura-card { margin-bottom: 0; display: flex; flex-direction: column; }
 @media (max-width: 1080px) { .dash-hero { grid-template-columns: 1fr; } }
 
@@ -247,8 +251,9 @@ a { color: inherit; }
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
   margin-bottom: 1.5rem;
-  align-items: start;
+  align-items: stretch;
 }
+.dash-two-col > .glass-card { display: flex; flex-direction: column; }
 
 @media (max-width: 980px) { .dash-two-col { grid-template-columns: 1fr; } }
 
@@ -1016,7 +1021,7 @@ textarea.field-input { resize: vertical; min-height: 74px; }
 .legend-dot.is-agendado { background: var(--accent); }
 
 /* --- Dashboard: anéis radiais de serviços (substitui barras finas) --- */
-.radial-row { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: center; gap: 1.75rem; padding: 0.5rem 0 0.25rem; }
+.radial-row { display: flex; flex: 1; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1.75rem; padding: 0.5rem 0 0.25rem; }
 .radial-block { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 168px; }
 .radial-item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .radial-svg-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
