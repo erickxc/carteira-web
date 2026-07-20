@@ -80,8 +80,13 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
         </div>
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
-            {editando && initial.grupo && (
-              <div className="badge badge-warning" style={{ marginBottom: 12 }}>Loja do grupo: {initial.grupo}</div>
+            {editando && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                <span className="badge badge-muted">
+                  Análise: {initial.tipoAnalise === 'segmentado' || initial.grupo ? TIPO_ANALISE_LABEL.segmentado : TIPO_ANALISE_LABEL.unitaria}
+                </span>
+                {initial.grupo && <span className="badge badge-warning">Grupo: {initial.grupo}</span>}
+              </div>
             )}
 
             <label className="field">

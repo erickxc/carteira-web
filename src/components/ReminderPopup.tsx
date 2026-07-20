@@ -52,7 +52,13 @@ export function ReminderPopup() {
           setQueue((prev) => [...prev, reminder]);
 
           if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification(reminder.title, { body: reminder.description || 'Lembrete da Carteira Web' });
+            const notif = new Notification(reminder.title, {
+              body: reminder.description || 'Lembrete da Carteira — 2D Consultores',
+              icon: '/favicon.svg',
+              tag: reminder.id,
+              requireInteraction: true,
+            });
+            notif.onclick = () => { window.focus(); notif.close(); };
           }
 
           const next = nextOccurrence(original, reminder.recurrence);

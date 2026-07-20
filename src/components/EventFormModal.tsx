@@ -90,17 +90,28 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
     return out;
   }
 
-  async function handleSubmit(e: FormEvent) {
+  const statusConcluido = statusOpcoes.find((s) => /conclu|realiz/i.test(s)) ?? 'Concluído';
+
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    void salvar();
+  }
+  function handleConcluir() {
+    setStatus(statusConcluido);
+    void salvar(statusConcluido);
+  }
+
+  async function salvar(statusOverride?: string) {
     const cliente = clientes.find((c) => c.id === clientId);
     if (!cliente) { alert('Selecione um cliente.'); return; }
-    if (!subject.trim()) return;
+    if (!subject.trim()) { alert('Informe o assunto da reunião.'); return; }
+    const statusFinal = statusOverride ?? status;
     setSaving(true);
     try {
       const baseData = parse(date, 'yyyy-MM-dd', new Date());
       const comum = {
         clientId, clientName: cliente.empresa, subject, type, time,
-        duracao: duracao || undefined, description, status, servicos, preAnalise, resumo,
+        duracao: duracao || undefined, description, status: statusFinal, servicos, preAnalise, resumo,
       };
       // Ata manual tem prioridade; se vazia, gera automaticamente.
       const ataDe = (iso: string, cl: ChecklistItem[]) =>
@@ -385,6 +396,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
               </button>
             )}
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+            <button type="button" className="btn btn-success" onClick={handleConcluir} disabled={saving || clientes.length === 0} title="Salvar marcando a reunião como concluída">
+              <Check size={15} /> Concluir
+            </button>
             <button type="submit" className="btn btn-primary" disabled={saving || clientes.length === 0}>
               {saving ? 'Salvando...' : recorrente && !editando ? `Criar ${Math.max(1, ocorrencias)} reuniões` : 'Salvar'}
             </button>

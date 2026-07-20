@@ -182,6 +182,18 @@ a { color: inherit; }
 
 .section { margin-bottom: 1.5rem; }
 
+/* Topo do dashboard: KPIs + Cobertura lado a lado */
+.dash-hero {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  align-items: stretch;
+}
+.dash-hero .stat-grid { margin-bottom: 0; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.dash-hero .cobertura-card { margin-bottom: 0; display: flex; flex-direction: column; }
+@media (max-width: 1080px) { .dash-hero { grid-template-columns: 1fr; } }
+
 .section-header {
   display: flex;
   align-items: center;
@@ -363,6 +375,8 @@ a { color: inherit; }
 
 .btn-danger { background: var(--card); color: var(--danger); border-color: var(--danger); }
 .btn-danger:hover:not(:disabled) { background: var(--danger); color: #fff; }
+.btn-success { background: var(--card); color: var(--success); border-color: var(--success); }
+.btn-success:hover:not(:disabled) { background: var(--success); color: #fff; }
 
 .btn-icon { padding: 0.5rem; }
 
@@ -621,7 +635,7 @@ textarea.field-input { resize: vertical; min-height: 74px; }
 }
 
 .modal-header h2 { margin: 0; font-size: 1.05rem; font-weight: 600; }
-.modal-body { padding: 1.35rem; overflow: auto; }
+.modal-body { padding: 1.35rem; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 0.9rem 1.35rem; border-top: 1px solid var(--border); background: var(--bg); }
 
 /* ---------------------------------------------------------------------------

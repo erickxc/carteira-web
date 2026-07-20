@@ -122,7 +122,7 @@ export default function ClientesPage() {
     <div className="page-container">
       <div className="flex-between" style={{ marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 className="page-title" style={{ marginBottom: 4 }}>Clientes</h1>
+          <h1 className="page-title" style={{ marginBottom: 4 }}>Carteira</h1>
           <p className="page-subtitle" style={{ margin: 0 }}>
             {filtrados.length} de {clientes.length} cliente(s)
           </p>

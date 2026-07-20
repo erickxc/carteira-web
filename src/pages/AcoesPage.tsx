@@ -173,7 +173,7 @@ export default function AcoesPage() {
       <div className="glass-card glass-card-flat acao-card">
         <div className="acao-card-head">
           <div style={{ minWidth: 0 }}>
-            <button className="link-button" style={{ fontWeight: 600, fontSize: '1rem' }} onClick={() => navigate(`/clientes/${c.id}`)}>{c.empresa}</button>
+            <button className="link-button" style={{ fontWeight: 600, fontSize: '1rem' }} onClick={() => navigate(`/clientes/${c.id}`, { state: { from: '/acoes', fromLabel: 'Ações' } })}>{c.empresa}</button>
             <div className="acao-card-badges">
               {c.atendidoMarco && <span className="badge badge-accent">Marco</span>}
               {produtos(c).map((p) => <span key={p} className="badge badge-muted">{p}</span>)}
@@ -305,7 +305,7 @@ export default function AcoesPage() {
                   {itensFiltrados.map((i) => (
                     <tr key={i.key}>
                       <td style={{ whiteSpace: 'nowrap' }}>{format(i.date, 'dd/MM/yy', { locale: ptBR })}</td>
-                      <td><button className="link-button" onClick={() => navigate(`/clientes/${i.clientId}`)}>{nomeCliente(i.clientId)}</button></td>
+                      <td><button className="link-button" onClick={() => navigate(`/clientes/${i.clientId}`, { state: { from: '/acoes', fromLabel: 'Ações' } })}>{nomeCliente(i.clientId)}</button></td>
                       <td>{i.tipoLabel}</td>
                       <td><span className={`badge ${i.origem === 'reuniao' ? 'badge-accent' : 'badge-muted'}`}>{i.origem === 'reuniao' ? 'Reunião' : 'Ação'}</span></td>
                       <td><span className={`badge ${i.statusBadge}`}>{i.statusLabel}</span></td>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ArrowLeft, Bell as BellIcon, CalendarPlus, Paperclip, Pencil, Save, Trash2 } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
@@ -12,6 +12,10 @@ import { ReminderFormModal } from '../components/ReminderFormModal';
 export default function ClienteDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const voltar = (location.state as { from?: string; fromLabel?: string } | null) ?? null;
+  const backTo = voltar?.from ?? '/clientes';
+  const backLabel = voltar?.fromLabel ?? 'Carteira';
   const { clientes, agenda, removerCliente, atualizarCliente, opcoesPorTipo } = useCarteira();
   const statusOpcoes = opcoesPorTipo('status_cliente');
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -37,7 +41,7 @@ export default function ClienteDetailPage() {
   if (!cliente) {
     return (
       <div className="page-container">
-        <button className="btn btn-secondary" onClick={() => navigate('/clientes')}>
+        <button className="btn btn-secondary" onClick={() => navigate(backTo)}>
           <ArrowLeft size={15} /> Voltar
         </button>
         <div className="empty-state">Cliente não encontrado.</div>
@@ -66,8 +70,8 @@ export default function ClienteDetailPage() {
 
   return (
     <div className="page-container">
-      <button className="btn btn-secondary" onClick={() => navigate('/clientes')} style={{ marginBottom: 20 }}>
-        <ArrowLeft size={15} /> Voltar para Clientes
+      <button className="btn btn-secondary" onClick={() => navigate(backTo)} style={{ marginBottom: 20 }}>
+        <ArrowLeft size={15} /> Voltar para {backLabel}
       </button>
 
       <div className="glass-card" style={{ marginBottom: 24 }}>

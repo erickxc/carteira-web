@@ -219,45 +219,21 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-        <StatCard title="Clientes ativos" value={ativos.length} icon={Users} onClick={() => navigate('/clientes')} />
-        <StatCard
-          title={`Reuniões em ${MESES[mes].slice(0, 3)}/${ano}`}
-          value={reunioesMes}
-          icon={CalendarCheck}
-          trend={`${Math.abs(variacao)}% vs mês anterior`}
-          trendUp={variacao === 0 ? undefined : variacao > 0}
-        />
-        <StatCard title="Reuniões agendadas" value={reunioesAgendadas} icon={CalendarClock} onClick={() => navigate('/agenda')} />
-      </div>
-
-      {/* Serviços da carteira */}
-      <div className="section glass-card">
-        <div className="section-header">
-          <h3>Serviços dos Clientes Atendidos</h3>
-          <span className="text-muted" style={{ fontSize: 12 }}>reunião ou ação nos últimos 60 dias · {totalAtendidos} clientes</span>
+      {/* Topo: KPIs + Cobertura lado a lado */}
+      <div className="dash-hero">
+        <div className="stat-grid">
+          <StatCard title="Clientes ativos" value={ativos.length} icon={Users} onClick={() => navigate('/clientes')} />
+          <StatCard
+            title={`Reuniões em ${MESES[mes].slice(0, 3)}/${ano}`}
+            value={reunioesMes}
+            icon={CalendarCheck}
+            trend={`${Math.abs(variacao)}% vs mês anterior`}
+            trendUp={variacao === 0 ? undefined : variacao > 0}
+          />
+          <StatCard title="Reuniões agendadas" value={reunioesAgendadas} icon={CalendarClock} onClick={() => navigate('/agenda')} />
         </div>
-        {totalAtendidos === 0 ? (
-          <div className="empty-state">Nenhum cliente atendido nos últimos 60 dias.</div>
-        ) : (
-          <div className="svc-bars">
-            {servicosDist.map((s) => (
-              <div key={s.label} className="svc-bar-row">
-                <span className="svc-bar-label">{s.label}</span>
-                <div className="svc-bar-track">
-                  <div className="svc-bar-fill" style={{ width: `${s.pct}%`, background: s.color }} />
-                </div>
-                <span className="svc-bar-value"><strong>{s.pct}%</strong><span className="text-muted"> · {s.n}</span></span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Composição + próximas agendas */}
-      <div className="dash-two-col">
-        <div className="glass-card">
+        <div className="glass-card cobertura-card">
           <div className="section-header">
             <h3>Cobertura da Carteira</h3>
             <span className="text-muted" style={{ fontSize: 12 }}>{MESES[mes].slice(0, 3)}/{ano} · {cobertura.total} ativos</span>
@@ -279,6 +255,31 @@ export default function DashboardPage() {
                 Base: {cobertura.total} clientes ativos — suspensos não entram na cobertura.
               </p>
             </>
+          )}
+        </div>
+      </div>
+
+      {/* Serviços + próximas agendas */}
+      <div className="dash-two-col">
+        <div className="glass-card">
+          <div className="section-header">
+            <h3>Serviços dos Clientes Atendidos</h3>
+            <span className="text-muted" style={{ fontSize: 12 }}>reunião ou ação · últ. 60 dias · {totalAtendidos}</span>
+          </div>
+          {totalAtendidos === 0 ? (
+            <div className="empty-state">Nenhum cliente atendido nos últimos 60 dias.</div>
+          ) : (
+            <div className="svc-bars">
+              {servicosDist.map((s) => (
+                <div key={s.label} className="svc-bar-row">
+                  <span className="svc-bar-label">{s.label}</span>
+                  <div className="svc-bar-track">
+                    <div className="svc-bar-fill" style={{ width: `${s.pct}%`, background: s.color }} />
+                  </div>
+                  <span className="svc-bar-value"><strong>{s.pct}%</strong><span className="text-muted"> · {s.n}</span></span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
