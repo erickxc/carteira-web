@@ -28,6 +28,12 @@ export default function ClienteDetailPage() {
     [agenda, id]
   );
 
+  // Lojas do mesmo grupo (rede) — cada loja é um cliente próprio.
+  const lojasDoGrupo = useMemo(
+    () => (cliente?.grupo ? clientes.filter((c) => c.grupo === cliente.grupo).sort((a, b) => a.empresa.localeCompare(b.empresa)) : []),
+    [clientes, cliente?.grupo]
+  );
+
   if (!cliente) {
     return (
       <div className="page-container">
@@ -85,8 +91,8 @@ export default function ClienteDetailPage() {
               <span className={`badge ${clienteStatusBadge(cliente.status)}`}>{cliente.status || '—'}</span>
               {cliente.monitor && <span className="badge badge-muted">Monitor: {cliente.monitor}</span>}
               {cliente.servicos.map((s) => <span key={s} className="badge badge-accent">{s}</span>)}
-              {cliente.tipoAnalise === 'segmentado' && (
-                <span className="badge badge-warning">Segmentado · {cliente.lojas?.length ?? 0} loja(s)</span>
+              {cliente.grupo && (
+                <span className="badge badge-warning">Grupo: {cliente.grupo}</span>
               )}
             </div>
           </div>
@@ -110,19 +116,24 @@ export default function ClienteDetailPage() {
         </button>
       </div>
 
-      {cliente.tipoAnalise === 'segmentado' && (
+      {cliente.grupo && lojasDoGrupo.length > 1 && (
         <div className="glass-card glass-card-flat" style={{ marginBottom: 24 }}>
           <div className="section-header">
-            <h3>Lojas <span className="text-muted" style={{ fontWeight: 400, fontSize: 13 }}>· análise por loja</span></h3>
-            <span className="text-muted" style={{ fontSize: 12 }}>{cliente.lojas?.length ?? 0}</span>
+            <h3>Lojas do grupo <span className="text-muted" style={{ fontWeight: 400, fontSize: 13 }}>· {cliente.grupo}</span></h3>
+            <span className="text-muted" style={{ fontSize: 12 }}>{lojasDoGrupo.length}</span>
           </div>
-          {(cliente.lojas?.length ?? 0) === 0 ? (
-            <div className="empty-state">Nenhuma loja cadastrada. Edite o cliente para adicionar.</div>
-          ) : (
-            <div className="flex-row" style={{ flexWrap: 'wrap', gap: 8 }}>
-              {cliente.lojas!.map((l) => <span key={l.id} className="badge badge-muted">{l.nome}</span>)}
-            </div>
-          )}
+          <div className="flex-row" style={{ flexWrap: 'wrap', gap: 8 }}>
+            {lojasDoGrupo.map((l) => (
+              <button
+                key={l.id}
+                className={`badge ${l.id === cliente.id ? 'badge-accent' : 'badge-muted'}`}
+                style={{ cursor: l.id === cliente.id ? 'default' : 'pointer' }}
+                onClick={() => l.id !== cliente.id && navigate(`/clientes/${l.id}`)}
+              >
+                {l.empresa.replace(`${cliente.grupo} - `, '') || l.empresa}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

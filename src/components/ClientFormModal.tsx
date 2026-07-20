@@ -1,8 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { Plus, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
-import { TIPO_ANALISE_LABEL, type Cliente, type Loja, type TipoAnalise } from '../types';
+import { TIPO_ANALISE_LABEL, type Cliente, type NovoCliente, type TipoAnalise } from '../types';
 
 interface ClientFormModalProps {
   initial?: Cliente;
@@ -10,53 +9,60 @@ interface ClientFormModalProps {
 }
 
 export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
-  const { criarCliente, atualizarCliente, opcoesPorTipo } = useCarteira();
+  const { criarCliente, criarClientesEmLote, atualizarCliente, opcoesPorTipo } = useCarteira();
   const servicoOpcoes = opcoesPorTipo('servico');
   const statusOpcoes = opcoesPorTipo('status_cliente');
   const monitorOpcoes = opcoesPorTipo('monitor');
+  const editando = !!initial;
 
   const [empresa, setEmpresa] = useState(initial?.empresa ?? '');
   const [monitor, setMonitor] = useState(initial?.monitor ?? '');
   const [servicos, setServicos] = useState<string[]>(initial?.servicos ?? []);
   const [status, setStatus] = useState(initial?.status ?? statusOpcoes[0] ?? 'Ativo');
   const [atendidoMarco, setAtendidoMarco] = useState<boolean>(initial?.atendidoMarco ?? false);
-  const [tipoAnalise, setTipoAnalise] = useState<TipoAnalise>(initial?.tipoAnalise ?? 'unitaria');
-  const [lojas, setLojas] = useState<Loja[]>(initial?.lojas ?? []);
-  const [novaLoja, setNovaLoja] = useState('');
   const [observacao, setObservacao] = useState(initial?.observacao ?? '');
+  const [tipoAnalise, setTipoAnalise] = useState<TipoAnalise>(initial?.tipoAnalise ?? 'unitaria');
+  const [lojas, setLojas] = useState<string[]>([]);
+  const [novaLoja, setNovaLoja] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const segmentadoNovo = !editando && tipoAnalise === 'segmentado';
 
   function toggleServico(nome: string) {
     setServicos((prev) => (prev.includes(nome) ? prev.filter((s) => s !== nome) : [...prev, nome]));
   }
-
   function adicionarLoja() {
     const nome = novaLoja.trim();
-    if (!nome) return;
-    setLojas((prev) => [...prev, { id: uuidv4(), nome }]);
+    if (!nome || lojas.includes(nome)) { setNovaLoja(''); return; }
+    setLojas((prev) => [...prev, nome]);
     setNovaLoja('');
   }
-
-  function removerLoja(id: string) {
-    setLojas((prev) => prev.filter((l) => l.id !== id));
+  function removerLoja(nome: string) {
+    setLojas((prev) => prev.filter((l) => l !== nome));
   }
+
+  // Lojas efetivas (inclui a digitada e não adicionada).
+  const lojasFinais = novaLoja.trim() && !lojas.includes(novaLoja.trim()) ? [...lojas, novaLoja.trim()] : lojas;
+  const base = empresa.trim();
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!empresa.trim()) return;
+    if (!base) return;
     setSaving(true);
     try {
-      // Inclui uma loja digitada mas ainda não adicionada (sem exigir clicar em +).
-      const lojasFinais = novaLoja.trim() ? [...lojas, { id: uuidv4(), nome: novaLoja.trim() }] : lojas;
-      const payload = {
-        empresa, monitor, servicos, status, observacao, atendidoMarco,
-        tipoAnalise,
-        lojas: tipoAnalise === 'segmentado' ? lojasFinais : [],
-      };
-      if (initial) {
-        await atualizarCliente(initial.id, payload);
+      if (editando) {
+        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, status, observacao, atendidoMarco });
+      } else if (tipoAnalise === 'segmentado') {
+        if (lojasFinais.length === 0) { alert('Adicione ao menos uma loja para a análise segmentada.'); setSaving(false); return; }
+        const novos: NovoCliente[] = lojasFinais.map((nome) => ({
+          empresa: `${base} - ${nome}`,
+          grupo: base,
+          tipoAnalise: 'segmentado',
+          monitor, servicos, status, observacao, atendidoMarco,
+        }));
+        await criarClientesEmLote(novos);
       } else {
-        await criarCliente(payload);
+        await criarCliente({ empresa: base, monitor, servicos, status, observacao, atendidoMarco, tipoAnalise: 'unitaria' });
       }
       onClose();
     } catch (err) {
@@ -70,12 +76,16 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{initial ? 'Editar Cliente' : 'Novo Cliente'}</h2>
+          <h2>{editando ? 'Editar Cliente' : 'Novo Cliente'}</h2>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
+            {editando && initial.grupo && (
+              <div className="badge badge-warning" style={{ marginBottom: 12 }}>Loja do grupo: {initial.grupo}</div>
+            )}
+
             <label className="field">
-              Empresa
+              {segmentadoNovo ? 'Empresa / grupo (rede)' : 'Empresa'}
               <input className="field-input" autoFocus value={empresa} onChange={(e) => setEmpresa(e.target.value)} required />
             </label>
 
@@ -118,26 +128,30 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
               <input type="checkbox" checked={atendidoMarco} onChange={(e) => setAtendidoMarco(e.target.checked)} /> Atendido pelo Marco (fora da monitoria)
             </label>
 
-            <label className="field">
-              Tipo de análise
-              <select className="field-input custom-select" value={tipoAnalise} onChange={(e) => setTipoAnalise(e.target.value as TipoAnalise)}>
-                <option value="unitaria">{TIPO_ANALISE_LABEL.unitaria}</option>
-                <option value="segmentado">{TIPO_ANALISE_LABEL.segmentado}</option>
-              </select>
-            </label>
+            {!editando && (
+              <label className="field">
+                Tipo de análise
+                <select className="field-input custom-select" value={tipoAnalise} onChange={(e) => setTipoAnalise(e.target.value as TipoAnalise)}>
+                  <option value="unitaria">{TIPO_ANALISE_LABEL.unitaria}</option>
+                  <option value="segmentado">{TIPO_ANALISE_LABEL.segmentado}</option>
+                </select>
+              </label>
+            )}
 
-            {tipoAnalise === 'segmentado' && (
+            {segmentadoNovo && (
               <div className="field">
-                Lojas <span className="text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· análise por loja</span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4, marginBottom: 8 }}>
+                Lojas <span className="text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· cada loja vira um cliente</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4, marginBottom: 8 }}>
                   {lojas.length === 0 && (
                     <span className="text-muted" style={{ fontSize: 13, textTransform: 'none' }}>Nenhuma loja adicionada.</span>
                   )}
                   {lojas.map((l) => (
-                    <div key={l.id} className="flex-between" style={{ padding: '0.4rem 0.6rem', borderRadius: 6, background: 'var(--card-hover)', border: '1px solid var(--border)' }}>
-                      <span>{l.nome}</span>
-                      <button type="button" className="btn btn-danger btn-icon" onClick={() => removerLoja(l.id)} aria-label="Remover loja"><X size={13} /></button>
-                    </div>
+                    <span key={l} className="badge badge-muted" style={{ gap: 6 }}>
+                      {l}
+                      <button type="button" onClick={() => removerLoja(l)} aria-label="Remover" style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'inline-flex' }}>
+                        <X size={12} />
+                      </button>
+                    </span>
                   ))}
                 </div>
                 <div className="flex-row">
@@ -150,6 +164,11 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                   />
                   <button type="button" className="btn btn-primary btn-icon" onClick={adicionarLoja} disabled={!novaLoja.trim()}><Plus size={16} /></button>
                 </div>
+                {base && lojasFinais.length > 0 && (
+                  <p className="text-muted" style={{ fontSize: 12, marginTop: 8, textTransform: 'none', letterSpacing: 'normal' }}>
+                    Serão criados {lojasFinais.length} cliente(s): {lojasFinais.map((l) => `${base} - ${l}`).join(', ')}
+                  </p>
+                )}
               </div>
             )}
 
@@ -162,7 +181,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Salvando...' : 'Salvar'}
+              {saving ? 'Salvando...' : segmentadoNovo ? `Criar ${lojasFinais.length || ''} loja(s)` : 'Salvar'}
             </button>
           </div>
         </form>

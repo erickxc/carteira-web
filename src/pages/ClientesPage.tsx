@@ -225,7 +225,7 @@ export default function ClientesPage() {
               <tbody>
                 {filtrados.map((cliente) => {
                   const ult = ultimaReuniao.get(cliente.id);
-                  const segmentado = cliente.tipoAnalise === 'segmentado';
+                  const segmentado = cliente.tipoAnalise === 'segmentado' || !!cliente.grupo;
                   return (
                     <tr key={cliente.id}>
                       <td>
@@ -243,7 +243,7 @@ export default function ClientesPage() {
                       </td>
                       <td>
                         {segmentado
-                          ? <span className="badge badge-warning">Segmentado · {cliente.lojas?.length ?? 0}</span>
+                          ? <span className="badge badge-warning">Segmentado</span>
                           : <span className="text-muted">Unitária</span>}
                       </td>
                       <td>

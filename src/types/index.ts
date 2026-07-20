@@ -19,12 +19,6 @@ export interface Categoria {
 }
 
 // --- Cliente ---
-/** Loja do subcadastro quando a análise é segmentada (por loja). */
-export interface Loja {
-  id: string;
-  nome: string;
-}
-
 export type TipoAnalise = 'unitaria' | 'segmentado';
 
 export const TIPO_ANALISE_LABEL: Record<TipoAnalise, string> = {
@@ -43,8 +37,11 @@ export interface Cliente {
   atendidoMarco?: boolean;
   /** Análise unitária (empresa toda) ou segmentada (por loja). */
   tipoAnalise?: TipoAnalise;
-  /** Subcadastro de lojas — usado quando tipoAnalise = 'segmentado'. */
-  lojas?: Loja[];
+  /**
+   * Grupo/rede da loja. Em análise segmentada, cada loja é um cliente próprio
+   * (empresa = "Grupo - Loja") e todas compartilham o mesmo `grupo`.
+   */
+  grupo?: string;
   createdAt: string;
   // Colunas legadas do banco real, mantidas em sincronia pelo backend:
   suspenso?: boolean;

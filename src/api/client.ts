@@ -46,7 +46,7 @@ function parseListaJSON<T>(raw: unknown): T[] {
 }
 
 function serializeCliente(c: Cliente): Record<string, unknown> {
-  return { ...c, servicos: JSON.stringify(c.servicos ?? []), lojas: JSON.stringify(c.lojas ?? []) };
+  return { ...c, servicos: JSON.stringify(c.servicos ?? []) };
 }
 
 function deserializeCliente(raw: Record<string, unknown>): Cliente {
@@ -59,7 +59,7 @@ function deserializeCliente(raw: Record<string, unknown>): Cliente {
     status: (raw.status as string) ?? '',
     atendidoMarco: bool(raw.atendidoMarco),
     tipoAnalise: (raw.tipoAnalise as Cliente['tipoAnalise']) || 'unitaria',
-    lojas: parseListaJSON(raw.lojas),
+    grupo: (raw.grupo as string) ?? '',
   };
 }
 
@@ -86,7 +86,6 @@ export const criarClientesEmLote = (data: Cliente[]) =>
 export const atualizarCliente = (id: string, data: Partial<Cliente>) => {
   const payload: Record<string, unknown> = { ...data };
   if (data.servicos) payload.servicos = JSON.stringify(data.servicos);
-  if (data.lojas) payload.lojas = JSON.stringify(data.lojas);
   return request<{ success: boolean }>(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
 };
 export const removerCliente = (id: string) => request<{ success: boolean }>(`/clients/${id}`, { method: 'DELETE' });
