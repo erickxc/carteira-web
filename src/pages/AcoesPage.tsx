@@ -6,39 +6,20 @@ import { CalendarDays, CalendarPlus, Check, Plus, Search, Trash2 } from 'lucide-
 import { useCarteira } from '../context/CarteiraContext';
 import { AcaoFormModal } from '../components/AcaoFormModal';
 import { Dropdown } from '../components/Dropdown';
+import { CardCliente } from '../components/acoes/CardCliente';
+import { Grupo } from '../components/acoes/Grupo';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
 import { confirmDialog } from '../utils/confirmDialog';
 import { isStatusAtivo } from '../utils/formatters';
 import { eventoStatusBadge } from '../utils/badges';
+import { type Item } from '../utils/acoesHelpers';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../types';
 
 const JANELA = 60;
 const JANELA_SUGESTAO = 30;
 const ACAO_STATUS_BADGE: Record<string, string> = { programado: 'badge-accent', concluido: 'badge-success', dispensado: 'badge-muted' };
 const ACAO_STATUS_LABEL: Record<string, string> = { programado: 'Programada', concluido: 'Concluída', dispensado: 'Dispensada' };
-
-/** Item unificado do histórico: reunião (agenda) OU ação registrada. */
-interface Item {
-  key: string; refId: string; clientId: string; tipoLabel: string; date: Date;
-  statusLabel: string; statusBadge: string; obs: string;
-  origem: 'reuniao' | 'acao'; acaoStatus?: string; eventDate?: string;
-}
-
-function rotuloData(d: Date): string {
-  const dias = differenceInCalendarDays(new Date(), d);
-  if (dias === 0) return 'hoje';
-  if (dias === 1) return 'ontem';
-  if (dias > 0 && dias <= 30) return `há ${dias} dias`;
-  return format(d, 'dd/MM/yyyy');
-}
-function sugestoes(ult: Date | null): AcaoTipo[] {
-  if (!ult) return ['contato'];
-  const dias = differenceInCalendarDays(new Date(), ult);
-  if (dias > 45) return ['reuniao', 'relatorio'];
-  if (dias > 30) return ['reuniao'];
-  return ['relatorio'];
-}
 
 export default function AcoesPage() {
   const { clientes, agenda, acoes, atualizarAcao, removerAcao } = useCarteira();
@@ -180,66 +161,19 @@ export default function AcoesPage() {
     return out;
   }
 
-  function CardCliente({ c, comHistorico }: { c: Cliente; comHistorico?: boolean }) {
-    const u = info.ult.get(c.id) ?? null;
-    const hist = (itensPorCliente.get(c.id) ?? []).slice(0, 3);
-    return (
-      <div className="glass-card glass-card-flat acao-card">
-        <div className="acao-card-head">
-          <div style={{ minWidth: 0 }}>
-            <button className="link-button" style={{ fontWeight: 600, fontSize: '1rem' }} onClick={() => navigate(`/clientes/${c.id}`, { state: { from: '/acoes', fromLabel: 'Ações' } })}>{c.empresa}</button>
-            <div className="acao-card-badges">
-              {c.atendidoMarco && <span className="badge badge-accent">Marco</span>}
-              {produtos(c).map((p) => <span key={p} className="badge badge-muted">{p}</span>)}
-            </div>
-          </div>
-          <span className="acao-tipo">{c.monitor || 'sem monitor'}</span>
-        </div>
-
-        <div className="acao-card-info">
-          <span className="acao-dot is-ok" />
-          {u ? <>Último contato · {rotuloData(u)}{info.nReun.get(c.id) ? ` · ${info.nReun.get(c.id)} reuniões` : ''}</> : 'Sem registro de contato'}
-        </div>
-
-        {comHistorico && (
-          <div className="acao-hist">
-            <span className="acao-hist-label">Últimas ações</span>
-            {hist.length === 0 ? <span className="text-muted" style={{ fontSize: 12 }}>Nenhuma ação.</span> :
-              hist.map((i) => (
-                <div key={i.key} className="acao-hist-item">
-                  <span>{i.tipoLabel}</span>
-                  <span className="text-muted">{format(i.date, 'dd/MM/yy')}</span>
-                  <span className={`badge ${i.statusBadge}`}>{i.statusLabel}</span>
-                </div>
-              ))}
-            <div className="acao-sug">
-              <span className="acao-hist-label">Sugestões</span>
-              {sugestoes(u).map((t) => (
-                <button key={t} className="chip-toggle" onClick={() => setModal({ modo: 'nova', clienteId: c.id, tipo: t })}>+ {ACAO_TIPO_LABEL[t]}</button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="acao-card-actions">
-          <button className="btn btn-primary" onClick={() => setModal({ modo: 'nova', clienteId: c.id })}><Plus size={14} /> Registrar</button>
-          <button className="btn btn-secondary" onClick={() => setModal({ modo: 'agendar', clienteId: c.id })}><CalendarPlus size={14} /> Agendar</button>
-        </div>
-      </div>
-    );
-  }
-
-  function Grupo({ titulo, sub, lista, comHistorico }: { titulo: string; sub: string; lista: Cliente[]; comHistorico?: boolean }) {
-    return (
-      <div className="section">
-        <div className="section-header">
-          <h3>{titulo} <span className="text-muted" style={{ fontWeight: 400, fontSize: 13 }}>· {sub}</span></h3>
-          <span className="text-muted" style={{ fontSize: 12 }}>{lista.length}</span>
-        </div>
-        {lista.length === 0 ? <div className="glass-card glass-card-flat"><div className="empty-state">Nenhum cliente.</div></div> : (
-          <div className="acao-grid">{lista.map((c) => <CardCliente key={c.id} c={c} comHistorico={comHistorico} />)}</div>
-        )}
-      </div>
+  function renderCard(comHistorico: boolean) {
+    return (c: Cliente) => (
+      <CardCliente
+        key={c.id}
+        c={c}
+        comHistorico={comHistorico}
+        ultimoContato={info.ult.get(c.id) ?? null}
+        totalReunioes={info.nReun.get(c.id) ?? 0}
+        historico={(itensPorCliente.get(c.id) ?? []).slice(0, 3)}
+        produtos={produtos(c)}
+        onRegistrar={(clienteId, tipo) => setModal({ modo: 'nova', clienteId, tipo })}
+        onAgendar={(clienteId) => setModal({ modo: 'agendar', clienteId })}
+      />
     );
   }
 
@@ -288,13 +222,13 @@ export default function AcoesPage() {
               <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
                 Recorrentes com {JANELA_SUGESTAO}+ dias sem contato — ainda dentro da cadência, mas prestes a cair para "Sem contato" se não agir essa semana. Ordenado do mais parado para o mais recente.
               </p>
-              <Grupo titulo="Precisam de ação essa semana" sub={`recorrentes com +${JANELA_SUGESTAO} dias sem contato`} lista={filtrarOrdenar(recorrentesSugestao)} comHistorico />
+              <Grupo titulo="Precisam de ação essa semana" sub={`recorrentes com +${JANELA_SUGESTAO} dias sem contato`} lista={filtrarOrdenar(recorrentesSugestao)} renderCard={renderCard(true)} />
             </>
           ) : (
             <>
-              <Grupo titulo="Recorrentes" sub={`reuniões nos últimos ${JANELA} dias`} lista={filtrarOrdenar(recorrentes)} comHistorico />
-              <Grupo titulo="Sem contato" sub={`+${JANELA} dias sem contato`} lista={filtrarOrdenar(semContato)} />
-              <Grupo titulo="Atendidos pelo Marco" sub="fora da monitoria" lista={filtrarOrdenar(marco)} />
+              <Grupo titulo="Recorrentes" sub={`reuniões nos últimos ${JANELA} dias`} lista={filtrarOrdenar(recorrentes)} renderCard={renderCard(true)} />
+              <Grupo titulo="Sem contato" sub={`+${JANELA} dias sem contato`} lista={filtrarOrdenar(semContato)} renderCard={renderCard(false)} />
+              <Grupo titulo="Atendidos pelo Marco" sub="fora da monitoria" lista={filtrarOrdenar(marco)} renderCard={renderCard(false)} />
             </>
           )}
         </>

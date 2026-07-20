@@ -5,13 +5,14 @@ import {
   format, isSameDay, isSameMonth, parse, parseISO, startOfMonth, startOfWeek, subMonths, subWeeks,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, LayoutGrid, Paperclip, Plus, Printer } from 'lucide-react';
+import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, Paperclip, Plus, Printer } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { EventFormModal } from '../components/EventFormModal';
 import { Dropdown } from '../components/Dropdown';
+import { CardEvento } from '../components/agenda/CardEvento';
 import { formatHolidayLabel, getHoliday } from '../utils/holidays';
 import { gerarAta } from '../utils/ata';
-import { corTipo, corTipoBg } from '../utils/tipoCor';
+import { corTipo } from '../utils/tipoCor';
 import type { EventoAgenda } from '../types';
 
 const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -148,29 +149,6 @@ export default function AgendaPage() {
   function irAnterior() { view === 'mes' ? setCurrentMonth((m) => subMonths(m, 1)) : setWeekRef((w) => subWeeks(w, 1)); }
   function irProximo() { view === 'mes' ? setCurrentMonth((m) => addMonths(m, 1)) : setWeekRef((w) => addWeeks(w, 1)); }
   function irHoje() { setCurrentMonth(startOfMonth(hoje)); setWeekRef(hoje); }
-
-  function CardEvento({ ev }: { ev: EventoAgenda }) {
-    return (
-      <button
-        className={`kanban-card${draggedId === ev.id ? ' is-dragging' : ''}${/conclu|realiz/i.test(ev.status) ? ' is-done' : ''}`}
-        style={{ borderLeftColor: corTipo(ev.type), background: corTipoBg(ev.type) }}
-        draggable
-        onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); setDraggedId(ev.id); }}
-        onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
-        onClick={() => setModalState({ editing: ev })}
-      >
-        <div className="kanban-card-top">
-          <span className="kanban-card-time">{ev.time || '—'}{ev.duracao ? ` · ${ev.duracao}min` : ''}</span>
-          {conflitos.has(ev.id) && <AlertTriangle size={12} className="text-[color:var(--danger)]" />}
-          {!/conclu|realiz/i.test(ev.status) && (
-            <span className="kanban-card-done" onClick={(e) => { e.stopPropagation(); concluir(ev); }} title="Concluir reunião"><Check size={12} /></span>
-          )}
-        </div>
-        <span className="kanban-card-title">{ev.clientName}</span>
-        <span className="kanban-card-sub">{ev.subject || ev.type}{ev.checklist && ev.checklist.length > 0 ? ` · ☑ ${ev.checklist.filter((c) => c.done).length}/${ev.checklist.length}` : ''}</span>
-      </button>
-    );
-  }
 
   return (
     <div className="page-container">
@@ -312,7 +290,18 @@ export default function AgendaPage() {
                         onDragLeave={() => setDragOverKey((k) => (k === dkey ? null : k))}
                         onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain') || draggedId; setDragOverKey(null); setDraggedId(null); if (id) moverKanban(id, key, turno); }}>
                         <div className="kanban-turno-label">{turno === 'manha' ? 'Manhã' : 'Tarde'}</div>
-                        {lista.map((ev) => <CardEvento key={ev.id} ev={ev} />)}
+                        {lista.map((ev) => (
+                          <CardEvento
+                            key={ev.id}
+                            ev={ev}
+                            isDragging={draggedId === ev.id}
+                            hasConflito={conflitos.has(ev.id)}
+                            onDragStart={() => setDraggedId(ev.id)}
+                            onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
+                            onClick={() => setModalState({ editing: ev })}
+                            onConcluir={() => concluir(ev)}
+                          />
+                        ))}
                         <button className="kanban-add" onClick={() => setModalState({ defaultDate: day })}><Plus size={13} /> reunião</button>
                       </div>
                     );
