@@ -12,6 +12,7 @@ import { DonutChart } from '../components/DonutChart';
 import { RadialStatRow } from '../components/RadialStatRow';
 import { LineChart } from '../components/LineChart';
 import { eventoStatusBadge } from '../utils/badges';
+import { corTipo, corTipoBg } from '../utils/tipoCor';
 import { isStatusAtivo } from '../utils/formatters';
 import type { Cliente } from '../types';
 
@@ -290,9 +291,20 @@ export default function DashboardPage() {
             <button className="link-button" style={{ fontSize: 12 }} onClick={() => navigate('/agenda')}>ver agenda →</button>
           </div>
           <div className="chip-row">
-            {tiposDisponiveis.map((t) => (
-              <button key={t} className={`chip${filtroTipo === t ? ' is-active' : ''}`} onClick={() => setFiltroTipo(t)}>{t}</button>
-            ))}
+            {tiposDisponiveis.map((t) => {
+              const ativo = filtroTipo === t;
+              const cor = t === 'Todos' ? undefined : corTipo(t);
+              return (
+                <button
+                  key={t}
+                  className={`chip${ativo ? ' is-active' : ''}`}
+                  style={ativo && cor ? { background: cor, borderColor: cor, color: '#0b0b0d' } : undefined}
+                  onClick={() => setFiltroTipo(t)}
+                >
+                  {t}
+                </button>
+              );
+            })}
           </div>
           {proximos.length === 0 ? (
             <div className="empty-state">Nenhuma agenda futura{filtroTipo !== 'Todos' ? ` de ${filtroTipo}` : ''}.</div>
@@ -311,7 +323,7 @@ export default function DashboardPage() {
                       <span className="agenda-row-sub">{ev.clientName}</span>
                     </span>
                     <span className="agenda-row-tags">
-                      <span className="badge badge-accent">{ev.type}</span>
+                      <span className="badge" style={{ color: corTipo(ev.type), background: corTipoBg(ev.type) }}>{ev.type}</span>
                       <span className={`badge ${eventoStatusBadge(ev.status)}`}>{ev.status}</span>
                     </span>
                   </button>

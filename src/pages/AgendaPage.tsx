@@ -11,10 +11,10 @@ import { EventFormModal } from '../components/EventFormModal';
 import { Dropdown } from '../components/Dropdown';
 import { formatHolidayLabel, getHoliday } from '../utils/holidays';
 import { gerarAta } from '../utils/ata';
+import { corTipo, corTipoBg } from '../utils/tipoCor';
 import type { EventoAgenda } from '../types';
 
 const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-const TYPE_PALETTE = ['#bd952f', '#5a9bd4', '#4cae7a', '#c77dba', '#d69a3c', '#7b8794'];
 
 interface AgendaLocationState { focusDate?: string; openNewEvent?: boolean; }
 
@@ -56,12 +56,6 @@ export default function AgendaPage() {
     () => [...new Set([...opcoesPorTipo('tipo_evento'), ...agenda.map((a) => a.type)])].filter(Boolean).sort(),
     [opcoesPorTipo, agenda]
   );
-  const corTipo = (t: string) => TYPE_PALETTE[Math.max(0, tiposUnicos.indexOf(t)) % TYPE_PALETTE.length];
-  const corTipoBg = (t: string) => {
-    const h = corTipo(t).replace('#', '');
-    const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, 0.16)`;
-  };
 
   // Agenda com filtros de monitor/tipo aplicados (para exibição).
   const agendaFiltrada = useMemo(
