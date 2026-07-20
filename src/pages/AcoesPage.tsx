@@ -40,7 +40,8 @@ function sugestoes(ult: Date | null): AcaoTipo[] {
 export default function AcoesPage() {
   const { clientes, agenda, acoes, atualizarAcao, removerAcao } = useCarteira();
   const navigate = useNavigate();
-  const [aba, setAba] = useState<'acompanhamento' | 'sugestoes' | 'acoes'>('acompanhamento');
+  const [aba, setAba] = useState<'acompanhamento' | 'acoes'>('acompanhamento');
+  const [visaoAcompanhamento, setVisaoAcompanhamento] = useState<'grupos' | 'sugestoes'>('grupos');
   const [modal, setModal] = useState<{ modo: 'nova' | 'agendar'; clienteId?: string; tipo?: AcaoTipo } | null>(null);
   const [fCliente, setFCliente] = useState('');
   const [fTipos, setFTipos] = useState<string[]>([]);
@@ -101,21 +102,14 @@ export default function AcoesPage() {
     return { recorrentes: rec, semContato: sem, marco: mar };
   }, [clientes, info]);
 
-  // Sugestão de Ações na Semana: clientes ativos (fora do Marco) sem contato
-  // há +30 dias (ou nunca contatados) — prioridade: sem histórico primeiro,
-  // depois do mais atrasado para o menos.
-  const sugestaoSemana = useMemo(() => {
-    const ativos = clientes.filter((c) => isStatusAtivo(c.status) && !c.atendidoMarco);
-    return ativos
-      .map((c) => {
-        const u = info.ult.get(c.id) ?? null;
-        const dias = u ? differenceInCalendarDays(new Date(), u) : null;
-        return { c, dias };
-      })
-      .filter((x) => x.dias === null || x.dias >= JANELA_SUGESTAO)
-      .sort((a, b) => (b.dias ?? Infinity) - (a.dias ?? Infinity))
-      .map((x) => x.c);
-  }, [clientes, info]);
+  // Sugestão de Ações na Semana: dentro dos RECORRENTES (não os sem contato) —
+  // quem já passou de 30 dias sem contato precisa de uma ação essa semana
+  // antes de cair para "Sem contato". Ordenado do mais parado para o mais recente.
+  const recorrentesSugestao = useMemo(() => {
+    return recorrentes
+      .filter((c) => differenceInCalendarDays(new Date(), info.ult.get(c.id)!) >= JANELA_SUGESTAO)
+      .sort((a, b) => info.ult.get(a.id)!.getTime() - info.ult.get(b.id)!.getTime());
+  }, [recorrentes, info]);
 
   const tipoOpcoes = useMemo(() => [...new Set(itens.map((i) => i.tipoLabel))].sort(), [itens]);
   const statusOpcoes = useMemo(() => [...new Set(itens.map((i) => i.statusLabel))].filter(Boolean).sort(), [itens]);
@@ -257,9 +251,6 @@ export default function AcoesPage() {
 
       <div className="tabs" style={{ margin: '1.25rem 0 1.5rem' }}>
         <button className={`tab${aba === 'acompanhamento' ? ' is-active' : ''}`} onClick={() => setAba('acompanhamento')}>Acompanhamento</button>
-        <button className={`tab${aba === 'sugestoes' ? ' is-active' : ''}`} onClick={() => setAba('sugestoes')}>
-          Sugestão de Ações na Semana{sugestaoSemana.length > 0 && <span className="badge badge-warning" style={{ marginLeft: 8 }}>{sugestaoSemana.length}</span>}
-        </button>
         <button className={`tab${aba === 'acoes' ? ' is-active' : ''}`} onClick={() => setAba('acoes')}>Ações</button>
       </div>
 
@@ -281,16 +272,28 @@ export default function AcoesPage() {
               ]} value={acOrd} onChange={(v) => setAcOrd(v as string)} />
             </div>
           </div>
-          <Grupo titulo="Recorrentes" sub={`reuniões nos últimos ${JANELA} dias`} lista={filtrarOrdenar(recorrentes)} comHistorico />
-          <Grupo titulo="Sem contato" sub={`+${JANELA} dias sem contato`} lista={filtrarOrdenar(semContato)} />
-          <Grupo titulo="Atendidos pelo Marco" sub="fora da monitoria" lista={filtrarOrdenar(marco)} />
-        </>
-      ) : aba === 'sugestoes' ? (
-        <>
-          <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
-            Clientes ativos sem nenhum contato (reunião ou ação) há {JANELA_SUGESTAO}+ dias, ou nunca contatados — priorizados do mais atrasado para o menos. Sugestão de ação por cliente conforme o tempo parado.
-          </p>
-          <Grupo titulo="Precisam de ação" sub={`+${JANELA_SUGESTAO} dias sem contato`} lista={sugestaoSemana} comHistorico />
+
+          <div className="chip-row" style={{ marginBottom: 18 }}>
+            <button className={`chip${visaoAcompanhamento === 'grupos' ? ' is-active' : ''}`} onClick={() => setVisaoAcompanhamento('grupos')}>Todos os grupos</button>
+            <button className={`chip${visaoAcompanhamento === 'sugestoes' ? ' is-active' : ''}`} onClick={() => setVisaoAcompanhamento('sugestoes')}>
+              Sugestão de Ações na Semana{recorrentesSugestao.length > 0 && <span className="badge badge-warning" style={{ marginLeft: 6 }}>{recorrentesSugestao.length}</span>}
+            </button>
+          </div>
+
+          {visaoAcompanhamento === 'sugestoes' ? (
+            <>
+              <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
+                Recorrentes com {JANELA_SUGESTAO}+ dias sem contato — ainda dentro da cadência, mas prestes a cair para "Sem contato" se não agir essa semana. Ordenado do mais parado para o mais recente.
+              </p>
+              <Grupo titulo="Precisam de ação essa semana" sub={`recorrentes com +${JANELA_SUGESTAO} dias sem contato`} lista={filtrarOrdenar(recorrentesSugestao)} comHistorico />
+            </>
+          ) : (
+            <>
+              <Grupo titulo="Recorrentes" sub={`reuniões nos últimos ${JANELA} dias`} lista={filtrarOrdenar(recorrentes)} comHistorico />
+              <Grupo titulo="Sem contato" sub={`+${JANELA} dias sem contato`} lista={filtrarOrdenar(semContato)} />
+              <Grupo titulo="Atendidos pelo Marco" sub="fora da monitoria" lista={filtrarOrdenar(marco)} />
+            </>
+          )}
         </>
       ) : (
         <>
