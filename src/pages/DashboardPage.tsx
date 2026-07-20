@@ -9,6 +9,7 @@ import { CalendarCheck, CalendarClock, Check, FileText, Users } from 'lucide-rea
 import { useCarteira } from '../context/CarteiraContext';
 import { StatCard } from '../components/StatCard';
 import { DonutChart } from '../components/DonutChart';
+import { RadialStatRow } from '../components/RadialStatRow';
 import { LineChart } from '../components/LineChart';
 import { eventoStatusBadge } from '../utils/badges';
 import { isStatusAtivo } from '../utils/formatters';
@@ -269,17 +270,7 @@ export default function DashboardPage() {
           {totalAtendidos === 0 ? (
             <div className="empty-state">Nenhum cliente atendido nos últimos 60 dias.</div>
           ) : (
-            <div className="svc-bars">
-              {servicosDist.map((s) => (
-                <div key={s.label} className="svc-bar-row">
-                  <span className="svc-bar-label">{s.label}</span>
-                  <div className="svc-bar-track">
-                    <div className="svc-bar-fill" style={{ width: `${s.pct}%`, background: s.color }} />
-                  </div>
-                  <span className="svc-bar-value"><strong>{s.pct}%</strong><span className="text-muted"> · {s.n}</span></span>
-                </div>
-              ))}
-            </div>
+            <RadialStatRow items={servicosDist} />
           )}
         </div>
 
