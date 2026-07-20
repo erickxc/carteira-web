@@ -8,6 +8,7 @@ import { ptBR } from 'date-fns/locale';
 import { CalendarCheck, CalendarClock, Check, FileText, Users } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { StatCard } from '../components/StatCard';
+import { Dropdown } from '../components/Dropdown';
 import { DonutChart } from '../components/DonutChart';
 import { RadialStatRow } from '../components/RadialStatRow';
 import { LineChart } from '../components/LineChart';
@@ -214,18 +215,40 @@ export default function DashboardPage() {
           <p className="page-subtitle" style={{ margin: 0 }}>Visão geral da carteira de monitoria — 2D Consultores.</p>
         </div>
         <div className="flex-row" style={{ gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <select className="custom-select" style={{ width: 'auto' }} value={filtroMonitor} onChange={(e) => setFiltroMonitor(e.target.value)} title="Filtrar por monitor">
-            {monitoresDisponiveis.map((m) => <option key={m} value={m}>{m === 'Todos' ? 'Todos os monitores' : m}</option>)}
-          </select>
-          <select className="custom-select" style={{ width: 'auto' }} value={filtroTipoEvento} onChange={(e) => setFiltroTipoEvento(e.target.value)} title="Filtrar por tipo de evento">
-            {tiposEventoDisponiveis.map((t) => <option key={t} value={t}>{t === 'Todos' ? 'Todos os tipos' : t}</option>)}
-          </select>
-          <select className="custom-select" style={{ width: 'auto' }} value={mes} onChange={(e) => setMes(Number(e.target.value))}>
-            {MESES.map((nome, i) => <option key={i} value={i}>{nome}</option>)}
-          </select>
-          <select className="custom-select" style={{ width: 'auto' }} value={ano} onChange={(e) => setAno(Number(e.target.value))}>
-            {anosDisponiveis.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
+          <div style={{ minWidth: 160 }}>
+            <Dropdown
+              label="Todos os monitores"
+              defaultValue="Todos"
+              options={monitoresDisponiveis.map((m) => ({ value: m, label: m === 'Todos' ? 'Todos os monitores' : m }))}
+              value={filtroMonitor}
+              onChange={(v) => setFiltroMonitor(v as string)}
+            />
+          </div>
+          <div style={{ minWidth: 150 }}>
+            <Dropdown
+              label="Todos os tipos"
+              defaultValue="Todos"
+              options={tiposEventoDisponiveis.map((t) => ({ value: t, label: t === 'Todos' ? 'Todos os tipos' : t }))}
+              value={filtroTipoEvento}
+              onChange={(v) => setFiltroTipoEvento(v as string)}
+            />
+          </div>
+          <div style={{ minWidth: 130 }}>
+            <Dropdown
+              label={MESES[mes]}
+              options={MESES.map((nome, i) => ({ value: String(i), label: nome }))}
+              value={String(mes)}
+              onChange={(v) => setMes(Number(v))}
+            />
+          </div>
+          <div style={{ minWidth: 90 }}>
+            <Dropdown
+              label={String(ano)}
+              options={anosDisponiveis.map((a) => ({ value: String(a), label: String(a) }))}
+              value={String(ano)}
+              onChange={(v) => setAno(Number(v))}
+            />
+          </div>
         </div>
       </div>
 

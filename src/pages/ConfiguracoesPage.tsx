@@ -156,10 +156,23 @@ function ModelosCard() {
 }
 
 function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
-  const { categorias, criarCategoria, atualizarCategoria, removerCategoria } = useCarteira();
+  const { categorias, clientes, agenda, lembretes, criarCategoria, atualizarCategoria, removerCategoria } = useCarteira();
   const itens = categorias
     .filter((c) => c.tipo === tipo)
     .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+
+  // Quantos registros usam este valor hoje — mostrado na confirmação de exclusão
+  // para dar noção real do impacto (excluir a categoria não altera esses registros).
+  function contarUso(valor: string): number {
+    const v = valor.toLowerCase();
+    if (tipo === 'monitor') return clientes.filter((c) => (c.monitor || '').toLowerCase() === v).length;
+    if (tipo === 'status_cliente') return clientes.filter((c) => (c.status || '').toLowerCase() === v).length;
+    if (tipo === 'servico') return clientes.filter((c) => (c.servicos ?? []).some((s) => s.toLowerCase() === v)).length;
+    if (tipo === 'tipo_evento') return agenda.filter((a) => (a.type || '').toLowerCase() === v).length;
+    if (tipo === 'status_evento') return agenda.filter((a) => (a.status || '').toLowerCase() === v).length;
+    if (tipo === 'tipo_lembrete') return lembretes.filter((r) => (r.type || '').toLowerCase() === v).length;
+    return 0;
+  }
 
   const [novoValor, setNovoValor] = useState('');
   const [salvando, setSalvando] = useState(false);
@@ -188,7 +201,11 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
   }
 
   async function excluir(id: string, valor: string) {
-    if (!(await confirmDialog(`Remover "${valor}"? Registros que já usam esse valor não são alterados.`, { danger: true, confirmLabel: 'Remover' }))) return;
+    const uso = contarUso(valor);
+    const impacto = uso > 0
+      ? `${uso} registro(s) usam "${valor}" hoje e não serão alterados — só some da lista de opções.`
+      : `Nenhum registro usa "${valor}" hoje.`;
+    if (!(await confirmDialog(`Remover "${valor}"? ${impacto}`, { danger: true, confirmLabel: 'Remover' }))) return;
     await removerCategoria(id);
   }
 

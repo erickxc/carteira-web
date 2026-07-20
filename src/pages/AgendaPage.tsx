@@ -202,9 +202,9 @@ export default function AgendaPage() {
           </div>
         </div>
 
-        {/* Filtros + legenda de tipos */}
-        <div className="agenda-toolbar agenda-noprint">
-          <div className="flex-row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        {/* Filtros (somem na impressão) + legenda de tipos (fica na impressão, é a chave de cores do calendário) */}
+        <div className="agenda-toolbar">
+          <div className="flex-row agenda-noprint" style={{ gap: 8, flexWrap: 'wrap' }}>
             <div style={{ minWidth: 150 }}>
               <Dropdown label="Monitor" multiple options={monitorOpcoes.map((m) => ({ value: m, label: m }))} value={fMonitores} onChange={(v) => setFMonitores(v as string[])} />
             </div>

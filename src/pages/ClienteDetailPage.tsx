@@ -6,6 +6,7 @@ import { useCarteira } from '../context/CarteiraContext';
 import { urlAnexo } from '../api/client';
 import { clienteStatusBadge, eventoStatusBadge } from '../utils/badges';
 import { confirmDialog } from '../utils/confirmDialog';
+import { Dropdown } from '../components/Dropdown';
 import { ClientFormModal } from '../components/ClientFormModal';
 import { EventFormModal } from '../components/EventFormModal';
 import { ReminderFormModal } from '../components/ReminderFormModal';
@@ -82,19 +83,14 @@ export default function ClienteDetailPage() {
           <div>
             <h1 className="page-title" style={{ marginBottom: 8 }}>{cliente.empresa}</h1>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <select
-                className="field-input custom-select"
-                style={{ width: 'auto' }}
-                value={cliente.status}
-                onChange={(e) => atualizarCliente(cliente.id, { status: e.target.value })}
-              >
-                {statusOpcoes.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-                {!statusOpcoes.includes(cliente.status) && cliente.status && (
-                  <option value={cliente.status}>{cliente.status}</option>
-                )}
-              </select>
+              <div style={{ minWidth: 150 }}>
+                <Dropdown
+                  label="Status"
+                  options={(statusOpcoes.includes(cliente.status) || !cliente.status ? statusOpcoes : [...statusOpcoes, cliente.status]).map((s) => ({ value: s, label: s }))}
+                  value={cliente.status}
+                  onChange={(v) => atualizarCliente(cliente.id, { status: v as string })}
+                />
+              </div>
               <span className={`badge ${clienteStatusBadge(cliente.status)}`}>{cliente.status || '—'}</span>
               {cliente.monitor && <span className="badge badge-muted">Monitor: {cliente.monitor}</span>}
               {cliente.servicos.map((s) => <span key={s} className="badge badge-accent">{s}</span>)}
