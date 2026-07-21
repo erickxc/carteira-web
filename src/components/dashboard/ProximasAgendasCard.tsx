@@ -1,4 +1,4 @@
-import { format, parseISO } from 'date-fns';
+import { format, isToday, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { eventoStatusBadge } from '../../utils/badges';
 import { corTipo, corTipoBg } from '../../utils/tipoCor';
@@ -43,11 +43,12 @@ export function ProximasAgendasCard({ tiposDisponiveis, filtroTipo, onFiltroTipo
         <div className="agenda-preview">
           {proximos.map((ev) => {
             const d = parseISO(ev.date);
+            const hoje = isToday(d);
             return (
-              <button key={ev.id} className="agenda-row" onClick={() => onSelecionarEvento(ev)}>
-                <span className="date-badge">
+              <button key={ev.id} className={`agenda-row${hoje ? ' is-today' : ''}`} onClick={() => onSelecionarEvento(ev)}>
+                <span className={`date-badge${hoje ? ' is-today' : ''}`}>
                   <span className="date-badge-day">{format(d, 'dd')}</span>
-                  <span className="date-badge-mon">{format(d, 'MMM', { locale: ptBR })}</span>
+                  <span className="date-badge-mon">{hoje ? 'hoje' : format(d, 'MMM', { locale: ptBR })}</span>
                 </span>
                 <span className="agenda-row-main">
                   <span className="agenda-row-title">{ev.subject || ev.clientName}</span>

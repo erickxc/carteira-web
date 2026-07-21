@@ -358,6 +358,13 @@ a { color: inherit; }
 .date-badge-day { font-size: 1.15rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
 .date-badge-mon { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--accent); margin-top: 2px; }
 
+/* Reunião de hoje: badge de data em dourado sólido (destaque real, não só o
+   tom suave que todas as linhas já têm) + contorno na linha inteira. */
+.date-badge.is-today { background: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.date-badge.is-today .date-badge-day,
+.date-badge.is-today .date-badge-mon { color: var(--accent-contrast); }
+.agenda-row.is-today { border-color: var(--accent); }
+
 .agenda-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .agenda-row-title { font-size: 0.9rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .agenda-row-sub { font-size: 0.8rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
