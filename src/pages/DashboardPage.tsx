@@ -76,7 +76,15 @@ export default function DashboardPage() {
 
   // --- KPIs (escopo do período, base de ativos) ---
   const reunioesMes = agendaAtiva.filter((a) => isSameMonth(parseISO(a.date), periodo)).length;
-  const reunioesMesAnterior = agendaAtiva.filter((a) => isSameMonth(parseISO(a.date), periodoAnterior)).length;
+  // Comparação justa: se o período visto é o mês corrente (ainda em andamento),
+  // o mês anterior só conta até o mesmo dia (ex.: hoje é 21/jul → conta jun até
+  // o dia 21) — senão um mês completo vs um mês pela metade sempre "cairia".
+  // Se o período visto já é um mês passado (completo), compara mês completo com mês completo.
+  const diaCorte = isSameMonth(periodo, hoje) ? hoje.getDate() : new Date(ano, mes + 1, 0).getDate();
+  const reunioesMesAnterior = agendaAtiva.filter((a) => {
+    const d = parseISO(a.date);
+    return isSameMonth(d, periodoAnterior) && d.getDate() <= diaCorte;
+  }).length;
   const variacao = reunioesMesAnterior === 0
     ? (reunioesMes > 0 ? 100 : 0)
     : Math.round(((reunioesMes - reunioesMesAnterior) / reunioesMesAnterior) * 100);
@@ -245,7 +253,7 @@ export default function DashboardPage() {
             title={`Reuniões em ${MESES[mes].slice(0, 3)}/${ano}`}
             value={reunioesMes}
             icon={CalendarCheck}
-            trend={`${Math.abs(variacao)}% vs mês anterior`}
+            trend={`${Math.abs(variacao)}% vs ${isSameMonth(periodo, hoje) ? `mês anterior até dia ${diaCorte}` : 'mês anterior'}`}
             trendUp={variacao === 0 ? undefined : variacao > 0}
           />
           <StatCard title="Reuniões agendadas" value={reunioesAgendadas} icon={CalendarClock} onClick={() => navigate('/agenda')} />
