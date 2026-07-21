@@ -454,6 +454,16 @@ select.field-input {
 .field-input:hover { border-color: var(--text-muted); }
 .field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
+/* Ícone nativo de calendário/relógio (input type="date"/"time") vem preto por
+   padrão no Chrome — invisível sobre o fundo escuro do app. Inverte pra branco. */
+input.field-input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.65;
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+input.field-input::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+
 /* Efeito de hover nos labels dos formulários: ao passar o mouse sobre o label,
    o texto fica dourado + negrito e o campo destaca com brilho. Abrange todos os
    labels de formulário e de modal. (CSS sem layer para vencer o .field base.) */
