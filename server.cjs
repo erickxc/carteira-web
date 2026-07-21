@@ -11,7 +11,7 @@ const app = express();
 // Host de acesso na intranet. Se o IP da máquina mudar (DHCP), ajuste aqui
 // (ou defina a env APP_HOST). O app NÃO tem autenticação: expor na rede deixa
 // os dados acessíveis a qualquer um na intranet — decisão explícita do usuário.
-const HOST = process.env.APP_HOST || '192.168.1.18';
+const HOST = process.env.APP_HOST || '192.168.1.10';
 
 app.use(cors({
   origin: [`http://${HOST}:5173`, 'http://localhost:5173', 'http://127.0.0.1:5173']
