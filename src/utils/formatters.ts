@@ -5,7 +5,14 @@ export function truthy(value: unknown): boolean {
   return false;
 }
 
-/** Cliente "ativo" na carteira: exclui suspensos, inativos e quem deixou de comprar. */
+/** Cliente "ativo" na carteira: só quem está com status "Ativo" entra nas
+ * contas de cadência/Ações/Dashboard. Lista BRANCA (não lista negra de
+ * palavras-chave) de propósito — status_cliente é configurável em
+ * Configurações, então qualquer valor novo cadastrado ali (Suspenso,
+ * Problemas Externos, ou o que vier depois) já fica fora por padrão, sem
+ * precisar prever a palavra-chave. Já foi bug real: "Problemas Externos" não
+ * batia com nenhuma palavra da lista negra antiga e continuava sendo
+ * considerado ativo. */
 export function isStatusAtivo(status: string | undefined): boolean {
-  return !/(suspens|inativ|deixou|encerr|cancel)/i.test(status || '');
+  return /^ativ/i.test((status || '').trim());
 }

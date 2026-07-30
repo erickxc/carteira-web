@@ -3,7 +3,14 @@ import { Plus, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { toastError } from '../utils/toast';
 import { ModalShell } from './ModalShell';
-import { TIPO_ANALISE_LABEL, type Cliente, type NovoCliente, type TipoAnalise } from '../types';
+import { DIAS_SEMANA } from '../utils/diasSemana';
+import { Badge, Button, Chip, Field, Input, Select, Textarea } from '../ui';
+import {
+  TIPO_ANALISE_LABEL, UNIDADE_CADENCIA_LABEL,
+  type Cliente, type NovoCliente, type RelatorioCadencia, type TipoAnalise, type UnidadeCadenciaRelatorio,
+} from '../types';
+
+const UNIDADES_CADENCIA: UnidadeCadenciaRelatorio[] = ['dia', 'semana', 'mes', 'trimestre', 'semestre', 'personalizado'];
 
 interface ClientFormModalProps {
   initial?: Cliente;
@@ -28,7 +35,24 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const [novaLoja, setNovaLoja] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const segmentadoNovo = !editando && tipoAnalise === 'segmentado';
+  const [relatorioAtivo, setRelatorioAtivo] = useState<boolean>(!!initial?.relatorioCadencia);
+  const [relatorioNumero, setRelatorioNumero] = useState<number>(initial?.relatorioCadencia?.numero ?? 1);
+  const [relatorioUnidade, setRelatorioUnidade] = useState<UnidadeCadenciaRelatorio>(initial?.relatorioCadencia?.unidade ?? 'mes');
+  const [relatorioDiasSemana, setRelatorioDiasSemana] = useState<number[]>(initial?.relatorioCadencia?.diasSemana ?? []);
+
+  function toggleRelatorioDiaSemana(dia: number) {
+    setRelatorioDiasSemana((prev) => (prev.includes(dia) ? prev.filter((d) => d !== dia) : [...prev, dia]));
+  }
+
+  const relatorioCadencia: RelatorioCadencia | undefined = relatorioAtivo
+    ? {
+        numero: Math.max(1, relatorioNumero || 1),
+        unidade: relatorioUnidade,
+        ...(relatorioUnidade === 'personalizado' ? { diasSemana: relatorioDiasSemana } : {}),
+      }
+    : undefined;
+
+  const segmentadoNovo = tipoAnalise === 'segmentado';
 
   function toggleServico(nome: string) {
     setServicos((prev) => (prev.includes(nome) ? prev.filter((s) => s !== nome) : [...prev, nome]));
@@ -52,19 +76,35 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
     if (!base) return;
     setSaving(true);
     try {
-      if (editando) {
-        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, status, observacao, atendidoMarco });
+      if (editando && tipoAnalise === 'segmentado' && lojasFinais.length > 0) {
+        const grupo = initial.grupo || base;
+        const [primeira, ...resto] = lojasFinais;
+        await atualizarCliente(initial.id, {
+          empresa: `${grupo} - ${primeira}`, grupo, tipoAnalise: 'segmentado',
+          monitor, servicos, status, observacao, atendidoMarco, relatorioCadencia,
+        });
+        if (resto.length > 0) {
+          const novos: NovoCliente[] = resto.map((nome) => ({
+            empresa: `${grupo} - ${nome}`,
+            grupo,
+            tipoAnalise: 'segmentado',
+            monitor, servicos, status, observacao, atendidoMarco, relatorioCadencia,
+          }));
+          await criarClientesEmLote(novos);
+        }
+      } else if (editando) {
+        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, status, observacao, atendidoMarco, tipoAnalise, relatorioCadencia });
       } else if (tipoAnalise === 'segmentado') {
         if (lojasFinais.length === 0) { toastError('Adicione ao menos uma loja para a análise segmentada.'); setSaving(false); return; }
         const novos: NovoCliente[] = lojasFinais.map((nome) => ({
           empresa: `${base} - ${nome}`,
           grupo: base,
           tipoAnalise: 'segmentado',
-          monitor, servicos, status, observacao, atendidoMarco,
+          monitor, servicos, status, observacao, atendidoMarco, relatorioCadencia,
         }));
         await criarClientesEmLote(novos);
       } else {
-        await criarCliente({ empresa: base, monitor, servicos, status, observacao, atendidoMarco, tipoAnalise: 'unitaria' });
+        await criarCliente({ empresa: base, monitor, servicos, status, observacao, atendidoMarco, tipoAnalise: 'unitaria', relatorioCadencia });
       }
       onClose();
     } catch (err) {
@@ -81,51 +121,48 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
       onSubmit={handleSubmit}
       footer={
         <>
-          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Salvando...' : segmentadoNovo ? `Criar ${lojasFinais.length || ''} loja(s)` : 'Salvar'}
-          </button>
+          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" variant="primary" disabled={saving}>
+            {saving
+              ? 'Salvando...'
+              : editando
+                ? (segmentadoNovo && lojasFinais.length > 1 ? `Salvar + criar ${lojasFinais.length - 1} loja(s)` : 'Salvar')
+                : (segmentadoNovo ? `Criar ${lojasFinais.length || ''} loja(s)` : 'Salvar')}
+          </Button>
         </>
       }
     >
-            {editando && (
+            {editando && initial.grupo && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                <span className="badge badge-muted">
-                  Análise: {initial.tipoAnalise === 'segmentado' || initial.grupo ? TIPO_ANALISE_LABEL.segmentado : TIPO_ANALISE_LABEL.unitaria}
-                </span>
-                {initial.grupo && <span className="badge badge-warning">Grupo: {initial.grupo}</span>}
+                <Badge variant="warning">Grupo: {initial.grupo}</Badge>
               </div>
             )}
 
-            <label className="field">
-              {segmentadoNovo ? 'Empresa / grupo (rede)' : 'Empresa'}
-              <input className="field-input" autoFocus value={empresa} onChange={(e) => setEmpresa(e.target.value)} required />
-            </label>
+            <Field label={segmentadoNovo ? 'Empresa / grupo (rede)' : 'Empresa'}>
+              <Input tone="modal" autoFocus value={empresa} onChange={(e) => setEmpresa(e.target.value)} required />
+            </Field>
 
-            <label className="field">
-              Monitor responsável
-              <select className="field-input custom-select" value={monitor} onChange={(e) => setMonitor(e.target.value)}>
+            <Field label="Monitor responsável">
+              <Select tone="modal" value={monitor} onChange={(e) => setMonitor(e.target.value)}>
                 <option value="">Nenhum</option>
                 {monitorOpcoes.map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
-              </select>
-            </label>
+              </Select>
+            </Field>
 
-            <label className="field">
-              Status
-              <select className="field-input custom-select" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <Field label="Status">
+              <Select tone="modal" value={status} onChange={(e) => setStatus(e.target.value)}>
                 {statusOpcoes.map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
-              </select>
-            </label>
+              </Select>
+            </Field>
 
-            <div className="field">
-              Serviços
+            <Field as="div" label="Serviços">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
                 {servicoOpcoes.length === 0 && (
-                  <span className="text-muted" style={{ fontSize: 13, textTransform: 'none' }}>
+                  <span className="text-text-muted" style={{ fontSize: 13, textTransform: 'none' }}>
                     Nenhum serviço cadastrado — adicione em Configurações.
                   </span>
                 )}
@@ -135,60 +172,98 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                   </label>
                 ))}
               </div>
-            </div>
+            </Field>
 
             <label className="check-row" style={{ margin: '0.25rem 0' }}>
               <input type="checkbox" checked={atendidoMarco} onChange={(e) => setAtendidoMarco(e.target.checked)} /> Atendido pelo Marco (fora da monitoria)
             </label>
 
-            {!editando && (
-              <label className="field">
-                Tipo de análise
-                <select className="field-input custom-select" value={tipoAnalise} onChange={(e) => setTipoAnalise(e.target.value as TipoAnalise)}>
-                  <option value="unitaria">{TIPO_ANALISE_LABEL.unitaria}</option>
-                  <option value="segmentado">{TIPO_ANALISE_LABEL.segmentado}</option>
-                </select>
-              </label>
-            )}
+            <Field label="Tipo de análise">
+              <Select tone="modal" value={tipoAnalise} onChange={(e) => setTipoAnalise(e.target.value as TipoAnalise)}>
+                <option value="unitaria">{TIPO_ANALISE_LABEL.unitaria}</option>
+                <option value="segmentado">{TIPO_ANALISE_LABEL.segmentado}</option>
+              </Select>
+              {editando && tipoAnalise === 'segmentado' && (
+                <span className="text-text-muted" style={{ fontSize: 11, textTransform: 'none', letterSpacing: 'normal' }}>
+                  Adicione lojas abaixo para dividir este cliente em vários (a primeira renomeia o atual; as demais são criadas). Sem lojas, só marca o tipo.
+                </span>
+              )}
+            </Field>
 
             {segmentadoNovo && (
-              <div className="field">
-                Lojas <span className="text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· cada loja vira um cliente</span>
+              <Field as="div" label={<>Lojas <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· cada loja vira um cliente</span></>}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4, marginBottom: 8 }}>
                   {lojas.length === 0 && (
-                    <span className="text-muted" style={{ fontSize: 13, textTransform: 'none' }}>Nenhuma loja adicionada.</span>
+                    <span className="text-text-muted" style={{ fontSize: 13, textTransform: 'none' }}>Nenhuma loja adicionada.</span>
                   )}
                   {lojas.map((l) => (
-                    <span key={l} className="badge badge-muted" style={{ gap: 6 }}>
+                    <Badge key={l} variant="muted" style={{ gap: 6 }}>
                       {l}
                       <button type="button" onClick={() => removerLoja(l)} aria-label="Remover" style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'inline-flex' }}>
                         <X size={12} />
                       </button>
-                    </span>
+                    </Badge>
                   ))}
                 </div>
                 <div className="flex-row">
-                  <input
-                    className="field-input"
+                  <Input
+                    tone="modal"
                     placeholder="Nome da loja..."
                     value={novaLoja}
                     onChange={(e) => setNovaLoja(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); adicionarLoja(); } }}
                   />
-                  <button type="button" className="btn btn-primary btn-icon" onClick={adicionarLoja} disabled={!novaLoja.trim()}><Plus size={16} /></button>
+                  <Button type="button" variant="primary" size="icon" onClick={adicionarLoja} disabled={!novaLoja.trim()}><Plus size={16} /></Button>
                 </div>
                 {base && lojasFinais.length > 0 && (
-                  <p className="text-muted" style={{ fontSize: 12, marginTop: 8, textTransform: 'none', letterSpacing: 'normal' }}>
-                    Serão criados {lojasFinais.length} cliente(s): {lojasFinais.map((l) => `${base} - ${l}`).join(', ')}
+                  <p className="text-text-muted" style={{ fontSize: 12, marginTop: 8, textTransform: 'none', letterSpacing: 'normal' }}>
+                    {editando
+                      ? <>Este cliente vira <strong>{`${initial.grupo || base} - ${lojasFinais[0]}`}</strong>{lojasFinais.length > 1 ? <> e serão criados: {lojasFinais.slice(1).map((l) => `${initial.grupo || base} - ${l}`).join(', ')}</> : null}.</>
+                      : <>Serão criados {lojasFinais.length} cliente(s): {lojasFinais.map((l) => `${base} - ${l}`).join(', ')}</>}
                   </p>
                 )}
-              </div>
+              </Field>
             )}
 
-            <label className="field">
-              Observação
-              <textarea className="field-input" value={observacao} onChange={(e) => setObservacao(e.target.value)} />
-            </label>
+            <Field label="Observação">
+              <Textarea tone="modal" value={observacao} onChange={(e) => setObservacao(e.target.value)} />
+            </Field>
+
+            <Field as="div" label="Relatório automático">
+              <label className="check-row" style={{ margin: '0.25rem 0' }}>
+                <input type="checkbox" checked={relatorioAtivo} onChange={(e) => setRelatorioAtivo(e.target.checked)} /> Gerar relatórios automaticamente na agenda
+              </label>
+              {relatorioAtivo && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+                  <div className="flex-row" style={{ gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <Field className="w-[100px]" label="A cada">
+                      <Input
+                        tone="modal" type="number" min={1}
+                        value={relatorioNumero}
+                        onChange={(e) => setRelatorioNumero(Number(e.target.value))}
+                      />
+                    </Field>
+                    <Field className="flex-1" label="Unidade">
+                      <Select tone="modal" value={relatorioUnidade} onChange={(e) => setRelatorioUnidade(e.target.value as UnidadeCadenciaRelatorio)}>
+                        {UNIDADES_CADENCIA.map((u) => (<option key={u} value={u}>{UNIDADE_CADENCIA_LABEL[u]}</option>))}
+                      </Select>
+                    </Field>
+                  </div>
+                  {relatorioUnidade === 'personalizado' && (
+                    <div>
+                      <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal', display: 'block', marginBottom: 6 }}>
+                        Dias da semana — "A cada" acima vira "a cada N semanas" nesses dias.
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {DIAS_SEMANA.map((d) => (
+                          <Chip key={d.v} variant="toggle" active={relatorioDiasSemana.includes(d.v)} onClick={() => toggleRelatorioDiaSemana(d.v)}>{d.label}</Chip>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Field>
     </ModalShell>
   );
 }

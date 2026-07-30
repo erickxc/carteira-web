@@ -3,6 +3,8 @@ import { addDays, addMonths, addWeeks, format, setHours, setMilliseconds, setMin
 import { Bell, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { previousBusinessDay } from '../utils/holidays';
+import { prepararSom, tocarSomNotificacao } from '../utils/som';
+import { Button, Card } from '../ui';
 import type { Lembrete, Recorrencia } from '../types';
 
 const CHECK_INTERVAL_MS = 20_000;
@@ -31,6 +33,7 @@ export function ReminderPopup() {
   const firingRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    prepararSom(); // destrava o áudio na primeira interação do usuário
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     if (Notification.permission === 'default') {
       Notification.requestPermission();
@@ -50,6 +53,7 @@ export function ReminderPopup() {
 
           firingRef.current.add(reminder.id);
           setQueue((prev) => [...prev, reminder]);
+          tocarSomNotificacao(); // barulho ao disparar o lembrete
 
           if ('Notification' in window && Notification.permission === 'granted') {
             const notif = new Notification(reminder.title, {
@@ -81,25 +85,25 @@ export function ReminderPopup() {
   return (
     <div className="reminder-toast-stack">
       {queue.map((reminder) => (
-        <div key={reminder.id} className="glass-card reminder-toast">
+        <Card key={reminder.id} className="reminder-toast">
           <div className="flex-between">
             <span className="flex-row">
               <Bell size={16} style={{ color: 'var(--accent)' }} />
               <strong style={{ fontSize: 14 }}>{reminder.title}</strong>
             </span>
-            <button className="btn btn-secondary btn-icon" onClick={() => dismiss(reminder.id)}>
+            <Button variant="secondary" size="icon" onClick={() => dismiss(reminder.id)}>
               <X size={14} />
-            </button>
+            </Button>
           </div>
           {reminder.description && (
-            <p className="text-muted" style={{ fontSize: 13, marginTop: 8, marginBottom: 4 }}>
+            <p className="text-text-muted" style={{ fontSize: 13, marginTop: 8, marginBottom: 4 }}>
               {reminder.description}
             </p>
           )}
-          <span className="text-muted" style={{ fontSize: 12 }}>
+          <span className="text-text-muted" style={{ fontSize: 12 }}>
             {format(new Date(reminder.datetime), 'dd/MM/yyyy HH:mm')}
           </span>
-        </div>
+        </Card>
       ))}
     </div>
   );

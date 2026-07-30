@@ -14,11 +14,13 @@ import { ReagendarButton } from '../components/agenda/ReagendarButton';
 import { formatHolidayLabel, getHoliday } from '../utils/holidays';
 import { gerarAta } from '../utils/ata';
 import { corTipo } from '../utils/tipoCor';
+import { usePersistedState } from '../hooks/usePersistedState';
+import { Badge, Button, Card } from '../ui';
 import type { EventoAgenda } from '../types';
 
 const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-interface AgendaLocationState { focusDate?: string; openNewEvent?: boolean; }
+interface AgendaLocationState { focusDate?: string; openNewEvent?: boolean; initialType?: string; }
 
 function turnoDe(ev: EventoAgenda): 'manha' | 'tarde' {
   if (!ev.time) return 'manha';
@@ -33,14 +35,15 @@ export default function AgendaPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const hoje = new Date();
-  const [view, setView] = useState<'mes' | 'kanban'>('mes');
+  const [view, setView] = usePersistedState<'mes' | 'kanban'>('filtro:agenda:view', 'mes');
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(hoje));
   const [weekRef, setWeekRef] = useState(hoje);
-  const [modalState, setModalState] = useState<{ editing?: EventoAgenda; defaultDate?: Date } | null>(null);
+  const [modalState, setModalState] = useState<{ editing?: EventoAgenda; defaultDate?: Date; initialClientId?: string; initialType?: string } | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
-  const [fMonitores, setFMonitores] = useState<string[]>([]);
-  const [fTipos, setFTipos] = useState<string[]>([]);
+  const [fMonitores, setFMonitores] = usePersistedState<string[]>('filtro:agenda:monitores', []);
+  // Padrão: só Reunião. Contatos/Relatórios aparecem ao marcá-los no filtro Tipo.
+  const [fTipos, setFTipos] = usePersistedState<string[]>('filtro:agenda:tipos', ['Reunião']);
 
   const statusConcluido = useMemo(
     () => opcoesPorTipo('status_evento').find((s) => /conclu|realiz/i.test(s)) ?? 'Concluído',
@@ -71,8 +74,13 @@ export default function AgendaPage() {
   useEffect(() => {
     const state = location.state as AgendaLocationState | null;
     if (!state) return;
+    // Reage a um sinal de navegação transiente (state do router, ex.: "abrir
+    // agenda nessa data" vindo do Dashboard/Busca) — consome e limpa o state pra
+    // não disparar de novo; não dá pra mover pro corpo do render (efeito
+    // colateral de navegação, não estado derivado de props).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (state.focusDate) { setCurrentMonth(startOfMonth(new Date(state.focusDate))); setWeekRef(new Date(state.focusDate)); }
-    if (state.openNewEvent) setModalState({ defaultDate: state.focusDate ? new Date(state.focusDate) : new Date() });
+    if (state.openNewEvent) setModalState({ defaultDate: state.focusDate ? new Date(state.focusDate) : new Date(), initialType: state.initialType });
     navigate(location.pathname, { replace: true, state: null });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.key]);
@@ -88,12 +96,14 @@ export default function AgendaPage() {
     return map;
   }, [agendaFiltrada]);
 
-  // Conflitos: mesmo dia + mesma hora (não vazia).
+  // Conflitos: mesmo MONITOR + mesmo dia + mesma hora (não vazia). Monitores
+  // diferentes no mesmo horário não é conflito (cada um pode ter sua própria
+  // reunião ao mesmo tempo). Cancelado/Reagendado não ocupa mais o horário.
   const conflitos = useMemo(() => {
     const m = new Map<string, string[]>();
     agendaFiltrada.forEach((a) => {
-      if (!a.time) return;
-      const k = `${format(parseISO(a.date), 'yyyy-MM-dd')}|${a.time}`;
+      if (!a.time || !a.monitor || /cancel|reagend/i.test(a.status || '')) return;
+      const k = `${format(parseISO(a.date), 'yyyy-MM-dd')}|${a.time}|${a.monitor}`;
       if (!m.has(k)) m.set(k, []);
       m.get(k)!.push(a.id);
     });
@@ -102,8 +112,12 @@ export default function AgendaPage() {
     return s;
   }, [agendaFiltrada]);
 
+  // "Próximas reuniões" = só eventos do tipo Reunião. Contato/Relatório são
+  // eventos de agenda (aparecem no calendário) mas não são reunião, então não
+  // entram nesta lista. Match por palavra-chave (tipos são editáveis).
   const proximos = useMemo(
     () => agendaFiltrada
+      .filter((a) => /reuni/i.test(a.type))
       .filter((a) => differenceInCalendarDays(parseISO(a.date), hoje) >= 0)
       .sort((a, b) => (parseISO(a.date).getTime() - parseISO(b.date).getTime()) || ordenaPorHora(a, b))
       .slice(0, 10),
@@ -147,8 +161,8 @@ export default function AgendaPage() {
     const s = weekDays[0], e = weekDays[4];
     return `${format(s, "d 'de' MMM", { locale: ptBR })} – ${format(e, "d 'de' MMM", { locale: ptBR })}`;
   }
-  function irAnterior() { view === 'mes' ? setCurrentMonth((m) => subMonths(m, 1)) : setWeekRef((w) => subWeeks(w, 1)); }
-  function irProximo() { view === 'mes' ? setCurrentMonth((m) => addMonths(m, 1)) : setWeekRef((w) => addWeeks(w, 1)); }
+  function irAnterior() { if (view === 'mes') setCurrentMonth((m) => subMonths(m, 1)); else setWeekRef((w) => subWeeks(w, 1)); }
+  function irProximo() { if (view === 'mes') setCurrentMonth((m) => addMonths(m, 1)); else setWeekRef((w) => addWeeks(w, 1)); }
   function irHoje() { setCurrentMonth(startOfMonth(hoje)); setWeekRef(hoje); }
 
   return (
@@ -158,37 +172,44 @@ export default function AgendaPage() {
           <h1 className="page-title">Agenda</h1>
           <p className="page-subtitle" style={{ marginBottom: 0 }}>Reuniões, recorrências e checklist. Arraste os cards para remarcar.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setModalState({ defaultDate: new Date() })}><Plus size={16} /> Novo evento</button>
+        <Button variant="primary" onClick={() => setModalState({ defaultDate: new Date() })}><Plus size={16} /> Novo evento</Button>
       </div>
 
       {/* Faixa de próximas reuniões */}
       <div className="section agenda-noprint" style={{ marginTop: '1rem' }}>
-        <div className="section-header"><h3>Próximas reuniões</h3><span className="text-muted" style={{ fontSize: 12 }}>{proximos.length}</span></div>
+        <div className="section-header"><h3>Próximas reuniões</h3><span className="text-text-muted" style={{ fontSize: 12 }}>{proximos.length}</span></div>
         {proximos.length === 0 ? (
-          <div className="glass-card glass-card-flat"><div className="empty-state">Nenhuma reunião futura.</div></div>
+          <Card flat><div className="empty-state">Nenhuma reunião futura.</div></Card>
         ) : (
-          <div className="agenda-upcoming">
-            {proximos.map((ev) => {
-              const d = parseISO(ev.date);
-              return (
-                <button key={ev.id} className="agenda-up-card" onClick={() => setModalState({ editing: ev })}>
-                  <span className="agenda-up-date">
-                    <span className="agenda-up-day">{format(d, 'dd')}</span>
-                    <span className="agenda-up-mon">{format(d, 'MMM', { locale: ptBR })}</span>
-                  </span>
-                  <span className="agenda-up-main">
-                    <span className="agenda-up-title">{ev.clientName}</span>
-                    <span className="agenda-up-sub">{ev.time ? `${ev.time} · ` : ''}{ev.subject || ev.type}</span>
-                  </span>
-                  {conflitos.has(ev.id) && <AlertTriangle size={13} className="text-[color:var(--danger)] shrink-0" />}
-                </button>
-              );
-            })}
+          <div className="agenda-ticker">
+            {/* lista duplicada = loop sem emenda; velocidade proporcional à quantidade */}
+            <div className="agenda-ticker-track" style={{ animationDuration: `${Math.max(35, proximos.length * 9)}s` }}>
+              {[...proximos, ...proximos].map((ev, i) => {
+                const d = parseISO(ev.date);
+                return (
+                  <button
+                    key={`${ev.id}-${i}`}
+                    className="agenda-ticker-item"
+                    onClick={() => setModalState({ editing: ev })}
+                    aria-hidden={i >= proximos.length}
+                    tabIndex={i >= proximos.length ? -1 : 0}
+                  >
+                    <span className="agenda-ticker-dot" style={{ background: corTipo(ev.type) }} />
+                    <span className="agenda-ticker-date">{format(d, 'dd/MM')}</span>
+                    <strong className="agenda-ticker-name">{ev.clientName}</strong>
+                    <span className="agenda-ticker-meta">
+                      {ev.time ? `${ev.time}` : ''}{ev.subject || ev.type ? `${ev.time ? ' · ' : ''}${ev.subject || ev.type}` : ''}{ev.monitor ? ` · 👤 ${ev.monitor}` : ''}
+                    </span>
+                    {conflitos.has(ev.id) && <AlertTriangle size={12} className="text-[color:var(--danger)] shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
 
-      <div className="glass-card glass-card-flat agenda-board">
+      <Card flat className="agenda-board">
         <div className="flex-between" style={{ marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
           <strong style={{ textTransform: 'capitalize', fontSize: '1.3rem' }}>{tituloPeriodo()}</strong>
           <div className="flex-row" style={{ gap: 8 }}>
@@ -196,15 +217,15 @@ export default function AgendaPage() {
               <button className={`tab${view === 'mes' ? ' is-active' : ''}`} onClick={() => setView('mes')}><CalendarDays size={15} /> Mês</button>
               <button className={`tab${view === 'kanban' ? ' is-active' : ''}`} onClick={() => setView('kanban')}><LayoutGrid size={15} /> Semana</button>
             </div>
-            <button className="btn btn-secondary" style={{ padding: '0.45rem 0.8rem' }} onClick={irHoje}>Hoje</button>
-            <button className="btn btn-secondary btn-icon" onClick={irAnterior} aria-label="Anterior"><ChevronLeft size={18} /></button>
-            <button className="btn btn-secondary btn-icon" onClick={irProximo} aria-label="Próximo"><ChevronRight size={18} /></button>
-            <button className="btn btn-secondary btn-icon agenda-noprint" onClick={() => window.print()} aria-label="Imprimir / PDF" title="Imprimir / exportar PDF"><Printer size={16} /></button>
+            <Button variant="secondary" style={{ padding: '0.45rem 0.8rem' }} onClick={irHoje}>Hoje</Button>
+            <Button variant="secondary" size="icon" onClick={irAnterior} aria-label="Anterior"><ChevronLeft size={18} /></Button>
+            <Button variant="secondary" size="icon" onClick={irProximo} aria-label="Próximo"><ChevronRight size={18} /></Button>
+            <Button variant="secondary" size="icon" className="agenda-noprint" onClick={() => window.print()} aria-label="Imprimir / PDF" title="Imprimir / exportar PDF"><Printer size={16} /></Button>
           </div>
         </div>
 
         {/* Filtros (somem na impressão) + legenda de tipos (fica na impressão, é a chave de cores do calendário) */}
-        <div className="agenda-toolbar">
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-[14px] pb-[14px] border-b border-border">
           <div className="flex-row agenda-noprint" style={{ gap: 8, flexWrap: 'wrap' }}>
             <div style={{ minWidth: 150 }}>
               <Dropdown label="Monitor" multiple options={monitorOpcoes.map((m) => ({ value: m, label: m }))} value={fMonitores} onChange={(v) => setFMonitores(v as string[])} />
@@ -213,9 +234,11 @@ export default function AgendaPage() {
               <Dropdown label="Tipo" multiple options={tiposUnicos.map((t) => ({ value: t, label: t }))} value={fTipos} onChange={(v) => setFTipos(v as string[])} />
             </div>
           </div>
-          <div className="agenda-legend-tipos">
+          <div className="flex flex-wrap gap-3">
             {tiposUnicos.map((t) => (
-              <span key={t}><i style={{ background: corTipo(t) }} /> {t}</span>
+              <span key={t} className="inline-flex items-center gap-[6px] text-[0.74rem] text-text-secondary">
+                <i className="w-[10px] h-[10px] rounded-[3px] inline-block" style={{ background: corTipo(t) }} /> {t}
+              </span>
             ))}
           </div>
         </div>
@@ -240,22 +263,28 @@ export default function AgendaPage() {
                     onDragLeave={() => setDragOverKey((k) => (k === key ? null : k))}
                     onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain') || draggedId; setDragOverKey(null); setDraggedId(null); if (id) moverParaDia(id, key); }}
                     title={holiday ? formatHolidayLabel(holiday) : undefined}>
-                    <div className="calendar-day-head">
+                    <div className="flex items-center justify-between">
                       <span className="calendar-day-number">{format(day, 'd')}</span>
                       <button className="calendar-add" onClick={() => setModalState({ defaultDate: day })} aria-label="Adicionar"><Plus size={13} /></button>
                     </div>
                     <div className="calendar-events-big custom-scrollbar">
                       {dayEvents.map((ev) => (
                         <button key={ev.id}
-                          className={`calendar-chip${draggedId === ev.id ? ' is-dragging' : ''}${/conclu|realiz/i.test(ev.status) ? ' is-done' : ''}`}
+                          className={`calendar-chip${draggedId === ev.id ? ' is-dragging' : ''}${/conclu|realiz/i.test(ev.status) ? ' is-done' : ''}${/cancel|reagend/i.test(ev.status) ? ' is-cancel' : ''}`}
                           style={{ ['--chip-color' as string]: corTipo(ev.type) }}
                           draggable onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); setDraggedId(ev.id); }}
                           onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
                           onClick={() => setModalState({ editing: ev })}
-                          title={`${ev.clientName} — ${ev.subject || ev.type}${ev.time ? ' ' + ev.time : ''} · clique para editar/reagendar (ou arraste para outro dia)`}>
+                          title={`${ev.clientName} — ${ev.subject || ev.type}${ev.time ? ' ' + ev.time : ''}${ev.monitor ? ' · Monitor: ' + ev.monitor : ''} · clique para editar/reagendar (ou arraste para outro dia)`}>
                           <span className="calendar-chip-title">{ev.time ? `${ev.time} ` : ''}{ev.clientName}</span>
                           <span className="calendar-chip-meta">
-                            <span className="calendar-chip-type">{ev.type}</span>
+                            {/* Reunião: a cor da barra lateral já indica o tipo — mostrar o
+                                serviço tratado (Monitoria/Precificação) é mais útil que repetir
+                                "Reunião" no texto. Sem serviço tagueado (legado), cai no tipo. */}
+                            <span className="calendar-chip-type">
+                              {/reuni/i.test(ev.type) && ev.servicos.length > 0 ? ev.servicos.join(', ') : ev.type}
+                              {ev.monitor ? ` · ${ev.monitor}` : ''}
+                            </span>
                             {conflitos.has(ev.id) && <AlertTriangle size={10} className="text-[color:var(--danger)]" />}
                             {ev.attachments.length > 0 && <Paperclip size={10} className="calendar-chip-clip" />}
                             <ReagendarButton className="calendar-chip-reagendar" dataAtual={ev.date} onReagendar={(novaData) => moverParaDia(ev.id, novaData)} />
@@ -278,10 +307,10 @@ export default function AgendaPage() {
               const holiday = getHoliday(day);
               return (
                 <div key={key} className={`kanban-col${isSameDay(day, hoje) ? ' is-today' : ''}`}>
-                  <div className="kanban-col-head">
-                    <span className="kanban-col-day">{format(day, 'EEE', { locale: ptBR })}</span>
-                    <span className="kanban-col-date">{format(day, 'dd/MM')}</span>
-                    {holiday && <span className="badge badge-warning" style={{ fontSize: 10 }}>feriado</span>}
+                  <div className="flex items-center gap-[6px] px-[0.7rem] py-[0.6rem] border-b border-border bg-card-hover">
+                    <span className="font-bold text-[0.8rem] capitalize">{format(day, 'EEE', { locale: ptBR })}</span>
+                    <span className="text-[0.72rem] text-text-muted">{format(day, 'dd/MM')}</span>
+                    {holiday && <Badge variant="warning" style={{ fontSize: 10 }}>feriado</Badge>}
                   </div>
                   {(['manha', 'tarde'] as const).map((turno) => {
                     const dkey = `${key}|${turno}`;
@@ -314,10 +343,18 @@ export default function AgendaPage() {
             })}
           </div>
         )}
-      </div>
+      </Card>
 
       {modalState && (
-        <EventFormModal initial={modalState.editing} defaultDate={modalState.defaultDate} onClose={() => setModalState(null)} />
+        <EventFormModal
+          key={modalState.editing ? 'edit-' + modalState.editing.id : 'new-' + (modalState.initialClientId ?? '') + '-' + (modalState.initialType ?? '')}
+          initial={modalState.editing}
+          defaultDate={modalState.defaultDate}
+          initialClientId={modalState.initialClientId}
+          initialType={modalState.initialType}
+          onClose={() => setModalState(null)}
+          onAgendarProximo={(clientId) => setModalState({ initialClientId: clientId, defaultDate: new Date() })}
+        />
       )}
     </div>
   );

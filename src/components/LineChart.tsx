@@ -2,6 +2,8 @@ interface LinePoint {
   label: string;
   value: number;
   full?: string; // rótulo completo p/ tooltip (ex.: "Julho 2026")
+  /** Projeção (realizado + agendado). Se > value, vira ponto pontilhado acima. */
+  projecao?: number;
 }
 
 interface LineChartProps {
@@ -26,7 +28,7 @@ export function LineChart({ points, highlightIndex = -1, height = 240 }: LineCha
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
-  const max = Math.max(1, ...points.map((p) => p.value));
+  const max = Math.max(1, ...points.map((p) => Math.max(p.value, p.projecao ?? 0)));
   const n = points.length;
   const x = (i: number) => padL + (n <= 1 ? plotW / 2 : (i * plotW) / (n - 1));
   const y = (v: number) => padT + plotH * (1 - v / max);
@@ -55,6 +57,23 @@ export function LineChart({ points, highlightIndex = -1, height = 240 }: LineCha
 
       {n > 0 && <polygon points={areaPts} fill="url(#lc-area)" />}
       {n > 1 && <polyline points={linePts} fill="none" stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />}
+
+      {/* Projeção: onde projecao > value, um ponto pontilhado acima ligado por
+          traço tracejado (realizado → projetado, se as agendadas acontecerem). */}
+      {points.map((p, i) => {
+        if (p.projecao == null || p.projecao <= p.value) return null;
+        const py = y(p.value);
+        const pyProj = y(p.projecao);
+        return (
+          <g key={`proj-${i}`}>
+            <line x1={x(i)} y1={py} x2={x(i)} y2={pyProj} stroke="var(--text-muted)" strokeWidth="1.5" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+            <circle cx={x(i)} cy={pyProj} r={4} fill="var(--bg)" stroke="var(--text-muted)" strokeWidth="2" strokeDasharray="2.5 2" vectorEffect="non-scaling-stroke">
+              <title>{`${p.full ?? p.label}: projeção ${p.projecao} (realizado + agendado)`}</title>
+            </circle>
+            <text x={x(i)} y={pyProj - 9} textAnchor="middle" fontSize="10" fontWeight="600" fill="var(--text-muted)" fontFamily="var(--font)">{p.projecao}</text>
+          </g>
+        );
+      })}
 
       {points.map((p, i) => {
         const sel = i === highlightIndex;

@@ -1,99 +1,115 @@
-import { useRef, useState, type FormEvent } from 'react';
-import { addMonths, addWeeks, format, parse, setHours, setMinutes, subDays, subHours } from 'date-fns';
+import { useState, type FormEvent } from 'react';
+import { format, isValid, parse, setHours, setMinutes, subDays, subHours } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
-import { AlertTriangle, Check, FileText, Paperclip, Plus, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Ban, Check, FileText } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
-import { urlAnexo } from '../api/client';
 import { gerarAta } from '../utils/ata';
 import { gerarAtaPdf } from '../utils/ataPdf';
 import { toastError } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ModalShell } from './ModalShell';
-import type { ChecklistItem, EventoAgenda, OrientacaoItem } from '../types';
+import { useRecorrencia } from './eventForm/useRecorrencia';
+import { useChecklist } from './eventForm/useChecklist';
+import { usePreAnalise } from './eventForm/usePreAnalise';
+import { RecorrenciaFields } from './eventForm/RecorrenciaFields';
+import { ChecklistField } from './eventForm/ChecklistField';
+import { PreAnaliseField } from './eventForm/PreAnaliseField';
+import { AnexosField } from './eventForm/AnexosField';
+import { Badge, Button, Chip, Field, Input, Select, Textarea } from '../ui';
+import type { EventoAgenda } from '../types';
 
 interface EventFormModalProps {
   initial?: EventoAgenda;
   defaultDate?: Date;
   initialClientId?: string;
+  /** Pré-seleciona o Tipo na criação (ex.: atalhos "Criar Relatório"/"Criar
+   * Contato" do sidebar) — usuário ainda pode trocar. Ignorado em edição. */
+  initialType?: string;
   onClose: () => void;
+  /** Fechar o loop: chamado quando a reunião é concluída e o usuário aceita
+   *  agendar o próximo evento — o pai abre uma nova modal para o mesmo cliente. */
+  onAgendarProximo?: (clientId: string) => void;
 }
 
-type Freq = 'semanal' | 'quinzenal' | 'mensal';
-
-export function EventFormModal({ initial, defaultDate, initialClientId, onClose }: EventFormModalProps) {
-  const { clientes, agenda, criarEvento, atualizarEvento, removerEvento, enviarAnexoEvento, removerAnexoEvento, criarLembrete, opcoesPorTipo } = useCarteira();
+export function EventFormModal({ initial, defaultDate, initialClientId, initialType, onClose, onAgendarProximo }: EventFormModalProps) {
+  const { clientes, agenda, criarEvento, atualizarEvento, enviarAnexoEvento, removerAnexoEvento, criarLembrete, opcoesPorTipo } = useCarteira();
   const tipoOpcoes = opcoesPorTipo('tipo_evento');
   const statusOpcoes = opcoesPorTipo('status_evento');
   const servicoOpcoes = opcoesPorTipo('servico');
+  const monitorOpcoes = opcoesPorTipo('monitor');
+  const salaOpcoes = opcoesPorTipo('sala');
   const editando = !!initial;
 
   const [clientId, setClientId] = useState(initial?.clientId ?? initialClientId ?? '');
   const [subject, setSubject] = useState(initial?.subject ?? '');
-  const [type, setType] = useState(initial?.type ?? tipoOpcoes[0] ?? '');
+  const [type, setType] = useState(initial?.type ?? initialType ?? tipoOpcoes[0] ?? '');
   const [date, setDate] = useState(format(initial ? new Date(initial.date) : defaultDate ?? new Date(), 'yyyy-MM-dd'));
   const [time, setTime] = useState(initial?.time ?? '');
   const [duracao, setDuracao] = useState<number>(initial?.duracao ?? 60);
   const [description, setDescription] = useState(initial?.description ?? '');
   const [status, setStatus] = useState(initial?.status ?? statusOpcoes[0] ?? 'Agendado');
+  const [motivo, setMotivo] = useState(initial?.motivo ?? '');
+  // Default = monitor do cliente (o mais provável), editável.
+  const [monitor, setMonitor] = useState(
+    initial?.monitor ?? clientes.find((c) => c.id === (initial?.clientId ?? initialClientId))?.monitor ?? ''
+  );
   const [servicos, setServicos] = useState<string[]>(initial?.servicos ?? []);
-  const [checklist, setChecklist] = useState<ChecklistItem[]>(initial?.checklist ?? []);
-  const [novoItem, setNovoItem] = useState('');
-  const [orientacoes, setOrientacoes] = useState<OrientacaoItem[]>(initial?.preAnalise?.orientacoes ?? []);
-  const [clientesGeral, setClientesGeral] = useState(initial?.preAnalise?.clientesGeral ?? '');
-  const [produtosGeral, setProdutosGeral] = useState(initial?.preAnalise?.produtosGeral ?? '');
+  const [sala, setSala] = useState(initial?.sala ?? '');
+  const rec = useRecorrencia();
+  const ck = useChecklist(initial?.checklist ?? []);
+  const pa = usePreAnalise(initial?.preAnalise);
   const [ata, setAta] = useState(initial?.ata ?? '');
   const [resumo, setResumo] = useState(initial?.resumo ?? '');
   const [lembreteAntes, setLembreteAntes] = useState<'none' | '1h' | '1d' | '2d' | '7d'>('none');
-  const [recorrente, setRecorrente] = useState(false);
-  const [freq, setFreq] = useState<Freq>('semanal');
-  const [ocorrencias, setOcorrencias] = useState(4);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const eventoAtual = initial ? agenda.find((a) => a.id === initial.id) : undefined;
+
+  // Contato/Relatório são interações leves — form enxuto, sem toda a maquinaria
+  // de reunião (ata, checklist, pré-análise, resumo, serviços, anexos...).
+  // Match por palavra-chave porque `type` vem de categorias editáveis (mesmo
+  // padrão de src/utils/badges.ts), não igualdade exata.
+  const modoSimples = /contato|relat[óo]rio|liga[çc]/i.test(type);
+  // Sala só faz sentido pra Reunião (não modoSimples, que já cobre o resto).
+  const ehReuniao = /reuni/i.test(type);
+  // Status "Reagendado" exige informar o motivo do reagendamento.
+  const precisaMotivo = /reagend/i.test(status);
+  const naoOcupaHorario = (a: EventoAgenda) => /cancel|reagend/i.test(a.status || '');
+  const mesmoDiaHora = (a: EventoAgenda) => Boolean(time) && dataValida && a.time === time && format(dataSegura, 'yyyy-MM-dd') === format(new Date(a.date), 'yyyy-MM-dd');
 
   const toggleServico = (s: string) =>
     setServicos((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
 
-  function addItem() {
-    const t = novoItem.trim();
-    if (!t) return;
-    setChecklist((prev) => [...prev, { id: uuidv4(), text: t, done: false }]);
-    setNovoItem('');
-  }
-  const toggleItem = (id: string) => setChecklist((prev) => prev.map((i) => (i.id === id ? { ...i, done: !i.done } : i)));
-  const removeItem = (id: string) => setChecklist((prev) => prev.filter((i) => i.id !== id));
+  // Data segura: o <input type="date"> pode emitir um valor momentaneamente
+  // inválido/incompleto enquanto o usuário digita os dígitos manualmente (varia
+  // por navegador/SO). parse(...).toISOString() numa Data inválida lança
+  // RangeError — como isso rodava direto no corpo do render, quebrava a tela
+  // inteira. Aqui cai num fallback (hoje) em vez de estourar.
+  const dataParseada = parse(date, 'yyyy-MM-dd', new Date());
+  const dataValida = isValid(dataParseada);
+  const dataSegura = dataValida ? dataParseada : new Date();
 
-  // Pré-análise (orientações por cliente/produto).
-  const addOrientacao = () => setOrientacoes((prev) => [...prev, { id: uuidv4(), cliente: '', produto: '', orientacao: '' }]);
-  const updOrientacao = (id: string, campo: keyof OrientacaoItem, valor: string) =>
-    setOrientacoes((prev) => prev.map((o) => (o.id === id ? { ...o, [campo]: valor } : o)));
-  const removeOrientacao = (id: string) => setOrientacoes((prev) => prev.filter((o) => o.id !== id));
-
-  const preAnalise = { orientacoes, clientesGeral, produtosGeral };
   // Ata automática (base para o botão "Gerar" e para preencher se vazia).
   const ataAuto = gerarAta({
     clientName: clientes.find((c) => c.id === clientId)?.empresa ?? '',
-    date: parse(date, 'yyyy-MM-dd', new Date()).toISOString(),
-    time, type, checklist, preAnalise, description,
+    date: dataSegura.toISOString(),
+    time, type, checklist: ck.checklist, preAnalise: pa.preAnalise, description,
   });
 
-  // Conflito: outra reunião no mesmo dia e horário.
-  const conflito = time
-    ? agenda.some((a) => a.id !== initial?.id && a.time === time && format(parse(date, 'yyyy-MM-dd', new Date()), 'yyyy-MM-dd') === format(new Date(a.date), 'yyyy-MM-dd'))
-    : false;
-
-  function gerarDatas(baseISO: Date): Date[] {
-    if (!recorrente) return [baseISO];
-    const out: Date[] = [];
-    for (let i = 0; i < Math.max(1, ocorrencias); i++) {
-      out.push(freq === 'semanal' ? addWeeks(baseISO, i) : freq === 'quinzenal' ? addWeeks(baseISO, i * 2) : addMonths(baseISO, i));
-    }
-    return out;
-  }
+  // Conflito de MONITOR: o mesmo monitor já tem outro evento nesse dia/horário.
+  // Monitores diferentes no mesmo horário não é conflito.
+  const conflitoMonitor = Boolean(monitor) && agenda.some((a) =>
+    a.id !== initial?.id && a.monitor === monitor && !naoOcupaHorario(a) && mesmoDiaHora(a)
+  );
+  // Conflito de SALA: a mesma sala não pode ter 2 reuniões no mesmo dia/horário
+  // (recurso físico único), independente do monitor.
+  const conflitoSala = ehReuniao && Boolean(sala) && agenda.some((a) =>
+    a.id !== initial?.id && a.sala === sala && !naoOcupaHorario(a) && mesmoDiaHora(a)
+  );
 
   const statusConcluido = statusOpcoes.find((s) => /conclu|realiz/i.test(s)) ?? 'Concluído';
+  const statusCancelado = statusOpcoes.find((s) => /cancel/i.test(s)) ?? 'Cancelado';
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -107,18 +123,30 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
   async function salvar(statusOverride?: string) {
     const cliente = clientes.find((c) => c.id === clientId);
     if (!cliente) { toastError('Selecione um cliente.'); return; }
-    if (!subject.trim()) { toastError('Informe o assunto da reunião.'); return; }
+    if (!dataValida) { toastError('Data inválida — confira o dia informado.'); return; }
+    // Contato/Relatório não têm assunto — o display cai pro tipo (subject || type).
+    if (!modoSimples && !subject.trim()) { toastError('Informe o assunto da reunião.'); return; }
+    const statusFinalPre = statusOverride ?? status;
+    if (/reagend/i.test(statusFinalPre) && !motivo.trim()) { toastError('Informe o motivo do reagendamento.'); return; }
+    // Bloqueia de verdade (não só avisa): mesmo monitor ou mesma sala não podem
+    // ocupar o mesmo dia/horário duas vezes.
+    if (conflitoMonitor) { toastError(`${monitor} já tem outro evento marcado nesse dia e horário.`); return; }
+    if (conflitoSala) { toastError(`A sala "${sala}" já está ocupada nesse dia e horário.`); return; }
     const statusFinal = statusOverride ?? status;
     setSaving(true);
     try {
-      const baseData = parse(date, 'yyyy-MM-dd', new Date());
+      const baseData = dataSegura;
       const comum = {
         clientId, clientName: cliente.empresa, subject, type, time,
-        duracao: duracao || undefined, description, status: statusFinal, servicos, preAnalise, resumo,
+        duracao: duracao || undefined, description, status: statusFinal, servicos, preAnalise: pa.preAnalise, resumo,
+        monitor: monitor || undefined,
+        sala: ehReuniao ? (sala || undefined) : undefined,
+        motivo: /reagend/i.test(statusFinal) ? motivo : undefined,
       };
-      // Ata manual tem prioridade; se vazia, gera automaticamente.
-      const ataDe = (iso: string, cl: ChecklistItem[]) =>
-        ata.trim() ? ata : gerarAta({ clientName: cliente.empresa, date: iso, time, type, checklist: cl, preAnalise, description });
+      // Contato/Relatório não têm ata. Fora isso: ata manual tem prioridade;
+      // se vazia, gera automaticamente.
+      const ataDe = (iso: string, cl: EventoAgenda['checklist']) =>
+        modoSimples ? '' : (ata.trim() ? ata : gerarAta({ clientName: cliente.empresa, date: iso, time, type, checklist: cl, preAnalise: pa.preAnalise, description }));
       async function lembretePara(evId: string, d: Date) {
         if (lembreteAntes === 'none') return;
         const [h, m] = (time || '09:00').split(':').map(Number);
@@ -127,23 +155,30 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
         else if (lembreteAntes === '1d') alvo = subDays(alvo, 1);
         else if (lembreteAntes === '2d') alvo = subDays(alvo, 2);
         else if (lembreteAntes === '7d') alvo = subDays(alvo, 7);
-        await criarLembrete({ title: `Reunião — ${cliente!.empresa}${subject ? ': ' + subject : ''}`, type: 'Reunião', datetime: alvo.toISOString(), clientId, eventId: evId, recurrence: 'none', description });
+        await criarLembrete({ title: `${type} — ${cliente!.empresa}${subject ? ': ' + subject : ''}`, type, datetime: alvo.toISOString(), clientId, eventId: evId, recurrence: 'none', description });
       }
       if (editando) {
         const iso = baseData.toISOString();
-        await atualizarEvento(initial.id, { ...comum, date: iso, checklist, ata: ataDe(iso, checklist) });
-      } else if (recorrente) {
+        await atualizarEvento(initial.id, { ...comum, date: iso, checklist: ck.checklist, ata: ataDe(iso, ck.checklist) });
+      } else if (rec.recorrente) {
         const serie = uuidv4();
-        for (const d of gerarDatas(baseData)) {
-          const cl = checklist.map((i) => ({ id: uuidv4(), text: i.text, done: false }));
+        for (const d of rec.gerarDatas(baseData)) {
+          const cl = ck.checklist.map((i) => ({ id: uuidv4(), text: i.text, done: false }));
           const iso = d.toISOString();
           const salvo = await criarEvento({ ...comum, date: iso, serie, checklist: cl, ata: ataDe(iso, cl) });
           await lembretePara(salvo.id, d);
         }
       } else {
         const iso = baseData.toISOString();
-        const salvo = await criarEvento({ ...comum, date: iso, checklist, ata: ataDe(iso, checklist) });
+        const salvo = await criarEvento({ ...comum, date: iso, checklist: ck.checklist, ata: ataDe(iso, ck.checklist) });
         await lembretePara(salvo.id, baseData);
+      }
+      // Fechar o loop: virou concluída agora (não estava concluída antes) → oferece
+      // agendar o próximo evento pro mesmo cliente.
+      const virouConcluido = /conclu|realiz/i.test(statusFinal) && !/conclu|realiz/i.test(initial?.status || '');
+      if (virouConcluido && onAgendarProximo && await confirmDialog(`Reunião concluída. Deseja agendar o próximo evento para ${cliente.empresa}?`, { confirmLabel: 'Agendar próximo' })) {
+        onAgendarProximo(clientId);
+        return; // o pai abre uma nova modal (limpa); não fecha aqui
       }
       onClose();
     } catch (err) {
@@ -155,8 +190,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
 
   async function handleDelete() {
     if (!initial) return;
-    if (!(await confirmDialog('Excluir este evento?', { danger: true, confirmLabel: 'Excluir' }))) return;
-    await removerEvento(initial.id);
+    // Soft delete: em vez de apagar, marca como Cancelado (preserva o histórico).
+    if (!(await confirmDialog('Cancelar este evento? Ele fica no histórico marcado como Cancelado (não é apagado).', { danger: true, confirmLabel: 'Sim, cancelar', cancelLabel: 'Voltar' }))) return;
+    await atualizarEvento(initial.id, { status: statusCancelado });
     onClose();
   }
 
@@ -167,244 +203,188 @@ export function EventFormModal({ initial, defaultDate, initialClientId, onClose 
       for (const file of Array.from(files)) await enviarAnexoEvento(initial.id, file);
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
 
   return (
     <ModalShell
-      title={editando ? 'Editar Evento' : 'Novo Evento'}
+      title={`${editando ? 'Editar' : 'Novo'} ${modoSimples ? type : 'Evento'}`}
       onClose={onClose}
       onSubmit={handleSubmit}
       size="lg"
       footer={
         <>
           {editando && (
-            <button type="button" className="btn btn-danger" onClick={handleDelete} style={{ marginRight: 'auto' }}>
-              <Trash2 size={15} /> Excluir
-            </button>
+            <Button variant="danger" onClick={handleDelete} style={{ marginRight: 'auto' }}>
+              <Ban size={15} /> Cancelar evento
+            </Button>
           )}
-          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-          <button type="button" className="btn btn-success" onClick={handleConcluir} disabled={saving || clientes.length === 0} title="Salvar marcando a reunião como concluída">
+          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button variant="success" onClick={handleConcluir} disabled={saving || clientes.length === 0} title="Salvar marcando a reunião como concluída">
             <Check size={15} /> Concluir
-          </button>
-          <button type="submit" className="btn btn-primary" disabled={saving || clientes.length === 0}>
-            {saving ? 'Salvando...' : recorrente && !editando ? `Criar ${Math.max(1, ocorrencias)} reuniões` : 'Salvar'}
-          </button>
+          </Button>
+          <Button type="submit" variant="primary" disabled={saving || clientes.length === 0}>
+            {saving ? 'Salvando...' : rec.recorrente && !editando && rec.qtdeEventos > 1 ? `Criar ${rec.qtdeEventos} eventos` : 'Salvar'}
+          </Button>
         </>
       }
     >
-            <label className="field">
-              Cliente
-              <select className="field-input custom-select" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
+            <Field label="Cliente">
+              <Select tone="modal" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
                 <option value="" disabled>Selecione...</option>
                 {clientes.map((c) => (<option key={c.id} value={c.id}>{c.empresa}</option>))}
-              </select>
-            </label>
+              </Select>
+            </Field>
 
-            <label className="field">
-              Assunto
-              <input className="field-input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Ex.: Revisão de precificação Q3" required />
-            </label>
+            <Field label="Monitor">
+              <Select tone="modal" value={monitor} onChange={(e) => setMonitor(e.target.value)}>
+                <option value="">— nenhum —</option>
+                {monitorOpcoes.map((m) => (<option key={m} value={m}>{m}</option>))}
+              </Select>
+            </Field>
 
-            <label className="field">
-              Tipo
-              <select className="field-input custom-select" value={type} onChange={(e) => setType(e.target.value)}>
+            {!modoSimples && (
+              <Field label="Assunto">
+                <Input tone="modal" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Ex.: Revisão de precificação Q3" required />
+              </Field>
+            )}
+
+            <Field label="Tipo">
+              <Select tone="modal" value={type} onChange={(e) => setType(e.target.value)}>
                 {tipoOpcoes.map((t) => (<option key={t} value={t}>{t}</option>))}
-              </select>
-            </label>
+              </Select>
+            </Field>
 
             <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
-              <label className="field" style={{ flex: 1 }}>
-                Data
-                <input type="date" className="field-input" value={date} onChange={(e) => setDate(e.target.value)} required />
-              </label>
-              <label className="field" style={{ width: 110 }}>
-                Hora
-                <input type="time" className="field-input" value={time} onChange={(e) => setTime(e.target.value)} />
-              </label>
-              <label className="field" style={{ width: 120 }}>
-                Duração
-                <select className="field-input custom-select" value={duracao} onChange={(e) => setDuracao(Number(e.target.value))}>
-                  <option value={0}>—</option>
-                  <option value={30}>30 min</option>
-                  <option value={60}>1h</option>
-                  <option value={90}>1h30</option>
-                  <option value={120}>2h</option>
-                </select>
-              </label>
-            </div>
-
-            {conflito && (
-              <div className="badge badge-warning" style={{ marginBottom: 12 }}>
-                <AlertTriangle size={12} /> Já existe reunião neste dia e horário
-              </div>
-            )}
-
-            <label className="field">
-              Status
-              <select className="field-input custom-select" value={status} onChange={(e) => setStatus(e.target.value)}>
-                {statusOpcoes.map((s) => (<option key={s} value={s}>{s}</option>))}
-              </select>
-            </label>
-
-            {!editando && (
-              <>
-                <div className="field">
-                  Recorrência
-                  <div className="chip-select">
-                    <button type="button" className={`chip-toggle${!recorrente ? ' is-on' : ''}`} onClick={() => setRecorrente(false)}>Única</button>
-                    <button type="button" className={`chip-toggle${recorrente ? ' is-on' : ''}`} onClick={() => setRecorrente(true)}>Recorrente</button>
-                  </div>
-                </div>
-                {recorrente && (
-                  <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
-                    <label className="field" style={{ flex: 1 }}>
-                      Frequência
-                      <select className="field-input custom-select" value={freq} onChange={(e) => setFreq(e.target.value as Freq)}>
-                        <option value="semanal">Semanal</option>
-                        <option value="quinzenal">Quinzenal</option>
-                        <option value="mensal">Mensal</option>
-                      </select>
-                    </label>
-                    <label className="field" style={{ width: 130 }}>
-                      Ocorrências
-                      <input type="number" min={2} max={52} className="field-input" value={ocorrencias} onChange={(e) => setOcorrencias(Number(e.target.value))} />
-                    </label>
-                  </div>
-                )}
-
-                <label className="field">
-                  Lembrete automático
-                  <select className="field-input custom-select" value={lembreteAntes} onChange={(e) => setLembreteAntes(e.target.value as typeof lembreteAntes)}>
-                    <option value="none">Sem lembrete</option>
-                    <option value="1h">1 hora antes</option>
-                    <option value="1d">1 dia antes</option>
-                    <option value="2d">2 dias antes</option>
-                    <option value="7d">1 semana antes</option>
-                  </select>
-                </label>
-              </>
-            )}
-
-            <div className="field">
-              Serviços tratados
-              {servicoOpcoes.length === 0 ? (
-                <p className="text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>Nenhum serviço cadastrado — adicione em Configurações.</p>
-              ) : (
-                <div className="chip-select">
-                  {servicoOpcoes.map((s) => (
-                    <button type="button" key={s} className={`chip-toggle${servicos.includes(s) ? ' is-on' : ''}`} onClick={() => toggleServico(s)}>{s}</button>
-                  ))}
-                </div>
+              <Field className="flex-1" label="Data">
+                <Input tone="modal" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+              </Field>
+              <Field className="w-[110px]" label="Hora">
+                <Input tone="modal" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+              </Field>
+              {!modoSimples && (
+                <Field className="w-[120px]" label="Duração">
+                  <Select tone="modal" value={duracao} onChange={(e) => setDuracao(Number(e.target.value))}>
+                    <option value={0}>—</option>
+                    <option value={30}>30 min</option>
+                    <option value={60}>1h</option>
+                    <option value={90}>1h30</option>
+                    <option value={120}>2h</option>
+                  </Select>
+                </Field>
               )}
             </div>
 
-            <div className="field">
-              Checklist / pauta
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 4, marginBottom: 8 }}>
-                {checklist.length === 0 && <span className="text-muted" style={{ fontSize: 13, textTransform: 'none' }}>Nenhum item.</span>}
-                {checklist.map((it) => (
-                  <div key={it.id} className="check-item">
-                    <button type="button" className={`filter-check${it.done ? ' is-on' : ''}`} onClick={() => toggleItem(it.id)}>
-                      {it.done && <Check size={11} strokeWidth={3} />}
-                    </button>
-                    <span style={{ flex: 1, textDecoration: it.done ? 'line-through' : 'none', color: it.done ? 'var(--text-muted)' : 'var(--text-primary)' }}>{it.text}</span>
-                    <button type="button" className="btn btn-secondary btn-icon" onClick={() => removeItem(it.id)} aria-label="Remover"><X size={12} /></button>
-                  </div>
-                ))}
-              </div>
-              <div className="flex-row">
-                <input className="field-input" placeholder="Nova atividade..." value={novoItem} onChange={(e) => setNovoItem(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }} />
-                <button type="button" className="btn btn-primary btn-icon" onClick={addItem} disabled={!novoItem.trim()}><Plus size={16} /></button>
-              </div>
-            </div>
-
-            {editando && (
-              <div className="field">
-                Pré-Análise <span className="text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· preparação da reunião</span>
-                <div className="pa-table">
-                  <div className="pa-row pa-head"><span>Cliente</span><span>Produto</span><span>Orientação</span><span /></div>
-                  {orientacoes.length === 0 && <span className="text-muted" style={{ fontSize: 13, textTransform: 'none', padding: '2px 0' }}>Nenhuma orientação.</span>}
-                  {orientacoes.map((o) => (
-                    <div key={o.id} className="pa-row">
-                      <input className="field-input" value={o.cliente} placeholder="Cliente" onChange={(e) => updOrientacao(o.id, 'cliente', e.target.value)} />
-                      <input className="field-input" value={o.produto} placeholder="Produto" onChange={(e) => updOrientacao(o.id, 'produto', e.target.value)} />
-                      <input className="field-input" value={o.orientacao} placeholder="Orientação" onChange={(e) => updOrientacao(o.id, 'orientacao', e.target.value)} />
-                      <button type="button" className="btn btn-danger btn-icon" onClick={() => removeOrientacao(o.id)} aria-label="Remover"><X size={13} /></button>
-                    </div>
-                  ))}
-                  <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start', marginTop: 6 }} onClick={addOrientacao}><Plus size={14} /> Orientação</button>
-                </div>
-                <label className="field" style={{ marginTop: 12 }}>
-                  Clientes em geral
-                  <textarea className="field-input" rows={2} value={clientesGeral} onChange={(e) => setClientesGeral(e.target.value)} />
-                </label>
-                <label className="field">
-                  Produtos em geral
-                  <textarea className="field-input" rows={2} value={produtosGeral} onChange={(e) => setProdutosGeral(e.target.value)} />
-                </label>
-              </div>
+            {ehReuniao && (
+              <Field label="Sala">
+                <Select tone="modal" value={sala} onChange={(e) => setSala(e.target.value)}>
+                  <option value="">— nenhuma —</option>
+                  {salaOpcoes.map((s) => (<option key={s} value={s}>{s}</option>))}
+                </Select>
+              </Field>
             )}
 
-            <label className="field">
-              Resumo da Reunião
-              <textarea className="field-input" value={resumo} onChange={(e) => setResumo(e.target.value)} rows={3} placeholder="Resumo do que foi tratado na reunião..." />
-            </label>
+            {conflitoMonitor && (
+              <Badge variant="danger" style={{ marginBottom: 8 }}>
+                <AlertTriangle size={12} /> {monitor} já tem outro evento nesse dia e horário — não vai dar pra salvar.
+              </Badge>
+            )}
+            {conflitoSala && (
+              <Badge variant="danger" style={{ marginBottom: 12 }}>
+                <AlertTriangle size={12} /> Sala "{sala}" já ocupada nesse dia e horário — não vai dar pra salvar.
+              </Badge>
+            )}
 
-            <div className="field">
-              <div className="flex-between" style={{ marginBottom: 2 }}>
-                <span>Ata <span className="text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· observações, editável</span></span>
-                <button type="button" className="btn btn-secondary" style={{ padding: '0.25rem 0.55rem', fontSize: 12 }} onClick={() => setAta(ataAuto)}>
+            <Field label="Status">
+              <Select tone="modal" value={status} onChange={(e) => setStatus(e.target.value)}>
+                {statusOpcoes.map((s) => (<option key={s} value={s}>{s}</option>))}
+              </Select>
+            </Field>
+
+            {precisaMotivo && (
+              <Field label="Motivo do reagendamento *">
+                <Textarea tone="modal" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} placeholder="Por que a reunião foi reagendada?" />
+              </Field>
+            )}
+
+            {!editando && <RecorrenciaFields rec={rec} />}
+
+            {/* Lembrete: mantido também no modo enxuto (follow-up do contato), só em criação */}
+            {!editando && (
+              <Field label="Lembrete automático">
+                <Select tone="modal" value={lembreteAntes} onChange={(e) => setLembreteAntes(e.target.value as typeof lembreteAntes)}>
+                  <option value="none">Sem lembrete</option>
+                  <option value="1h">1 hora antes</option>
+                  <option value="1d">1 dia antes</option>
+                  <option value="2d">2 dias antes</option>
+                  <option value="7d">1 semana antes</option>
+                </Select>
+              </Field>
+            )}
+
+            {!modoSimples && (<>
+            <Field as="div" label="Serviços tratados">
+              {servicoOpcoes.length === 0 ? (
+                <p className="text-text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>Nenhum serviço cadastrado — adicione em Configurações.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {servicoOpcoes.map((s) => (
+                    <Chip variant="toggle" key={s} active={servicos.includes(s)} onClick={() => toggleServico(s)}>{s}</Chip>
+                  ))}
+                </div>
+              )}
+            </Field>
+
+            <ChecklistField ck={ck} />
+
+            {editando && <PreAnaliseField pa={pa} />}
+
+            <Field label="Resumo da Reunião">
+              <Textarea tone="modal" value={resumo} onChange={(e) => setResumo(e.target.value)} rows={3} placeholder="Resumo do que foi tratado na reunião..." />
+            </Field>
+
+            <Field as="div" label={
+              <span className="flex-between" style={{ marginBottom: 2 }}>
+                <span>Ata <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· observações, editável</span></span>
+                <Button variant="secondary" style={{ padding: '0.25rem 0.55rem', fontSize: 12 }} onClick={() => setAta(ataAuto)}>
                   Preencher automático
-                </button>
-              </div>
-              <textarea className="field-input" value={ata} onChange={(e) => setAta(e.target.value)} rows={4} placeholder="Observações da reunião (entram na ata em PDF). Vazia = gera automática ao salvar." />
-              <button
-                type="button"
-                className="btn btn-primary"
+                </Button>
+              </span>
+            }>
+              <Textarea tone="modal" value={ata} onChange={(e) => setAta(e.target.value)} rows={4} placeholder="Observações da reunião (entram na ata em PDF). Vazia = gera automática ao salvar." />
+              <Button
+                variant="primary"
                 style={{ marginTop: 8, alignSelf: 'flex-start' }}
-                onClick={() => gerarAtaPdf({
-                  clientName: clientes.find((c) => c.id === clientId)?.empresa ?? '',
-                  date: parse(date, 'yyyy-MM-dd', new Date()).toISOString(),
-                  time, type, status, subject, servicos,
-                  checklist, preAnalise, resumo,
-                  ata: ata.trim() ? ata : ataAuto,
-                  description,
-                })}
+                onClick={() => {
+                  if (!dataValida) { toastError('Data inválida — confira o dia informado.'); return; }
+                  gerarAtaPdf({
+                    clientName: clientes.find((c) => c.id === clientId)?.empresa ?? '',
+                    date: dataSegura.toISOString(),
+                    time, type, status, subject, servicos,
+                    checklist: ck.checklist, preAnalise: pa.preAnalise, resumo,
+                    ata: ata.trim() ? ata : ataAuto,
+                    description,
+                  });
+                }}
               >
                 <FileText size={15} /> Gerar Ata (PDF)
-              </button>
-            </div>
+              </Button>
+            </Field>
+            </>)}
 
-            <label className="field">
-              Descrição
-              <textarea className="field-input" value={description} onChange={(e) => setDescription(e.target.value)} />
-            </label>
+            <Field label={modoSimples ? 'Observação' : 'Descrição'}>
+              <Textarea tone="modal" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={modoSimples ? 'O que foi tratado no contato...' : undefined} />
+            </Field>
 
-            <div className="field">
-              Anexos
-              {!editando ? (
-                <p className="text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>Salve o evento primeiro para anexar arquivos.</p>
-              ) : (
-                <>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-                    {(eventoAtual?.attachments ?? []).map((anexo) => (
-                      <span key={anexo.id} className="attachment-chip">
-                        <Paperclip size={12} />
-                        <a href={urlAnexo(anexo.filename)} target="_blank" rel="noreferrer">{anexo.originalName}</a>
-                        <button type="button" onClick={() => removerAnexoEvento(initial.id, anexo)} aria-label="Remover anexo"><X size={12} /></button>
-                      </span>
-                    ))}
-                    {(eventoAtual?.attachments ?? []).length === 0 && (<span className="text-muted" style={{ fontSize: 13, textTransform: 'none' }}>Nenhum anexo.</span>)}
-                  </div>
-                  <button type="button" className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                    <Paperclip size={14} /> {uploading ? 'Enviando...' : 'Adicionar arquivo'}
-                  </button>
-                  <input ref={fileInputRef} type="file" multiple hidden onChange={(e) => handleFilesSelected(e.target.files)} />
-                </>
-              )}
-            </div>
+            {!modoSimples && (
+              <AnexosField
+                editando={editando}
+                attachments={eventoAtual?.attachments ?? []}
+                uploading={uploading}
+                onRemove={(anexo) => initial && removerAnexoEvento(initial.id, anexo)}
+                onFilesSelected={handleFilesSelected}
+              />
+            )}
     </ModalShell>
   );
 }

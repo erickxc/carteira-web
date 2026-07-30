@@ -21,6 +21,8 @@ const CADENCIAS_PADRAO: Cadencias = {
   relatorio_dias: 45,
   primeiro_contato_dias: 14,
   esfriando_dias: 45,
+  monitoria_dias: 30,
+  price_dias: 30,
 };
 
 interface CarteiraContextValue {
@@ -109,6 +111,10 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Busca inicial ao montar o provider — padrão de "fetch on mount"
+    // recomendado pela própria doc do React; a regra é conservadora demais p/
+    // esse caso legítimo (recarregar já controla loading/error internamente).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     recarregar();
   }, [recarregar]);
 
@@ -299,6 +305,10 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
   return <CarteiraContext.Provider value={value}>{children}</CarteiraContext.Provider>;
 }
 
+// Mantido neste arquivo (não vira módulo próprio): 16 arquivos importam
+// useCarteira daqui — separar só afetaria Fast Refresh em dev (sem impacto
+// em build/runtime), não compensa o risco de mexer em 16 imports.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCarteira(): CarteiraContextValue {
   const ctx = useContext(CarteiraContext);
   if (!ctx) throw new Error('useCarteira precisa estar dentro de <CarteiraProvider>');

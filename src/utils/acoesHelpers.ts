@@ -1,10 +1,11 @@
 import { differenceInCalendarDays, format } from 'date-fns';
 import type { AcaoTipo } from '../types';
+import type { BadgeVariant } from '../ui';
 
 /** Item unificado do histórico: reunião (agenda) OU ação registrada. */
 export interface Item {
   key: string; refId: string; clientId: string; tipoLabel: string; date: Date;
-  statusLabel: string; statusBadge: string; obs: string;
+  statusLabel: string; statusBadge: BadgeVariant; obs: string;
   origem: 'reuniao' | 'acao'; acaoStatus?: string; eventDate?: string;
 }
 

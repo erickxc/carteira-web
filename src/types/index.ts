@@ -1,5 +1,5 @@
 // --- Categorias (CRUD editável) ---
-export type CategoriaTipo = 'servico' | 'tipo_evento' | 'status_cliente' | 'status_evento' | 'monitor' | 'tipo_lembrete';
+export type CategoriaTipo = 'servico' | 'tipo_evento' | 'status_cliente' | 'status_evento' | 'monitor' | 'tipo_lembrete' | 'sala';
 
 export const CATEGORIA_TIPO_LABEL: Record<CategoriaTipo, string> = {
   servico: 'Serviços',
@@ -7,7 +7,8 @@ export const CATEGORIA_TIPO_LABEL: Record<CategoriaTipo, string> = {
   status_cliente: 'Status de cliente',
   status_evento: 'Status de evento',
   monitor: 'Monitores',
-  tipo_lembrete: 'Tipos de alerta',
+  tipo_lembrete: 'Tipos de lembrete',
+  sala: 'Salas de reunião',
 };
 
 export interface Categoria {
@@ -26,6 +27,32 @@ export const TIPO_ANALISE_LABEL: Record<TipoAnalise, string> = {
   segmentado: 'Segmentado (por loja)',
 };
 
+export interface Contato {
+  id: string;
+  nome: string;
+  cargo: string;
+  telefone: string;
+}
+
+// --- Cadência de relatório automático (por cliente) ---
+export type UnidadeCadenciaRelatorio = 'dia' | 'semana' | 'mes' | 'trimestre' | 'semestre' | 'personalizado';
+
+export const UNIDADE_CADENCIA_LABEL: Record<UnidadeCadenciaRelatorio, string> = {
+  dia: 'Dia',
+  semana: 'Semana',
+  mes: 'Mês',
+  trimestre: 'Trimestre',
+  semestre: 'Semestre',
+  personalizado: 'Personalizado',
+};
+
+export interface RelatorioCadencia {
+  numero: number;
+  unidade: UnidadeCadenciaRelatorio;
+  /** Só usado quando unidade = 'personalizado'. 0=domingo..6=sábado. */
+  diasSemana?: number[];
+}
+
 export interface Cliente {
   id: string;
   empresa: string;
@@ -33,6 +60,8 @@ export interface Cliente {
   servicos: string[];
   observacao: string;
   status: string;
+  /** Pessoas de contato do cliente (nome, cargo, telefone). */
+  contatos?: Contato[];
   /** Cliente atendido diretamente pelo Marco (fora da monitoria) — vira "neutro". */
   atendidoMarco?: boolean;
   /** Análise unitária (empresa toda) ou segmentada (por loja). */
@@ -42,6 +71,9 @@ export interface Cliente {
    * (empresa = "Grupo - Loja") e todas compartilham o mesmo `grupo`.
    */
   grupo?: string;
+  /** Cadência de geração automática de Relatório na agenda (opcional — sem isso,
+   * o cliente não participa da geração automática). */
+  relatorioCadencia?: RelatorioCadencia;
   createdAt: string;
   // Colunas legadas do banco real, mantidas em sincronia pelo backend:
   suspenso?: boolean;
@@ -112,6 +144,13 @@ export interface EventoAgenda {
   resumo?: string;
   attachments: Anexo[];
   status: EventoStatus;
+  /** Monitor responsável por este evento (referência, vinda do CRUD de monitores). */
+  monitor?: string;
+  /** Motivo do reagendamento — obrigatório quando status = Reagendado. */
+  motivo?: string;
+  /** Sala da reunião (Nova Iorque/Paris/...) — só relevante quando type = Reunião.
+   * Duas reuniões não podem ocupar a mesma sala no mesmo dia/horário. */
+  sala?: string;
   /** Id da série de recorrência (agrupa ocorrências geradas juntas). */
   serie?: string;
   createdAt: string;
@@ -157,10 +196,13 @@ export type AcaoStatus = 'programado' | 'concluido' | 'dispensado';
 
 export const ACAO_TIPOS: AcaoTipo[] = ['contato', 'reuniao', 'relatorio', 'price'];
 
+// Rótulos alinhados ao vocabulário da fila de cadência (Ações → Acompanhamento:
+// Vencidos/Vencendo/Em dia) — antes eram termos próprios (Engajado/Esfriando/Não
+// atendido) de um cálculo à parte, que confundia por não bater com o resto do app.
 export const SEGMENTO_LABEL: Record<Segmento, string> = {
-  engajado: 'Engajado',
-  esfriando: 'Esfriando',
-  frio: 'Não atendido',
+  engajado: 'Em dia',
+  esfriando: 'Vencendo',
+  frio: 'Vencido',
 };
 
 export const ACAO_TIPO_LABEL: Record<AcaoTipo, string> = {
@@ -177,6 +219,10 @@ export interface Acao {
   tipo: AcaoTipo;
   segmento: Segmento;
   status: AcaoStatus;
+  /** Serviço a que a ação se refere (Monitoria/Precificação/...). Opcional. */
+  servico?: string;
+  /** Monitor responsável pela ação (referência, vinda do CRUD de monitores). */
+  monitor?: string;
   notes?: string;
   /** Data planejada da ação (para ações agendadas). */
   dueAt?: string;
@@ -197,4 +243,7 @@ export interface Cadencias {
   relatorio_dias: number;
   primeiro_contato_dias: number;
   esfriando_dias: number;
+  /** Cadência-alvo por serviço (dias) — priorização por serviço no Acompanhamento. */
+  monitoria_dias: number;
+  price_dias: number;
 }

@@ -1,4 +1,4 @@
-import type { Acao, Anexo, Cadencias, Categoria, ChecklistItem, Cliente, EventoAgenda, Lembrete, Modelo, PreAnalise } from '../types';
+import type { Acao, Anexo, Cadencias, Categoria, ChecklistItem, Cliente, Contato, EventoAgenda, Lembrete, Modelo, PreAnalise, RelatorioCadencia } from '../types';
 
 const PRE_ANALISE_VAZIA: PreAnalise = { orientacoes: [], clientesGeral: '', produtosGeral: '' };
 function parsePreAnalise(raw: unknown): PreAnalise {
@@ -9,11 +9,15 @@ function parsePreAnalise(raw: unknown): PreAnalise {
   return { ...PRE_ANALISE_VAZIA };
 }
 
-// A API roda na mesma máquina que serve o front (o "servidor" da intranet).
-// Derivamos o host da URL atual: abrindo em http://192.168.1.18:5173, a API é
-// http://192.168.1.18:3001 — funciona tanto local quanto pelas outras máquinas.
-const API_HOST = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
-const API_ORIGIN = `http://${API_HOST}:3001`;
+// Em desenvolvimento (`npm run dev`/`npm start`), o Vite dev server e o Node
+// rodam em portas separadas (5173 e 3001) — derivamos o host da URL atual pra
+// funcionar tanto local quanto por outras máquinas na LAN.
+// Em produção (build servido pelo Apache), usamos caminho relativo: o Apache
+// faz proxy de /api e /uploads pro Node (que só escuta em 127.0.0.1, nunca
+// exposto direto na rede) — nesse modo não existe IP/host nenhum pra montar.
+const API_ORIGIN = import.meta.env.DEV
+  ? `http://${typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1'}:3001`
+  : '';
 const API_BASE = `${API_ORIGIN}/api`;
 
 async function tratarResposta<T>(res: Response): Promise<T> {
@@ -54,8 +58,21 @@ function parseListaJSON<T>(raw: unknown): T[] {
   return [];
 }
 
+function parseRelatorioCadencia(raw: unknown): RelatorioCadencia | undefined {
+  if (raw && typeof raw === 'object') return raw as RelatorioCadencia;
+  if (typeof raw === 'string' && raw.trim()) {
+    try { return JSON.parse(raw) as RelatorioCadencia; } catch { return undefined; }
+  }
+  return undefined;
+}
+
 function serializeCliente(c: Cliente): Record<string, unknown> {
-  return { ...c, servicos: JSON.stringify(c.servicos ?? []) };
+  return {
+    ...c,
+    servicos: JSON.stringify(c.servicos ?? []),
+    contatos: JSON.stringify(c.contatos ?? []),
+    relatorioCadencia: c.relatorioCadencia ? JSON.stringify(c.relatorioCadencia) : '',
+  };
 }
 
 function deserializeCliente(raw: Record<string, unknown>): Cliente {
@@ -63,12 +80,14 @@ function deserializeCliente(raw: Record<string, unknown>): Cliente {
   return {
     ...(raw as unknown as Cliente),
     servicos: parseListaJSON<string>(raw.servicos),
+    contatos: parseListaJSON<Contato>(raw.contatos),
     observacao: (raw.observacao as string) ?? '',
     monitor: (raw.monitor as string) ?? '',
     status: (raw.status as string) ?? '',
     atendidoMarco: bool(raw.atendidoMarco),
     tipoAnalise: (raw.tipoAnalise as Cliente['tipoAnalise']) || 'unitaria',
     grupo: (raw.grupo as string) ?? '',
+    relatorioCadencia: parseRelatorioCadencia(raw.relatorioCadencia),
   };
 }
 
@@ -106,6 +125,10 @@ export const criarClientesEmLote = (data: Cliente[]) =>
 export const atualizarCliente = (id: string, data: Partial<Cliente>) => {
   const payload: Record<string, unknown> = { ...data };
   if (data.servicos) payload.servicos = JSON.stringify(data.servicos);
+  if (data.contatos) payload.contatos = JSON.stringify(data.contatos);
+  // `relatorioCadencia` pode ser explicitamente `undefined` (desligar a cadência)
+  // — por isso testa a presença da chave, não a truthiness do valor.
+  if ('relatorioCadencia' in data) payload.relatorioCadencia = data.relatorioCadencia ? JSON.stringify(data.relatorioCadencia) : '';
   return request<{ success: boolean }>(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
 };
 export const removerCliente = (id: string) => request<{ success: boolean }>(`/clients/${id}`, { method: 'DELETE' });

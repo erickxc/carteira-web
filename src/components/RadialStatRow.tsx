@@ -47,7 +47,7 @@ function Top3({ it, align }: { it: RadialItem; align: 'left' | 'right' }) {
   if (!it.top || it.top.length === 0) return null;
   return (
     <div className={`radial-top3 radial-top3-${align}`}>
-      <span className="radial-top3-title">Top clientes · {it.label}</span>
+      <span className="radial-top3-title">Top · {it.label}</span>
       {it.top.map((t, i) => (
         <div key={t.empresa} className="radial-top3-row">
           <span className="radial-top3-rank">{i + 1}º</span>

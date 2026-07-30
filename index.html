@@ -11,6 +11,15 @@
       rel="stylesheet"
     />
     <title>2D Consultores — Carteira de Monitoria</title>
+    <script>
+      // Aplica o tema salvo antes do 1º paint (evita flash). Padrão: escuro.
+      (function () {
+        try {
+          var t = localStorage.getItem('tema');
+          document.documentElement.dataset.theme = t === 'claro' ? 'light' : 'dark';
+        } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

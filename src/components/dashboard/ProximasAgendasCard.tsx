@@ -2,6 +2,7 @@ import { format, isToday, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { eventoStatusBadge } from '../../utils/badges';
 import { corTipo, corTipoBg } from '../../utils/tipoCor';
+import { Badge, Card, Chip } from '../../ui';
 import type { EventoAgenda } from '../../types';
 
 interface ProximasAgendasCardProps {
@@ -16,24 +17,24 @@ interface ProximasAgendasCardProps {
 /** "Próximas Agendas" — lista das próximas reuniões, filtrável por tipo. */
 export function ProximasAgendasCard({ tiposDisponiveis, filtroTipo, onFiltroTipo, proximos, onVerAgenda, onSelecionarEvento }: ProximasAgendasCardProps) {
   return (
-    <div className="glass-card">
+    <Card>
       <div className="section-header">
         <h3>Próximas Agendas</h3>
         <button className="link-button" style={{ fontSize: 12 }} onClick={onVerAgenda}>ver agenda →</button>
       </div>
-      <div className="chip-row">
+      <div className="flex flex-wrap gap-[0.4rem] mb-4">
         {tiposDisponiveis.map((t) => {
           const ativo = filtroTipo === t;
           const cor = t === 'Todos' ? undefined : corTipo(t);
           return (
-            <button
+            <Chip
               key={t}
-              className={`chip${ativo ? ' is-active' : ''}`}
+              active={ativo}
               style={ativo && cor ? { background: cor, borderColor: cor, color: '#0b0b0d' } : undefined}
               onClick={() => onFiltroTipo(t)}
             >
               {t}
-            </button>
+            </Chip>
           );
         })}
       </div>
@@ -55,14 +56,14 @@ export function ProximasAgendasCard({ tiposDisponiveis, filtroTipo, onFiltroTipo
                   <span className="agenda-row-sub">{ev.clientName}</span>
                 </span>
                 <span className="agenda-row-tags">
-                  <span className="badge" style={{ color: corTipo(ev.type), background: corTipoBg(ev.type) }}>{ev.type}</span>
-                  <span className={`badge ${eventoStatusBadge(ev.status)}`}>{ev.status}</span>
+                  <Badge variant="plain" style={{ color: corTipo(ev.type), background: corTipoBg(ev.type) }}>{ev.type}</Badge>
+                  <Badge variant={eventoStatusBadge(ev.status)}>{ev.status}</Badge>
                 </span>
               </button>
             );
           })}
         </div>
       )}
-    </div>
+    </Card>
   );
 }

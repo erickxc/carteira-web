@@ -2,6 +2,7 @@ import { useRef, useState, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
 import { CalendarClock } from 'lucide-react';
+import { Input } from '../../ui';
 
 interface ReagendarButtonProps {
   /** Data atual do evento (ISO). */
@@ -53,10 +54,9 @@ export function ReagendarButton({ dataAtual, onReagendar, className }: Reagendar
           style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, padding: 8 }}
           onClick={(e) => e.stopPropagation()}
         >
-          <input
+          <Input
             type="date"
             autoFocus
-            className="field-input"
             defaultValue={valorAtual}
             onChange={(e) => { if (e.target.value) { onReagendar(e.target.value); setOpen(false); } }}
             onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}

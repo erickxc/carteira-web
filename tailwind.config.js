@@ -37,6 +37,16 @@ export default {
         DEFAULT: 'var(--radius)',
         sm: 'var(--radius-sm)',
       },
+      // Sobrescreve o `animate-spin` nativo do Tailwind (1s) pelo timing do app
+      // (0.8s), que antes vivia como `.animate-spin` + `@keyframes app-spin` no
+      // index.css. Registrar aqui deixa o utility `animate-spin` já sair com o
+      // timing certo, sem depender de uma regra CSS custom competindo por ordem.
+      keyframes: {
+        'app-spin': { to: { transform: 'rotate(360deg)' } },
+      },
+      animation: {
+        spin: 'app-spin 0.8s linear infinite',
+      },
     },
   },
 };

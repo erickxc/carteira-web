@@ -20,7 +20,8 @@ export function buildUltimaInteracaoMap(
     const cur = m.get(cid);
     if (!cur || d > cur) m.set(cid, d);
   };
-  agenda.forEach((a) => push(a.clientId, parseISO(a.date)));
+  // Cancelado/Reagendado não conta como contato — a reunião não aconteceu.
+  agenda.filter((a) => !/cancel|reagend/i.test(a.status || '')).forEach((a) => push(a.clientId, parseISO(a.date)));
   acoes.filter((a) => a.status === 'concluido').forEach((a) => push(a.clientId, parseISO(a.dueAt || a.updatedAt || a.createdAt)));
   return m;
 }

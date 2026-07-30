@@ -25,20 +25,24 @@ export function DonutChart({ items, size = 168, thickness = 26, centerValue, cen
   const circ = 2 * Math.PI * r;
   const gap = total > 0 ? 3 : 0; // separação entre fatias (px de circunferência)
 
-  let acc = 0;
-  const slices = items.map((it, i) => {
-    const frac = total > 0 ? it.value / total : 0;
-    const len = Math.max(frac * circ - gap, 0);
-    const el = {
-      cor: ramp[i % ramp.length],
-      dasharray: `${len} ${circ - len}`,
-      dashoffset: -acc,
-      pct: total > 0 ? Math.round(frac * 100) : 0,
-      ...it,
-    };
-    acc += frac * circ;
-    return el;
-  });
+  // Acumula o offset de cada fatia via reduce (sem mutar variável externa a
+  // partir do callback do map — o React Compiler não consegue memoizar esse
+  // padrão com segurança).
+  const slices = items.reduce<{ list: (DonutItem & { cor: string; dasharray: string; dashoffset: number; pct: number })[]; acc: number }>(
+    (state, it, i) => {
+      const frac = total > 0 ? it.value / total : 0;
+      const len = Math.max(frac * circ - gap, 0);
+      const el = {
+        cor: ramp[i % ramp.length],
+        dasharray: `${len} ${circ - len}`,
+        dashoffset: -state.acc,
+        pct: total > 0 ? Math.round(frac * 100) : 0,
+        ...it,
+      };
+      return { list: [...state.list, el], acc: state.acc + frac * circ };
+    },
+    { list: [], acc: 0 }
+  ).list;
 
   return (
     <div className="donut-wrap">

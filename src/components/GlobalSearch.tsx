@@ -33,18 +33,21 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
     const term = query.trim().toLowerCase();
     if (!term) return { clientes: [], agenda: [], lembretes: [], date: null as Date | null };
 
+    // Campos podem estar vazios em registros incompletos — o `?.` evita crash
+    // (undefined?.toLowerCase() curto-circuita a cadeia toda para undefined, que
+    // é falsy, então o registro simplesmente não casa com a busca).
     return {
-      clientes: clientes.filter((c) => c.empresa.toLowerCase().includes(term)).slice(0, 5),
+      clientes: clientes.filter((c) => c.empresa?.toLowerCase().includes(term)).slice(0, 5),
       agenda: agenda
         .filter(
           (a) =>
-            a.clientName.toLowerCase().includes(term) ||
+            a.clientName?.toLowerCase().includes(term) ||
             a.subject?.toLowerCase().includes(term) ||
             a.description?.toLowerCase().includes(term)
         )
         .slice(0, 5),
       lembretes: lembretes
-        .filter((r) => r.title.toLowerCase().includes(term) || r.description?.toLowerCase().includes(term))
+        .filter((r) => r.title?.toLowerCase().includes(term) || r.description?.toLowerCase().includes(term))
         .slice(0, 5),
       date: tryParseDate(query.trim()),
     };
@@ -84,7 +87,7 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal glass-card search-modal" onClick={(e) => e.stopPropagation()}>
         <div className="search-input-row">
-          <Search size={18} className="text-muted" />
+          <Search size={18} className="text-text-muted" />
           <input
             autoFocus
             placeholder="Buscar clientes, eventos, lembretes ou datas (dd/mm/aaaa)..."

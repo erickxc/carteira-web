@@ -1,17 +1,19 @@
 /** Cor por TIPO de evento (Reunião/Precificação/Contato/Relatório/...), consistente
- * em todo o app. Tipos conhecidos têm cor fixa — tons derivados da paleta de
- * marca (Soft Fawn/French Blue/Slate Grey/Burnt Caramel), clareados o
- * suficiente para servirem de texto legível sobre fundo quase preto — e
- * desconhecidos caem num hash determinístico sobre uma paleta de reserva
- * (nunca quebra com categoria nova). */
+ * em todo o app. Os VALORES vivem no tema (:root em src/index.css, tokens
+ * --tipo-*) — aqui só mapeamos tipo→token, para haver uma fonte única de cor.
+ * Tipos conhecidos têm token fixo; desconhecidos caem num hash determinístico
+ * sobre a paleta de reserva (nunca quebra com categoria nova). As funções
+ * retornam strings `var(--tipo-*)`, usadas em `style={{...}}` e na custom
+ * property --chip-color (o navegador resolve var() em estilo inline). */
 const CORES_CONHECIDAS: Record<string, string> = {
-  'Reunião': '#dabb6c',
-  'Precificação': '#6f8cc4',
-  'Contato': '#8aa3ad',
-  'Relatório': '#e0975a',
+  'Reunião': 'var(--tipo-reuniao)',
+  'Precificação': 'var(--tipo-precificacao)',
+  'Contato': 'var(--tipo-contato)',
+  'Relatório': 'var(--tipo-relatorio)',
+  'Ligação': 'var(--tipo-ligacao)',
 };
 
-const PALETA_RESERVA = ['#d69a3c', '#7b8794', '#e0645c', '#6dc0d1'];
+const PALETA_RESERVA = ['var(--tipo-reserva-1)', 'var(--tipo-reserva-2)', 'var(--tipo-reserva-3)', 'var(--tipo-reserva-4)'];
 
 function hash(str: string): number {
   let h = 0;
@@ -25,11 +27,9 @@ export function corTipo(tipo: string): string {
   return PALETA_RESERVA[hash(tipo) % PALETA_RESERVA.length];
 }
 
-/** Fundo translúcido (14%) para usar atrás de badges/chips com a cor do tipo. */
+/** Fundo translúcido (16%) para usar atrás de badges/chips com a cor do tipo.
+ * color-mix com transparent equivale a rgba(cor, 0.16) — mas referenciando o
+ * token do tema em vez de recomputar a partir de um hex fixo. */
 export function corTipoBg(tipo: string): string {
-  const hex = corTipo(tipo).replace('#', '');
-  const r = parseInt(hex.slice(0, 2), 16);
-  const g = parseInt(hex.slice(2, 4), 16);
-  const b = parseInt(hex.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, 0.16)`;
+  return `color-mix(in srgb, ${corTipo(tipo)} 16%, transparent)`;
 }

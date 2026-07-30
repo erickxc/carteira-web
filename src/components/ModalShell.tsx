@@ -1,4 +1,5 @@
 import type { FormEvent, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ModalShellProps {
   title: string;
@@ -20,7 +21,11 @@ interface ModalShellProps {
  * componente de cada um.
  */
 export function ModalShell({ title, onClose, onSubmit, footer, size, children }: ModalShellProps) {
-  return (
+  // Portal para o <body>: o modal é renderizado dentro das páginas, que ficam
+  // sob `.page-transition` (tem transform/animação). Um ancestral com transform
+  // faz `position: fixed` se ancorar NELE em vez da viewport — o modal saía da
+  // tela e não redimensionava. No body, o fixed volta a valer pela viewport.
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className={`modal${size === 'lg' ? ' modal-lg' : ''}`} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
@@ -31,6 +36,7 @@ export function ModalShell({ title, onClose, onSubmit, footer, size, children }:
           <div className="modal-footer">{footer}</div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

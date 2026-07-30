@@ -1,4 +1,5 @@
 import { differenceInCalendarDays, format, isToday, isTomorrow, parseISO } from 'date-fns';
+import { Badge, Card } from '../../ui';
 import type { Lembrete } from '../../types';
 
 function rotuloRelativo(iso: string): { texto: string; atrasado: boolean } {
@@ -20,13 +21,13 @@ interface AlertasProgramadosCardProps {
 /** "Alertas Programados" — próximos lembretes ativos a disparar. */
 export function AlertasProgramadosCard({ alertasProgramados, nomeCliente }: AlertasProgramadosCardProps) {
   return (
-    <div className="glass-card">
+    <Card>
       <div className="section-header">
-        <h3>Alertas Programados</h3>
-        <span className="text-muted" style={{ fontSize: 12 }}>próximos disparos</span>
+        <h3>Lembretes Programados</h3>
+        <span className="text-text-muted" style={{ fontSize: 12 }}>próximos disparos</span>
       </div>
       {alertasProgramados.length === 0 ? (
-        <div className="empty-state">Nenhum alerta programado.</div>
+        <div className="empty-state">Nenhum lembrete programado.</div>
       ) : (
         <div className="agenda-preview">
           {alertasProgramados.map((r) => {
@@ -37,17 +38,17 @@ export function AlertasProgramadosCard({ alertasProgramados, nomeCliente }: Aler
               <div key={r.id} className="agenda-row" style={{ cursor: 'default' }}>
                 <span className="agenda-row-main">
                   <span className="agenda-row-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {r.type && <span className={`badge ${isRelatorio ? 'badge-warning' : 'badge-accent'}`}>{r.type}</span>}
+                    {r.type && <Badge variant={isRelatorio ? 'warning' : 'accent'}>{r.type}</Badge>}
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
                   </span>
                   <span className="agenda-row-sub">{nome ?? 'geral'}</span>
                 </span>
-                <span className={`badge ${rel.atrasado ? 'badge-danger' : 'badge-muted'}`} style={{ flexShrink: 0 }}>{rel.texto}</span>
+                <Badge variant={rel.atrasado ? 'danger' : 'muted'} style={{ flexShrink: 0 }}>{rel.texto}</Badge>
               </div>
             );
           })}
         </div>
       )}
-    </div>
+    </Card>
   );
 }

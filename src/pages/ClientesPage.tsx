@@ -5,13 +5,17 @@ import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { FileUp, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { useSearchFilter } from '../hooks/useSearchFilter';
+import { usePersistedState } from '../hooks/usePersistedState';
 import { truthy } from '../utils/formatters';
 import { clienteStatusBadge } from '../utils/badges';
 import { toastError, toastSuccess } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
 import { Dropdown } from '../components/Dropdown';
-import { TIPO_ANALISE_LABEL, type Cliente, type NovoCliente } from '../types';
+import { Badge, Button, Card, Td, Th } from '../ui';
+import { TIPO_ANALISE_LABEL, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
+
+type SortCol = 'empresa' | 'monitor' | 'servicos' | 'analise' | 'status' | 'anotacoes' | 'ultimaReuniao' | 'proximo' | 'ultimoContato' | 'diasSemContato';
 
 const PERIODOS = [
   { valor: 'Todos', label: 'Últ. reunião: todas' },
@@ -22,29 +26,68 @@ const PERIODOS = [
 ];
 
 export default function ClientesPage() {
-  const { clientes, agenda, removerCliente, criarClientesEmLote, opcoesPorTipo } = useCarteira();
+  const { clientes, agenda, cadencias, removerCliente, criarClientesEmLote, opcoesPorTipo } = useCarteira();
   const navigate = useNavigate();
   const hoje = new Date();
 
   const { value: search, debounced: debouncedSearch, setValue: setSearch } = useSearchFilter();
-  const [fMonitores, setFMonitores] = useState<string[]>([]);
-  const [fTipoAnalise, setFTipoAnalise] = useState<string>('Todos');
-  const [fServicos, setFServicos] = useState<string[]>([]);
-  const [fStatus, setFStatus] = useState<string>('Ativo');
-  const [fPeriodo, setFPeriodo] = useState<string>('Todos');
+  const [fMonitores, setFMonitores] = usePersistedState<string[]>('filtro:clientes:monitores', []);
+  const [fTipoAnalise, setFTipoAnalise] = usePersistedState<string>('filtro:clientes:analise', 'Todos');
+  const [fServicos, setFServicos] = usePersistedState<string[]>('filtro:clientes:servicos', []);
+  const [fStatus, setFStatus] = usePersistedState<string>('filtro:clientes:status', 'Ativo');
+  const [fPeriodo, setFPeriodo] = usePersistedState<string>('filtro:clientes:periodo', 'Todos');
+  const [sortBy, setSortBy] = usePersistedState<SortCol>('filtro:clientes:sortBy', 'empresa');
+  const [sortDir, setSortDir] = usePersistedState<'asc' | 'desc'>('filtro:clientes:sortDir', 'asc');
   const [modalState, setModalState] = useState<{ editing: Cliente | null } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Última reunião por cliente (evento mais recente).
+  // Última reunião por cliente (reunião mais recente que JÁ ACONTECEU). SÓ
+  // conta eventos do tipo Reunião — Contato/Relatório são eventos de agenda
+  // mas não são reunião, então não atualizam esta coluna. Match por
+  // palavra-chave (tipos são editáveis). Reunião futura com status Agendado
+  // não conta (ainda não aconteceu) mesmo tendo a maior data; Cancelado/
+  // Reagendado também não conta.
   const ultimaReuniao = useMemo(() => {
     const map = new Map<string, Date>();
+    const concluida = (a: EventoAgenda) => /conclu|realiz/i.test(a.status || '');
+    const cancelada = (a: EventoAgenda) => /cancel|reagend/i.test(a.status || '');
     agenda.forEach((a) => {
+      if (!/reuni/i.test(a.type) || cancelada(a)) return;
       const d = parseISO(a.date);
       if (isNaN(d.getTime())) return;
+      if (!concluida(a) && differenceInCalendarDays(d, hoje) >= 0) return;
       const atual = map.get(a.clientId);
       if (!atual || d > atual) map.set(a.clientId, d);
     });
     return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agenda]);
+
+  // Próximo agendamento (ainda vai acontecer) e último contato (já aconteceu)
+  // por cliente — mais amplo que "Última reunião" acima, que só considera
+  // eventos do tipo Reunião. A separação usa STATUS, não só a data: um evento
+  // de hoje já marcado Concluído é último contato, não "próximo" (já foi
+  // tratado por data ontem/hoje e ficava preso em próximo agendamento até o
+  // dia virar). Cancelado/Reagendado não conta como contato nem como próximo.
+  const { proximoAgendamento, ultimoContato } = useMemo(() => {
+    const proximoMap = new Map<string, EventoAgenda>();
+    const ultimoMap = new Map<string, EventoAgenda>();
+    const concluido = (a: EventoAgenda) => /conclu|realiz/i.test(a.status || '');
+    const cancelado = (a: EventoAgenda) => /cancel|reagend/i.test(a.status || '');
+    agenda.forEach((a) => {
+      if (cancelado(a)) return;
+      const d = parseISO(a.date);
+      if (isNaN(d.getTime())) return;
+      if (!concluido(a) && differenceInCalendarDays(d, hoje) >= 0) {
+        const atual = proximoMap.get(a.clientId);
+        if (!atual || d < parseISO(atual.date)) proximoMap.set(a.clientId, a);
+      } else {
+        const atual = ultimoMap.get(a.clientId);
+        if (!atual || d > parseISO(atual.date)) ultimoMap.set(a.clientId, a);
+      }
+    });
+    return { proximoAgendamento: proximoMap, ultimoContato: ultimoMap };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agenda]);
 
   // Opções derivadas dos dados / categorias.
@@ -63,11 +106,42 @@ export default function ClientesPage() {
     setSearch(''); setFMonitores([]); setFTipoAnalise('Todos'); setFServicos([]); setFStatus('Ativo'); setFPeriodo('Todos');
   }
 
+  // Valor comparável de cada coluna, pra ordenação por clique no cabeçalho.
+  function valorOrdenacao(c: Cliente, col: SortCol): string | number {
+    switch (col) {
+      case 'empresa': return c.empresa.toLowerCase();
+      case 'monitor': return (c.monitor || '').toLowerCase();
+      case 'servicos': return (c.servicos ?? []).join(', ').toLowerCase();
+      case 'analise': return c.tipoAnalise === 'segmentado' || !!c.grupo ? 1 : 0;
+      case 'status': return (c.status || '').toLowerCase();
+      case 'anotacoes': return (c.observacao || '').toLowerCase();
+      case 'ultimaReuniao': return ultimaReuniao.get(c.id)?.getTime() ?? -Infinity;
+      case 'proximo': {
+        const p = proximoAgendamento.get(c.id);
+        return p ? parseISO(p.date).getTime() : Infinity; // sem agendamento vai pro fim
+      }
+      case 'ultimoContato': {
+        const u = ultimoContato.get(c.id);
+        return u ? parseISO(u.date).getTime() : -Infinity;
+      }
+      case 'diasSemContato': {
+        const u = ultimoContato.get(c.id);
+        return u ? differenceInCalendarDays(hoje, parseISO(u.date)) : Infinity; // nunca = sempre no fim
+      }
+    }
+  }
+
+  function ordenarPor(col: SortCol) {
+    if (sortBy === col) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortBy(col); setSortDir('asc'); }
+  }
+  const seta = (col: SortCol) => (sortBy === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
+
   const filtrados = useMemo(() => {
     const termo = debouncedSearch.trim().toLowerCase();
     return clientes
       .filter((c) => fStatus === 'Todos' || c.status === fStatus)
-      .filter((c) => !termo || c.empresa.toLowerCase().includes(termo) || (c.monitor ?? '').toLowerCase().includes(termo))
+      .filter((c) => !termo || c.empresa?.toLowerCase().includes(termo) || (c.monitor ?? '').toLowerCase().includes(termo))
       .filter((c) => fMonitores.length === 0 || fMonitores.includes(c.monitor))
       .filter((c) => fTipoAnalise === 'Todos' || (c.tipoAnalise ?? 'unitaria') === fTipoAnalise)
       .filter((c) => fServicos.length === 0 || fServicos.some((s) => (c.servicos ?? []).includes(s)))
@@ -78,9 +152,15 @@ export default function ClientesPage() {
         const dias = ult ? differenceInCalendarDays(hoje, ult) : Infinity; // nunca = sempre "vencido"
         return dias > n;
       })
-      .sort((a, b) => a.empresa.localeCompare(b.empresa));
+      .sort((a, b) => {
+        const va = valorOrdenacao(a, sortBy);
+        const vb = valorOrdenacao(b, sortBy);
+        let r = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb));
+        if (r === 0) r = a.empresa.localeCompare(b.empresa);
+        return sortDir === 'asc' ? r : -r;
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientes, debouncedSearch, fMonitores, fTipoAnalise, fServicos, fStatus, fPeriodo, ultimaReuniao]);
+  }, [clientes, debouncedSearch, fMonitores, fTipoAnalise, fServicos, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir]);
 
   async function handleDelete(cliente: Cliente) {
     if (!(await confirmDialog(`Excluir o cliente "${cliente.empresa}"? Isso também remove os eventos de agenda vinculados.`, { danger: true, confirmLabel: 'Excluir' }))) return;
@@ -129,18 +209,18 @@ export default function ClientesPage() {
           </p>
         </div>
         <div className="flex-row" style={{ gap: 10 }}>
-          <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}>
+          <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
             <FileUp size={16} /> Importar
-          </button>
+          </Button>
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImportFile} />
-          <button className="btn btn-primary" onClick={() => setModalState({ editing: null })}>
+          <Button variant="primary" onClick={() => setModalState({ editing: null })}>
             <Plus size={16} /> Novo Cliente
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Barra de filtros */}
-      <div className="glass-card glass-card-flat mb-4">
+      <Card flat className="mb-4">
         <div className="filter-grid">
           <label className="filter-ctl filter-search">
             <Search size={16} />
@@ -199,68 +279,96 @@ export default function ClientesPage() {
         {filtrosAtivos && (
           <div className="flex items-center justify-end gap-3 mt-3 pt-3 border-t border-border">
             <span className="text-[0.8rem] text-text-muted">{filtrados.length} resultado(s)</span>
-            <button className="btn btn-secondary" onClick={limparFiltros}>
+            <Button variant="secondary" onClick={limparFiltros}>
               <X size={15} /> Limpar filtros
-            </button>
+            </Button>
           </div>
         )}
-      </div>
+      </Card>
 
-      <div className="glass-card glass-card-flat" style={{ padding: 0, overflow: 'hidden' }}>
+      <Card flat style={{ padding: 0, overflow: 'hidden' }}>
         {filtrados.length === 0 ? (
           <div className="empty-state">Nenhum cliente encontrado.</div>
         ) : (
-          <div className="table-wrap">
-            <table className="data-table">
+          <div className="overflow-auto rounded">
+            <table className="w-full border-collapse text-[0.9rem]">
               <thead>
                 <tr>
-                  <th>Empresa</th>
-                  <th>Monitor</th>
-                  <th>Serviços</th>
-                  <th>Análise</th>
-                  <th>Status</th>
-                  <th>Última reunião</th>
-                  <th style={{ width: 96 }}></th>
+                  <Th sortable onClick={() => ordenarPor('empresa')}>Empresa{seta('empresa')}</Th>
+                  <Th sortable onClick={() => ordenarPor('monitor')}>Monitor{seta('monitor')}</Th>
+                  <Th sortable onClick={() => ordenarPor('servicos')}>Serviços{seta('servicos')}</Th>
+                  <Th sortable onClick={() => ordenarPor('analise')}>Análise{seta('analise')}</Th>
+                  <Th sortable onClick={() => ordenarPor('status')}>Status{seta('status')}</Th>
+                  <Th sortable onClick={() => ordenarPor('anotacoes')}>Anotações{seta('anotacoes')}</Th>
+                  <Th sortable onClick={() => ordenarPor('ultimaReuniao')}>Última reunião{seta('ultimaReuniao')}</Th>
+                  <Th sortable onClick={() => ordenarPor('proximo')}>Próximo agendamento{seta('proximo')}</Th>
+                  <Th sortable onClick={() => ordenarPor('ultimoContato')}>Último contato{seta('ultimoContato')}</Th>
+                  <Th sortable onClick={() => ordenarPor('diasSemContato')}>Dias sem contato{seta('diasSemContato')}</Th>
+                  <Th style={{ width: 96 }}></Th>
                 </tr>
               </thead>
               <tbody>
                 {filtrados.map((cliente) => {
                   const ult = ultimaReuniao.get(cliente.id);
+                  const prox = proximoAgendamento.get(cliente.id);
+                  const ultC = ultimoContato.get(cliente.id);
+                  const ultCData = ultC ? parseISO(ultC.date) : null;
+                  const diasSemContato = ultCData ? differenceInCalendarDays(hoje, ultCData) : null;
                   const segmentado = cliente.tipoAnalise === 'segmentado' || !!cliente.grupo;
                   return (
-                    <tr key={cliente.id}>
-                      <td>
+                    <tr key={cliente.id} className="group [&:last-child>td]:border-b-0">
+                      <Td first>
                         <button className="link-button" style={{ fontWeight: 600 }} onClick={() => navigate(`/clientes/${cliente.id}`)}>
                           {cliente.empresa}
                         </button>
-                      </td>
-                      <td className="text-muted">{cliente.monitor || '—'}</td>
-                      <td>
+                      </Td>
+                      <Td className="text-text-muted">{cliente.monitor || '—'}</Td>
+                      <Td>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                           {cliente.servicos.length > 0
-                            ? cliente.servicos.map((s) => <span key={s} className="badge badge-accent">{s}</span>)
-                            : <span className="text-muted">—</span>}
+                            ? cliente.servicos.map((s) => <Badge key={s} variant="accent">{s}</Badge>)
+                            : <span className="text-text-muted">—</span>}
                         </div>
-                      </td>
-                      <td>
+                      </Td>
+                      <Td>
                         {segmentado
-                          ? <span className="badge badge-warning">Segmentado</span>
-                          : <span className="text-muted">Unitária</span>}
-                      </td>
-                      <td>
-                        <span className={`badge ${clienteStatusBadge(cliente.status)}`}>{cliente.status || '—'}</span>
-                      </td>
-                      <td className="text-muted">{ult ? format(ult, 'dd/MM/yyyy') : '—'}</td>
-                      <td>
+                          ? <Badge variant="warning">Segmentado</Badge>
+                          : <span className="text-text-muted">Unitária</span>}
+                      </Td>
+                      <Td>
+                        <Badge variant={clienteStatusBadge(cliente.status)}>{cliente.status || '—'}</Badge>
+                      </Td>
+                      <Td className="text-text-muted" style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cliente.observacao || undefined}>
+                        {cliente.observacao?.trim() || '—'}
+                      </Td>
+                      <Td className="text-text-muted">{ult ? format(ult, 'dd/MM/yyyy') : '—'}</Td>
+                      <Td className="text-text-muted">
+                        {prox ? `${prox.type} - ${format(parseISO(prox.date), 'dd/MM/yyyy')}` : '—'}
+                      </Td>
+                      <Td className="text-text-muted">{ultCData ? format(ultCData, 'dd/MM/yyyy') : '—'}</Td>
+                      <Td>
+                        {diasSemContato === null ? (
+                          <span className="text-text-muted">—</span>
+                        ) : (
+                          <Badge variant={
+                            diasSemContato > cadencias.reuniao_dias ? 'danger'
+                              : diasSemContato > cadencias.reuniao_dias * 0.7 ? 'warning'
+                              : 'muted'
+                          }>
+                            {diasSemContato}d
+                          </Badge>
+                        )}
+                      </Td>
+                      <Td>
                         <div className="flex-row" style={{ justifyContent: 'flex-end' }}>
-                          <button className="btn btn-secondary btn-icon" onClick={() => setModalState({ editing: cliente })} aria-label="Editar">
+                          <Button variant="secondary" size="icon" onClick={() => setModalState({ editing: cliente })} aria-label="Editar">
                             <Pencil size={15} />
-                          </button>
-                          <button className="btn btn-danger btn-icon" onClick={() => handleDelete(cliente)} aria-label="Excluir">
+                          </Button>
+                          <Button variant="danger" size="icon" onClick={() => handleDelete(cliente)} aria-label="Excluir">
                             <Trash2 size={15} />
-                          </button>
+                          </Button>
                         </div>
-                      </td>
+                      </Td>
                     </tr>
                   );
                 })}
@@ -268,7 +376,7 @@ export default function ClientesPage() {
             </table>
           </div>
         )}
-      </div>
+      </Card>
 
       {modalState && (
         <ClientFormModal initial={modalState.editing ?? undefined} onClose={() => setModalState(null)} />

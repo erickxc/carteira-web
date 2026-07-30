@@ -3,6 +3,8 @@ import { format, parse, parseISO, differenceInCalendarDays } from 'date-fns';
 import { useCarteira } from '../context/CarteiraContext';
 import { toastError } from '../utils/toast';
 import { ModalShell } from './ModalShell';
+import { Button, Chip, Field, Input, Select, Textarea } from '../ui';
+import { buildFilaCadencia, classificarCadencia } from '../utils/cadenciaServico';
 import { ACAO_TIPOS, ACAO_TIPO_LABEL, type AcaoTipo, type Segmento } from '../types';
 
 interface AcaoFormModalProps {
@@ -14,24 +16,37 @@ interface AcaoFormModalProps {
 }
 
 export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFormModalProps) {
-  const { clientes, agenda, cadencias, registrarAcao, criarLembrete } = useCarteira();
+  const { clientes, agenda, cadencias, registrarAcao, criarLembrete, opcoesPorTipo } = useCarteira();
+  const servicoOpcoes = opcoesPorTipo('servico');
+  const monitorOpcoes = opcoesPorTipo('monitor');
   const [clientId, setClientId] = useState(clienteId ?? clientes[0]?.id ?? '');
   const [tipo, setTipo] = useState<AcaoTipo>(tipoInicial ?? 'contato');
+  const [servico, setServico] = useState('');
+  const [monitor, setMonitor] = useState(clientes.find((c) => c.id === (clienteId ?? clientes[0]?.id))?.monitor ?? '');
   const [data, setData] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Segmento estimado a partir da última reunião do cliente (só p/ material/relatório).
+  // Segmento p/ escolher material/relatório — mesma fonte da fila de cadência do
+  // Acompanhamento (antes era um cálculo à parte, com limiar diferente, gerando
+  // duas leituras de "saúde do cliente" divergentes no mesmo app).
+  const filaCadencia = useMemo(() => buildFilaCadencia(clientes, agenda, cadencias), [clientes, agenda, cadencias]);
   const segmentoDe = useMemo(() => (cid: string): Segmento => {
-    const datas = agenda
-      .filter((a) => a.clientId === cid)
-      .map((a) => parseISO(a.date))
-      .filter((d) => !isNaN(d.getTime()) && d <= new Date());
-    if (datas.length === 0) return 'frio';
-    const ultimo = new Date(Math.max(...datas.map((d) => d.getTime())));
-    const dias = differenceInCalendarDays(new Date(), ultimo);
-    return dias >= cadencias.esfriando_dias ? 'esfriando' : 'engajado';
-  }, [agenda, cadencias]);
+    const item = filaCadencia.find((f) => f.cliente.id === cid);
+    if (!item) {
+      // Cliente sem Monitoria/Price cadastrado (fora do modelo de cadência) —
+      // cai no fallback antigo por recência simples.
+      const datas = agenda
+        .filter((a) => a.clientId === cid)
+        .map((a) => parseISO(a.date))
+        .filter((d) => !isNaN(d.getTime()) && d <= new Date());
+      if (datas.length === 0) return 'frio';
+      const ultimo = new Date(Math.max(...datas.map((d) => d.getTime())));
+      return differenceInCalendarDays(new Date(), ultimo) >= cadencias.esfriando_dias ? 'esfriando' : 'engajado';
+    }
+    const c = classificarCadencia(item);
+    return c === 'vencido' ? 'frio' : c === 'vencendo' ? 'esfriando' : 'engajado';
+  }, [filaCadencia, agenda, cadencias]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -45,6 +60,8 @@ export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFor
         tipo,
         segmento: segmentoDe(clientId),
         status: modo === 'nova' ? 'concluido' : 'programado',
+        servico: servico || undefined,
+        monitor: monitor || undefined,
         notes,
         dueAt: dataIso,
       });
@@ -73,41 +90,51 @@ export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFor
       onSubmit={handleSubmit}
       footer={
         <>
-          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" disabled={saving || clientes.length === 0}>
+          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" variant="primary" disabled={saving || clientes.length === 0}>
             {saving ? 'Salvando...' : modo === 'nova' ? 'Registrar' : 'Agendar'}
-          </button>
+          </Button>
         </>
       }
     >
-            <label className="field">
-              Cliente
-              <select className="field-input custom-select" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
+            <Field label="Cliente">
+              <Select tone="modal" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
                 <option value="" disabled>Selecione...</option>
                 {clientes.map((c) => <option key={c.id} value={c.id}>{c.empresa}</option>)}
-              </select>
-            </label>
+              </Select>
+            </Field>
 
-            <div className="field">
-              Tipo de ação
-              <div className="chip-select">
+            <Field as="div" label="Tipo de ação">
+              <div className="flex flex-wrap gap-2">
                 {ACAO_TIPOS.map((t) => (
-                  <button type="button" key={t} className={`chip-toggle${tipo === t ? ' is-on' : ''}`} onClick={() => setTipo(t)}>
+                  <Chip variant="toggle" key={t} active={tipo === t} onClick={() => setTipo(t)}>
                     {ACAO_TIPO_LABEL[t]}
-                  </button>
+                  </Chip>
                 ))}
               </div>
-            </div>
+            </Field>
 
-            <label className="field">
-              {modo === 'nova' ? 'Data em que foi feita' : 'Data planejada'}
-              <input type="date" className="field-input" value={data} onChange={(e) => setData(e.target.value)} required />
-            </label>
+            <Field label="Serviço">
+              <Select tone="modal" value={servico} onChange={(e) => setServico(e.target.value)}>
+                <option value="">— nenhum —</option>
+                {servicoOpcoes.map((s) => <option key={s} value={s}>{s}</option>)}
+              </Select>
+            </Field>
 
-            <label className="field">
-              Observação
-              <textarea className="field-input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="O que foi tratado / o que planejar..." />
-            </label>
+            <Field label="Monitor">
+              <Select tone="modal" value={monitor} onChange={(e) => setMonitor(e.target.value)}>
+                <option value="">— nenhum —</option>
+                {monitorOpcoes.map((m) => <option key={m} value={m}>{m}</option>)}
+              </Select>
+            </Field>
+
+            <Field label={modo === 'nova' ? 'Data em que foi feita' : 'Data planejada'}>
+              <Input tone="modal" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
+            </Field>
+
+            <Field label="Observação">
+              <Textarea tone="modal" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="O que foi tratado / o que planejar..." />
+            </Field>
     </ModalShell>
   );
 }

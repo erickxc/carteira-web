@@ -1,15 +1,25 @@
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
-import { ArrowLeft, Bell as BellIcon, CalendarPlus, Paperclip, Pencil, Save, Trash2 } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
+import { ArrowLeft, Bell as BellIcon, CalendarPlus, MessageCircle, Paperclip, Pencil, Save, Trash2, UserPlus } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { urlAnexo } from '../api/client';
 import { clienteStatusBadge, eventoStatusBadge } from '../utils/badges';
 import { confirmDialog } from '../utils/confirmDialog';
+import { linkWhatsApp } from '../utils/whatsapp';
 import { Dropdown } from '../components/Dropdown';
 import { ClientFormModal } from '../components/ClientFormModal';
 import { EventFormModal } from '../components/EventFormModal';
 import { ReminderFormModal } from '../components/ReminderFormModal';
+import { WhatsAppMensagemModal } from '../components/WhatsAppMensagemModal';
+import { Badge, Button, Card, Input, Textarea } from '../ui';
+import type { Contato, EventoAgenda } from '../types';
+
+/** Mesma regra usada em src/components/agenda/CardEvento.tsx: concluído/realizado
+ * ou cancelado/reagendado são status finais — fora isso, o evento ainda está
+ * em aberto ("agendado") e pode ser editado. */
+const eventoAgendado = (ev: EventoAgenda) => !/conclu|realiz|cancel|reagend/i.test(ev.status || '');
 
 export default function ClienteDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -22,12 +32,24 @@ export default function ClienteDetailPage() {
   const statusOpcoes = opcoesPorTipo('status_cliente');
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [eventoEditando, setEventoEditando] = useState<EventoAgenda | null>(null);
+  const [eventoKey, setEventoKey] = useState(0); // muda p/ remontar a modal limpa (fechar o loop)
   const [reminderModalOpen, setReminderModalOpen] = useState(false);
 
-  const cliente = clientes.find((c) => c.id === id);
+  // Memoizado: sem isso, `cliente` é recalculado (nova referência) a cada
+  // render, e o compilador do React não consegue provar que memos que dependem
+  // de `cliente?.algumCampo` (ex.: lojasDoGrupo) são estáveis.
+  const cliente = useMemo(() => clientes.find((c) => c.id === id), [clientes, id]);
 
   const [observacao, setObservacao] = useState(cliente?.observacao ?? '');
   const [salvandoObs, setSalvandoObs] = useState(false);
+
+  const [contatoNome, setContatoNome] = useState('');
+  const [contatoCargo, setContatoCargo] = useState('');
+  const [contatoTelefone, setContatoTelefone] = useState('');
+  const [waContato, setWaContato] = useState<Contato | null>(null);
+
+  const contatos = cliente?.contatos ?? [];
 
   const historico = useMemo(
     () => agenda.filter((a) => a.clientId === id).sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()),
@@ -35,17 +57,17 @@ export default function ClienteDetailPage() {
   );
 
   // Lojas do mesmo grupo (rede) — cada loja é um cliente próprio.
-  const lojasDoGrupo = useMemo(
-    () => (cliente?.grupo ? clientes.filter((c) => c.grupo === cliente.grupo).sort((a, b) => a.empresa.localeCompare(b.empresa)) : []),
-    [clientes, cliente?.grupo]
-  );
+  const lojasDoGrupo = useMemo(() => {
+    if (!cliente?.grupo) return [];
+    return clientes.filter((c) => c.grupo === cliente.grupo).sort((a, b) => a.empresa.localeCompare(b.empresa));
+  }, [clientes, cliente]);
 
   if (!cliente) {
     return (
       <div className="page-container">
-        <button className="btn btn-secondary" onClick={() => navigate(backTo)}>
+        <Button variant="secondary" onClick={() => navigate(backTo)}>
           <ArrowLeft size={15} /> Voltar
-        </button>
+        </Button>
         <div className="empty-state">Cliente não encontrado.</div>
       </div>
     );
@@ -63,6 +85,20 @@ export default function ClienteDetailPage() {
     }
   }
 
+  async function adicionarContato() {
+    if (!id || !contatoNome.trim()) return;
+    const novo: Contato = { id: uuidv4(), nome: contatoNome.trim(), cargo: contatoCargo.trim(), telefone: contatoTelefone.trim() };
+    await atualizarCliente(id, { contatos: [...contatos, novo] });
+    setContatoNome('');
+    setContatoCargo('');
+    setContatoTelefone('');
+  }
+
+  async function removerContato(contatoId: string) {
+    if (!id) return;
+    await atualizarCliente(id, { contatos: contatos.filter((c) => c.id !== contatoId) });
+  }
+
   async function handleExcluir() {
     if (!id) return;
     // Seguro: o guard `if (!cliente) return` acima já garante isto no momento do render.
@@ -74,11 +110,11 @@ export default function ClienteDetailPage() {
 
   return (
     <div className="page-container">
-      <button className="btn btn-secondary" onClick={() => navigate(backTo)} style={{ marginBottom: 20 }}>
+      <Button variant="secondary" onClick={() => navigate(backTo)} style={{ marginBottom: 20 }}>
         <ArrowLeft size={15} /> Voltar para {backLabel}
-      </button>
+      </Button>
 
-      <div className="glass-card" style={{ marginBottom: 24 }}>
+      <Card style={{ marginBottom: 24 }}>
         <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <h1 className="page-title" style={{ marginBottom: 8 }}>{cliente.empresa}</h1>
@@ -91,87 +127,148 @@ export default function ClienteDetailPage() {
                   onChange={(v) => atualizarCliente(cliente.id, { status: v as string })}
                 />
               </div>
-              <span className={`badge ${clienteStatusBadge(cliente.status)}`}>{cliente.status || '—'}</span>
-              {cliente.monitor && <span className="badge badge-muted">Monitor: {cliente.monitor}</span>}
-              {cliente.servicos.map((s) => <span key={s} className="badge badge-accent">{s}</span>)}
+              <Badge variant={clienteStatusBadge(cliente.status)}>{cliente.status || '—'}</Badge>
+              {cliente.monitor && <Badge variant="muted">Monitor: {cliente.monitor}</Badge>}
+              {cliente.servicos.map((s) => <Badge key={s} variant="accent">{s}</Badge>)}
               {cliente.grupo && (
-                <span className="badge badge-warning">Grupo: {cliente.grupo}</span>
+                <Badge variant="warning">Grupo: {cliente.grupo}</Badge>
               )}
             </div>
           </div>
           <div className="flex-row">
-            <button className="btn btn-secondary" onClick={() => setEditModalOpen(true)}>
+            <Button variant="secondary" onClick={() => setEditModalOpen(true)}>
               <Pencil size={15} /> Editar
-            </button>
-            <button className="btn btn-danger" onClick={handleExcluir}>
+            </Button>
+            <Button variant="danger" onClick={handleExcluir}>
               <Trash2 size={15} /> Excluir
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
+      </Card>
 
       <div className="flex-row" style={{ marginBottom: 24 }}>
-        <button className="btn btn-primary" onClick={() => setEventModalOpen(true)}>
+        <Button variant="primary" onClick={() => setEventModalOpen(true)}>
           <CalendarPlus size={15} /> Novo Evento
-        </button>
-        <button className="btn btn-secondary" onClick={() => setReminderModalOpen(true)}>
+        </Button>
+        <Button variant="secondary" onClick={() => setReminderModalOpen(true)}>
           <BellIcon size={15} /> Novo Lembrete
-        </button>
+        </Button>
       </div>
 
+      <Card flat style={{ marginBottom: 24 }}>
+        <div className="section-header">
+          <h3>Contatos</h3>
+          <span className="text-text-muted" style={{ fontSize: 12 }}>{contatos.length}</span>
+        </div>
+
+        {contatos.length === 0 ? (
+          <div className="empty-state" style={{ marginBottom: 12 }}>Nenhum contato cadastrado.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+            {contatos.map((c) => (
+              <div key={c.id} className="flex-between" style={{ gap: 12, flexWrap: 'wrap', padding: '10px 12px', background: 'var(--card-hover)', borderRadius: 6 }}>
+                <div style={{ minWidth: 0 }}>
+                  <strong style={{ fontSize: 14 }}>{c.nome}</strong>
+                  {c.cargo && <span className="text-text-muted" style={{ fontSize: 13 }}> · {c.cargo}</span>}
+                  {c.telefone && <div className="text-text-muted" style={{ fontSize: 13 }}>{c.telefone}</div>}
+                </div>
+                <div className="flex-row" style={{ gap: 6 }}>
+                  <Button
+                    variant="success"
+                    onClick={() => (linkWhatsApp(c.telefone) ? setWaContato(c) : undefined)}
+                    disabled={!linkWhatsApp(c.telefone)}
+                    title={linkWhatsApp(c.telefone) ? 'Enviar mensagem no WhatsApp' : 'Telefone inválido'}
+                  >
+                    <MessageCircle size={15} /> WhatsApp
+                  </Button>
+                  <Button variant="danger" size="icon" onClick={() => removerContato(c.id)} title="Remover contato">
+                    <Trash2 size={15} />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex-row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div style={{ flex: '1 1 180px' }}>
+            <Input placeholder="Nome" value={contatoNome} onChange={(e) => setContatoNome(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && adicionarContato()} />
+          </div>
+          <div style={{ flex: '1 1 140px' }}>
+            <Input placeholder="Cargo" value={contatoCargo} onChange={(e) => setContatoCargo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && adicionarContato()} />
+          </div>
+          <div style={{ flex: '1 1 140px' }}>
+            <Input placeholder="Telefone (DDD + número)" value={contatoTelefone} onChange={(e) => setContatoTelefone(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && adicionarContato()} />
+          </div>
+          <Button variant="primary" onClick={adicionarContato} disabled={!contatoNome.trim()}>
+            <UserPlus size={15} /> Adicionar
+          </Button>
+        </div>
+      </Card>
+
       {cliente.grupo && lojasDoGrupo.length > 1 && (
-        <div className="glass-card glass-card-flat" style={{ marginBottom: 24 }}>
+        <Card flat style={{ marginBottom: 24 }}>
           <div className="section-header">
-            <h3>Lojas do grupo <span className="text-muted" style={{ fontWeight: 400, fontSize: 13 }}>· {cliente.grupo}</span></h3>
-            <span className="text-muted" style={{ fontSize: 12 }}>{lojasDoGrupo.length}</span>
+            <h3>Lojas do grupo <span className="text-text-muted" style={{ fontWeight: 400, fontSize: 13 }}>· {cliente.grupo}</span></h3>
+            <span className="text-text-muted" style={{ fontSize: 12 }}>{lojasDoGrupo.length}</span>
           </div>
           <div className="flex-row" style={{ flexWrap: 'wrap', gap: 8 }}>
             {lojasDoGrupo.map((l) => (
-              <button
+              <Badge
+                as="button"
                 key={l.id}
-                className={`badge ${l.id === cliente.id ? 'badge-accent' : 'badge-muted'}`}
+                variant={l.id === cliente.id ? 'accent' : 'muted'}
                 style={{ cursor: l.id === cliente.id ? 'default' : 'pointer' }}
                 onClick={() => l.id !== cliente.id && navigate(`/clientes/${l.id}`)}
               >
                 {l.empresa.replace(`${cliente.grupo} - `, '') || l.empresa}
-              </button>
+              </Badge>
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
       <div className="two-col-grid">
-        <div className="glass-card glass-card-flat">
+        <Card flat>
           <div className="section-header"><h3>Anotações</h3></div>
-          <textarea
-            className="field-input"
+          <Textarea
             placeholder="Anotações sobre este cliente..."
             value={observacao}
             onChange={(e) => setObservacao(e.target.value)}
             style={{ minHeight: 160, marginBottom: 12 }}
           />
-          <button className="btn btn-primary" onClick={salvarObservacao} disabled={salvandoObs || !obsMudou}>
+          <Button variant="primary" onClick={salvarObservacao} disabled={salvandoObs || !obsMudou}>
             <Save size={14} /> {salvandoObs ? 'Salvando...' : 'Salvar anotação'}
-          </button>
-        </div>
+          </Button>
+        </Card>
 
-        <div className="glass-card glass-card-flat">
+        <Card flat>
           <div className="section-header"><h3>Histórico</h3></div>
           {historico.length === 0 ? (
             <div className="empty-state">Nenhum evento registrado para este cliente.</div>
           ) : (
             <div>
-              {historico.map((evento) => (
-                <div key={evento.id} className="history-item">
+              {historico.map((evento) => {
+                const editavel = eventoAgendado(evento);
+                return (
+                <div
+                  key={evento.id}
+                  className={`history-item${editavel ? ' history-item-editavel' : ''}`}
+                  role={editavel ? 'button' : undefined}
+                  tabIndex={editavel ? 0 : undefined}
+                  title={editavel ? 'Clique para editar este evento agendado' : undefined}
+                  onClick={editavel ? () => setEventoEditando(evento) : undefined}
+                  onKeyDown={editavel ? (e) => { if (e.key === 'Enter') setEventoEditando(evento); } : undefined}
+                >
                   <div className="flex-between" style={{ marginBottom: 6 }}>
                     <strong style={{ fontSize: 14 }}>{evento.subject || evento.type}</strong>
-                    <span className="badge badge-accent">{format(parseISO(evento.date), 'dd/MM/yyyy')}</span>
+                    <Badge variant="accent">{format(parseISO(evento.date), 'dd/MM/yyyy')}</Badge>
                   </div>
                   <div className="flex-row" style={{ marginBottom: evento.description ? 6 : 0 }}>
-                    <span className="badge badge-accent">{evento.type}</span>
-                    <span className={`badge ${eventoStatusBadge(evento.status)}`}>{evento.status}</span>
+                    <Badge variant="accent">{evento.type}</Badge>
+                    <Badge variant={eventoStatusBadge(evento.status)}>{evento.status}</Badge>
                   </div>
-                  {evento.description && <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>{evento.description}</p>}
+                  {evento.description && <p className="text-text-muted" style={{ fontSize: 13, margin: 0 }}>{evento.description}</p>}
                   {evento.attachments.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                       {evento.attachments.map((anexo) => (
@@ -182,15 +279,25 @@ export default function ClienteDetailPage() {
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
       {editModalOpen && <ClientFormModal initial={cliente} onClose={() => setEditModalOpen(false)} />}
-      {eventModalOpen && <EventFormModal initialClientId={cliente.id} onClose={() => setEventModalOpen(false)} />}
+      {eventoEditando && <EventFormModal initial={eventoEditando} onClose={() => setEventoEditando(null)} />}
+      {eventModalOpen && (
+        <EventFormModal
+          key={eventoKey}
+          initialClientId={cliente.id}
+          onClose={() => setEventModalOpen(false)}
+          onAgendarProximo={() => setEventoKey((k) => k + 1)}
+        />
+      )}
       {reminderModalOpen && <ReminderFormModal initialClientId={cliente.id} onClose={() => setReminderModalOpen(false)} />}
+      {waContato && <WhatsAppMensagemModal contato={waContato} empresa={cliente.empresa} onClose={() => setWaContato(null)} />}
     </div>
   );
 }

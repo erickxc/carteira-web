@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Card } from '../../ui';
 import type { Cliente } from '../../types';
 
 interface GrupoProps {
@@ -15,10 +16,10 @@ export function Grupo({ titulo, sub, lista, renderCard }: GrupoProps) {
   return (
     <div className="section">
       <div className="section-header">
-        <h3>{titulo} <span className="text-muted" style={{ fontWeight: 400, fontSize: 13 }}>· {sub}</span></h3>
-        <span className="text-muted" style={{ fontSize: 12 }}>{lista.length}</span>
+        <h3>{titulo} <span className="text-text-muted" style={{ fontWeight: 400, fontSize: 13 }}>· {sub}</span></h3>
+        <span className="text-text-muted" style={{ fontSize: 12 }}>{lista.length}</span>
       </div>
-      {lista.length === 0 ? <div className="glass-card glass-card-flat"><div className="empty-state">Nenhum cliente.</div></div> : (
+      {lista.length === 0 ? <Card flat><div className="empty-state">Nenhum cliente.</div></Card> : (
         <div className="acao-grid">{lista.map(renderCard)}</div>
       )}
     </div>

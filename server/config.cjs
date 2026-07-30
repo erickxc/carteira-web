@@ -1,0 +1,110 @@
+const fs = require('fs');
+const path = require('path');
+
+// Em produção (Apache/XAMPP como proxy reverso), o Node só precisa ser
+// alcançável pelo Apache na própria máquina — por isso o default é loopback,
+// nunca exposto direto na rede. Defina APP_HOST se precisar rodar `npm start`
+// (dev, sem Apache) acessível por outras máquinas na LAN diretamente.
+// O app NÃO tem autenticação: expor na rede deixa os dados acessíveis a
+// qualquer um que alcance essa porta — decisão explícita do usuário.
+const HOST = process.env.APP_HOST || '127.0.0.1';
+const PORT = Number(process.env.PORT) || 3001;
+
+/**
+ * Todos os dados (planilha + anexos) vivem DENTRO do OneDrive do usuário —
+ * nunca na pasta do projeto nem em qualquer outro lugar. É intencional:
+ * o backup/sincronização fica a cargo do OneDrive, e não deve existir um
+ * segundo caminho onde os dados possam acabar sendo gravados por engano.
+ * Não adicione fallback para pasta local aqui — se o OneDrive não estiver
+ * disponível, o servidor deve falhar ao iniciar, não gravar em outro lugar.
+ */
+const ONEDRIVE_ROOT = 'C:/Users/Monitor1-2D/OneDrive - 2dconsultores.com.br/01 - Marco + Monitores/6 - Erick';
+const DATA_DIR = path.join(ONEDRIVE_ROOT, 'Carteira Web');
+// Pasta onde cada reunião é gravada como .json (integração com outro sistema).
+const REUNIOES_DIR = path.join(DATA_DIR, 'reunioes_json');
+
+// Falha alto e claro se o OneDrive não estiver sincronizado nesta máquina —
+// nunca cria essa árvore de pastas do zero, para não fingir estar "salvo no
+// OneDrive" quando na verdade é só uma pasta local desconectada da nuvem.
+if (!fs.existsSync(ONEDRIVE_ROOT)) {
+  console.error(
+    `Pasta do OneDrive não encontrada: ${ONEDRIVE_ROOT}\n` +
+    `Verifique se o OneDrive está instalado, sincronizado e com essa pasta disponível nesta máquina.`
+  );
+  process.exit(1);
+}
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+
+// Banco de desenvolvimento/sandbox (schema novo). O banco real da 2D fica em
+// ../database.xlsx (pasta "6 - Erick"); a virada para ele será feita depois.
+const DB_FILE = path.join(DATA_DIR, 'database_dev.xlsx');
+const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+// Colunas alinhadas ao banco real (6 - Erick\database.xlsx) + adições do app
+// (monitor, servicos, subject, attachments). As colunas antigas
+// monitoria/price/controladoria + suspenso são mantidas e sincronizadas a
+// partir de servicos/status no save, para não quebrar o schema real na virada.
+// `lastPricing`/`lojas` (Clientes) e `sala`/`notifiedDay`/`notes` (Agenda) já
+// existem na planilha real mas faltavam aqui — saveSheetData reescreve a aba
+// inteira com json_to_sheet(dados, { header }), então qualquer coluna fora
+// dessa lista era apagada de TODAS as linhas a cada save (`sala` é campo ativo,
+// gravado pelo EventFormModal — bug real de perda de dado, não só legado).
+const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'contatos', 'observacao', 'status', 'atendidoMarco', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'lastPricing', 'userId', 'lojas', 'relatorioCadencia'];
+const AGENDA_HEADERS = ['id', 'createdAt', 'clientId', 'clientName', 'type', 'subject', 'date', 'time', 'duracao', 'description', 'status', 'motivo', 'monitor', 'sala', 'servicos', 'checklist', 'preAnalise', 'ata', 'resumo', 'serie', 'attachments', 'userId', 'notifiedDay', 'notes'];
+const LEMBRETES_HEADERS = ['id', 'createdAt', 'title', 'datetime', 'description', 'status', 'clientId', 'eventId', 'recurrence', 'type', 'userId'];
+const CATEGORIAS_HEADERS = ['id', 'tipo', 'valor', 'ordem', 'createdAt'];
+const ACOES_HEADERS = ['id', 'clientId', 'tipo', 'segmento', 'status', 'servico', 'monitor', 'notes', 'dueAt', 'createdAt', 'updatedAt'];
+const MODELOS_HEADERS = ['id', 'segmento', 'titulo', 'conteudo', 'createdAt'];
+const CADENCIAS_HEADERS = ['chave', 'valor'];
+
+// Headers explícitos por planilha — evita que o SheetJS derive as colunas
+// apenas das chaves da primeira linha do array (se a primeira linha for uma
+// legada faltando algum campo novo, a coluna inteira sumiria da planilha).
+const HEADERS_BY_SHEET = {
+  Clientes: CLIENTES_HEADERS,
+  Agenda: AGENDA_HEADERS,
+  Lembretes: LEMBRETES_HEADERS,
+  Categorias: CATEGORIAS_HEADERS,
+  Acoes: ACOES_HEADERS,
+  Modelos: MODELOS_HEADERS,
+  Cadencias: CADENCIAS_HEADERS,
+};
+
+// Cadências padrão (dias) — prazos das recomendações.
+const CADENCIAS_SEED = [
+  { chave: 'reuniao_dias', valor: 30 },
+  { chave: 'relatorio_dias', valor: 45 },
+  { chave: 'primeiro_contato_dias', valor: 14 },
+  { chave: 'esfriando_dias', valor: 45 },
+  // Cadência-alvo por serviço (dias) — usada na fila de priorização por serviço.
+  { chave: 'monitoria_dias', valor: 30 },
+  { chave: 'price_dias', valor: 30 },
+];
+
+// Modelos/materiais por segmento (o que enviar).
+const MODELOS_SEED = [
+  { segmento: 'frio', titulo: 'Apresentação institucional', conteudo: 'Olá, {empresa}! Aqui é da 2D Consultores. Trabalhamos com monitoria e precificação para melhorar sua margem. Podemos agendar um diagnóstico rápido?' },
+  { segmento: 'frio', titulo: 'Case de resultado', conteudo: 'Olá, {empresa}! Um cliente do seu segmento reduziu perdas e ganhou margem com nossa monitoria. Posso te mostrar como em 20 min?' },
+  { segmento: 'esfriando', titulo: 'Retomada de contato', conteudo: 'Olá, {empresa}! Faz um tempo que não conversamos. Preparei um panorama atualizado — quando podemos reunir?' },
+  { segmento: 'engajado', titulo: 'Pauta de reunião mensal', conteudo: 'Pauta {empresa}: 1) Resultados do mês 2) Precificação 3) Próximas ações 4) Dúvidas.' },
+  { segmento: 'engajado', titulo: 'Envio de relatório mensal', conteudo: 'Olá, {empresa}! Segue o relatório de monitoria do mês. Fico à disposição para comentar os pontos de atenção.' },
+];
+
+// Seed inicial das categorias (a partir dos valores reais já existentes no banco).
+const CATEGORIAS_SEED = [
+  ['servico', ['Monitoria', 'Precificação']],
+  ['tipo_evento', ['Reunião', 'Contato', 'Relatório', 'Ligação']],
+  ['status_cliente', ['Ativo', 'Suspenso', 'Problemas Externos']],
+  ['status_evento', ['Agendado', 'Concluído', 'Cancelado', 'Realizado', 'Reagendado']],
+  ['monitor', ['Yann Cruz', 'Erick Cardoso', 'Karol Santana', 'Administrador']],
+  ['tipo_lembrete', ['Contato', 'Reunião', 'Relatório', 'Alvo', 'Outro']],
+];
+
+module.exports = {
+  HOST, PORT,
+  ONEDRIVE_ROOT, DATA_DIR, REUNIOES_DIR, DB_FILE, UPLOADS_DIR,
+  CLIENTES_HEADERS, AGENDA_HEADERS, LEMBRETES_HEADERS, CATEGORIAS_HEADERS, ACOES_HEADERS, MODELOS_HEADERS, CADENCIAS_HEADERS,
+  HEADERS_BY_SHEET,
+  CADENCIAS_SEED, MODELOS_SEED, CATEGORIAS_SEED,
+};

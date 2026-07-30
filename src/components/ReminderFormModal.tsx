@@ -3,6 +3,7 @@ import { format, parseISO } from 'date-fns';
 import { useCarteira } from '../context/CarteiraContext';
 import { toastError } from '../utils/toast';
 import { ModalShell } from './ModalShell';
+import { Button, Field, Input, Select, Textarea } from '../ui';
 import type { Lembrete, Recorrencia } from '../types';
 
 const RECURRENCE_OPTIONS: { value: Recorrencia; label: string }[] = [
@@ -15,21 +16,29 @@ const RECURRENCE_OPTIONS: { value: Recorrencia; label: string }[] = [
 interface ReminderFormModalProps {
   initial?: Lembrete;
   initialClientId?: string;
+  /** Pré-preenchimento ao criar um lembrete novo (ex.: "programar relatório"). */
+  initialTitle?: string;
+  initialType?: string;
+  initialDescription?: string;
   onClose: () => void;
+  /** Chamado após salvar com sucesso (antes de fechar) — ex.: marcar como programado. */
+  onSaved?: () => void;
 }
 
-export function ReminderFormModal({ initial, initialClientId, onClose }: ReminderFormModalProps) {
+export function ReminderFormModal({ initial, initialClientId, initialTitle, initialType, initialDescription, onClose, onSaved }: ReminderFormModalProps) {
   const { clientes, agenda, criarLembrete, atualizarLembrete, opcoesPorTipo } = useCarteira();
   const tipoOpcoes = opcoesPorTipo('tipo_lembrete');
-  const [title, setTitle] = useState(initial?.title ?? '');
-  const [tipo, setTipo] = useState(initial?.type ?? tipoOpcoes[0] ?? '');
-  const [datetime, setDatetime] = useState(
+  const [title, setTitle] = useState(initial?.title ?? initialTitle ?? '');
+  const [tipo, setTipo] = useState(initial?.type ?? initialType ?? tipoOpcoes[0] ?? '');
+  // Inicializador preguiçoso: Date.now() é impuro (não-determinístico) — só deve
+  // rodar uma vez, na criação do estado, não a cada render.
+  const [datetime, setDatetime] = useState(() =>
     initial ? format(new Date(initial.datetime), "yyyy-MM-dd'T'HH:mm") : format(new Date(Date.now() + 60 * 60 * 1000), "yyyy-MM-dd'T'HH:mm")
   );
   const [clientId, setClientId] = useState(initial?.clientId ?? initialClientId ?? '');
   const [eventId, setEventId] = useState(initial?.eventId ?? '');
   const [recurrence, setRecurrence] = useState<Recorrencia>(initial?.recurrence ?? 'none');
-  const [description, setDescription] = useState(initial?.description ?? '');
+  const [description, setDescription] = useState(initial?.description ?? initialDescription ?? '');
   const [saving, setSaving] = useState(false);
 
   const eventosDoCliente = useMemo(
@@ -56,6 +65,7 @@ export function ReminderFormModal({ initial, initialClientId, onClose }: Reminde
       } else {
         await criarLembrete(payload);
       }
+      onSaved?.();
       onClose();
     } catch (err) {
       toastError(err instanceof Error ? err.message : 'Falha ao salvar o lembrete.');
@@ -71,69 +81,62 @@ export function ReminderFormModal({ initial, initialClientId, onClose }: Reminde
       onSubmit={handleSubmit}
       footer={
         <>
-          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
+          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" variant="primary" disabled={saving}>
             {saving ? 'Salvando...' : 'Salvar'}
-          </button>
+          </Button>
         </>
       }
     >
-            <label className="field">
-              Título
-              <input className="field-input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} required />
-            </label>
+            <Field label="Título">
+              <Input tone="modal" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} required />
+            </Field>
 
-            <label className="field">
-              Tipo de alerta
-              <select className="field-input custom-select" value={tipo} onChange={(e) => setTipo(e.target.value)}>
+            <Field label="Tipo de lembrete">
+              <Select tone="modal" value={tipo} onChange={(e) => setTipo(e.target.value)}>
                 {tipoOpcoes.map((t) => (
                   <option key={t} value={t}>{t}</option>
                 ))}
-              </select>
-            </label>
+              </Select>
+            </Field>
 
-            <label className="field">
-              Data e hora
-              <input type="datetime-local" className="field-input" value={datetime} onChange={(e) => setDatetime(e.target.value)} required />
-            </label>
+            <Field label="Data e hora">
+              <Input tone="modal" type="datetime-local" value={datetime} onChange={(e) => setDatetime(e.target.value)} required />
+            </Field>
 
-            <label className="field">
-              Cliente (opcional)
-              <select className="field-input custom-select" value={clientId} onChange={(e) => handleClientChange(e.target.value)}>
+            <Field label="Cliente (opcional)">
+              <Select tone="modal" value={clientId} onChange={(e) => handleClientChange(e.target.value)}>
                 <option value="">Nenhum</option>
                 {clientes.map((c) => (
                   <option key={c.id} value={c.id}>{c.empresa}</option>
                 ))}
-              </select>
-            </label>
+              </Select>
+            </Field>
 
             {clientId && (
-              <label className="field">
-                Reunião vinculada (opcional)
-                <select className="field-input custom-select" value={eventId} onChange={(e) => setEventId(e.target.value)}>
+              <Field label="Reunião vinculada (opcional)">
+                <Select tone="modal" value={eventId} onChange={(e) => setEventId(e.target.value)}>
                   <option value="">Nenhuma</option>
                   {eventosDoCliente.map((ev) => (
                     <option key={ev.id} value={ev.id}>
                       {format(parseISO(ev.date), 'dd/MM/yyyy')} — {ev.subject || ev.type}
                     </option>
                   ))}
-                </select>
-              </label>
+                </Select>
+              </Field>
             )}
 
-            <label className="field">
-              Recorrência
-              <select className="field-input custom-select" value={recurrence} onChange={(e) => setRecurrence(e.target.value as Recorrencia)}>
+            <Field label="Recorrência">
+              <Select tone="modal" value={recurrence} onChange={(e) => setRecurrence(e.target.value as Recorrencia)}>
                 {RECURRENCE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
-              </select>
-            </label>
+              </Select>
+            </Field>
 
-            <label className="field">
-              Descrição
-              <textarea className="field-input" value={description} onChange={(e) => setDescription(e.target.value)} />
-            </label>
+            <Field label="Descrição">
+              <Textarea tone="modal" value={description} onChange={(e) => setDescription(e.target.value)} />
+            </Field>
     </ModalShell>
   );
 }
