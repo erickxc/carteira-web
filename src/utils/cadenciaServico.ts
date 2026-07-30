@@ -216,6 +216,12 @@ export interface VencendoDashboardItem {
   relogios: RelogioServico[];
 }
 
+// Evento que "conta" pra cobertura (próximo compromisso) desta régua — só
+// Reunião ou Relatório. Contato/Ligação não contam como agendamento que
+// resolve a cadência de Monitoria/Price/Relatório (diferente de
+// buildFilaCadencia, que aceita qualquer tipo de evento como cobertura).
+const ehEventoRelevanteVencendo = (a: EventoAgenda) => /reuni|relat/i.test(a.type || '');
+
 /**
  * Cálculo PRÓPRIO pro card "Vencendo" do Dashboard — não estende
  * `buildFilaCadencia` de propósito: ali só entram clientes com Monitoria ou
@@ -223,15 +229,16 @@ export interface VencendoDashboardItem {
  * passaria a aparecer na fila de Ações (efeito colateral não pedido). Aqui,
  * todo cliente ativo (fora Marco) sempre ganha um relógio de Relatório (pela
  * cadência configurada, ou o padrão global), além de Monitoria/Price quando
- * aplicável. Janela de "vencendo" própria (7 dias), separada da usada em
- * Ações (`JANELA_VENCENDO` = 5, inalterada).
+ * aplicável. Janela de "vencendo" de 5 dias, igual à usada em Ações
+ * (`JANELA_VENCENDO`, inalterada — este é um cálculo próprio, não a mesma
+ * constante, mas o mesmo valor).
  */
 export function buildVencendoDashboard(
   clientes: Cliente[],
   agenda: EventoAgenda[],
   cadencias: Cadencias,
   now: Date = new Date(),
-  janelaVencendo = 7
+  janelaVencendo = 5
 ): VencendoDashboardItem[] {
   const monDias = Number(cadencias?.monitoria_dias) || 30;
   const priceDias = Number(cadencias?.price_dias) || 30;
@@ -250,7 +257,7 @@ export function buildVencendoDashboard(
 
     let proximoGeral: Date | null = null;
     for (const a of evs) {
-      if (!naoCancelado(a)) continue;
+      if (!naoCancelado(a) || !ehEventoRelevanteVencendo(a)) continue;
       const d = parseISO(a.date);
       if (isNaN(d.getTime()) || d <= now) continue;
       if (!proximoGeral || d < proximoGeral) proximoGeral = d;

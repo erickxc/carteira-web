@@ -264,16 +264,21 @@ export function useDashboardData() {
   const vencendo = useMemo(() => {
     const fila = buildVencendoDashboard(ativos, agenda, cadencias, hoje, 5);
 
-    type ItemAgendado = { cliente: string; vencendo: boolean };
+    // Rótulo inclui o serviço (ex.: "Golfinho · Relatório") — um cliente com
+    // 2+ serviços em dia/vencendo contribui um item por serviço, e a lista
+    // NÃO deduplica por nome (senão a contagem da lista expandida ficava
+    // menor que o número do donut, que conta por item — já foi relatado como
+    // números não batendo).
+    type ItemAgendado = { rotulo: string; vencendo: boolean };
     const agendados: ItemAgendado[] = [];
     for (const f of fila) {
       for (const r of f.relogios) {
         if (filtroServicoVencendo !== 'Todos' && r.servico !== filtroServicoVencendo) continue;
         if (r.status === 'vencido' || r.status === 'nunca') continue; // desconsidera quem já venceu
-        agendados.push({ cliente: f.cliente.empresa, vencendo: r.status === 'vencendo' });
+        agendados.push({ rotulo: `${f.cliente.empresa} · ${r.servico}`, vencendo: r.status === 'vencendo' });
       }
     }
-    const nomes = (arr: ItemAgendado[]) => [...new Set(arr.map((p) => p.cliente))].sort((a, b) => a.localeCompare(b));
+    const rotulos = (arr: ItemAgendado[]) => arr.map((p) => p.rotulo).sort((a, b) => a.localeCompare(b));
 
     const total = agendados.length;
     const itensVencendo = agendados.filter((p) => p.vencendo);
@@ -281,7 +286,7 @@ export function useDashboardData() {
     const pct = total > 0 ? Math.round((itensVencendo.length / total) * 100) : 0;
     return {
       total, vencendo: itensVencendo.length, emDia: itensEmDia.length, pct,
-      vencendoClientes: nomes(itensVencendo), emDiaClientes: nomes(itensEmDia),
+      vencendoClientes: rotulos(itensVencendo), emDiaClientes: rotulos(itensEmDia),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativos, agenda, cadencias, filtroServicoVencendo]);
