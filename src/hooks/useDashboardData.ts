@@ -252,31 +252,35 @@ export function useDashboardData() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativos, agenda, acoes, cadencias, filtroServicoAderencia]);
 
-  // --- Vencendo (próx. 7 dias): Monitoria, Precificação ou Relatório perto do
-  // prazo, sem cobertura já marcada — cálculo próprio (buildVencendoDashboard),
-  // não usa buildFilaCadencia (esse card inclui Relatório pra todo cliente
-  // ativo, o que mudaria a fila de Ações se fosse o mesmo cálculo).
+  // --- Vencendo (próx. 7 dias): base em AÇÕES/ITENS pendentes, não clientes —
+  // ex.: 10 ações em aberto (Monitoria/Price/Relatório vencidas ou vencendo),
+  // 4 vencem essa semana = 40%. Um cliente com 2 serviços vencidos conta 2x.
+  // "Pendente" = vencido, nunca atendido ou vencendo (não coberto/em dia).
+  // Cálculo próprio (buildVencendoDashboard), não usa buildFilaCadencia (esse
+  // card inclui Relatório pra todo cliente ativo, o que mudaria a fila de
+  // Ações se fosse o mesmo cálculo).
   const vencendo = useMemo(() => {
     const fila = buildVencendoDashboard(ativos, agenda, cadencias, hoje);
-    const nomes = (arr: typeof fila) => arr.map((f) => f.cliente.empresa).sort((a, b) => a.localeCompare(b));
 
-    const relevantes = filtroServicoVencendo === 'Todos'
-      ? fila
-      : fila.filter((f) => f.relogios.some((r) => r.servico === filtroServicoVencendo));
-
-    function relogiosRelevantes(f: (typeof fila)[number]) {
-      return filtroServicoVencendo === 'Todos'
-        ? f.relogios
-        : f.relogios.filter((r) => r.servico === filtroServicoVencendo);
+    type ItemPendente = { cliente: string; vencendo: boolean };
+    const pendentes: ItemPendente[] = [];
+    for (const f of fila) {
+      for (const r of f.relogios) {
+        if (filtroServicoVencendo !== 'Todos' && r.servico !== filtroServicoVencendo) continue;
+        if (r.status === 'vencendo') pendentes.push({ cliente: f.cliente.empresa, vencendo: true });
+        else if (r.status === 'vencido' || r.status === 'nunca') pendentes.push({ cliente: f.cliente.empresa, vencendo: false });
+      }
     }
+    const nomes = (arr: ItemPendente[]) => [...new Set(arr.map((p) => p.cliente))].sort((a, b) => a.localeCompare(b));
 
-    const total = relevantes.length;
-    const estaoVencendo = relevantes.filter((f) => relogiosRelevantes(f).some((r) => r.status === 'vencendo'));
-    const resto = relevantes.filter((f) => !relogiosRelevantes(f).some((r) => r.status === 'vencendo'));
-    const vencendoClientes = nomes(estaoVencendo);
-    const restoClientes = nomes(resto);
-    const pct = total > 0 ? Math.round((vencendoClientes.length / total) * 100) : 0;
-    return { total, vencendo: vencendoClientes.length, resto: restoClientes.length, pct, vencendoClientes, restoClientes };
+    const total = pendentes.length;
+    const itensVencendo = pendentes.filter((p) => p.vencendo);
+    const itensVencidos = pendentes.filter((p) => !p.vencendo);
+    const pct = total > 0 ? Math.round((itensVencendo.length / total) * 100) : 0;
+    return {
+      total, vencendo: itensVencendo.length, vencido: itensVencidos.length, pct,
+      vencendoClientes: nomes(itensVencendo), vencidoClientes: nomes(itensVencidos),
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativos, agenda, cadencias, filtroServicoVencendo]);
 

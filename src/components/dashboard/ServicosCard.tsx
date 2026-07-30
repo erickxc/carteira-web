@@ -24,7 +24,7 @@ export function ServicosCard({ totalAtendidos, servicosDist }: ServicosCardProps
         // no grid), mas ancorado no topo (items-start) — conteúdo começa logo
         // após o cabeçalho, sobra vazio só embaixo (não em cima e embaixo).
         <div className="flex-1 flex items-start justify-center pt-6">
-          <RadialStatRow items={servicosDist} size={130} thickness={14} />
+          <RadialStatRow items={servicosDist} size={100} thickness={12} />
         </div>
       )}
     </Card>

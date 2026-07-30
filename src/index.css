@@ -465,7 +465,10 @@ a { color: inherit; }
 .donut-legend li { display: flex; align-items: center; gap: 0.55rem; font-size: 0.875rem; }
 .donut-swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
 .donut-legend-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
-.donut-legend-val { font-weight: 600; font-variant-numeric: tabular-nums; }
+/* min-width + right-align: sem isso, o número ("5" vs "37") tinha larguras
+   diferentes e "empurrava" a coluna de % pra posições diferentes em cada
+   linha — coluna de números ficava serrilhada/desalinhada entre as fatias. */
+.donut-legend-val { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 26px; text-align: right; flex-shrink: 0; }
 .donut-legend-pct { color: var(--text-muted); font-size: 0.8rem; width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
 
 
@@ -760,7 +763,13 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .reminder-permission-banner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 2100;
   display: flex; align-items: center; justify-content: center; gap: 10px;
-  padding: 8px 16px; background: var(--warning-bg); border-bottom: 1px solid var(--warning);
+  padding: 8px 16px;
+  /* --warning-bg é translúcido de propósito (pensado pra selo dentro de um
+     card opaco) — usada direto como fundo de uma barra fixa no topo, deixava
+     o conteúdo por baixo transparecer. color-mix gera uma cor SÓLIDA (sem
+     alpha) equivalente, que já resolve pros dois temas (usa --card de base). */
+  background: color-mix(in srgb, var(--warning) 16%, var(--card));
+  border-bottom: 1px solid var(--warning);
   font-size: 0.82rem; color: var(--text-primary); flex-wrap: wrap; text-align: center;
 }
 .reminder-permission-banner strong { color: var(--warning); }
@@ -940,12 +949,18 @@ body.has-permission-banner .app-shell { padding-top: 36px; }
    O card precisa de container-type: inline-size (ver .servicos-card) pro
    @container abaixo reagir à largura do CARD, não da janela — um card de
    coluna pode estar apertado numa janela de 1920px, uma media query de
-   viewport nunca pegaria isso. */
-.radial-row-mirrored { align-items: center; gap: 1.15rem; flex-wrap: nowrap; }
-.radial-row-mirrored .radial-top3 { width: 145px; border-top: none; padding-top: 0; flex-shrink: 0; }
+   viewport nunca pegaria isso.
+   Tamanhos calibrados pra CABER sem quebrar linha na largura real de um card
+   de coluna (~580-600px de content-box, já descontando padding) — o threshold
+   antigo (590px) media o CONTENT-BOX do container (que já desconta padding),
+   mas os tamanhos (anel 130px + top3 145px) precisavam de ~605px, sempre
+   estourando e caindo no fallback empilhado (por isso a fila desalinhada
+   virava a regra, não a exceção). Reduzido pra caber com folga em ~490px. */
+.radial-row-mirrored { align-items: center; gap: 1rem; flex-wrap: nowrap; }
+.radial-row-mirrored .radial-top3 { width: 120px; border-top: none; padding-top: 0; flex-shrink: 0; }
 .radial-row-mirrored .radial-top3-right { align-items: flex-end; text-align: right; }
 .radial-row-mirrored .radial-top3-right .radial-top3-row { flex-direction: row-reverse; }
-@container (max-width: 590px) {
+@container (max-width: 520px) {
   .radial-row-mirrored { flex-wrap: wrap; }
   .radial-row-mirrored .radial-top3 { width: 100%; border-top: 1px solid var(--border); padding-top: 10px; }
   .radial-row-mirrored .radial-top3-right { align-items: flex-start; text-align: left; }

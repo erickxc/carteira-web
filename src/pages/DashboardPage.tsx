@@ -124,10 +124,10 @@ export default function DashboardPage() {
         <VencendoCard
           total={d.vencendo.total}
           vencendo={d.vencendo.vencendo}
-          resto={d.vencendo.resto}
+          vencido={d.vencendo.vencido}
           pct={d.vencendo.pct}
           vencendoClientes={d.vencendo.vencendoClientes}
-          restoClientes={d.vencendo.restoClientes}
+          vencidoClientes={d.vencendo.vencidoClientes}
           filtroServico={d.filtroServicoVencendo}
           onFiltroServico={d.setFiltroServicoVencendo}
         />
