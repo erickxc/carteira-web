@@ -252,34 +252,36 @@ export function useDashboardData() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativos, agenda, acoes, cadencias, filtroServicoAderencia]);
 
-  // --- Vencendo (próx. 7 dias): base em AÇÕES/ITENS pendentes, não clientes —
-  // ex.: 10 ações em aberto (Monitoria/Price/Relatório vencidas ou vencendo),
-  // 4 vencem essa semana = 40%. Um cliente com 2 serviços vencidos conta 2x.
-  // "Pendente" = vencido, nunca atendido ou vencendo (não coberto/em dia).
+  // --- Vencendo (próx. 5 dias, mesma janela do resto do app): base em
+  // AÇÕES/ITENS AGENDADOS (Monitoria/Price/Relatório em dia, cobertos ou
+  // vencendo), não clientes — ex.: 10 ações agendadas, 4 vencem nos próx. 5
+  // dias = 40%. Quem JÁ VENCEU é desconsiderado por completo (nem entra no
+  // total) — esse card é só sobre o que ainda está no prazo mas fica apertado
+  // logo ali, não sobre atraso (isso já é "Precisa contato" no outro card).
   // Cálculo próprio (buildVencendoDashboard), não usa buildFilaCadencia (esse
   // card inclui Relatório pra todo cliente ativo, o que mudaria a fila de
   // Ações se fosse o mesmo cálculo).
   const vencendo = useMemo(() => {
-    const fila = buildVencendoDashboard(ativos, agenda, cadencias, hoje);
+    const fila = buildVencendoDashboard(ativos, agenda, cadencias, hoje, 5);
 
-    type ItemPendente = { cliente: string; vencendo: boolean };
-    const pendentes: ItemPendente[] = [];
+    type ItemAgendado = { cliente: string; vencendo: boolean };
+    const agendados: ItemAgendado[] = [];
     for (const f of fila) {
       for (const r of f.relogios) {
         if (filtroServicoVencendo !== 'Todos' && r.servico !== filtroServicoVencendo) continue;
-        if (r.status === 'vencendo') pendentes.push({ cliente: f.cliente.empresa, vencendo: true });
-        else if (r.status === 'vencido' || r.status === 'nunca') pendentes.push({ cliente: f.cliente.empresa, vencendo: false });
+        if (r.status === 'vencido' || r.status === 'nunca') continue; // desconsidera quem já venceu
+        agendados.push({ cliente: f.cliente.empresa, vencendo: r.status === 'vencendo' });
       }
     }
-    const nomes = (arr: ItemPendente[]) => [...new Set(arr.map((p) => p.cliente))].sort((a, b) => a.localeCompare(b));
+    const nomes = (arr: ItemAgendado[]) => [...new Set(arr.map((p) => p.cliente))].sort((a, b) => a.localeCompare(b));
 
-    const total = pendentes.length;
-    const itensVencendo = pendentes.filter((p) => p.vencendo);
-    const itensVencidos = pendentes.filter((p) => !p.vencendo);
+    const total = agendados.length;
+    const itensVencendo = agendados.filter((p) => p.vencendo);
+    const itensEmDia = agendados.filter((p) => !p.vencendo);
     const pct = total > 0 ? Math.round((itensVencendo.length / total) * 100) : 0;
     return {
-      total, vencendo: itensVencendo.length, vencido: itensVencidos.length, pct,
-      vencendoClientes: nomes(itensVencendo), vencidoClientes: nomes(itensVencidos),
+      total, vencendo: itensVencendo.length, emDia: itensEmDia.length, pct,
+      vencendoClientes: nomes(itensVencendo), emDiaClientes: nomes(itensEmDia),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativos, agenda, cadencias, filtroServicoVencendo]);
