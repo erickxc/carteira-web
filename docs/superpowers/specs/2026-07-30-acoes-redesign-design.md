@@ -30,11 +30,19 @@ Ou seja: a borda só aparece quando existe uma interação real (o contato) que 
 
 Troca `variant="muted"` → `variant="accent"` nos badges de produto dentro de `CardCliente` — mesmo variant já usado em outros lugares do app pra badges de serviço (ex.: `ClienteDetailPage`), só padronizando.
 
+## 4. Reordenação da fila (extensão pedida depois da 1ª aprovação)
+
+Cliente com contato recente não refletido (mesma condição do item 2) passa a ir pro **fim da própria seção de severidade** dentro da fila — continua Vencido/Vencendo/Em dia, só perde prioridade dentro do próprio grupo pra quem realmente não teve nenhum contato ainda. Vale em qualquer lugar que usa `buildFilaCadencia` (AcoesPage, Dashboard, AcaoFormModal), não só na view "Precisam de ação".
+
+- `buildFilaCadencia` ganha um novo parâmetro `acoes: Acao[]` (pra calcular a última interação via `buildUltimaInteracaoMap`, que já considera Ações tipo Contato). Os 3 call-sites (`AcoesPage.tsx`, `useDashboardData.ts`, `AcaoFormModal.tsx`) passam a fornecer `acoes`.
+- Novo helper exportado `contatoRecenteNaoRefletido(relogios, ultimoContato)` em `cadenciaServico.ts` — usado tanto pra ordenar a fila quanto pelo `CardCliente` pra decidir a borda dourada do item 2 (fonte única, sem duplicar a regra).
+- Ordenação final: 1º por severidade (vencido < vencendo < em_dia), 2º por "tem contato recente não refletido" (quem não tem vem primeiro), 3º pelo `score` de urgência (como já era).
+
 ## Fora de escopo (confirmado com o usuário)
 
 - Tabela da aba "Ações" (histórico) — fica para uma rodada futura, não entra nesta mudança.
 - Reestruturação do card (Direção B) — não escolhida.
-- Qualquer mudança na lógica de `buildFilaCadencia`/classificação — a fila e as seções continuam calculadas exatamente como hoje.
+- Mudança na classificação em si (`classificarCadencia`) — Vencido/Vencendo/Em dia continuam calculados exatamente como hoje; só a ORDEM dentro de cada grupo mudou.
 
 ## Testes (manual)
 
