@@ -208,7 +208,7 @@ export function useDashboardData() {
     // `agenda` fica sem filtrar por Tipo de propósito: a cadência de Monitoria/
     // Price tem semântica própria de tipo de evento (reunião/relatório) — filtrar
     // pelo "Tipo" do topo quebraria esse cálculo, não é um filtro que se aplique aqui.
-    const fila = buildFilaCadencia(ativos, agenda, cadencias, hoje);
+    const fila = buildFilaCadencia(ativos, agenda, acoes, cadencias, hoje);
     const nomes = (arr: typeof fila) => arr.map((f) => f.cliente.empresa).sort((a, b) => a.localeCompare(b));
 
     const relevantes = filtroServicoAderencia === 'Todos'
@@ -249,7 +249,7 @@ export function useDashboardData() {
       emDiaClientes, agendaMarcadaClientes, precisaClientes,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ativos, agenda, cadencias, filtroServicoAderencia]);
+  }, [ativos, agenda, acoes, cadencias, filtroServicoAderencia]);
 
   // --- Próximas agendas (forward-looking) ---
   const tiposDisponiveis = useMemo(() => ['Todos', ...new Set(agendaAtiva.map((a) => a.type).filter(Boolean))], [agendaAtiva]);

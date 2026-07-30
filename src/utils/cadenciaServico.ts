@@ -1,6 +1,7 @@
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { isStatusAtivo } from './formatters';
-import type { Cadencias, Cliente, EventoAgenda } from '../types';
+import { buildUltimaInteracaoMap } from './ultimaInteracao';
+import type { Acao, Cadencias, Cliente, EventoAgenda } from '../types';
 
 export type ServicoCad = 'Monitoria' | 'Price';
 export type CadStatus = 'coberto' | 'em_dia' | 'vencendo' | 'vencido' | 'nunca';
@@ -102,14 +103,34 @@ function calcularRelogio(
   return { servico, cadencia, ultimo, proximo, atraso, status, statusReal, atrasoReal };
 }
 
+/** Contato (ou qualquer interação) mais recente que o último toque contado
+ * pelos relógios de serviço — sinaliza "já houve ação", mesmo que ela não
+ * conte pra cadência oficial de Monitoria/Price (ex.: um Contato leve não
+ * reseta o relógio, mas ainda assim já foi feito). Usado pra empurrar o
+ * cliente pro fim da própria seção de severidade na fila, e pra destacar
+ * visualmente o card (CardCliente). */
+export function contatoRecenteNaoRefletido(relogios: RelogioServico[] | undefined, ultimoContato: Date | null): boolean {
+  if (!ultimoContato) return false;
+  const ultimoToqueRelogio = relogios && relogios.length > 0
+    ? Math.max(...relogios.map((r) => r.ultimo?.getTime() ?? 0))
+    : 0;
+  return ultimoContato.getTime() > ultimoToqueRelogio;
+}
+
+const RANK_SEVERIDADE: Record<ClassificacaoCadencia, number> = { vencido: 0, vencendo: 1, em_dia: 2 };
+
 /**
  * Fila de priorização por aderência à cadência de cada serviço. Clientes ativos
  * (fora os do Marco) recebem um "relógio" por serviço contratado (Monitoria/Price);
- * a prioridade é o serviço mais vencido. Ordena do mais urgente para o menos.
+ * a prioridade é o serviço mais vencido. Ordena do mais urgente para o menos —
+ * mas dentro da mesma severidade, quem já teve um contato recente não
+ * refletido no relógio (ver `contatoRecenteNaoRefletido`) vai pro fim daquele
+ * bloco: já foi tratado, mesmo que a cadência oficial continue vencida.
  */
 export function buildFilaCadencia(
   clientes: Cliente[],
   agenda: EventoAgenda[],
+  acoes: Acao[],
   cadencias: Cadencias,
   now: Date = new Date()
 ): FilaCadItem[] {
@@ -144,7 +165,17 @@ export function buildFilaCadencia(
     const precisaAcao = relogios.some((r) => r.status === 'vencido' || r.status === 'vencendo' || r.status === 'nunca');
     out.push({ cliente: c, relogios, score, precisaAcao });
   }
-  return out.sort((a, b) => b.score - a.score);
+
+  const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now });
+  return out.sort((a, b) => {
+    const rankA = RANK_SEVERIDADE[classificarCadencia(a)];
+    const rankB = RANK_SEVERIDADE[classificarCadencia(b)];
+    if (rankA !== rankB) return rankA - rankB;
+    const recA = contatoRecenteNaoRefletido(a.relogios, ultimaInteracaoMap.get(a.cliente.id) ?? null);
+    const recB = contatoRecenteNaoRefletido(b.relogios, ultimaInteracaoMap.get(b.cliente.id) ?? null);
+    if (recA !== recB) return recA ? 1 : -1;
+    return b.score - a.score;
+  });
 }
 
 export type ClassificacaoCadencia = 'vencido' | 'vencendo' | 'em_dia';

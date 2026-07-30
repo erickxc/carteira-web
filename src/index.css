@@ -354,9 +354,13 @@ a { color: inherit; }
 .gauge-detalhe-titulo { display: flex; align-items: center; gap: 6px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 7px; flex-shrink: 0; }
 .gauge-detalhe-col ul {
   /* display:block (NÃO flex): um container flex encolhe os <li> pra caber em
-     vez de estourar e rolar — foi o que "sumia" o scroll e espremia o texto. */
+     vez de estourar e rolar — foi o que "sumia" o scroll e espremia o texto.
+     height FIXA (não max-height): colunas com listas mais curtas (ou que
+     quebram linha sozinhas no grid responsivo, ex.: "auto-fit" empilhando 1
+     coluna por linha em telas estreitas) ficavam mais baixas que as outras —
+     altura fixa garante caixas do mesmo tamanho sempre, com ou sem scroll. */
   list-style: none; margin: 0; padding: 0;
-  max-height: 220px; overflow-y: auto;
+  height: 220px; overflow-y: auto;
   /* Scrollbar minimalista: fina, sem trilho visível, só o "dedo". */
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
@@ -366,7 +370,7 @@ a { color: inherit; }
 .gauge-detalhe-col ul::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
 .gauge-detalhe-col ul::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 .gauge-detalhe-col li { font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gauge-detalhe-vazio { font-size: 0.8rem; color: var(--text-muted); }
+.gauge-detalhe-vazio { display: block; height: 220px; font-size: 0.8rem; color: var(--text-muted); }
 @media (prefers-reduced-motion: reduce) { .gauge-detalhe { transition: none; } }
 
 .section-header {

@@ -81,7 +81,7 @@ export default function AcoesPage() {
   // Cada serviço do cliente tem um "relógio": vencido/vencendo/nunca pede ação;
   // reunião futura marcada (ou relatório, no caso de Price) cobre o relógio.
   // Ordena do mais vencido para o menos. Substitui a antiga "sugestão por recência".
-  const filaCadencia = useMemo(() => buildFilaCadencia(clientes, agenda, cadencias, new Date()), [clientes, agenda, cadencias]);
+  const filaCadencia = useMemo(() => buildFilaCadencia(clientes, agenda, acoes, cadencias, new Date()), [clientes, agenda, acoes, cadencias]);
 
   const tipoOpcoes = useMemo(() => [...new Set(itens.map((i) => i.tipoLabel))].sort(), [itens]);
   const statusOpcoes = useMemo(() => [...new Set(itens.map((i) => i.statusLabel))].filter(Boolean).sort(), [itens]);
@@ -174,6 +174,7 @@ export default function AcoesPage() {
       c={f.cliente}
       comHistorico
       relogios={f.relogios}
+      severidade={classificarCadencia(f)}
       ultimoContato={info.ult.get(f.cliente.id) ?? null}
       totalReunioes={info.nReun.get(f.cliente.id) ?? 0}
       historico={(itensPorCliente.get(f.cliente.id) ?? []).slice(0, 3)}

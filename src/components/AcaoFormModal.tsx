@@ -16,7 +16,7 @@ interface AcaoFormModalProps {
 }
 
 export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFormModalProps) {
-  const { clientes, agenda, cadencias, registrarAcao, criarLembrete, opcoesPorTipo } = useCarteira();
+  const { clientes, agenda, acoes, cadencias, registrarAcao, criarLembrete, opcoesPorTipo } = useCarteira();
   const servicoOpcoes = opcoesPorTipo('servico');
   const monitorOpcoes = opcoesPorTipo('monitor');
   const [clientId, setClientId] = useState(clienteId ?? clientes[0]?.id ?? '');
@@ -30,7 +30,7 @@ export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFor
   // Segmento p/ escolher material/relatório — mesma fonte da fila de cadência do
   // Acompanhamento (antes era um cálculo à parte, com limiar diferente, gerando
   // duas leituras de "saúde do cliente" divergentes no mesmo app).
-  const filaCadencia = useMemo(() => buildFilaCadencia(clientes, agenda, cadencias), [clientes, agenda, cadencias]);
+  const filaCadencia = useMemo(() => buildFilaCadencia(clientes, agenda, acoes, cadencias), [clientes, agenda, acoes, cadencias]);
   const segmentoDe = useMemo(() => (cid: string): Segmento => {
     const item = filaCadencia.find((f) => f.cliente.id === cid);
     if (!item) {

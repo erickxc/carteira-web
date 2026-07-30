@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { CalendarPlus, Plus } from 'lucide-react';
 import { rotuloData, sugestoes, type Item } from '../../utils/acoesHelpers';
-import { rotuloRelogio, type CadStatus, type RelogioServico } from '../../utils/cadenciaServico';
+import { contatoRecenteNaoRefletido, rotuloRelogio, type CadStatus, type ClassificacaoCadencia, type RelogioServico } from '../../utils/cadenciaServico';
 import { Badge, Button, Card, Chip } from '../../ui';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../../types';
 
@@ -17,6 +17,9 @@ interface CardClienteProps {
   /** Relógios de cadência por serviço (fila de priorização). Quando presente,
    *  substitui a linha "Último contato" pelos status por serviço. */
   relogios?: RelogioServico[];
+  /** Classificação pela pior cadência (mesma usada pra agrupar em Vencidos/
+   *  Vencendo/Em dia) — dá a borda esquerda de severidade do card. */
+  severidade?: ClassificacaoCadencia;
   onRegistrar: (clienteId: string, tipo?: AcaoTipo) => void;
   onAgendar: (clienteId: string) => void;
 }
@@ -27,21 +30,30 @@ const CLASSE_DOT: Record<CadStatus, string> = {
 const COR_TEXTO: Record<CadStatus, string> = {
   vencido: 'var(--danger)', nunca: 'var(--danger)', vencendo: 'var(--warning)', coberto: 'var(--text-secondary)', em_dia: 'var(--text-secondary)',
 };
+const COR_SEVERIDADE: Record<ClassificacaoCadencia, string | undefined> = {
+  vencido: 'var(--danger)', vencendo: 'var(--warning)', em_dia: undefined,
+};
 
 /** Card de cliente usado em todos os grupos de Acompanhamento (Recorrentes,
  * Sem contato, Marco, Sugestão da semana) — extraído de AcoesPage para não
  * ser redefinido a cada render e poder ser reutilizado/testado isoladamente. */
-export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, historico, produtos, relogios, onRegistrar, onAgendar }: CardClienteProps) {
+export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, historico, produtos, relogios, severidade, onRegistrar, onAgendar }: CardClienteProps) {
   const navigate = useNavigate();
 
+  // Puramente visual aqui (não muda severidade) — mesma regra usada em
+  // buildFilaCadencia pra empurrar o cliente pro fim da própria seção.
+  const temContatoRecente = contatoRecenteNaoRefletido(relogios, ultimoContato);
+
+  const corSeveridade = severidade ? COR_SEVERIDADE[severidade] : undefined;
+
   return (
-    <Card flat className="acao-card">
+    <Card flat className="acao-card" style={corSeveridade ? { borderLeftColor: corSeveridade, borderLeftWidth: 4 } : undefined}>
       <div className="acao-card-head">
         <div style={{ minWidth: 0 }}>
           <button className="link-button" style={{ fontWeight: 600, fontSize: '1rem' }} onClick={() => navigate(`/clientes/${c.id}`, { state: { from: '/acoes', fromLabel: 'Ações' } })}>{c.empresa}</button>
           <div className="acao-card-badges">
             {c.atendidoMarco && <Badge variant="accent">Marco</Badge>}
-            {produtos.map((p) => <Badge key={p} variant="muted">{p}</Badge>)}
+            {produtos.map((p) => <Badge key={p} variant="accent">{p}</Badge>)}
           </div>
         </div>
         {c.monitor
@@ -50,7 +62,11 @@ export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, his
       </div>
 
       {relogios && relogios.length > 0 ? (
-        <div className="acao-card-info is-stack">
+        <div
+          className="acao-card-info is-stack"
+          style={temContatoRecente ? { border: '1px solid var(--accent)', borderRadius: 8, padding: '0.5rem 0.6rem' } : undefined}
+          title={temContatoRecente ? `Contato mais recente: ${rotuloData(ultimoContato!)}` : undefined}
+        >
           {relogios.map((r) => (
             <span key={r.servico} className="acao-clock">
               <span className={`acao-dot ${CLASSE_DOT[r.status]}`} />

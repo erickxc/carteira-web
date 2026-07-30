@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   addDays, addMonths, addWeeks, differenceInCalendarDays, eachDayOfInterval, endOfMonth, endOfWeek,
@@ -114,16 +114,45 @@ export default function AgendaPage() {
 
   // "Próximas reuniões" = só eventos do tipo Reunião. Contato/Relatório são
   // eventos de agenda (aparecem no calendário) mas não são reunião, então não
-  // entram nesta lista. Match por palavra-chave (tipos são editáveis).
+  // entram nesta lista. Match por palavra-chave (tipos são editáveis). Exclui
+  // Cancelado/Concluído (a pedido do usuário, literalmente só esses 2 — não
+  // Realizado/Reagendado, que continuam aparecendo).
   const proximos = useMemo(
     () => agendaFiltrada
       .filter((a) => /reuni/i.test(a.type))
+      .filter((a) => !/cancel|conclu/i.test(a.status || ''))
       .filter((a) => differenceInCalendarDays(parseISO(a.date), hoje) >= 0)
       .sort((a, b) => (parseISO(a.date).getTime() - parseISO(b.date).getTime()) || ordenaPorHora(a, b))
       .slice(0, 10),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [agendaFiltrada]
   );
+
+  // Ticker "Próximas reuniões": só anima quando o conteúdo realmente não cabe
+  // na largura visível — com poucos itens, a "costura" do loop (fim da lista
+  // voltando pro início) aparecia toda hora, parecendo fora de ordem e rápido
+  // demais. A duração passa a ser calculada pela largura real do conteúdo (px),
+  // não pela quantidade de itens — velocidade de leitura constante (px/s).
+  const tickerRef = useRef<HTMLDivElement>(null);
+  const tickerTrackRef = useRef<HTMLDivElement>(null);
+  const [tickerAnim, setTickerAnim] = useState<{ animar: boolean; duracao: number }>({ animar: false, duracao: 35 });
+  const PX_POR_SEGUNDO_TICKER = 55;
+
+  useEffect(() => {
+    function medir() {
+      const container = tickerRef.current;
+      const track = tickerTrackRef.current;
+      if (!container || !track) return;
+      // O track sempre contém a lista duplicada (loop sem emenda) — a largura
+      // de uma cópia é metade do scrollWidth total.
+      const largura = track.scrollWidth / 2;
+      const cabe = largura <= container.clientWidth;
+      setTickerAnim({ animar: !cabe, duracao: Math.max(18, largura / PX_POR_SEGUNDO_TICKER) });
+    }
+    medir();
+    window.addEventListener('resize', medir);
+    return () => window.removeEventListener('resize', medir);
+  }, [proximos]);
 
   const monthDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentMonth));
@@ -181,9 +210,13 @@ export default function AgendaPage() {
         {proximos.length === 0 ? (
           <Card flat><div className="empty-state">Nenhuma reunião futura.</div></Card>
         ) : (
-          <div className="agenda-ticker">
-            {/* lista duplicada = loop sem emenda; velocidade proporcional à quantidade */}
-            <div className="agenda-ticker-track" style={{ animationDuration: `${Math.max(35, proximos.length * 9)}s` }}>
+          <div className="agenda-ticker" ref={tickerRef}>
+            {/* lista sempre duplicada (loop sem emenda), mas só anima quando não cabe na largura visível */}
+            <div
+              className="agenda-ticker-track"
+              ref={tickerTrackRef}
+              style={tickerAnim.animar ? { animationDuration: `${tickerAnim.duracao}s` } : { animation: 'none' }}
+            >
               {[...proximos, ...proximos].map((ev, i) => {
                 const d = parseISO(ev.date);
                 return (
