@@ -26,6 +26,11 @@ export function CoberturaCard({ total, cobertos, semContato, pct, mesAno, cobert
       <p className="text-text-muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 12, lineHeight: 1.4, minHeight: '2.8em' }}>
         Clientes com <strong>ao menos 1 reunião ou relatório</strong> nos últimos 2 meses vs. <strong>sem contato</strong>.
       </p>
+      {/* Spacer invisível: "Carteira no Ritmo" tem uma linha de filtros
+          (Geral/Monitoria/Price) aqui que este card não tem — sem reservar o
+          mesmo espaço, o donut e o botão "Ver clientes" ficam desalinhados
+          entre os dois cards, mesmo os dois tendo a mesma altura total. */}
+      <div className="gauge-card-filtros mb-4" aria-hidden="true" />
       {total === 0 ? (
         <div className="empty-state">Nenhum cliente ativo.</div>
       ) : (

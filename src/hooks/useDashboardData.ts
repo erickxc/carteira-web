@@ -8,7 +8,7 @@ import { useCarteira } from '../context/CarteiraContext';
 import { usePersistedState } from './usePersistedState';
 import { isStatusAtivo } from '../utils/formatters';
 import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
-import { buildFilaCadencia, type ServicoCad } from '../utils/cadenciaServico';
+import { buildFilaCadencia, buildVencendoDashboard, type ServicoCad } from '../utils/cadenciaServico';
 import type { Cliente, EventoAgenda } from '../types';
 
 const FOLLOW_UP_THRESHOLD_DAYS = 30;
@@ -24,6 +24,7 @@ export function useDashboardData() {
   const [filtroMonitor, setFiltroMonitor] = usePersistedState<string>('filtro:dash:monitor', 'Todos');
   const [filtroTipoEvento, setFiltroTipoEvento] = usePersistedState<string>('filtro:dash:tipoEvento', 'Todos');
   const [filtroServicoAderencia, setFiltroServicoAderencia] = usePersistedState<ServicoCad | 'Todos'>('filtro:dash:servicoAderencia', 'Todos');
+  const [filtroServicoVencendo, setFiltroServicoVencendo] = usePersistedState<ServicoCad | 'Todos'>('filtro:dash:servicoVencendo', 'Todos');
 
   const hoje = new Date();
   const [mes, setMes] = useState(hoje.getMonth());
@@ -251,6 +252,34 @@ export function useDashboardData() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativos, agenda, acoes, cadencias, filtroServicoAderencia]);
 
+  // --- Vencendo (próx. 7 dias): Monitoria, Precificação ou Relatório perto do
+  // prazo, sem cobertura já marcada — cálculo próprio (buildVencendoDashboard),
+  // não usa buildFilaCadencia (esse card inclui Relatório pra todo cliente
+  // ativo, o que mudaria a fila de Ações se fosse o mesmo cálculo).
+  const vencendo = useMemo(() => {
+    const fila = buildVencendoDashboard(ativos, agenda, cadencias, hoje);
+    const nomes = (arr: typeof fila) => arr.map((f) => f.cliente.empresa).sort((a, b) => a.localeCompare(b));
+
+    const relevantes = filtroServicoVencendo === 'Todos'
+      ? fila
+      : fila.filter((f) => f.relogios.some((r) => r.servico === filtroServicoVencendo));
+
+    function relogiosRelevantes(f: (typeof fila)[number]) {
+      return filtroServicoVencendo === 'Todos'
+        ? f.relogios
+        : f.relogios.filter((r) => r.servico === filtroServicoVencendo);
+    }
+
+    const total = relevantes.length;
+    const estaoVencendo = relevantes.filter((f) => relogiosRelevantes(f).some((r) => r.status === 'vencendo'));
+    const resto = relevantes.filter((f) => !relogiosRelevantes(f).some((r) => r.status === 'vencendo'));
+    const vencendoClientes = nomes(estaoVencendo);
+    const restoClientes = nomes(resto);
+    const pct = total > 0 ? Math.round((vencendoClientes.length / total) * 100) : 0;
+    return { total, vencendo: vencendoClientes.length, resto: restoClientes.length, pct, vencendoClientes, restoClientes };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativos, agenda, cadencias, filtroServicoVencendo]);
+
   // --- Próximas agendas (forward-looking) ---
   const tiposDisponiveis = useMemo(() => ['Todos', ...new Set(agendaAtiva.map((a) => a.type).filter(Boolean))], [agendaAtiva]);
   const proximos = useMemo(() =>
@@ -294,6 +323,7 @@ export function useDashboardData() {
     linhaPorMes, linhaHighlight,
     // cards
     servicosDist, totalAtendidos, cobertura, aderencia,
+    vencendo, filtroServicoVencendo, setFiltroServicoVencendo,
     tiposDisponiveis, proximos,
     alertas, alertasProgramados,
     followUpThresholdDays: FOLLOW_UP_THRESHOLD_DAYS,

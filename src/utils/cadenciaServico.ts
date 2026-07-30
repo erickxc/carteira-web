@@ -1,9 +1,9 @@
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { isStatusAtivo } from './formatters';
 import { buildUltimaInteracaoMap } from './ultimaInteracao';
-import type { Acao, Cadencias, Cliente, EventoAgenda } from '../types';
+import type { Acao, Cadencias, Cliente, EventoAgenda, RelatorioCadencia } from '../types';
 
-export type ServicoCad = 'Monitoria' | 'Price';
+export type ServicoCad = 'Monitoria' | 'Price' | 'Relatório';
 export type CadStatus = 'coberto' | 'em_dia' | 'vencendo' | 'vencido' | 'nunca';
 
 export interface RelogioServico {
@@ -57,13 +57,38 @@ function ehToquePrice(a: EventoAgenda): boolean {
   return (a.servicos ?? []).some((x) => /(price|prec)/i.test(x));
 }
 
+// Zera o relógio de RELATÓRIO (histórico): qualquer evento tipo Relatório —
+// diferente de Monitoria/Price, não depende de tag de serviço (o tipo já basta).
+function ehToqueRelatorio(a: EventoAgenda): boolean {
+  return /relat/i.test(a.type || '');
+}
+
+/** Converte a cadência de relatório do cliente (número + unidade) pra um
+ * equivalente em dias, pro mesmo cálculo de relógio usado por Monitoria/Price.
+ * Sem cadência configurada manualmente, cai no padrão global (`relatorio_dias`)
+ * — "calcula pela config padrão a não ser que o usuário mude manualmente". */
+function relatorioCadenciaEmDias(rc: RelatorioCadencia | undefined, fallbackDias: number): number {
+  if (!rc || !rc.numero || !rc.unidade) return fallbackDias;
+  const n = rc.numero;
+  switch (rc.unidade) {
+    case 'dia': return n;
+    case 'semana': return n * 7;
+    case 'mes': return n * 30;
+    case 'trimestre': return n * 90;
+    case 'semestre': return n * 180;
+    case 'personalizado': return n * 7;
+    default: return fallbackDias;
+  }
+}
+
 function calcularRelogio(
   servico: ServicoCad,
   eventos: EventoAgenda[],
   ehToque: (a: EventoAgenda) => boolean,
   cadencia: number,
   now: Date,
-  proximoGeral: Date | null
+  proximoGeral: Date | null,
+  janelaVencendo: number = JANELA_VENCENDO
 ): RelogioServico {
   // "Último" = histórico real do serviço (só o que de fato tratou aquele serviço).
   let ultimo: Date | null = null;
@@ -86,7 +111,7 @@ function calcularRelogio(
     atrasoReal = PESO_NUNCA;
   } else {
     atrasoReal = differenceInCalendarDays(now, ultimo) - cadencia;
-    statusReal = atrasoReal > 0 ? 'vencido' : atrasoReal > -JANELA_VENCENDO ? 'vencendo' : 'em_dia';
+    statusReal = atrasoReal > 0 ? 'vencido' : atrasoReal > -janelaVencendo ? 'vencendo' : 'em_dia';
   }
 
   // Status "operacional" — agendamento futuro cobre o relógio (usado pela
@@ -171,11 +196,75 @@ export function buildFilaCadencia(
     const rankA = RANK_SEVERIDADE[classificarCadencia(a)];
     const rankB = RANK_SEVERIDADE[classificarCadencia(b)];
     if (rankA !== rankB) return rankA - rankB;
-    const recA = contatoRecenteNaoRefletido(a.relogios, ultimaInteracaoMap.get(a.cliente.id) ?? null);
-    const recB = contatoRecenteNaoRefletido(b.relogios, ultimaInteracaoMap.get(b.cliente.id) ?? null);
+    const ultimoA = ultimaInteracaoMap.get(a.cliente.id) ?? null;
+    const ultimoB = ultimaInteracaoMap.get(b.cliente.id) ?? null;
+    const recA = contatoRecenteNaoRefletido(a.relogios, ultimoA);
+    const recB = contatoRecenteNaoRefletido(b.relogios, ultimoB);
     if (recA !== recB) return recA ? 1 : -1;
+    // Dentro do mesmo bloco "tem contato recente": compara a data mais recente
+    // de cada cliente (posição [0] depois de ordenar) direto entre os dois —
+    // quem foi contatado há mais tempo fica primeiro, quem acabou de ser
+    // contatado agora vai pro fim. Sem contato recente: mantém o score de
+    // cadência (atraso), que já reflete a urgência real.
+    if (recA && recB) return (ultimoA?.getTime() ?? 0) - (ultimoB?.getTime() ?? 0);
     return b.score - a.score;
   });
+}
+
+export interface VencendoDashboardItem {
+  cliente: Cliente;
+  relogios: RelogioServico[];
+}
+
+/**
+ * Cálculo PRÓPRIO pro card "Vencendo" do Dashboard — não estende
+ * `buildFilaCadencia` de propósito: ali só entram clientes com Monitoria ou
+ * Price cadastrado; se Relatório virasse um relógio ali, TODO cliente ativo
+ * passaria a aparecer na fila de Ações (efeito colateral não pedido). Aqui,
+ * todo cliente ativo (fora Marco) sempre ganha um relógio de Relatório (pela
+ * cadência configurada, ou o padrão global), além de Monitoria/Price quando
+ * aplicável. Janela de "vencendo" própria (7 dias), separada da usada em
+ * Ações (`JANELA_VENCENDO` = 5, inalterada).
+ */
+export function buildVencendoDashboard(
+  clientes: Cliente[],
+  agenda: EventoAgenda[],
+  cadencias: Cadencias,
+  now: Date = new Date(),
+  janelaVencendo = 7
+): VencendoDashboardItem[] {
+  const monDias = Number(cadencias?.monitoria_dias) || 30;
+  const priceDias = Number(cadencias?.price_dias) || 30;
+  const relatorioDiasPadrao = Number(cadencias?.relatorio_dias) || 45;
+
+  const porCliente = new Map<string, EventoAgenda[]>();
+  agenda.forEach((a) => {
+    if (!porCliente.has(a.clientId)) porCliente.set(a.clientId, []);
+    porCliente.get(a.clientId)!.push(a);
+  });
+
+  const out: VencendoDashboardItem[] = [];
+  for (const c of clientes) {
+    if (!isStatusAtivo(c.status) || c.atendidoMarco) continue;
+    const evs = porCliente.get(c.id) ?? [];
+
+    let proximoGeral: Date | null = null;
+    for (const a of evs) {
+      if (!naoCancelado(a)) continue;
+      const d = parseISO(a.date);
+      if (isNaN(d.getTime()) || d <= now) continue;
+      if (!proximoGeral || d < proximoGeral) proximoGeral = d;
+    }
+
+    const relogios: RelogioServico[] = [];
+    if (temServico(c, /monitor/i, 'monitoria')) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, proximoGeral, janelaVencendo));
+    if (temServico(c, /(price|prec)/i, 'price')) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now, proximoGeral, janelaVencendo));
+    const relatorioDias = relatorioCadenciaEmDias(c.relatorioCadencia, relatorioDiasPadrao);
+    relogios.push(calcularRelogio('Relatório', evs, ehToqueRelatorio, relatorioDias, now, proximoGeral, janelaVencendo));
+
+    out.push({ cliente: c, relogios });
+  }
+  return out;
 }
 
 export type ClassificacaoCadencia = 'vencido' | 'vencendo' | 'em_dia';

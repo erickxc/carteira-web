@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { addDays, addMonths, addWeeks, format, setHours, setMilliseconds, setMinutes, setSeconds, startOfDay } from 'date-fns';
-import { Bell, X } from 'lucide-react';
+import { Bell, BellOff, User, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { previousBusinessDay } from '../utils/holidays';
 import { prepararSom, tocarSomNotificacao } from '../utils/som';
-import { Button, Card } from '../ui';
+import { Badge, Button, Card } from '../ui';
 import type { Lembrete, Recorrencia } from '../types';
 
 const CHECK_INTERVAL_MS = 20_000;
@@ -28,17 +29,41 @@ function nextOccurrence(originalDate: Date, recurrence: Recorrencia): Date | nul
 }
 
 export function ReminderPopup() {
-  const { lembretes, atualizarLembrete } = useCarteira();
+  const { lembretes, clientes, atualizarLembrete } = useCarteira();
+  const navigate = useNavigate();
   const [queue, setQueue] = useState<Lembrete[]>([]);
   const firingRef = useRef<Set<string>>(new Set());
+  // Sem isso, um lembrete disparado enquanto a permissão do navegador não está
+  // concedida passa 100% despercebido: só o toast pequeno aparece, sem som
+  // (autoplay bloqueado) nem notificação nativa — já foi relatado como "os
+  // lembretes não estão alertando". O banner deixa esse estado visível.
+  const [permissaoNotificacao, setPermissaoNotificacao] = useState<NotificationPermission | 'indisponivel'>(
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'indisponivel'
+  );
+  const semPermissao = permissaoNotificacao === 'default' || permissaoNotificacao === 'denied';
+
+  // O banner é `position: fixed` no topo (precisa ficar visível mesmo rolando
+  // a página) — sem isso, empurraria o conteúdo pra baixo sozinho. Em vez
+  // disso, reserva o espaço via classe no <body>, que o CSS usa pra dar
+  // padding-top no app-shell inteiro — sem essa classe, o banner ficava por
+  // cima do botão "Agenda"/tema no canto superior direito.
+  useEffect(() => {
+    document.body.classList.toggle('has-permission-banner', semPermissao);
+    return () => document.body.classList.remove('has-permission-banner');
+  }, [semPermissao]);
 
   useEffect(() => {
     prepararSom(); // destrava o áudio na primeira interação do usuário
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     if (Notification.permission === 'default') {
-      Notification.requestPermission();
+      Notification.requestPermission().then(setPermissaoNotificacao);
     }
   }, []);
+
+  function pedirPermissaoNotificacao() {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    Notification.requestPermission().then(setPermissaoNotificacao);
+  }
 
   useEffect(() => {
     function checkReminders() {
@@ -80,11 +105,34 @@ export function ReminderPopup() {
     setQueue((prev) => prev.filter((r) => r.id !== id));
   }
 
-  if (queue.length === 0) return null;
+  function verCliente(reminder: Lembrete) {
+    if (!reminder.clientId) return;
+    navigate(`/clientes/${reminder.clientId}`);
+    dismiss(reminder.id);
+  }
+
+  if (queue.length === 0 && !semPermissao) return null;
 
   return (
-    <div className="reminder-toast-stack">
-      {queue.map((reminder) => (
+    <>
+      {semPermissao && (
+        <div className="reminder-permission-banner">
+          <BellOff size={15} />
+          <span>
+            {permissaoNotificacao === 'denied'
+              ? <><strong>Notificações bloqueadas</strong> neste navegador — ative manualmente nas configurações do site pra não perder lembretes, ligações e reuniões.</>
+              : <>Ative as <strong>notificações</strong> pra não perder lembretes, ligações e reuniões agendadas.</>}
+          </span>
+          {permissaoNotificacao === 'default' && (
+            <Button variant="primary" onClick={pedirPermissaoNotificacao} style={{ padding: '0.3rem 0.8rem' }}>Ativar</Button>
+          )}
+        </div>
+      )}
+      {queue.length > 0 && (
+      <div className="reminder-toast-stack">
+      {queue.map((reminder) => {
+        const clienteNome = reminder.clientId ? clientes.find((c) => c.id === reminder.clientId)?.empresa : undefined;
+        return (
         <Card key={reminder.id} className="reminder-toast">
           <div className="flex-between">
             <span className="flex-row">
@@ -95,6 +143,12 @@ export function ReminderPopup() {
               <X size={14} />
             </Button>
           </div>
+          {(clienteNome || reminder.type) && (
+            <div className="flex-row" style={{ marginTop: 8, flexWrap: 'wrap', gap: 6 }}>
+              {clienteNome && <Badge variant="accent">{clienteNome}</Badge>}
+              {reminder.type && <Badge variant="muted">{reminder.type}</Badge>}
+            </div>
+          )}
           {reminder.description && (
             <p className="text-text-muted" style={{ fontSize: 13, marginTop: 8, marginBottom: 4 }}>
               {reminder.description}
@@ -103,8 +157,16 @@ export function ReminderPopup() {
           <span className="text-text-muted" style={{ fontSize: 12 }}>
             {format(new Date(reminder.datetime), 'dd/MM/yyyy HH:mm')}
           </span>
+          {clienteNome && (
+            <Button variant="secondary" onClick={() => verCliente(reminder)} style={{ width: '100%', marginTop: 10, justifyContent: 'center' }}>
+              <User size={14} /> Ver cliente
+            </Button>
+          )}
         </Card>
-      ))}
-    </div>
+        );
+      })}
+      </div>
+      )}
+    </>
   );
 }

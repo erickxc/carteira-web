@@ -8,6 +8,7 @@ import { StatCard } from '../components/StatCard';
 import { Dropdown } from '../components/Dropdown';
 import { CoberturaCard } from '../components/dashboard/CoberturaCard';
 import { AderenciaCard } from '../components/dashboard/AderenciaCard';
+import { VencendoCard } from '../components/dashboard/VencendoCard';
 import { ServicosCard } from '../components/dashboard/ServicosCard';
 import { ProximasAgendasCard } from '../components/dashboard/ProximasAgendasCard';
 import { AlertasSemAcompanhamentoCard } from '../components/dashboard/AlertasSemAcompanhamentoCard';
@@ -119,6 +120,16 @@ export default function DashboardPage() {
           mesAno={`${MESES[d.mes].slice(0, 3)}/${d.ano}`}
           cobertosClientes={d.cobertura.cobertosClientes}
           semContatoClientes={d.cobertura.semContatoClientes}
+        />
+        <VencendoCard
+          total={d.vencendo.total}
+          vencendo={d.vencendo.vencendo}
+          resto={d.vencendo.resto}
+          pct={d.vencendo.pct}
+          vencendoClientes={d.vencendo.vencendoClientes}
+          restoClientes={d.vencendo.restoClientes}
+          filtroServico={d.filtroServicoVencendo}
+          onFiltroServico={d.setFiltroServicoVencendo}
         />
       </div>
 

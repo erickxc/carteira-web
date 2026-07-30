@@ -128,14 +128,15 @@ export default function AgendaPage() {
     [agendaFiltrada]
   );
 
-  // Ticker "Próximas reuniões": só anima quando o conteúdo realmente não cabe
-  // na largura visível — com poucos itens, a "costura" do loop (fim da lista
-  // voltando pro início) aparecia toda hora, parecendo fora de ordem e rápido
-  // demais. A duração passa a ser calculada pela largura real do conteúdo (px),
-  // não pela quantidade de itens — velocidade de leitura constante (px/s).
+  // Ticker "Próximas reuniões": sempre anima (rola continuamente, mesmo quando
+  // a lista cabe inteira na largura visível — sinaliza que a tela está "viva").
+  // A duração é calculada pela largura real do conteúdo (px), não pela
+  // quantidade de itens — velocidade de leitura constante (px/s) mesmo com
+  // poucos ou muitos itens, em vez da fórmula antiga que deixava listas curtas
+  // rápidas/com a "costura" do loop muito visível.
   const tickerRef = useRef<HTMLDivElement>(null);
   const tickerTrackRef = useRef<HTMLDivElement>(null);
-  const [tickerAnim, setTickerAnim] = useState<{ animar: boolean; duracao: number }>({ animar: false, duracao: 35 });
+  const [duracaoTicker, setDuracaoTicker] = useState(35);
   const PX_POR_SEGUNDO_TICKER = 55;
 
   useEffect(() => {
@@ -146,8 +147,7 @@ export default function AgendaPage() {
       // O track sempre contém a lista duplicada (loop sem emenda) — a largura
       // de uma cópia é metade do scrollWidth total.
       const largura = track.scrollWidth / 2;
-      const cabe = largura <= container.clientWidth;
-      setTickerAnim({ animar: !cabe, duracao: Math.max(18, largura / PX_POR_SEGUNDO_TICKER) });
+      setDuracaoTicker(Math.max(18, largura / PX_POR_SEGUNDO_TICKER));
     }
     medir();
     window.addEventListener('resize', medir);
@@ -215,7 +215,7 @@ export default function AgendaPage() {
             <div
               className="agenda-ticker-track"
               ref={tickerTrackRef}
-              style={tickerAnim.animar ? { animationDuration: `${tickerAnim.duracao}s` } : { animation: 'none' }}
+              style={{ animationDuration: `${duracaoTicker}s` }}
             >
               {[...proximos, ...proximos].map((ev, i) => {
                 const d = parseISO(ev.date);

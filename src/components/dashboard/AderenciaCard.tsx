@@ -38,7 +38,7 @@ export function AderenciaCard({ total, emDia, agendaMarcada, precisa, pct, emDia
       <p className="text-text-muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 12, lineHeight: 1.4, minHeight: '2.8em' }}>
         Clientes com Monitoria/Price <strong>em dia</strong>, <strong>com agenda marcada</strong> ou <strong>atrasados</strong> na cadência.
       </p>
-      <div className="flex flex-wrap gap-[0.4rem] mb-4">
+      <div className="gauge-card-filtros flex flex-wrap gap-[0.4rem] mb-4">
         {SERVICOS.map((s) => (
           <Chip key={s} active={filtroServico === s} onClick={() => onFiltroServico(s)}>{s === 'Todos' ? 'Geral' : s}</Chip>
         ))}

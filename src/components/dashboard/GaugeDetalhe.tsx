@@ -10,7 +10,11 @@ export interface GaugeGrupo {
 export function GaugeDetalhe({ grupos, aberto }: { grupos: GaugeGrupo[]; aberto: boolean }) {
   return (
     <div className={`gauge-detalhe${aberto ? ' is-open' : ''}`}>
-      <div className="gauge-detalhe-grid">
+      {/* Colunas em número fixo (não auto-fit): cada card tem uma quantidade
+          diferente de grupos (2 ou 3) — com auto-fit, cada card reflui sozinho
+          em larguras diferentes, fazendo as colunas de cards vizinhos (mesma
+          largura de card) ficarem com tamanhos visivelmente diferentes. */}
+      <div className="gauge-detalhe-grid" style={{ gridTemplateColumns: `repeat(${grupos.length}, 1fr)` }}>
         {grupos.map((g) => (
           <div key={g.label} className="gauge-detalhe-col">
             <span className="gauge-detalhe-titulo">

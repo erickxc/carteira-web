@@ -324,6 +324,12 @@ a { color: inherit; }
    align-items:stretch na row (dash-gauges) de propósito: isso faria o card
    vizinho esticar junto quando só um é expandido via "Ver clientes". */
 .cobertura-card { padding: 1rem 1.1rem; display: flex; flex-direction: column; justify-content: flex-start; min-height: 285px; }
+/* Linha de filtros (Geral/Monitoria/Price) só existe em "Carteira no Ritmo" —
+   sem essa altura reservada em "Cobertura da Carteira" (via spacer vazio com
+   a mesma classe), o donut/toggle de cada card ficava em alturas diferentes
+   mesmo com o card no mesmo min-height (o min-height só afeta o espaço
+   sobrando no FIM do card, não alinha o que vem antes). */
+.gauge-card-filtros { min-height: 27px; }
 .cobertura-card .section-header { margin-bottom: 0.6rem; }
 .cobertura-card .donut-wrap { gap: 1.25rem; }
 .cobertura-card .donut-legend li { font-size: 0.8rem; }
@@ -748,6 +754,19 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
    --------------------------------------------------------------------------- */
 
 .reminder-toast-stack { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 12px; z-index: 2000; }
+/* Banner de permissão de notificação: fixo no topo, sempre visível enquanto a
+   permissão não estiver concedida — sem isso, lembretes disparam sem som
+   (autoplay bloqueado) nem notificação nativa e ninguém percebe. */
+.reminder-permission-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 2100;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 8px 16px; background: var(--warning-bg); border-bottom: 1px solid var(--warning);
+  font-size: 0.82rem; color: var(--text-primary); flex-wrap: wrap; text-align: center;
+}
+.reminder-permission-banner strong { color: var(--warning); }
+/* Reserva o espaço do banner fixo — sem isso ele ficava por cima do cabeçalho
+   (botão Agenda/tema) no canto superior direito do app-shell. */
+body.has-permission-banner .app-shell { padding-top: 36px; }
 .reminder-toast { width: 320px; box-shadow: var(--shadow-md); }
 .reminder-toast.toast-error { border-color: var(--danger); }
 .reminder-toast.toast-success { border-color: var(--success); }

@@ -10,16 +10,20 @@ import { Button, Card, Th, Td } from '../ui';
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const PREVIEW = 100;
 
-/** Módulo Relatórios — filtra os eventos da agenda (reuniões feitas etc.) por
- * período/tipo/serviço/monitor/status e exporta para Excel (.xlsx). */
+/** Módulo Relatórios — filtra os eventos de agenda do tipo Relatório (só esse
+ * tipo — Reunião/Contato/Ligação não entram aqui, mesmo que o usuário edite as
+ * categorias) por período/serviço/monitor/status e exporta para Excel (.xlsx). */
 export default function RelatoriosPage() {
   const { agenda } = useCarteira();
   const anoAtual = new Date().getFullYear();
   const mesAtual = new Date().getMonth();
 
+  // Restrito a Relatório na origem — mesmo padrão de match por palavra-chave
+  // usado em outros lugares do app (tipos vêm de categorias editáveis).
+  const relatorios = useMemo(() => agenda.filter((e) => /relat/i.test(e.type || '')), [agenda]);
+
   const [ano, setAno] = useState(anoAtual);
   const [mes, setMes] = useState<string>(String(mesAtual)); // 'todos' = ano inteiro
-  const [fTipos, setFTipos] = useState<string[]>([]);
   const [fServicos, setFServicos] = useState<string[]>([]);
   const [fMonitores, setFMonitores] = useState<string[]>([]);
   const [fStatus, setFStatus] = useState<string[]>([]);
@@ -27,37 +31,35 @@ export default function RelatoriosPage() {
 
   const anos = useMemo(() => {
     const s = new Set<number>([anoAtual]);
-    agenda.forEach((e) => { const d = parseISO(e.date); if (!isNaN(d.getTime())) s.add(d.getFullYear()); });
+    relatorios.forEach((e) => { const d = parseISO(e.date); if (!isNaN(d.getTime())) s.add(d.getFullYear()); });
     return [...s].sort((a, b) => b - a);
-  }, [agenda, anoAtual]);
+  }, [relatorios, anoAtual]);
 
   const opcoes = useMemo(() => {
-    const tipos = new Set<string>(), servicos = new Set<string>(), monitores = new Set<string>(), status = new Set<string>();
-    agenda.forEach((e) => {
-      if (e.type) tipos.add(e.type);
+    const servicos = new Set<string>(), monitores = new Set<string>(), status = new Set<string>();
+    relatorios.forEach((e) => {
       (e.servicos ?? []).forEach((s) => servicos.add(s));
       if (e.monitor) monitores.add(e.monitor);
       if (e.status) status.add(e.status);
     });
     const ord = (set: Set<string>) => [...set].sort();
-    return { tipos: ord(tipos), servicos: ord(servicos), monitores: ord(monitores), status: ord(status) };
-  }, [agenda]);
+    return { servicos: ord(servicos), monitores: ord(monitores), status: ord(status) };
+  }, [relatorios]);
 
   const filtrados = useMemo(() => {
-    return agenda
+    return relatorios
       .filter((e) => {
         const d = parseISO(e.date);
         if (isNaN(d.getTime())) return false;
         if (d.getFullYear() !== ano) return false;
         if (mes !== 'todos' && d.getMonth() !== Number(mes)) return false;
-        if (fTipos.length && !fTipos.includes(e.type)) return false;
         if (fStatus.length && !fStatus.includes(e.status)) return false;
         if (fMonitores.length && !fMonitores.includes(e.monitor || '')) return false;
         if (fServicos.length && !(e.servicos ?? []).some((s) => fServicos.includes(s))) return false;
         return true;
       })
       .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
-  }, [agenda, ano, mes, fTipos, fServicos, fMonitores, fStatus]);
+  }, [relatorios, ano, mes, fServicos, fMonitores, fStatus]);
 
   const periodoLabel = mes === 'todos' ? `${ano}` : `${MESES[Number(mes)]}/${ano}`;
 
@@ -95,7 +97,7 @@ export default function RelatoriosPage() {
       <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 className="page-title">Relatórios</h1>
-          <p className="page-subtitle" style={{ margin: 0 }}>Exporte reuniões e eventos para Excel, filtrando por período, tipo, serviço, monitor e status.</p>
+          <p className="page-subtitle" style={{ margin: 0 }}>Exporte relatórios para Excel, filtrando por período, serviço, monitor e status.</p>
         </div>
         <Button variant="primary" onClick={exportar} disabled={exportando || filtrados.length === 0} style={{ fontSize: '0.95rem', padding: '0.7rem 1.4rem', fontWeight: 600 }}>
           <Download size={18} /> {exportando ? 'Gerando...' : `Exportar Excel (${filtrados.length})`}
@@ -106,7 +108,6 @@ export default function RelatoriosPage() {
         <div className="filter-grid">
           <Dropdown label="Mês" options={[{ value: 'todos', label: 'Ano inteiro' }, ...MESES.map((m, i) => ({ value: String(i), label: m }))]} value={mes} onChange={(v) => setMes(v as string)} />
           <Dropdown label="Ano" options={anos.map((a) => ({ value: String(a), label: String(a) }))} value={String(ano)} onChange={(v) => setAno(Number(v))} />
-          <Dropdown label="Tipo" multiple options={opcoes.tipos.map((t) => ({ value: t, label: t }))} value={fTipos} onChange={(v) => setFTipos(v as string[])} />
           <Dropdown label="Serviço" multiple options={opcoes.servicos.map((s) => ({ value: s, label: s }))} value={fServicos} onChange={(v) => setFServicos(v as string[])} />
           <Dropdown label="Monitor" multiple options={opcoes.monitores.map((m) => ({ value: m, label: m }))} value={fMonitores} onChange={(v) => setFMonitores(v as string[])} />
           <Dropdown label="Status" multiple options={opcoes.status.map((s) => ({ value: s, label: s }))} value={fStatus} onChange={(v) => setFStatus(v as string[])} />
@@ -121,7 +122,7 @@ export default function RelatoriosPage() {
         {filtrados.length === 0 ? (
           <div className="empty-state" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
             <FileSpreadsheet size={26} className="text-text-muted" />
-            Nenhum evento no período/filtros escolhidos.
+            Nenhum relatório no período/filtros escolhidos.
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
