@@ -16,14 +16,14 @@ Cards de cliente na fila (`cardDeFila` em `AcoesPage.tsx`, os que recebem `relog
 - Mapeamento de cor: `vencido` → `var(--danger)`, `vencendo` → `var(--warning)`, `em_dia` → sem cor especial (borda padrão do card, como hoje).
 - Cards sem `relogios` (grupo "Atendidos pelo Marco") não recebem essa borda — não participam do modelo de cadência.
 
-## 2. Linha "contato recente" — resolve o problema central
+## 2. Borda no bloco do relógio — resolve o problema central
 
-Dentro do bloco de relógios do `CardCliente` (branch `relogios && relogios.length > 0`), adicionar uma linha nova **abaixo** dos relógios, mostrada **só quando** o contato mais recente do cliente (`ultimoContato`, que já inclui Ações tipo "Contato" registradas — `buildUltimaInteracaoMap`) for mais recente que o último toque contado por QUALQUER relógio de serviço (`Math.max(...relogios.map(r => r.ultimo))`).
+Dentro do `CardCliente` (branch `relogios && relogios.length > 0`), o bloco que contém as linhas de relógio (`Monitoria: nunca atendido` etc. — hoje `<div className="acao-card-info is-stack">`) ganha uma **borda ao redor (4 lados) na cor accent/dourada** quando o contato mais recente do cliente (`ultimoContato`, que já inclui Ações tipo "Contato" registradas — `buildUltimaInteracaoMap`) for mais recente que o último toque contado por QUALQUER relógio de serviço (`Math.max(...relogios.map(r => r.ultimo))`).
 
-Ou seja: só aparece quando existe uma interação real (o contato) que os relógios de Monitoria/Price não estão refletindo — exatamente o caso relatado.
+Ou seja: a borda só aparece quando existe uma interação real (o contato) que os relógios de Monitoria/Price não estão refletindo — exatamente o caso relatado. Sem texto novo, sem ícone — só a borda.
 
-- Texto: `✓ Contato feito {rotuloData(ultimoContato)}` (reaproveita `rotuloData` de `acoesHelpers.ts` — já formata "hoje"/"ontem"/"há N dias").
-- Estilo: tom neutro/secundário (`var(--text-secondary)`), **não** vermelho nem verde-sucesso-gritante — deliberadamente calmo, pra não competir com o alarme de severidade acima nem parecer que "resolveu" a pendência (a cadência de serviço continua vencida de fato; isso é só transparência de que alguém já agiu).
+- Cor: `var(--accent)` (dourado da marca) — neutra o suficiente pra não parecer "bom" (verde) nem "ruim" (vermelho), só sinaliza "houve ação recente aqui".
+- Essa borda é independente da borda esquerda de severidade do item 1 (posições diferentes — uma é do card inteiro, outra é só do bloco interno do relógio — não conflitam).
 - Não altera `classificarCadencia`, `buildFilaCadencia`, nem a seção em que o card aparece — comportamento 100% visual, conforme decidido.
 
 ## 3. Contraste dos badges de serviço (Monitoria/Price)
@@ -38,8 +38,8 @@ Troca `variant="muted"` → `variant="accent"` nos badges de produto dentro de `
 
 ## Testes (manual)
 
-1. Cliente "vencido" com um Contato registrado hoje → card mostra borda vermelha + linha "✓ Contato feito hoje" abaixo do relógio, card continua na seção Vencidos.
-2. Cliente "vencido" sem nenhum contato recente → sem a linha nova (comportamento atual preservado).
-3. Cliente "em dia" → sem borda especial, sem a linha (a menos que haja um contato mais recente que o próprio touch de Monitoria/Price, caso em que a linha pode aparecer mesmo em dia — comportamento aceitável, é só informativo).
+1. Cliente "vencido" com um Contato registrado hoje → card mostra borda esquerda vermelha (severidade) + borda dourada ao redor do bloco do relógio (contato recente), card continua na seção Vencidos.
+2. Cliente "vencido" sem nenhum contato recente → sem a borda dourada (comportamento atual preservado).
+3. Cliente "em dia" → sem borda de severidade especial, sem a borda dourada (a menos que haja um contato mais recente que o próprio touch de Monitoria/Price, caso em que a borda dourada pode aparecer mesmo em dia — comportamento aceitável, é só informativo).
 4. Grupo "Atendidos pelo Marco" → sem mudança nenhuma (sem `relogios`).
 5. Badges Monitoria/Price → visualmente mais destacados (dourado/accent) em vez de cinza apagado.
