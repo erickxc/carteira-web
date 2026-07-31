@@ -44,6 +44,9 @@ export default function AgendaPage() {
   const [fMonitores, setFMonitores] = usePersistedState<string[]>('filtro:agenda:monitores', []);
   // Padrão: só Reunião. Contatos/Relatórios aparecem ao marcá-los no filtro Tipo.
   const [fTipos, setFTipos] = usePersistedState<string[]>('filtro:agenda:tipos', ['Reunião']);
+  // Cancelado/Reagendado somem do calendário por padrão (evento morto, sem
+  // ocupar mais o horário) — toggle revela pra quem quiser ver o histórico.
+  const [mostrarCancelados, setMostrarCancelados] = usePersistedState('filtro:agenda:mostrarCancelados', false);
 
   const statusConcluido = useMemo(
     () => opcoesPorTipo('status_evento').find((s) => /conclu|realiz/i.test(s)) ?? 'Concluído',
@@ -66,8 +69,9 @@ export default function AgendaPage() {
   const agendaFiltrada = useMemo(
     () => agenda.filter((a) =>
       (fMonitores.length === 0 || fMonitores.includes(monitorPorCliente.get(a.clientId) || '')) &&
-      (fTipos.length === 0 || fTipos.includes(a.type))),
-    [agenda, fMonitores, fTipos, monitorPorCliente]
+      (fTipos.length === 0 || fTipos.includes(a.type)) &&
+      (mostrarCancelados || !/cancel|reagend/i.test(a.status || ''))),
+    [agenda, fMonitores, fTipos, mostrarCancelados, monitorPorCliente]
   );
 
 
@@ -266,6 +270,9 @@ export default function AgendaPage() {
             <div style={{ minWidth: 150 }}>
               <Dropdown label="Tipo" multiple options={tiposUnicos.map((t) => ({ value: t, label: t }))} value={fTipos} onChange={(v) => setFTipos(v as string[])} />
             </div>
+            <label className="check-row" style={{ fontSize: '0.85rem' }}>
+              <input type="checkbox" checked={mostrarCancelados} onChange={(e) => setMostrarCancelados(e.target.checked)} /> Mostrar cancelados
+            </label>
           </div>
           <div className="flex flex-wrap gap-3">
             {tiposUnicos.map((t) => (

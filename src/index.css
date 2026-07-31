@@ -688,6 +688,21 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .modal-body { padding: 1.35rem; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 0.9rem 1.35rem; border-top: 1px solid var(--border); background: var(--bg); }
 
+/* Scrollbar fina padrão do projeto (mesma usada em .vencendo-lista e
+   .gauge-detalhe-col ul) — sem isso o corpo do modal e o menu do Dropdown
+   caem na scrollbar grossa/branca padrão do navegador, destoando do resto. */
+.modal-body,
+.filter-pop {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.modal-body::-webkit-scrollbar,
+.filter-pop::-webkit-scrollbar { width: 4px; }
+.modal-body::-webkit-scrollbar-track,
+.filter-pop::-webkit-scrollbar-track { background: transparent; }
+.modal-body::-webkit-scrollbar-thumb,
+.filter-pop::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+
 /* ---------------------------------------------------------------------------
    Busca global (Ctrl+K)
    --------------------------------------------------------------------------- */
