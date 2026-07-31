@@ -253,11 +253,14 @@ export function useDashboardData() {
   }, [ativos, agenda, acoes, cadencias, filtroServicoAderencia]);
 
   // --- Vencendo (próx. 5 dias, mesma janela do resto do app): base em
-  // AÇÕES/ITENS AGENDADOS (Monitoria/Price/Relatório em dia, cobertos ou
-  // vencendo), não clientes — ex.: 10 ações agendadas, 4 vencem nos próx. 5
-  // dias = 40%. Quem JÁ VENCEU é desconsiderado por completo (nem entra no
-  // total) — esse card é só sobre o que ainda está no prazo mas fica apertado
-  // logo ali, não sobre atraso (isso já é "Precisa contato" no outro card).
+  // AÇÕES/ITENS AGENDADOS (Monitoria/Price/Relatório em dia ou vencendo), não
+  // clientes — ex.: 10 ações agendadas, 4 vencem nos próx. 5 dias = 40%. Quem
+  // JÁ VENCEU fica fora do total (esse card é só sobre o que ainda está no
+  // prazo, não sobre atraso — isso já é "Precisa contato" no outro card).
+  // "Nunca agendado" (relógio 'nunca' — nenhum toque real e sem cobertura
+  // nenhuma) fica FORA do total/% também, mas some numa coluna própria — antes
+  // era descartado calado, escondendo casos como "cliente nunca teve Price
+  // tratado" (validado contra dados reais).
   // Cálculo próprio (buildVencendoDashboard), não usa buildFilaCadencia (esse
   // card inclui Relatório pra todo cliente ativo, o que mudaria a fila de
   // Ações se fosse o mesmo cálculo).
@@ -269,24 +272,28 @@ export function useDashboardData() {
     // NÃO deduplica por nome (senão a contagem da lista expandida ficava
     // menor que o número do donut, que conta por item — já foi relatado como
     // números não batendo).
-    type ItemAgendado = { rotulo: string; vencendo: boolean };
-    const agendados: ItemAgendado[] = [];
+    type ItemAgendado = { rotulo: string; balde: 'vencendo' | 'em_dia' | 'nunca' };
+    const itens: ItemAgendado[] = [];
     for (const f of fila) {
       for (const r of f.relogios) {
         if (filtroServicoVencendo !== 'Todos' && r.servico !== filtroServicoVencendo) continue;
-        if (r.status === 'vencido' || r.status === 'nunca') continue; // desconsidera quem já venceu
-        agendados.push({ rotulo: `${f.cliente.empresa} · ${r.servico}`, vencendo: r.status === 'vencendo' });
+        if (r.status === 'vencido') continue; // atraso é assunto do outro card
+        const rotulo = `${f.cliente.empresa} · ${r.servico}`;
+        if (r.status === 'nunca') itens.push({ rotulo, balde: 'nunca' });
+        else itens.push({ rotulo, balde: r.status === 'vencendo' ? 'vencendo' : 'em_dia' });
       }
     }
-    const rotulos = (arr: ItemAgendado[]) => arr.map((p) => p.rotulo).sort((a, b) => a.localeCompare(b));
+    const rotulos = (balde: ItemAgendado['balde']) => itens.filter((p) => p.balde === balde).map((p) => p.rotulo).sort((a, b) => a.localeCompare(b));
 
+    const agendados = itens.filter((p) => p.balde !== 'nunca');
     const total = agendados.length;
-    const itensVencendo = agendados.filter((p) => p.vencendo);
-    const itensEmDia = agendados.filter((p) => !p.vencendo);
-    const pct = total > 0 ? Math.round((itensVencendo.length / total) * 100) : 0;
+    const nVencendo = itens.filter((p) => p.balde === 'vencendo').length;
+    const nEmDia = itens.filter((p) => p.balde === 'em_dia').length;
+    const nNuncaAgendado = itens.filter((p) => p.balde === 'nunca').length;
+    const pct = total > 0 ? Math.round((nVencendo / total) * 100) : 0;
     return {
-      total, vencendo: itensVencendo.length, emDia: itensEmDia.length, pct,
-      vencendoClientes: rotulos(itensVencendo), emDiaClientes: rotulos(itensEmDia),
+      total, vencendo: nVencendo, emDia: nEmDia, nuncaAgendado: nNuncaAgendado, pct,
+      vencendoClientes: rotulos('vencendo'), emDiaClientes: rotulos('em_dia'), nuncaAgendadoClientes: rotulos('nunca'),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativos, agenda, cadencias, filtroServicoVencendo]);

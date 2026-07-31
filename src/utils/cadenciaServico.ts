@@ -81,13 +81,30 @@ function relatorioCadenciaEmDias(rc: RelatorioCadencia | undefined, fallbackDias
   }
 }
 
+/** Próxima data (futura, não cancelada) que bate no MESMO critério `ehToque`
+ * usado pro histórico — ou seja, cobertura futura exige um evento do serviço
+ * CERTO, igual já valia pro "último". Antes qualquer evento futuro (de
+ * qualquer tipo/serviço) cobria TODOS os relógios do cliente — um cliente
+ * nunca atendido em Price aparecia "em dia"/"coberto" só por ter uma reunião
+ * de Monitoria marcada. Validado contra dados reais (ex.: Ramar Caxias·Price,
+ * Comkit·Monitoria — nunca tratados, mas apareciam cobertos por outro serviço). */
+function calcularProximoPorServico(eventos: EventoAgenda[], ehToque: (a: EventoAgenda) => boolean, now: Date): Date | null {
+  let proximo: Date | null = null;
+  for (const a of eventos) {
+    if (!naoCancelado(a) || !ehToque(a)) continue;
+    const d = parseISO(a.date);
+    if (isNaN(d.getTime()) || d <= now) continue;
+    if (!proximo || d < proximo) proximo = d;
+  }
+  return proximo;
+}
+
 function calcularRelogio(
   servico: ServicoCad,
   eventos: EventoAgenda[],
   ehToque: (a: EventoAgenda) => boolean,
   cadencia: number,
   now: Date,
-  proximoGeral: Date | null,
   janelaVencendo: number = JANELA_VENCENDO
 ): RelogioServico {
   // "Último" = histórico real do serviço (só o que de fato tratou aquele serviço).
@@ -98,10 +115,7 @@ function calcularRelogio(
     if (isNaN(d.getTime()) || d > now) continue;
     if (!ultimo || d > ultimo) ultimo = d;
   }
-  // "Próximo" = QUALQUER evento futuro do cliente (não cancelado), independente
-  // do tipo/serviço — criar um evento já sinaliza que o monitor está de olho
-  // nesse cliente, então cobre o relógio (não precisa ser reunião do serviço certo).
-  const proximo = proximoGeral;
+  const proximo = calcularProximoPorServico(eventos, ehToque, now);
 
   // Status "puro" pela cadência — ignora se já existe agendamento futuro.
   let statusReal: Exclude<CadStatus, 'coberto'>;
@@ -173,18 +187,9 @@ export function buildFilaCadencia(
     if (!isStatusAtivo(c.status) || c.atendidoMarco) continue;
     const evs = porCliente.get(c.id) ?? [];
 
-    // Qualquer evento futuro (não cancelado), de qualquer tipo, cobre o cliente.
-    let proximoGeral: Date | null = null;
-    for (const a of evs) {
-      if (!naoCancelado(a)) continue;
-      const d = parseISO(a.date);
-      if (isNaN(d.getTime()) || d <= now) continue;
-      if (!proximoGeral || d < proximoGeral) proximoGeral = d;
-    }
-
     const relogios: RelogioServico[] = [];
-    if (temServico(c, /monitor/i, 'monitoria')) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, proximoGeral));
-    if (temServico(c, /(price|prec)/i, 'price')) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now, proximoGeral));
+    if (temServico(c, /monitor/i, 'monitoria')) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now));
+    if (temServico(c, /(price|prec)/i, 'price')) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now));
     if (relogios.length === 0) continue; // sem serviço cadastrado → fora do modelo
     const score = Math.max(...relogios.map((r) => r.atraso));
     const precisaAcao = relogios.some((r) => r.status === 'vencido' || r.status === 'vencendo' || r.status === 'nunca');
@@ -216,16 +221,11 @@ export interface VencendoDashboardItem {
   relogios: RelogioServico[];
 }
 
-// Evento que "conta" pra cobertura (próximo compromisso) desta régua — só
-// Reunião ou Relatório. Contato/Ligação não contam como agendamento que
-// resolve a cadência de Monitoria/Price/Relatório (diferente de
-// buildFilaCadencia, que aceita qualquer tipo de evento como cobertura).
-const ehEventoRelevanteVencendo = (a: EventoAgenda) => /reuni|relat/i.test(a.type || '');
-
 /**
- * Cálculo PRÓPRIO pro card "Vencendo" do Dashboard — não estende
- * `buildFilaCadencia` de propósito: ali só entram clientes com Monitoria ou
- * Price cadastrado; se Relatório virasse um relógio ali, TODO cliente ativo
+ * Cálculo PRÓPRIO pro card "Vencendo" do Dashboard (mesma cobertura
+ * por-serviço de `calcularProximoPorServico` usada em `buildFilaCadencia`) —
+ * não estende `buildFilaCadencia` de propósito: ali só entram clientes com
+ * Monitoria ou Price cadastrado; se Relatório virasse um relógio ali, TODO cliente ativo
  * passaria a aparecer na fila de Ações (efeito colateral não pedido). Aqui,
  * todo cliente ativo (fora Marco) sempre ganha um relógio de Relatório (pela
  * cadência configurada, ou o padrão global), além de Monitoria/Price quando
@@ -255,26 +255,11 @@ export function buildVencendoDashboard(
     if (!isStatusAtivo(c.status) || c.atendidoMarco) continue;
     const evs = porCliente.get(c.id) ?? [];
 
-    let proximoGeral: Date | null = null;
-    let proximoRelatorio: Date | null = null;
-    for (const a of evs) {
-      if (!naoCancelado(a) || !ehEventoRelevanteVencendo(a)) continue;
-      const d = parseISO(a.date);
-      if (isNaN(d.getTime()) || d <= now) continue;
-      if (!proximoGeral || d < proximoGeral) proximoGeral = d;
-      // Cobertura do relógio de Relatório precisa de um Relatório futuro DE
-      // VERDADE — uma Reunião futura não conta. Sem essa distinção, um
-      // cliente que NUNCA teve relatório nenhum (statusReal 'nunca') virava
-      // "coberto"/em dia só por ter uma reunião marcada, mascarando que o
-      // relatório em si nunca foi tratado (já foi relatado como dado errado).
-      if (/relat/i.test(a.type || '') && (!proximoRelatorio || d < proximoRelatorio)) proximoRelatorio = d;
-    }
-
     const relogios: RelogioServico[] = [];
-    if (temServico(c, /monitor/i, 'monitoria')) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, proximoGeral, janelaVencendo));
-    if (temServico(c, /(price|prec)/i, 'price')) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now, proximoGeral, janelaVencendo));
+    if (temServico(c, /monitor/i, 'monitoria')) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, janelaVencendo));
+    if (temServico(c, /(price|prec)/i, 'price')) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now, janelaVencendo));
     const relatorioDias = relatorioCadenciaEmDias(c.relatorioCadencia, relatorioDiasPadrao);
-    relogios.push(calcularRelogio('Relatório', evs, ehToqueRelatorio, relatorioDias, now, proximoRelatorio, janelaVencendo));
+    relogios.push(calcularRelogio('Relatório', evs, ehToqueRelatorio, relatorioDias, now, janelaVencendo));
 
     out.push({ cliente: c, relogios });
   }

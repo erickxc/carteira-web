@@ -125,9 +125,11 @@ export default function DashboardPage() {
           total={d.vencendo.total}
           vencendo={d.vencendo.vencendo}
           emDia={d.vencendo.emDia}
+          nuncaAgendado={d.vencendo.nuncaAgendado}
           pct={d.vencendo.pct}
           vencendoClientes={d.vencendo.vencendoClientes}
           emDiaClientes={d.vencendo.emDiaClientes}
+          nuncaAgendadoClientes={d.vencendo.nuncaAgendadoClientes}
           filtroServico={d.filtroServicoVencendo}
           onFiltroServico={d.setFiltroServicoVencendo}
         />

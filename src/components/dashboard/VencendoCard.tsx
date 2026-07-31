@@ -15,21 +15,27 @@ interface VencendoCardProps {
   total: number;
   vencendo: number;
   emDia: number;
+  nuncaAgendado: number;
   pct: number;
   vencendoClientes: string[];
   emDiaClientes: string[];
+  nuncaAgendadoClientes: string[];
   filtroServico: FiltroServico;
   onFiltroServico: (s: FiltroServico) => void;
 }
 
 /** "Vencendo" — do total de AÇÕES AGENDADAS (Monitoria/Precificação/Relatório
- * em dia ou cobertas — quem já venceu é desconsiderado por completo, isso é
- * assunto do card "Carteira no Ritmo"), quantas vencem nos próximos 5 dias
- * (mesma janela do resto do app). Base em itens/ações, não em clientes (um
- * cliente com 2 serviços contribui 2x). Cálculo separado de
- * buildFilaCadencia — ver spec. */
-export function VencendoCard({ total, vencendo, emDia, pct, vencendoClientes, emDiaClientes, filtroServico, onFiltroServico }: VencendoCardProps) {
+ * em dia ou vencendo — quem já venceu fica fora, isso é assunto do card
+ * "Carteira no Ritmo"), quantas vencem nos próximos 5 dias (mesma janela do
+ * resto do app). Base em itens/ações, não em clientes (um cliente com 2
+ * serviços contribui 2x). "Nunca agendado" (nenhum toque real, sem cobertura)
+ * fica fora do %, mas some numa coluna própria quando existir — antes era
+ * descartado calado. Cálculo separado de buildFilaCadencia — ver spec. */
+export function VencendoCard({
+  total, vencendo, emDia, nuncaAgendado, pct, vencendoClientes, emDiaClientes, nuncaAgendadoClientes, filtroServico, onFiltroServico,
+}: VencendoCardProps) {
   const [aberto, setAberto] = useState(false);
+  const temConteudo = total > 0 || nuncaAgendado > 0;
   return (
     <Card className="cobertura-card gauge-card">
       <div className="section-header">
@@ -45,7 +51,7 @@ export function VencendoCard({ total, vencendo, emDia, pct, vencendoClientes, em
         ))}
       </div>
       {total === 0 ? (
-        <div className="empty-state">Nenhuma ação agendada na régua.</div>
+        nuncaAgendado === 0 && <div className="empty-state">Nenhuma ação agendada na régua.</div>
       ) : (
         <DonutChart
           items={[
@@ -59,7 +65,7 @@ export function VencendoCard({ total, vencendo, emDia, pct, vencendoClientes, em
           thickness={13}
         />
       )}
-      {total > 0 && (
+      {temConteudo && (
         <>
           <button type="button" className="gauge-toggle" onClick={() => setAberto((v) => !v)} aria-expanded={aberto}>
             {aberto ? 'Ver menos' : 'Ver clientes'} <ChevronDown size={14} className={aberto ? 'gauge-toggle-icon is-open' : 'gauge-toggle-icon'} />
@@ -67,6 +73,7 @@ export function VencendoCard({ total, vencendo, emDia, pct, vencendoClientes, em
           <GaugeDetalhe aberto={aberto} grupos={[
             { label: 'Vencendo', cor: 'var(--warning)', clientes: vencendoClientes },
             { label: 'Em dia', cor: 'var(--success)', clientes: emDiaClientes },
+            ...(nuncaAgendado > 0 ? [{ label: 'Nunca agendado', cor: 'var(--danger)', clientes: nuncaAgendadoClientes }] : []),
           ]} />
         </>
       )}
