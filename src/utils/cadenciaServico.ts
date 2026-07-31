@@ -256,18 +256,25 @@ export function buildVencendoDashboard(
     const evs = porCliente.get(c.id) ?? [];
 
     let proximoGeral: Date | null = null;
+    let proximoRelatorio: Date | null = null;
     for (const a of evs) {
       if (!naoCancelado(a) || !ehEventoRelevanteVencendo(a)) continue;
       const d = parseISO(a.date);
       if (isNaN(d.getTime()) || d <= now) continue;
       if (!proximoGeral || d < proximoGeral) proximoGeral = d;
+      // Cobertura do relógio de Relatório precisa de um Relatório futuro DE
+      // VERDADE — uma Reunião futura não conta. Sem essa distinção, um
+      // cliente que NUNCA teve relatório nenhum (statusReal 'nunca') virava
+      // "coberto"/em dia só por ter uma reunião marcada, mascarando que o
+      // relatório em si nunca foi tratado (já foi relatado como dado errado).
+      if (/relat/i.test(a.type || '') && (!proximoRelatorio || d < proximoRelatorio)) proximoRelatorio = d;
     }
 
     const relogios: RelogioServico[] = [];
     if (temServico(c, /monitor/i, 'monitoria')) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, proximoGeral, janelaVencendo));
     if (temServico(c, /(price|prec)/i, 'price')) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now, proximoGeral, janelaVencendo));
     const relatorioDias = relatorioCadenciaEmDias(c.relatorioCadencia, relatorioDiasPadrao);
-    relogios.push(calcularRelogio('Relatório', evs, ehToqueRelatorio, relatorioDias, now, proximoGeral, janelaVencendo));
+    relogios.push(calcularRelogio('Relatório', evs, ehToqueRelatorio, relatorioDias, now, proximoRelatorio, janelaVencendo));
 
     out.push({ cliente: c, relogios });
   }

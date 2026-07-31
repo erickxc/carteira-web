@@ -936,9 +936,12 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
    antigo (590px) media o CONTENT-BOX do container (que já desconta padding),
    mas os tamanhos (anel 130px + top3 145px) precisavam de ~605px, sempre
    estourando e caindo no fallback empilhado (por isso a fila desalinhada
-   virava a regra, não a exceção). Reduzido pra caber com folga em ~490px. */
-.radial-row-mirrored { align-items: center; gap: 1rem; flex-wrap: nowrap; }
-.radial-row-mirrored .radial-top3 { width: 120px; border-top: none; padding-top: 0; flex-shrink: 0; }
+   virava a regra, não a exceção). 130px/145px também tinha vindo pra baixo
+   demais numa 1ª tentativa (anel 100px), deixando um vão vazio enorme embaixo
+   do card — 130px/145px final cabe com folga (~545px de ~586px) e ainda
+   preenche o card decentemente. */
+.radial-row-mirrored { align-items: center; gap: 1.15rem; flex-wrap: nowrap; }
+.radial-row-mirrored .radial-top3 { width: 130px; border-top: none; padding-top: 0; flex-shrink: 0; }
 .radial-row-mirrored .radial-top3-right { align-items: flex-end; text-align: right; }
 .radial-row-mirrored .radial-top3-right .radial-top3-row { flex-direction: row-reverse; }
 @container (max-width: 520px) {
