@@ -95,7 +95,7 @@ const MODELOS_SEED = [
 const CATEGORIAS_SEED = [
   ['servico', ['Monitoria', 'Precificação']],
   ['tipo_evento', ['Reunião', 'Contato', 'Relatório', 'Ligação']],
-  ['status_cliente', ['Ativo', 'Suspenso', 'Problemas Externos']],
+  ['status_cliente', ['Ativo', 'Suspenso', 'Problemas Externos', 'Gratuidade']],
   ['status_evento', ['Agendado', 'Concluído', 'Cancelado', 'Realizado', 'Reagendado']],
   ['monitor', ['Yann Cruz', 'Erick Cardoso', 'Karol Santana', 'Administrador']],
   ['tipo_lembrete', ['Contato', 'Reunião', 'Relatório', 'Alvo', 'Outro']],

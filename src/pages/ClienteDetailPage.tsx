@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ArrowLeft, Bell as BellIcon, CalendarPlus, MessageCircle, Paperclip, Pencil, Save, Trash2, UserPlus } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { urlAnexo } from '../api/client';
-import { clienteStatusBadge, eventoStatusBadge } from '../utils/badges';
+import { clienteStatusBadge, eventoStatusBadge, isGratuidade } from '../utils/badges';
 import { confirmDialog } from '../utils/confirmDialog';
 import { linkWhatsApp } from '../utils/whatsapp';
 import { Dropdown } from '../components/Dropdown';
@@ -114,7 +114,7 @@ export default function ClienteDetailPage() {
         <ArrowLeft size={15} /> Voltar para {backLabel}
       </Button>
 
-      <Card style={{ marginBottom: 24 }}>
+      <Card style={{ marginBottom: 24, background: isGratuidade(cliente.status) ? 'var(--gratuidade-pastel-bg)' : undefined }}>
         <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <h1 className="page-title" style={{ marginBottom: 8 }}>{cliente.empresa}</h1>

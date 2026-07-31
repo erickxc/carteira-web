@@ -7,7 +7,7 @@ import { useCarteira } from '../context/CarteiraContext';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { truthy } from '../utils/formatters';
-import { clienteStatusBadge } from '../utils/badges';
+import { clienteStatusBadge, isGratuidade } from '../utils/badges';
 import { toastError, toastSuccess } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
@@ -316,7 +316,11 @@ export default function ClientesPage() {
                   const diasSemContato = ultCData ? differenceInCalendarDays(hoje, ultCData) : null;
                   const segmentado = cliente.tipoAnalise === 'segmentado' || !!cliente.grupo;
                   return (
-                    <tr key={cliente.id} className="group [&:last-child>td]:border-b-0">
+                    <tr
+                      key={cliente.id}
+                      className="group [&:last-child>td]:border-b-0"
+                      style={isGratuidade(cliente.status) ? { background: 'var(--gratuidade-pastel-bg)' } : undefined}
+                    >
                       <Td first>
                         <button className="link-button" style={{ fontWeight: 600 }} onClick={() => navigate(`/clientes/${cliente.id}`)}>
                           {cliente.empresa}

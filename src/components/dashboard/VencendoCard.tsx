@@ -1,7 +1,4 @@
-import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
-import { DonutChart } from '../DonutChart';
-import { GaugeDetalhe } from './GaugeDetalhe';
+import { format } from 'date-fns';
 import { Card, Chip } from '../../ui';
 import type { ServicoCad } from '../../utils/cadenciaServico';
 
@@ -11,39 +8,33 @@ const SERVICO_LABEL: Record<FiltroServico, string> = {
   Todos: 'Geral', Monitoria: 'Monitoria', Price: 'Precificação', 'Relatório': 'Relatório',
 };
 
+interface ItemVencendo {
+  rotulo: string;
+  data: Date;
+  dias: number;
+}
+
 interface VencendoCardProps {
   total: number;
-  vencendo: number;
-  emDia: number;
-  nuncaAgendado: number;
-  pct: number;
-  vencendoClientes: string[];
-  emDiaClientes: string[];
-  nuncaAgendadoClientes: string[];
+  itens: ItemVencendo[];
   filtroServico: FiltroServico;
   onFiltroServico: (s: FiltroServico) => void;
 }
 
-/** "Vencendo" — do total de AÇÕES AGENDADAS (Monitoria/Precificação/Relatório
- * em dia ou vencendo — quem já venceu fica fora, isso é assunto do card
- * "Carteira no Ritmo"), quantas vencem nos próximos 5 dias (mesma janela do
- * resto do app). Base em itens/ações, não em clientes (um cliente com 2
- * serviços contribui 2x). "Nunca agendado" (nenhum toque real, sem cobertura)
- * fica fora do %, mas some numa coluna própria quando existir — antes era
- * descartado calado. Cálculo separado de buildFilaCadencia — ver spec. */
-export function VencendoCard({
-  total, vencendo, emDia, nuncaAgendado, pct, vencendoClientes, emDiaClientes, nuncaAgendadoClientes, filtroServico, onFiltroServico,
-}: VencendoCardProps) {
-  const [aberto, setAberto] = useState(false);
-  const temConteudo = total > 0 || nuncaAgendado > 0;
+/** "Vencendo" — só quem está VENCENDO de verdade (Monitoria/Precificação/
+ * Relatório) nos próximos 5 dias (mesma janela do resto do app). Sem donut —
+ * número grande + lista ao lado com data e dias restantes por item. Base em
+ * itens/ações, não em clientes (um cliente com 2 serviços contribui 2x).
+ * Cálculo separado de buildFilaCadencia — ver spec. */
+export function VencendoCard({ total, itens, filtroServico, onFiltroServico }: VencendoCardProps) {
   return (
     <Card className="cobertura-card gauge-card">
       <div className="section-header">
         <h3>Vencendo</h3>
-        <span className="text-text-muted" style={{ fontSize: 12 }}>{total} ações agendadas</span>
+        <span className="text-text-muted" style={{ fontSize: 12 }}>próx. 5 dias</span>
       </div>
       <p className="text-text-muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 12, lineHeight: 1.4, minHeight: '2.8em' }}>
-        Do total de ações agendadas (Monitoria, Precificação ou Relatório), quantas <strong>vencem nos próximos 5 dias</strong>.
+        Monitoria, Precificação ou Relatório <strong>vencendo nos próximos 5 dias</strong>.
       </p>
       <div className="gauge-card-filtros flex flex-wrap gap-[0.4rem] mb-4">
         {SERVICOS.map((s) => (
@@ -51,31 +42,23 @@ export function VencendoCard({
         ))}
       </div>
       {total === 0 ? (
-        nuncaAgendado === 0 && <div className="empty-state">Nenhuma ação agendada na régua.</div>
+        <div className="empty-state">Nenhuma ação vencendo nos próximos 5 dias. 🎉</div>
       ) : (
-        <DonutChart
-          items={[
-            { label: 'Vencendo', value: vencendo },
-            { label: 'Em dia', value: emDia },
-          ]}
-          colors={['var(--warning)', 'var(--success)']}
-          centerValue={`${pct}%`}
-          centerLabel="vencendo"
-          size={96}
-          thickness={13}
-        />
-      )}
-      {temConteudo && (
-        <>
-          <button type="button" className="gauge-toggle" onClick={() => setAberto((v) => !v)} aria-expanded={aberto}>
-            {aberto ? 'Ver menos' : 'Ver clientes'} <ChevronDown size={14} className={aberto ? 'gauge-toggle-icon is-open' : 'gauge-toggle-icon'} />
-          </button>
-          <GaugeDetalhe aberto={aberto} grupos={[
-            { label: 'Vencendo', cor: 'var(--warning)', clientes: vencendoClientes },
-            { label: 'Em dia', cor: 'var(--success)', clientes: emDiaClientes },
-            ...(nuncaAgendado > 0 ? [{ label: 'Nunca agendado', cor: 'var(--danger)', clientes: nuncaAgendadoClientes }] : []),
-          ]} />
-        </>
+        <div className="vencendo-resumo">
+          <div className="vencendo-numero">
+            <div className="vencendo-numero-valor">{total}</div>
+            <div className="vencendo-numero-label">vencendo</div>
+          </div>
+          <ul className="vencendo-lista">
+            {itens.map((i) => (
+              <li key={i.rotulo}>
+                <span className="vencendo-lista-rotulo" title={i.rotulo}>{i.rotulo}</span>
+                <span className="vencendo-lista-data">{format(i.data, 'dd/MM')}</span>
+                <span className="vencendo-lista-dias">{i.dias === 0 ? 'hoje' : `${i.dias}d`}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </Card>
   );

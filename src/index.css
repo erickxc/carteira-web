@@ -73,6 +73,11 @@
   --danger-pastel-bg: rgba(224, 100, 92, 0.22);
   --warning: #d69a3c;
   --warning-bg: rgba(214, 154, 60, 0.14);
+  /* Status "Gratuidade" — amarelo claro de propósito, distinto do dourado da
+     marca (--accent) e do âmbar de --warning, pra ser reconhecível de cara. */
+  --gratuidade: #e0c81e;
+  --gratuidade-bg: rgba(224, 200, 30, 0.14);
+  --gratuidade-pastel-bg: rgba(224, 200, 30, 0.22);
 
   --font: 'Inter', -apple-system, system-ui, sans-serif;
   /* Seta (chevron) dos <select> — token único para o CSS custom (.custom-select)
@@ -378,6 +383,33 @@ a { color: inherit; }
 .gauge-detalhe-col li { font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gauge-detalhe-vazio { display: block; height: 220px; font-size: 0.8rem; color: var(--text-muted); }
 @media (prefers-reduced-motion: reduce) { .gauge-detalhe { transition: none; } }
+
+/* Card "Vencendo" — sem donut (só 1 categoria não faz proporção): número
+   grande + lista ao lado, sempre visível (sem "Ver clientes"). Altura da
+   lista igual à dos outros gauge-cards (220px) pra manter os 3 cards
+   alinhados na mesma altura total. */
+.vencendo-resumo { display: flex; gap: 1.25rem; align-items: flex-start; }
+.vencendo-numero { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 96px; height: 220px; }
+.vencendo-numero-valor { font-size: 2.6rem; font-weight: 700; color: var(--warning); line-height: 1; font-variant-numeric: tabular-nums; }
+.vencendo-numero-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 6px; }
+.vencendo-lista {
+  flex: 1; min-width: 0; list-style: none; margin: 0; padding: 0;
+  height: 220px; overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.vencendo-lista::-webkit-scrollbar { width: 4px; }
+.vencendo-lista::-webkit-scrollbar-track { background: transparent; }
+.vencendo-lista::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+.vencendo-lista li {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; border-bottom: 1px solid var(--border);
+  font-size: 0.8rem; color: var(--text-secondary);
+}
+.vencendo-lista li:last-child { border-bottom: none; }
+.vencendo-lista-rotulo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vencendo-lista-data { flex-shrink: 0; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.vencendo-lista-dias { flex-shrink: 0; width: 40px; text-align: right; font-weight: 600; color: var(--warning); font-variant-numeric: tabular-nums; }
 
 .section-header {
   display: flex;

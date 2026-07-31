@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  differenceInCalendarDays, eachMonthOfInterval, format, isSameMonth,
+  addDays, differenceInCalendarDays, eachMonthOfInterval, format, isSameMonth,
   max as maxDate, min as minDate, parseISO, startOfMonth, subMonths,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -252,49 +252,30 @@ export function useDashboardData() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativos, agenda, acoes, cadencias, filtroServicoAderencia]);
 
-  // --- Vencendo (próx. 5 dias, mesma janela do resto do app): base em
-  // AÇÕES/ITENS AGENDADOS (Monitoria/Price/Relatório em dia ou vencendo), não
-  // clientes — ex.: 10 ações agendadas, 4 vencem nos próx. 5 dias = 40%. Quem
-  // JÁ VENCEU fica fora do total (esse card é só sobre o que ainda está no
-  // prazo, não sobre atraso — isso já é "Precisa contato" no outro card).
-  // "Nunca agendado" (relógio 'nunca' — nenhum toque real e sem cobertura
-  // nenhuma) fica FORA do total/% também, mas some numa coluna própria — antes
-  // era descartado calado, escondendo casos como "cliente nunca teve Price
-  // tratado" (validado contra dados reais).
-  // Cálculo próprio (buildVencendoDashboard), não usa buildFilaCadencia (esse
-  // card inclui Relatório pra todo cliente ativo, o que mudaria a fila de
-  // Ações se fosse o mesmo cálculo).
+  // --- Vencendo (próx. 5 dias, mesma janela do resto do app): só quem está
+  // VENCENDO de verdade (Monitoria/Price/Relatório) — nada de "em dia" nem
+  // "nunca agendado" aqui, isso já vive em "Carteira no Ritmo". Base em
+  // itens/ações, não em clientes (um cliente com 2 serviços vencendo conta
+  // 2x, um por linha). Cada item leva a data de vencimento e os dias restantes
+  // — calculados a partir do `atraso` do relógio (negativo = ainda dentro do
+  // prazo; `-atraso` = dias até vencer). Cálculo próprio (buildVencendoDashboard),
+  // não usa buildFilaCadencia (esse card inclui Relatório pra todo cliente
+  // ativo, o que mudaria a fila de Ações se fosse o mesmo cálculo).
   const vencendo = useMemo(() => {
     const fila = buildVencendoDashboard(ativos, agenda, cadencias, hoje, 5);
 
-    // Rótulo inclui o serviço (ex.: "Golfinho · Relatório") — um cliente com
-    // 2+ serviços em dia/vencendo contribui um item por serviço, e a lista
-    // NÃO deduplica por nome (senão a contagem da lista expandida ficava
-    // menor que o número do donut, que conta por item — já foi relatado como
-    // números não batendo).
-    type ItemAgendado = { rotulo: string; balde: 'vencendo' | 'em_dia' | 'nunca' };
-    const itens: ItemAgendado[] = [];
+    type ItemVencendo = { rotulo: string; data: Date; dias: number };
+    const itens: ItemVencendo[] = [];
     for (const f of fila) {
       for (const r of f.relogios) {
         if (filtroServicoVencendo !== 'Todos' && r.servico !== filtroServicoVencendo) continue;
-        if (r.status === 'vencido') continue; // atraso é assunto do outro card
-        const rotulo = `${f.cliente.empresa} · ${r.servico}`;
-        if (r.status === 'nunca') itens.push({ rotulo, balde: 'nunca' });
-        else itens.push({ rotulo, balde: r.status === 'vencendo' ? 'vencendo' : 'em_dia' });
+        if (r.status !== 'vencendo') continue;
+        const dias = Math.max(0, -r.atraso);
+        itens.push({ rotulo: `${f.cliente.empresa} · ${r.servico}`, data: addDays(hoje, dias), dias });
       }
     }
-    const rotulos = (balde: ItemAgendado['balde']) => itens.filter((p) => p.balde === balde).map((p) => p.rotulo).sort((a, b) => a.localeCompare(b));
-
-    const agendados = itens.filter((p) => p.balde !== 'nunca');
-    const total = agendados.length;
-    const nVencendo = itens.filter((p) => p.balde === 'vencendo').length;
-    const nEmDia = itens.filter((p) => p.balde === 'em_dia').length;
-    const nNuncaAgendado = itens.filter((p) => p.balde === 'nunca').length;
-    const pct = total > 0 ? Math.round((nVencendo / total) * 100) : 0;
-    return {
-      total, vencendo: nVencendo, emDia: nEmDia, nuncaAgendado: nNuncaAgendado, pct,
-      vencendoClientes: rotulos('vencendo'), emDiaClientes: rotulos('em_dia'), nuncaAgendadoClientes: rotulos('nunca'),
-    };
+    itens.sort((a, b) => a.dias - b.dias || a.rotulo.localeCompare(b.rotulo)); // mais urgente primeiro
+    return { total: itens.length, itens };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativos, agenda, cadencias, filtroServicoVencendo]);
 

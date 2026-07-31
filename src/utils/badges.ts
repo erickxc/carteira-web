@@ -8,10 +8,17 @@ import type { BadgeVariant } from '../ui';
  */
 export function clienteStatusBadge(status: string): BadgeVariant {
   const s = (status || '').toLowerCase();
+  if (/gratuidade/.test(s)) return 'gratuidade';
   if (/(ativ|normaliz|em dia)/.test(s)) return 'success';
   if (/(suspens|inadimpl|cancel|encerr)/.test(s)) return 'danger';
   if (/(an[aá]lise|aten|pendent|risco)/.test(s)) return 'warning';
   return 'muted';
+}
+
+/** true quando o status do cliente é "Gratuidade" — usado pra pintar de
+ * amarelo claro qualquer card/linha que represente esse cliente. */
+export function isGratuidade(status: string | undefined): boolean {
+  return /gratuidade/i.test((status || '').trim());
 }
 
 export function eventoStatusBadge(status: string): BadgeVariant {

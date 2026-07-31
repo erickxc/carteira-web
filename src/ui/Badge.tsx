@@ -12,6 +12,7 @@ const badge = cva(
         success: 'bg-[var(--success-bg)] text-success',
         danger: 'bg-[var(--danger-bg)] text-danger',
         warning: 'bg-[var(--warning-bg)] text-warning',
+        gratuidade: 'bg-[var(--gratuidade-bg)] text-[color:var(--gratuidade)]',
         muted: 'bg-bg text-text-secondary border border-border',
         // sem fundo/cor própria (herda a cor do contexto) — equivale ao `.badge`
         // "puro" sem modificador de cor.
