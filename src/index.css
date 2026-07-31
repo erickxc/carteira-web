@@ -362,7 +362,11 @@ a { color: inherit; }
 }
 .gauge-detalhe-col { min-width: 0; display: flex; flex-direction: column; }
 /* Título fixo (fora da área que rola) — a lista nunca passa por cima dele. */
-.gauge-detalhe-titulo { display: flex; align-items: center; gap: 6px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 7px; flex-shrink: 0; }
+/* white-space:nowrap: com 3 colunas (Carteira no Ritmo) o rótulo "Agenda
+   marcada" quebra em 2 linhas por ter menos largura que com 2 colunas
+   (Cobertura da Carteira) — isso empurrava a grade toda ~17px mais alta e
+   desalinhava os dois cards quando ambos expandidos. */
+.gauge-detalhe-titulo { display: flex; align-items: center; gap: 6px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 7px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gauge-detalhe-col ul {
   /* display:block (NÃO flex): um container flex encolhe os <li> pra caber em
      vez de estourar e rolar — foi o que "sumia" o scroll e espremia o texto.
@@ -953,9 +957,16 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 /* Top 3 clientes por serviço — empilhado abaixo do anel (layout padrão) */
 .radial-top3 { width: 100%; display: flex; flex-direction: column; gap: 5px; padding-top: 10px; border-top: 1px solid var(--border); }
 .radial-top3-title { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 2px; }
-.radial-top3-row { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; }
+/* width:100%: align-items:flex-end no .radial-top3-right (pro alinhamento à
+   direita) tira o "stretch" que forçaria a linha a respeitar a largura do
+   pai — sem isso a linha crescia livre pelo conteúdo (nome sem quebra) e
+   vazava pra fora do card à esquerda, em vez de truncar com "…". */
+.radial-top3-row { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; width: 100%; }
 .radial-top3-rank { color: var(--accent); font-weight: 700; width: 16px; flex-shrink: 0; }
-.radial-top3-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+/* min-width:0: sem isso um item flex não encolhe abaixo do tamanho do
+   próprio conteúdo — a reticência nunca ativava e nomes compridos estouravam
+   a coluna inteira (escondidos atrás da borda do card, sem "…" nenhum). */
+.radial-top3-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
 .radial-top3-n { color: var(--text-muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
 
 .servicos-card { container-type: inline-size; }
@@ -974,10 +985,19 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
    demais numa 1ª tentativa (anel 100px), deixando um vão vazio enorme embaixo
    do card — 130px/145px final cabe com folga (~545px de ~586px) e ainda
    preenche o card decentemente. */
-.radial-row-mirrored { align-items: center; gap: 1.15rem; flex-wrap: nowrap; }
+.radial-row-mirrored { align-items: center; gap: 1rem; flex-wrap: nowrap; }
+/* width 130px: abaixo disso, nomes longos ("Pecita - Campo Grande") cortam o
+   INÍCIO do texto sem reticências (lista alinhada à direita/row-reverse trunca
+   pelo lado oposto ao normal) — não reduzir sem checar nomes reais. */
 .radial-row-mirrored .radial-top3 { width: 130px; border-top: none; padding-top: 0; flex-shrink: 0; }
 .radial-row-mirrored .radial-top3-right { align-items: flex-end; text-align: right; }
 .radial-row-mirrored .radial-top3-right .radial-top3-row { flex-direction: row-reverse; }
+/* Nome herda text-align:right do container acima — com nomes compridos isso
+   faz o texto estourar (overflow) pela ESQUERDA, lado em que o navegador não
+   desenha reticências (só funciona no fim do texto em ltr): o início do nome
+   sumia sem aviso nenhum. text-align:left aqui restaura a truncagem normal
+   (com "…" no fim), que é mais legível mesmo. */
+.radial-row-mirrored .radial-top3-right .radial-top3-name { text-align: left; }
 @container (max-width: 520px) {
   .radial-row-mirrored { flex-wrap: wrap; }
   .radial-row-mirrored .radial-top3 { width: 100%; border-top: 1px solid var(--border); padding-top: 10px; }
