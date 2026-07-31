@@ -577,6 +577,10 @@ a { color: inherit; }
   color: var(--accent);
   cursor: pointer;
   font-weight: 500;
+  /* <button> centraliza texto por padrão do navegador — nomes que quebram em
+     2 linhas (coluna estreita) centralizavam cada linha independente, dando
+     um efeito de degrau em vez de alinhar à esquerda como o resto da coluna. */
+  text-align: left;
 }
 .link-button:hover { text-decoration: underline; }
 
