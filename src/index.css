@@ -385,16 +385,18 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) { .gauge-detalhe { transition: none; } }
 
 /* Card "Vencendo" — sem donut (só 1 categoria não faz proporção): número
-   grande + lista ao lado, sempre visível (sem "Ver clientes"). Altura da
-   lista igual à dos outros gauge-cards (220px) pra manter os 3 cards
-   alinhados na mesma altura total. */
+   grande + lista ao lado, sempre visível (sem "Ver clientes"). Vencendo não
+   tem o toggle "Geral/Monitoria/Price" nem "Ver clientes" dos outros dois
+   gauge-cards, então header+subtítulo+chips ocupam menos altura — 133px
+   fecha a conta pra bater com o min-height de 285px de .cobertura-card
+   (mesmo padrão do comentário acima: min-height fixo, não stretch). */
 .vencendo-resumo { display: flex; gap: 1.25rem; align-items: flex-start; }
-.vencendo-numero { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 96px; height: 220px; }
+.vencendo-numero { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 96px; height: 133px; }
 .vencendo-numero-valor { font-size: 2.6rem; font-weight: 700; color: var(--warning); line-height: 1; font-variant-numeric: tabular-nums; }
 .vencendo-numero-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 6px; }
 .vencendo-lista {
   flex: 1; min-width: 0; list-style: none; margin: 0; padding: 0;
-  height: 220px; overflow-y: auto;
+  height: 133px; overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
 }
