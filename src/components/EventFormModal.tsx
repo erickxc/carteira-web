@@ -97,10 +97,12 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     time, type, checklist: ck.checklist, preAnalise: pa.preAnalise, description,
   });
 
-  // Conflito de MONITOR: o mesmo monitor já tem outro evento nesse dia/horário.
-  // Monitores diferentes no mesmo horário não é conflito.
-  const conflitoMonitor = Boolean(monitor) && agenda.some((a) =>
-    a.id !== initial?.id && a.monitor === monitor && !naoOcupaHorario(a) && mesmoDiaHora(a)
+  // Conflito de MONITOR: só Reunião ocupa horário de fato (é a única que trava
+  // a agenda do monitor) — Contato/Relatório/Ligação são registros rápidos e
+  // podem coexistir com qualquer outra coisa no mesmo dia/hora, inclusive entre
+  // si. Por isso o conflito só existe quando AMBOS os lados são Reunião.
+  const conflitoMonitor = ehReuniao && Boolean(monitor) && agenda.some((a) =>
+    a.id !== initial?.id && a.monitor === monitor && /reuni/i.test(a.type) && !naoOcupaHorario(a) && mesmoDiaHora(a)
   );
   // Conflito de SALA: a mesma sala não pode ter 2 reuniões no mesmo dia/horário
   // (recurso físico único), independente do monitor.
