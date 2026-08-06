@@ -1124,26 +1124,44 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .tab:hover { color: var(--text-primary); }
 .tab.is-active { background: var(--accent); color: #000; }
 
+/* --- Sub-abas (ex.: Monitoria/Price dentro de Acompanhamento) --- */
+.tabs-sub { background: transparent; border: none; padding: 0; gap: 6px; }
+.tabs-sub .tab {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  font-size: 0.82rem;
+}
+.tabs-sub .tab.is-active { background: var(--accent); border-color: var(--accent); color: #000; }
+
 /* cards de acompanhamento (parte 4) */
-.acao-card { gap: 0.7rem; }
-.acao-card-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.acao-card {
+  gap: 0.8rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  border-left: 4px solid var(--border);
+}
+.acao-card-head { gap: 0.6rem; }
+.acao-card-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .acao-card-info {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font-size: 0.82rem;
   color: var(--text-secondary);
-  padding: 0.55rem 0.7rem;
+  padding: 0.6rem 0.75rem;
   background: var(--card-hover);
-  border-radius: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
 }
-.acao-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; }
-.acao-dot.is-ok { background: var(--success); }
-.acao-dot.is-warn { background: var(--warning); }
-.acao-dot.is-danger { background: var(--danger); }
+.acao-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; box-shadow: 0 0 0 3px transparent; }
+.acao-dot.is-ok { background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 18%, transparent); }
+.acao-dot.is-warn { background: var(--warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 18%, transparent); }
+.acao-dot.is-danger { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent); }
 /* Vários relógios (cadência por serviço) empilhados dentro do card. */
-.acao-card-info.is-stack { flex-direction: column; align-items: stretch; gap: 5px; }
-.acao-clock { display: flex; align-items: center; gap: 7px; }
+.acao-card-info.is-stack { flex-direction: column; align-items: stretch; gap: 7px; }
+.acao-clock { display: flex; align-items: center; gap: 8px; }
+.acao-card-actions { padding-top: 0.7rem; border-top: 1px solid var(--border); }
+.acao-card-actions > button { flex: 1; justify-content: center; }
 
 /* --- Barra de filtros (controle único padronizado) --- */
 .filter-ctl {
@@ -1261,6 +1279,8 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .agenda-ticker-date { font-size: 0.72rem; font-weight: 700; color: var(--accent); }
 .agenda-ticker-name { font-size: 0.83rem; font-weight: 600; }
 .agenda-ticker-meta { font-size: 0.75rem; color: var(--text-muted); }
+.chip-monitor { display: inline-flex; align-items: center; gap: 3px; color: var(--text-muted); }
+.chip-monitor svg { flex-shrink: 0; }
 
 /* --- Agenda: Kanban semana × turno --- */
 .kanban { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
@@ -1328,7 +1348,8 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 }
 
 /* --- Ações: histórico + sugestões no card --- */
-.acao-hist { display: flex; flex-direction: column; gap: 6px; padding: 0.6rem 0.7rem; background: var(--card-hover); border-radius: 8px; }
+.acao-hist { display: flex; flex-direction: column; gap: 7px; padding: 0.7rem 0.8rem; background: var(--card-hover); border: 1px solid var(--border); border-radius: 10px; }
 .acao-hist-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 700; }
-.acao-hist-item { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-secondary); }
-.acao-sug { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+.acao-hist-item { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-secondary); padding: 2px 0; }
+.acao-hist-item + .acao-hist-item { border-top: 1px dashed var(--border); padding-top: 6px; }
+.acao-sug { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }

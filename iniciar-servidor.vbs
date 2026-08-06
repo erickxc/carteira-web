@@ -20,6 +20,13 @@ Do While (Not fso.FolderExists(oneDrive)) And (tentativas < 30)
   tentativas = tentativas + 1
 Loop
 
-' Sobe o Node no diretório do projeto, janela oculta (0), sem esperar (False).
+' Sobe o Node no diretório do projeto, janela oculta (0), e ESPERA (True) ele
+' terminar. Se o Node cair por qualquer motivo (erro, OneDrive dessincronizou,
+' etc.), o Run retorna e o loop sobe ele de novo — supervisor simples, sem
+' depender do RestartOnFailure do Task Scheduler (que não pega crash de um
+' processo desacoplado via Run assíncrono).
 sh.CurrentDirectory = proj
-sh.Run """" & node & """ server.cjs", 0, False
+Do
+  sh.Run """" & node & """ server.cjs", 0, True
+  WScript.Sleep 5000
+Loop

@@ -83,32 +83,40 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const buscarTudo = useCallback(async () => {
+    const [clientesData, agendaData, lembretesData, categoriasData, acoesData, modelosData, cadenciasData] = await Promise.all([
+      api.listarClientes(),
+      api.listarAgenda(),
+      api.listarLembretes(),
+      api.listarCategorias(),
+      api.listarAcoes(),
+      api.listarModelos(),
+      api.listarCadencias(),
+    ]);
+    return { clientesData, agendaData, lembretesData, categoriasData, acoesData, modelosData, cadenciasData };
+  }, []);
+
+  const aplicarDados = useCallback((d: Awaited<ReturnType<typeof buscarTudo>>) => {
+    setClientes(d.clientesData);
+    setAgenda(d.agendaData);
+    setLembretes(d.lembretesData);
+    setCategorias(d.categoriasData);
+    setAcoes(d.acoesData);
+    setModelos(d.modelosData);
+    setCadencias({ ...CADENCIAS_PADRAO, ...d.cadenciasData });
+  }, []);
+
   const recarregar = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [clientesData, agendaData, lembretesData, categoriasData, acoesData, modelosData, cadenciasData] = await Promise.all([
-        api.listarClientes(),
-        api.listarAgenda(),
-        api.listarLembretes(),
-        api.listarCategorias(),
-        api.listarAcoes(),
-        api.listarModelos(),
-        api.listarCadencias(),
-      ]);
-      setClientes(clientesData);
-      setAgenda(agendaData);
-      setLembretes(lembretesData);
-      setCategorias(categoriasData);
-      setAcoes(acoesData);
-      setModelos(modelosData);
-      setCadencias({ ...CADENCIAS_PADRAO, ...cadenciasData });
+      aplicarDados(await buscarTudo());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar dados.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [buscarTudo, aplicarDados]);
 
   useEffect(() => {
     // Busca inicial ao montar o provider — padrão de "fetch on mount"
@@ -117,6 +125,62 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     recarregar();
   }, [recarregar]);
+
+  // -------------------------------------------------------------------------
+  // Revalidação silenciosa
+  // O app é usado em várias máquinas da LAN sobre a mesma planilha, e a aba
+  // costuma ficar aberta o dia inteiro — sem isso, o usuário edita em cima de
+  // dados carregados no logon e sobrescreve alterações de outra pessoa.
+  // "Silenciosa": não liga `loading` (evita piscar a tela de carregamento) nem
+  // publica `error` (uma falha transitória de rede não deve derrubar a tela;
+  // os dados em memória continuam válidos).
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    const INTERVALO_MS = 60_000;
+    const MIN_ENTRE_REVALIDACOES_MS = 10_000;
+    // Começa "agora": a busca inicial do mount acabou de rodar, não faz
+    // sentido revalidar de novo se a janela ganhar foco em seguida.
+    let ultimaRevalidacao = Date.now();
+    let cancelado = false;
+
+    const revalidar = async () => {
+      if (cancelado || document.hidden) return;
+      const agora = Date.now();
+      if (agora - ultimaRevalidacao < MIN_ENTRE_REVALIDACOES_MS) return;
+
+      // Uma escrita em andamento significa que o servidor ainda não tem o
+      // estado final — revalidar agora traria dados já obsoletos.
+      const antes = api.estadoMutacoes();
+      if (antes.emVoo > 0) return;
+      ultimaRevalidacao = agora;
+
+      try {
+        const dados = await buscarTudo();
+        const depois = api.estadoMutacoes();
+        // Se alguma mutação começou ou terminou durante a busca, esta resposta
+        // foi montada antes dela: aplicá-la reverteria na tela o que o usuário
+        // acabou de salvar. Descarta e deixa para o próximo ciclo.
+        if (cancelado || depois.emVoo > 0 || depois.concluidas !== antes.concluidas) return;
+        aplicarDados(dados);
+      } catch (err) {
+        console.warn('Revalidação falhou (mantendo dados atuais):', err);
+      }
+    };
+
+    const aoVoltarPraTela = () => {
+      if (!document.hidden) void revalidar();
+    };
+
+    const timer = window.setInterval(() => void revalidar(), INTERVALO_MS);
+    document.addEventListener('visibilitychange', aoVoltarPraTela);
+    window.addEventListener('focus', aoVoltarPraTela);
+    return () => {
+      cancelado = true;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', aoVoltarPraTela);
+      window.removeEventListener('focus', aoVoltarPraTela);
+    };
+  }, [buscarTudo, aplicarDados]);
 
   const opcoesPorTipo = useCallback(
     (tipo: CategoriaTipo) =>

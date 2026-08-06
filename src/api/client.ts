@@ -27,17 +27,47 @@ async function tratarResposta<T>(res: Response): Promise<T> {
   return res.json();
 }
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  let res: Response;
+// ---------------------------------------------------------------------------
+// Contador de mutações
+// A revalidação periódica (ver CarteiraContext) sobrescreve o estado global com
+// o que o servidor devolveu. Se uma escrita acontecer no meio de uma
+// revalidação, a resposta — montada ANTES da escrita — reverteria na tela a
+// alteração que o usuário acabou de salvar. Estes contadores deixam o
+// revalidador detectar isso e descartar a resposta obsoleta.
+// ---------------------------------------------------------------------------
+let mutacoesEmVoo = 0;
+let mutacoesConcluidas = 0;
+
+export function estadoMutacoes() {
+  return { emVoo: mutacoesEmVoo, concluidas: mutacoesConcluidas };
+}
+
+/** Executa `fn` contabilizando-a como mutação (escrita) em andamento. */
+async function comoMutacao<T>(fn: () => Promise<T>): Promise<T> {
+  mutacoesEmVoo++;
   try {
-    res = await fetch(`${API_BASE}${path}`, {
-      headers: { 'Content-Type': 'application/json' },
-      ...options,
-    });
-  } catch {
-    throw new Error('Não foi possível conectar à API local (node server.cjs). Verifique se o servidor está rodando.');
+    return await fn();
+  } finally {
+    mutacoesEmVoo--;
+    mutacoesConcluidas++;
   }
-  return tratarResposta<T>(res);
+}
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const metodo = (options?.method ?? 'GET').toUpperCase();
+  const executar = async () => {
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}${path}`, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options,
+      });
+    } catch {
+      throw new Error('Não foi possível conectar à API local (node server.cjs). Verifique se o servidor está rodando.');
+    }
+    return tratarResposta<T>(res);
+  };
+  return metodo === 'GET' ? executar() : comoMutacao(executar);
 }
 
 /**
@@ -70,6 +100,7 @@ function serializeCliente(c: Cliente): Record<string, unknown> {
   return {
     ...c,
     servicos: JSON.stringify(c.servicos ?? []),
+    servicosIndependentes: JSON.stringify(c.servicosIndependentes ?? []),
     contatos: JSON.stringify(c.contatos ?? []),
     relatorioCadencia: c.relatorioCadencia ? JSON.stringify(c.relatorioCadencia) : '',
   };
@@ -80,6 +111,7 @@ function deserializeCliente(raw: Record<string, unknown>): Cliente {
   return {
     ...(raw as unknown as Cliente),
     servicos: parseListaJSON<string>(raw.servicos),
+    servicosIndependentes: parseListaJSON<string>(raw.servicosIndependentes),
     contatos: parseListaJSON<Contato>(raw.contatos),
     observacao: (raw.observacao as string) ?? '',
     monitor: (raw.monitor as string) ?? '',
@@ -125,6 +157,7 @@ export const criarClientesEmLote = (data: Cliente[]) =>
 export const atualizarCliente = (id: string, data: Partial<Cliente>) => {
   const payload: Record<string, unknown> = { ...data };
   if (data.servicos) payload.servicos = JSON.stringify(data.servicos);
+  if ('servicosIndependentes' in data) payload.servicosIndependentes = JSON.stringify(data.servicosIndependentes ?? []);
   if (data.contatos) payload.contatos = JSON.stringify(data.contatos);
   // `relatorioCadencia` pode ser explicitamente `undefined` (desligar a cadência)
   // — por isso testa a presença da chave, não a truthiness do valor.
@@ -185,10 +218,14 @@ export const salvarCadencias = (data: Cadencias) =>
 
 // --- Anexos ---
 export async function enviarAnexo(file: File): Promise<Anexo> {
-  const formData = new FormData();
-  formData.append('file', file);
-  const res = await fetch(`${API_BASE}/uploads`, { method: 'POST', body: formData });
-  return tratarResposta<Anexo>(res);
+  // Não passa por `request` (envia FormData, sem Content-Type JSON), então
+  // precisa entrar na contagem de mutações explicitamente.
+  return comoMutacao(async () => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API_BASE}/uploads`, { method: 'POST', body: formData });
+    return tratarResposta<Anexo>(res);
+  });
 }
 
 // (urlAnexo abaixo usa API_ORIGIN — mesmo host do front)

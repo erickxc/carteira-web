@@ -126,6 +126,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     if (!dataValida) { toastError('Data inválida — confira o dia informado.'); return; }
     // Contato/Relatório não têm assunto — o display cai pro tipo (subject || type).
     if (!modoSimples && !subject.trim()) { toastError('Informe o assunto da reunião.'); return; }
+    // Reunião sem serviço tratado marcado cai no fallback genérico "Reunião"
+    // nos cards da Agenda (semana/mês) — obrigatório pra sempre saber o que foi tratado.
+    if (ehReuniao && servicos.length === 0) { toastError('Marque ao menos um serviço tratado.'); return; }
     const statusFinalPre = statusOverride ?? status;
     if (/reagend/i.test(statusFinalPre) && !motivo.trim()) { toastError('Informe o motivo do reagendamento.'); return; }
     // Bloqueia de verdade (não só avisa): mesmo monitor ou mesma sala não podem

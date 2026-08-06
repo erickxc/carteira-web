@@ -1,4 +1,4 @@
-import { AlertTriangle, Check } from 'lucide-react';
+import { AlertTriangle, Check, User } from 'lucide-react';
 import { corTipo, corTipoBg } from '../../utils/tipoCor';
 import { ReagendarButton } from './ReagendarButton';
 import type { EventoAgenda } from '../../types';
@@ -49,10 +49,10 @@ export function CardEvento({ ev, isDragging, hasConflito, onDragStart, onDragEnd
       </div>
       <span className="kanban-card-title">{ev.clientName}</span>
       <span className="kanban-card-sub">
-        {ev.subject || (/reuni/i.test(ev.type) && ev.servicos.length > 0 ? ev.servicos.join(', ') : ev.type)}
+        {/reuni/i.test(ev.type) && ev.servicos.length > 0 ? ev.servicos.join(', ') : ev.type}
         {ev.checklist && ev.checklist.length > 0 ? ` · ☑ ${ev.checklist.filter((c) => c.done).length}/${ev.checklist.length}` : ''}
       </span>
-      {ev.monitor && <span className="kanban-card-sub">👤 {ev.monitor}</span>}
+      {ev.monitor && <span className="kanban-card-sub chip-monitor"><User size={11} /> {ev.monitor}</span>}
     </button>
   );
 }

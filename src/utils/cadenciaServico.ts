@@ -39,6 +39,13 @@ function temServico(c: Cliente, re: RegExp, flag: keyof Cliente): boolean {
   return (c.servicos ?? []).some((s) => re.test(s)) || Boolean(c[flag]);
 }
 
+/** true se o cliente marcou esse serviço como "independente" (faz sozinho,
+ * não depende de reunião) — nesse caso o serviço não entra na fila de
+ * cadência (não faz sentido cobrar reunião de quem não depende dela). */
+function ehIndependente(c: Cliente, re: RegExp): boolean {
+  return (c.servicosIndependentes ?? []).some((s) => re.test(s));
+}
+
 const naoCancelado = (a: EventoAgenda) => !/cancel|reagend/i.test(a.status || '');
 
 // Zera o relógio de MONITORIA (histórico — o que já foi feito): reunião com
@@ -188,9 +195,9 @@ export function buildFilaCadencia(
     const evs = porCliente.get(c.id) ?? [];
 
     const relogios: RelogioServico[] = [];
-    if (temServico(c, /monitor/i, 'monitoria')) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now));
-    if (temServico(c, /(price|prec)/i, 'price')) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now));
-    if (relogios.length === 0) continue; // sem serviço cadastrado → fora do modelo
+    if (temServico(c, /monitor/i, 'monitoria') && !ehIndependente(c, /monitor/i)) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now));
+    if (temServico(c, /(price|prec)/i, 'price') && !ehIndependente(c, /(price|prec)/i)) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now));
+    if (relogios.length === 0) continue; // sem serviço cadastrado (ou só independentes) → fora do modelo
     const score = Math.max(...relogios.map((r) => r.atraso));
     const precisaAcao = relogios.some((r) => r.status === 'vencido' || r.status === 'vencendo' || r.status === 'nunca');
     out.push({ cliente: c, relogios, score, precisaAcao });
@@ -256,8 +263,8 @@ export function buildVencendoDashboard(
     const evs = porCliente.get(c.id) ?? [];
 
     const relogios: RelogioServico[] = [];
-    if (temServico(c, /monitor/i, 'monitoria')) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, janelaVencendo));
-    if (temServico(c, /(price|prec)/i, 'price')) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now, janelaVencendo));
+    if (temServico(c, /monitor/i, 'monitoria') && !ehIndependente(c, /monitor/i)) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, janelaVencendo));
+    if (temServico(c, /(price|prec)/i, 'price') && !ehIndependente(c, /(price|prec)/i)) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now, janelaVencendo));
     const relatorioDias = relatorioCadenciaEmDias(c.relatorioCadencia, relatorioDiasPadrao);
     relogios.push(calcularRelogio('Relatório', evs, ehToqueRelatorio, relatorioDias, now, janelaVencendo));
 

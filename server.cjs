@@ -4,6 +4,7 @@ const cron = require('node-cron');
 
 const { HOST, PORT, DATA_DIR } = require('./server/config.cjs');
 const { initDB } = require('./server/db.cjs');
+const { backupDiario } = require('./server/backup.cjs');
 const { registerUploads } = require('./server/routes/uploads.cjs');
 const { gerarRelatoriosPendentes } = require('./server/relatoriosAutomaticos.cjs');
 
@@ -15,6 +16,20 @@ app.use(cors({
 app.use(express.json());
 
 initDB();
+
+// Snapshot diário do banco. Roda no boot (a máquina pode ter ficado desligada
+// no horário do cron) e todo dia às 5h. Falha aqui nunca deve impedir o
+// servidor de subir — sem backup o app funciona; sem app, ninguém trabalha.
+function rodarBackup(origem) {
+  try {
+    const criado = backupDiario();
+    if (criado) console.log(`Backup (${origem}): ${criado}`);
+  } catch (err) {
+    console.warn(`Falha ao gerar backup (${origem}):`, err.message);
+  }
+}
+rodarBackup('boot');
+cron.schedule('0 5 * * *', () => rodarBackup('cron diário'));
 
 registerUploads(app); // /uploads (estático) + /api/uploads (CRUD)
 app.use('/api/clients', require('./server/routes/clients.cjs'));

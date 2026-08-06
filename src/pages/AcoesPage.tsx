@@ -37,7 +37,7 @@ export default function AcoesPage() {
   // filtros da aba Acompanhamento
   const { value: acCliente, debounced: debouncedAcCliente, setValue: setAcCliente } = useSearchFilter();
   const [acMonitores, setAcMonitores] = usePersistedState<string[]>('filtro:acoes:acMonitores', []);
-  const [acProdutos, setAcProdutos] = usePersistedState<string[]>('filtro:acoes:acProdutos', []);
+  const [acProduto, setAcProduto] = usePersistedState<'Monitoria' | 'Price'>('filtro:acoes:acProduto', 'Monitoria');
   const [acOrd, setAcOrd] = usePersistedState('filtro:acoes:acOrd', 'contato-recente');
 
   const nomeCliente = (id: string) => clientes.find((c) => c.id === id)?.empresa ?? '—';
@@ -132,27 +132,29 @@ export default function AcoesPage() {
   };
 
   const monitorOpcoes = useMemo(() => [...new Set(clientes.map((c) => c.monitor).filter(Boolean) as string[])].sort(), [clientes]);
-  const produtoOpcoes = useMemo(() => [...new Set(clientes.flatMap((c) => produtos(c)))].sort(), [clientes]);
 
-  // Filtro comum (busca/monitor/produto) da aba Acompanhamento.
+  // Filtro comum (busca/monitor/serviço) da aba Acompanhamento. Serviço
+  // (Monitoria/Price) é segmentado por sub-aba, não mais dropdown — os dois
+  // fluxos de cadência têm prazos e ritmos diferentes, faz sentido olhar um
+  // de cada vez em vez de misturado.
   const passaFiltro = (c: Cliente) => {
     const termo = debouncedAcCliente.trim().toLowerCase();
     return (!termo || c.empresa?.toLowerCase().includes(termo)) &&
       (acMonitores.length === 0 || acMonitores.includes(c.monitor || '')) &&
-      (acProdutos.length === 0 || produtos(c).some((p) => acProdutos.includes(p)));
+      produtos(c).includes(acProduto);
   };
 
-  // Mesmo filtro (busca/monitor/produto) aplicado à fila — a badge "Precisam
+  // Mesmo filtro (busca/monitor/serviço) aplicado à fila — a badge "Precisam
   // de ação" tem que contar exatamente quem aparece na lista, senão o número
   // não bate com o filtro ativo (já foi bug real relatado).
   const filaVisivel = useMemo(
     () => filaCadencia.filter((f) => passaFiltro(f.cliente)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filaCadencia, debouncedAcCliente, acMonitores, acProdutos]
+    [filaCadencia, debouncedAcCliente, acMonitores, acProduto]
   );
   const nPrecisaAcao = useMemo(() => filaVisivel.filter((f) => f.precisaAcao).length, [filaVisivel]);
-  const filtrosAcompanhamentoAtivos = !!debouncedAcCliente.trim() || acMonitores.length > 0 || acProdutos.length > 0;
-  function limparFiltrosAcompanhamento() { setAcCliente(''); setAcMonitores([]); setAcProdutos([]); }
+  const filtrosAcompanhamentoAtivos = !!debouncedAcCliente.trim() || acMonitores.length > 0;
+  function limparFiltrosAcompanhamento() { setAcCliente(''); setAcMonitores([]); }
 
   function filtrarOrdenar(lista: Cliente[]): Cliente[] {
     const out = lista.filter(passaFiltro);
@@ -216,6 +218,11 @@ export default function AcoesPage() {
 
       {aba === 'acompanhamento' ? (
         <>
+          <div className="tabs tabs-sub" style={{ marginBottom: '1rem' }}>
+            <button className={`tab${acProduto === 'Monitoria' ? ' is-active' : ''}`} onClick={() => setAcProduto('Monitoria')}>Monitoria</button>
+            <button className={`tab${acProduto === 'Price' ? ' is-active' : ''}`} onClick={() => setAcProduto('Price')}>Price</button>
+          </div>
+
           <Card flat className="mb-4">
             <div className="filter-grid">
               <label className="filter-ctl filter-search">
@@ -223,7 +230,6 @@ export default function AcoesPage() {
                 <input placeholder="Buscar cliente..." value={acCliente} onChange={(e) => setAcCliente(e.target.value)} />
               </label>
               <Dropdown label="Monitor" multiple options={monitorOpcoes.map((m) => ({ value: m, label: m }))} value={acMonitores} onChange={(v) => setAcMonitores(v as string[])} />
-              <Dropdown label="Produto" multiple options={produtoOpcoes.map((p) => ({ value: p, label: p }))} value={acProdutos} onChange={(v) => setAcProdutos(v as string[])} />
               <Dropdown label="Ordenar" defaultValue="contato-recente" options={[
                 { value: 'contato-recente', label: 'Contato recente' },
                 { value: 'contato-antigo', label: 'Contato antigo' },

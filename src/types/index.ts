@@ -58,6 +58,10 @@ export interface Cliente {
   empresa: string;
   monitor: string;
   servicos: string[];
+  /** Serviços (nomes de `servicos`) em que o cliente é independente — faz
+   * sozinho, não depende de reunião/monitoria. Some da fila de cadência
+   * daquele serviço específico. */
+  servicosIndependentes?: string[];
   observacao: string;
   status: string;
   /** Pessoas de contato do cliente (nome, cargo, telefone). */

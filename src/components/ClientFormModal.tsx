@@ -27,6 +27,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const [empresa, setEmpresa] = useState(initial?.empresa ?? '');
   const [monitor, setMonitor] = useState(initial?.monitor ?? '');
   const [servicos, setServicos] = useState<string[]>(initial?.servicos ?? []);
+  const [servicosIndependentes, setServicosIndependentes] = useState<string[]>(initial?.servicosIndependentes ?? []);
   const [status, setStatus] = useState(initial?.status ?? statusOpcoes[0] ?? 'Ativo');
   const [atendidoMarco, setAtendidoMarco] = useState<boolean>(initial?.atendidoMarco ?? false);
   const [observacao, setObservacao] = useState(initial?.observacao ?? '');
@@ -56,6 +57,12 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
 
   function toggleServico(nome: string) {
     setServicos((prev) => (prev.includes(nome) ? prev.filter((s) => s !== nome) : [...prev, nome]));
+    // Desmarcar o serviço também limpa a independência dele (não faz sentido
+    // ficar "independente" de um serviço que o cliente nem tem mais).
+    setServicosIndependentes((prev) => prev.filter((s) => s !== nome));
+  }
+  function toggleIndependente(nome: string) {
+    setServicosIndependentes((prev) => (prev.includes(nome) ? prev.filter((s) => s !== nome) : [...prev, nome]));
   }
   function adicionarLoja() {
     const nome = novaLoja.trim();
@@ -81,30 +88,30 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
         const [primeira, ...resto] = lojasFinais;
         await atualizarCliente(initial.id, {
           empresa: `${grupo} - ${primeira}`, grupo, tipoAnalise: 'segmentado',
-          monitor, servicos, status, observacao, atendidoMarco, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, status, observacao, atendidoMarco, relatorioCadencia,
         });
         if (resto.length > 0) {
           const novos: NovoCliente[] = resto.map((nome) => ({
             empresa: `${grupo} - ${nome}`,
             grupo,
             tipoAnalise: 'segmentado',
-            monitor, servicos, status, observacao, atendidoMarco, relatorioCadencia,
+            monitor, servicos, servicosIndependentes, status, observacao, atendidoMarco, relatorioCadencia,
           }));
           await criarClientesEmLote(novos);
         }
       } else if (editando) {
-        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, status, observacao, atendidoMarco, tipoAnalise, relatorioCadencia });
+        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, status, observacao, atendidoMarco, tipoAnalise, relatorioCadencia });
       } else if (tipoAnalise === 'segmentado') {
         if (lojasFinais.length === 0) { toastError('Adicione ao menos uma loja para a análise segmentada.'); setSaving(false); return; }
         const novos: NovoCliente[] = lojasFinais.map((nome) => ({
           empresa: `${base} - ${nome}`,
           grupo: base,
           tipoAnalise: 'segmentado',
-          monitor, servicos, status, observacao, atendidoMarco, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, status, observacao, atendidoMarco, relatorioCadencia,
         }));
         await criarClientesEmLote(novos);
       } else {
-        await criarCliente({ empresa: base, monitor, servicos, status, observacao, atendidoMarco, tipoAnalise: 'unitaria', relatorioCadencia });
+        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, status, observacao, atendidoMarco, tipoAnalise: 'unitaria', relatorioCadencia });
       }
       onClose();
     } catch (err) {
@@ -167,9 +174,16 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                   </span>
                 )}
                 {servicoOpcoes.map((s) => (
-                  <label key={s} className="check-row">
-                    <input type="checkbox" checked={servicos.includes(s)} onChange={() => toggleServico(s)} /> {s}
-                  </label>
+                  <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <label className="check-row">
+                      <input type="checkbox" checked={servicos.includes(s)} onChange={() => toggleServico(s)} /> {s}
+                    </label>
+                    {servicos.includes(s) && (
+                      <label className="check-row" style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'none' }}>
+                        <input type="checkbox" checked={servicosIndependentes.includes(s)} onChange={() => toggleIndependente(s)} /> Independente
+                      </label>
+                    )}
+                  </div>
                 ))}
               </div>
             </Field>

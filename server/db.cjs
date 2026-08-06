@@ -36,18 +36,82 @@ function comRetryIO(fn) {
   throw ultimoErro;
 }
 
-function getSheetData(sheetName) {
+// ---------------------------------------------------------------------------
+// Cache de leitura
+// Antes, CADA chamada de getSheetData reabria e reparseava o workbook inteiro:
+// carregar o app dispara 7 GETs (clientes, agenda, lembretes, categorias,
+// acoes, modelos, cadencias) = 7 parses completos do mesmo arquivo.
+// O cache é invalidado pelo mtime do arquivo, não só pelas nossas escritas —
+// assim uma edição feita direto no Excel (ou uma versão baixada pelo OneDrive)
+// continua sendo enxergada, ao custo de um fs.statSync por leitura.
+// ---------------------------------------------------------------------------
+let cache = null; // { mtimeMs, size, wb, sheets: { [nome]: linhas } }
+
+function mtimeAtual() {
+  try {
+    const st = fs.statSync(DB_FILE);
+    return { mtimeMs: st.mtimeMs, size: st.size };
+  } catch {
+    return null;
+  }
+}
+
+function lerWorkbook() {
+  const stat = mtimeAtual();
+  if (cache && stat && cache.mtimeMs === stat.mtimeMs && cache.size === stat.size) return cache.wb;
   const wb = comRetryIO(() => xlsx.readFile(DB_FILE));
+  cache = { ...(stat || { mtimeMs: 0, size: 0 }), wb, sheets: {} };
+  return wb;
+}
+
+/**
+ * Grava o workbook de forma atômica: escreve num arquivo temporário e só então
+ * renomeia por cima do banco. `xlsx.writeFile` direto no DB_FILE deixa uma
+ * janela em que o arquivo está truncado/parcial — um crash, um desligamento ou
+ * o OneDrive travando nesse instante corrompe o banco inteiro. O rename é
+ * atômico no NTFS (MoveFileEx com REPLACE_EXISTING), então o arquivo nunca é
+ * visto num estado intermediário.
+ */
+function gravarWorkbook(wb) {
+  const tmp = `${DB_FILE}.tmp`;
+  try {
+    // bookType explícito é OBRIGATÓRIO aqui: o SheetJS deduz o formato pela
+    // extensão do caminho, e o arquivo temporário termina em `.tmp` — sem isso
+    // ele lança "Unrecognized bookType |tmp|" e nenhuma escrita funciona.
+    comRetryIO(() => xlsx.writeFile(wb, tmp, { bookType: 'xlsx' }));
+    comRetryIO(() => fs.renameSync(tmp, DB_FILE));
+  } catch (err) {
+    // Sem isso o temporário (possivelmente parcial) fica para trás e o
+    // OneDrive ainda tenta sincronizá-lo.
+    try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch { /* ignore */ }
+    throw err;
+  }
+  const stat = mtimeAtual();
+  if (cache && stat) { cache.mtimeMs = stat.mtimeMs; cache.size = stat.size; }
+  else cache = null;
+}
+
+function getSheetData(sheetName) {
+  const wb = lerWorkbook();
   const sheet = wb.Sheets[sheetName];
   if (!sheet) return [];
-  return xlsx.utils.sheet_to_json(sheet) || [];
+  if (!cache.sheets[sheetName]) cache.sheets[sheetName] = xlsx.utils.sheet_to_json(sheet) || [];
+  // Cópia rasa: os chamadores mutam o array (data.push(...)) e mesclam as
+  // linhas ({ ...row, ...patch }). Devolver as referências do cache deixaria o
+  // cache sujo com dados que talvez nem cheguem a ser gravados.
+  return cache.sheets[sheetName].map((linha) => ({ ...linha }));
 }
 
 function saveSheetData(sheetName, data) {
-  const wb = comRetryIO(() => xlsx.readFile(DB_FILE));
+  const wb = lerWorkbook();
   const header = HEADERS_BY_SHEET[sheetName];
   wb.Sheets[sheetName] = header ? xlsx.utils.json_to_sheet(data, { header }) : xlsx.utils.json_to_sheet(data);
-  comRetryIO(() => xlsx.writeFile(wb, DB_FILE));
+  gravarWorkbook(wb);
+  // Invalida só esta aba (as outras não mudaram): a próxima leitura reparseia
+  // do workbook em memória. Cachear `data` direto seria mais rápido, mas o
+  // round-trip json_to_sheet/sheet_to_json normaliza valores (vazios omitidos,
+  // tipos coeridos) e o cache passaria a divergir do que está no arquivo.
+  if (cache) delete cache.sheets[sheetName];
 }
 
 /**
@@ -131,12 +195,12 @@ function initDB() {
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: ACOES_HEADERS }), 'Acoes');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(seedComMetadados(MODELOS_SEED), { header: MODELOS_HEADERS }), 'Modelos');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(CADENCIAS_SEED, { header: CADENCIAS_HEADERS }), 'Cadencias');
-    comRetryIO(() => xlsx.writeFile(wb, DB_FILE));
+    gravarWorkbook(wb);
   } else {
     // Banco já existe: garante a planilha Categorias e faz seed idempotente dos
     // tipos que ainda não existem (ex.: tipo_lembrete adicionado depois), sem
     // tocar nas categorias já cadastradas pelo usuário.
-    const wb = comRetryIO(() => xlsx.readFile(DB_FILE));
+    const wb = lerWorkbook();
     let mudou = false;
     let categorias = wb.SheetNames.includes('Categorias')
       ? xlsx.utils.sheet_to_json(wb.Sheets['Categorias'])
@@ -156,7 +220,8 @@ function initDB() {
     if (mudou) {
       wb.Sheets['Categorias'] = xlsx.utils.json_to_sheet(categorias, { header: CATEGORIAS_HEADERS });
       if (!wb.SheetNames.includes('Categorias')) wb.SheetNames.push('Categorias');
-      comRetryIO(() => xlsx.writeFile(wb, DB_FILE));
+      gravarWorkbook(wb);
+      if (cache) delete cache.sheets['Categorias'];
     }
 
     // Garante as planilhas novas (Acoes/Modelos/Cadencias) sem tocar nas existentes.
@@ -172,7 +237,7 @@ function initDB() {
         mudou2 = true;
       }
     }
-    if (mudou2) comRetryIO(() => xlsx.writeFile(wb, DB_FILE));
+    if (mudou2) gravarWorkbook(wb);
   }
 }
 

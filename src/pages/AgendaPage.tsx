@@ -5,7 +5,7 @@ import {
   format, isSameDay, isSameMonth, parse, parseISO, startOfMonth, startOfWeek, subMonths, subWeeks,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, Paperclip, Plus, Printer } from 'lucide-react';
+import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, Paperclip, Plus, Printer, User } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { EventFormModal } from '../components/EventFormModal';
 import { Dropdown } from '../components/Dropdown';
@@ -235,7 +235,8 @@ export default function AgendaPage() {
                     <span className="agenda-ticker-date">{format(d, 'dd/MM')}</span>
                     <strong className="agenda-ticker-name">{ev.clientName}</strong>
                     <span className="agenda-ticker-meta">
-                      {ev.time ? `${ev.time}` : ''}{ev.subject || ev.type ? `${ev.time ? ' · ' : ''}${ev.subject || ev.type}` : ''}{ev.monitor ? ` · 👤 ${ev.monitor}` : ''}
+                      {ev.time ? `${ev.time}` : ''}{ev.subject || ev.type ? `${ev.time ? ' · ' : ''}${ev.subject || ev.type}` : ''}
+                      {ev.monitor && <span className="chip-monitor"> · <User size={10} /> {ev.monitor}</span>}
                     </span>
                     {conflitos.has(ev.id) && <AlertTriangle size={12} className="text-[color:var(--danger)] shrink-0" />}
                   </button>
@@ -323,8 +324,8 @@ export default function AgendaPage() {
                                 "Reunião" no texto. Sem serviço tagueado (legado), cai no tipo. */}
                             <span className="calendar-chip-type">
                               {/reuni/i.test(ev.type) && ev.servicos.length > 0 ? ev.servicos.join(', ') : ev.type}
-                              {ev.monitor ? ` · ${ev.monitor}` : ''}
                             </span>
+                            {ev.monitor && <span className="chip-monitor"><User size={10} /> {ev.monitor}</span>}
                             {conflitos.has(ev.id) && <AlertTriangle size={10} className="text-[color:var(--danger)]" />}
                             {ev.attachments.length > 0 && <Paperclip size={10} className="calendar-chip-clip" />}
                             <ReagendarButton className="calendar-chip-reagendar" dataAtual={ev.date} onReagendar={(novaData) => moverParaDia(ev.id, novaData)} />
