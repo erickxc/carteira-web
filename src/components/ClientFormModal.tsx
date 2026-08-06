@@ -29,7 +29,6 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const [servicos, setServicos] = useState<string[]>(initial?.servicos ?? []);
   const [servicosIndependentes, setServicosIndependentes] = useState<string[]>(initial?.servicosIndependentes ?? []);
   const [status, setStatus] = useState(initial?.status ?? statusOpcoes[0] ?? 'Ativo');
-  const [atendidoMarco, setAtendidoMarco] = useState<boolean>(initial?.atendidoMarco ?? false);
   const [observacao, setObservacao] = useState(initial?.observacao ?? '');
   const [tipoAnalise, setTipoAnalise] = useState<TipoAnalise>(initial?.tipoAnalise ?? 'unitaria');
   const [lojas, setLojas] = useState<string[]>([]);
@@ -88,30 +87,30 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
         const [primeira, ...resto] = lojasFinais;
         await atualizarCliente(initial.id, {
           empresa: `${grupo} - ${primeira}`, grupo, tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, status, observacao, atendidoMarco, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, status, observacao, relatorioCadencia,
         });
         if (resto.length > 0) {
           const novos: NovoCliente[] = resto.map((nome) => ({
             empresa: `${grupo} - ${nome}`,
             grupo,
             tipoAnalise: 'segmentado',
-            monitor, servicos, servicosIndependentes, status, observacao, atendidoMarco, relatorioCadencia,
+            monitor, servicos, servicosIndependentes, status, observacao, relatorioCadencia,
           }));
           await criarClientesEmLote(novos);
         }
       } else if (editando) {
-        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, status, observacao, atendidoMarco, tipoAnalise, relatorioCadencia });
+        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, status, observacao, tipoAnalise, relatorioCadencia });
       } else if (tipoAnalise === 'segmentado') {
         if (lojasFinais.length === 0) { toastError('Adicione ao menos uma loja para a análise segmentada.'); setSaving(false); return; }
         const novos: NovoCliente[] = lojasFinais.map((nome) => ({
           empresa: `${base} - ${nome}`,
           grupo: base,
           tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, status, observacao, atendidoMarco, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, status, observacao, relatorioCadencia,
         }));
         await criarClientesEmLote(novos);
       } else {
-        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, status, observacao, atendidoMarco, tipoAnalise: 'unitaria', relatorioCadencia });
+        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, status, observacao, tipoAnalise: 'unitaria', relatorioCadencia });
       }
       onClose();
     } catch (err) {
@@ -187,10 +186,6 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                 ))}
               </div>
             </Field>
-
-            <label className="check-row" style={{ margin: '0.25rem 0' }}>
-              <input type="checkbox" checked={atendidoMarco} onChange={(e) => setAtendidoMarco(e.target.checked)} /> Atendido pelo Marco (fora da monitoria)
-            </label>
 
             <Field label="Tipo de análise">
               <Select tone="modal" value={tipoAnalise} onChange={(e) => setTipoAnalise(e.target.value as TipoAnalise)}>

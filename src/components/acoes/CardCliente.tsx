@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { CalendarPlus, Plus } from 'lucide-react';
 import { rotuloData, sugestoes, type Item } from '../../utils/acoesHelpers';
 import { contatoRecenteNaoRefletido, rotuloRelogio, type CadStatus, type ClassificacaoCadencia, type RelogioServico } from '../../utils/cadenciaServico';
-import { isGratuidade } from '../../utils/badges';
+import { isAtendidoMarco, isGratuidade } from '../../utils/badges';
 import { Badge, Button, Card, Chip } from '../../ui';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../../types';
 
@@ -62,7 +62,7 @@ export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, his
           <button className="link-button" style={{ fontWeight: 600, fontSize: '1rem' }} onClick={() => navigate(`/clientes/${c.id}`, { state: { from: '/acoes', fromLabel: 'Ações' } })}>{c.empresa}</button>
           <div className="acao-card-badges">
             {gratuidade && <Badge variant="gratuidade">Gratuidade</Badge>}
-            {c.atendidoMarco && <Badge variant="accent">Marco</Badge>}
+            {isAtendidoMarco(c.status) && <Badge variant="accent">Marco</Badge>}
             {produtos.map((p) => <Badge key={p} variant="accent">{p}</Badge>)}
           </div>
         </div>

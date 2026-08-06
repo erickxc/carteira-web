@@ -13,8 +13,7 @@ import { usePersistedState } from '../hooks/usePersistedState';
 import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
 import { buildFilaCadencia, classificarCadencia, type FilaCadItem } from '../utils/cadenciaServico';
 import { confirmDialog } from '../utils/confirmDialog';
-import { isStatusAtivo } from '../utils/formatters';
-import { eventoStatusBadge } from '../utils/badges';
+import { eventoStatusBadge, isAtendidoMarco } from '../utils/badges';
 import { type Item } from '../utils/acoesHelpers';
 import { Badge, Button, Card, Chip, Td, Th, type BadgeVariant } from '../ui';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../types';
@@ -73,7 +72,7 @@ export default function AcoesPage() {
 
   // Clientes atendidos diretamente pelo Marco (fora do modelo de cadência).
   const marco = useMemo(
-    () => clientes.filter((c) => isStatusAtivo(c.status) && c.atendidoMarco).sort((a, b) => a.empresa.localeCompare(b.empresa)),
+    () => clientes.filter((c) => isAtendidoMarco(c.status)).sort((a, b) => a.empresa.localeCompare(b.empresa)),
     [clientes]
   );
 

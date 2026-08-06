@@ -191,7 +191,7 @@ export function buildFilaCadencia(
 
   const out: FilaCadItem[] = [];
   for (const c of clientes) {
-    if (!isStatusAtivo(c.status) || c.atendidoMarco) continue;
+    if (!isStatusAtivo(c.status)) continue;
     const evs = porCliente.get(c.id) ?? [];
 
     const relogios: RelogioServico[] = [];
@@ -259,7 +259,7 @@ export function buildVencendoDashboard(
 
   const out: VencendoDashboardItem[] = [];
   for (const c of clientes) {
-    if (!isStatusAtivo(c.status) || c.atendidoMarco) continue;
+    if (!isStatusAtivo(c.status)) continue;
     const evs = porCliente.get(c.id) ?? [];
 
     const relogios: RelogioServico[] = [];

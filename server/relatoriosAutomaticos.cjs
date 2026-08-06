@@ -55,7 +55,6 @@ function gerarRelatoriosPendentes(opts) {
   for (const cliente of clientes) {
     try {
       if (apenasClientId && String(cliente.id) !== String(apenasClientId)) continue;
-      if (cliente.atendidoMarco === true || cliente.atendidoMarco === 'true') continue;
       if (!isStatusAtivo(cliente.status)) continue;
 
       const cadencia = parseCadencia(cliente.relatorioCadencia);

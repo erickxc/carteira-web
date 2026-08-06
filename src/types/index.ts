@@ -66,8 +66,6 @@ export interface Cliente {
   status: string;
   /** Pessoas de contato do cliente (nome, cargo, telefone). */
   contatos?: Contato[];
-  /** Cliente atendido diretamente pelo Marco (fora da monitoria) — vira "neutro". */
-  atendidoMarco?: boolean;
   /** Análise unitária (empresa toda) ou segmentada (por loja). */
   tipoAnalise?: TipoAnalise;
   /**
