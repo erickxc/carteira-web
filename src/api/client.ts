@@ -1,4 +1,4 @@
-import type { Acao, Anexo, Cadencias, Categoria, ChecklistItem, Cliente, Contato, EventoAgenda, Lembrete, Modelo, PreAnalise, RelatorioCadencia } from '../types';
+import type { Acao, Anexo, Cadencias, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, Lembrete, Modelo, PreAnalise, RelatorioCadencia, SecoesReuniao } from '../types';
 
 const PRE_ANALISE_VAZIA: PreAnalise = { orientacoes: [], clientesGeral: '', produtosGeral: '' };
 function parsePreAnalise(raw: unknown): PreAnalise {
@@ -213,6 +213,10 @@ export const removerModelo = (id: string) => request<{ success: boolean }>(`/mod
 export const listarCadencias = () => request<Cadencias>('/cadencias');
 export const salvarCadencias = (data: Cadencias) =>
   request<{ success: boolean }>('/cadencias', { method: 'PUT', body: JSON.stringify(data) });
+
+// --- Importação de resumo de reunião ---
+export const identificarReuniao = (texto: string) =>
+  request<{ candidatos: ClienteCandidato[]; secoes: SecoesReuniao }>('/reunioes/identificar', { method: 'POST', body: JSON.stringify({ texto }) });
 
 // --- Anexos ---
 export async function enviarAnexo(file: File): Promise<Anexo> {

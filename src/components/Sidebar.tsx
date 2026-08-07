@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { Bell, CalendarDays, CalendarPlus, ChevronRight, Contact, FileSpreadsheet, LayoutDashboard, MessageSquare, PanelLeftClose, Search, Settings, Target, TrendingUp, Users, X } from 'lucide-react';
+import { Bell, CalendarDays, CalendarPlus, ChevronRight, Contact, FileDown, FileSpreadsheet, LayoutDashboard, MessageSquare, PanelLeftClose, Search, Settings, Target, TrendingUp, Users, X } from 'lucide-react';
 
 interface SidebarProps {
   onOpenSearch: () => void;
   /** `initialType` pré-seleciona o Tipo no EventFormModal (ex.: "Relatório"/"Contato"). */
   onNewEvent: (initialType?: string) => void;
   onNewReminder: () => void;
+  onImportarResumo: () => void;
   /** Colapsado = modo só-ícone (desktop). */
   collapsed: boolean;
   onToggleCollapse: () => void;
@@ -34,7 +35,7 @@ function linkClass(isActive: boolean): string {
     : `${LINK_BASE} text-text-secondary hover:bg-card-hover hover:text-accent hover:translate-x-1`;
 }
 
-export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: SidebarProps) {
+export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder, onImportarResumo, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: SidebarProps) {
   // No mobile (drawer), clicar num link fecha o menu.
   const closeIfMobile = () => onCloseMobile();
 
@@ -99,6 +100,9 @@ export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder, collapsed, on
           </button>
           <button className={QUICK_BTN} onClick={() => { onNewReminder(); closeIfMobile(); }} title="Novo Lembrete">
             <Bell size={17} className="shrink-0" /> <span className="sidebar-label">Lembrete</span>
+          </button>
+          <button className={QUICK_BTN} onClick={() => { onImportarResumo(); closeIfMobile(); }} title="Importar Resumo de Reunião">
+            <FileDown size={17} className="shrink-0" /> <span className="sidebar-label">Importar Resumo</span>
           </button>
         </div>
       </div>

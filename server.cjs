@@ -39,6 +39,7 @@ app.use('/api/categorias', require('./server/routes/categorias.cjs'));
 app.use('/api/acoes', require('./server/routes/acoes.cjs'));
 app.use('/api/modelos', require('./server/routes/modelos.cjs'));
 app.use('/api/cadencias', require('./server/routes/cadencias.cjs'));
+app.use('/api/reunioes', require('./server/routes/reunioes.cjs'));
 
 app.listen(PORT, HOST, () => {
   console.log(`Server running on http://${HOST}:${PORT} (acesso pela intranet)`);

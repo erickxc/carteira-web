@@ -249,3 +249,25 @@ export interface Cadencias {
   monitoria_dias: number;
   price_dias: number;
 }
+
+// --- Importação de resumo de reunião (identificação de cliente + extração de seções) ---
+export interface ClienteCandidato {
+  id: string;
+  empresa: string;
+  score: number;
+  motivos: string[];
+}
+
+export interface CapituloReuniao {
+  titulo: string;
+  texto: string;
+}
+
+export interface SecoesReuniao {
+  titulo: string;
+  linhaData: string;
+  resumo: string;
+  tarefas: string;
+  capitulos: CapituloReuniao[];
+  blocoNotas: string;
+}
