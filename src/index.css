@@ -314,7 +314,9 @@ a { color: inherit; }
 }
 .dash-gauges {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  /* 280px (não 320px) pra caber os 4 cards (Ritmo/Cobertura/Vencendo/Abrangência)
+     numa fileira só em telas de desktop comuns — 320px só cabia os 3 originais. */
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
   align-items: start; /* só o card em hover cresce; o vizinho não estica */

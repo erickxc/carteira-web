@@ -41,21 +41,53 @@ export function extrairDDD(telefone: string | undefined | null): string | null {
   return DDD_PARA_UF[m[1]] ? m[1] : null;
 }
 
+export interface AbrangenciaDDD {
+  /** Lojas (linhas de cliente) por UF — não é contagem de contato/telefone. */
+  porUf: Record<string, string[]>;
+  /** Lojas cujo grupo inteiro não tem nenhum contato com DDD reconhecível. */
+  semContato: string[];
+}
+
 /**
- * Conta CLIENTES distintos por UF (não contatos/telefones) — um cliente com 2
- * contatos no mesmo estado conta 1 vez lá, e se tiver contatos em 2 estados
- * diferentes conta 1 vez em cada. Ignora clientes sem telefone com DDD
- * reconhecível — não força um estado.
+ * Agrupa LOJAS (linhas de cliente) por UF a partir do DDD dos telefones de
+ * contato. Conta é por loja, não por contato: num grupo segmentado (ex.
+ * "Pecita" com 5 lojas), normalmente só 1 loja tem contato cadastrado — as
+ * outras 4 são o mesmo grupo/região, então herdam o estado da que tem
+ * telefone, em vez de cair em "sem contato" só por não terem o próprio
+ * cadastro. Cliente sem grupo forma um grupo de 1 (ele mesmo). Se o grupo não
+ * tiver NENHUM contato com DDD reconhecível em nenhuma loja, todas caem em
+ * `semContato` — não é forçado um estado sem nenhuma evidência.
  */
-export function contarClientesPorUf(clientes: Cliente[]): Record<string, number> {
-  const contagem: Record<string, number> = {};
+export function agruparClientesPorUf(clientes: Cliente[]): AbrangenciaDDD {
+  const porUf: Record<string, string[]> = {};
+  const semContato: string[] = [];
+
+  const grupos = new Map<string, Cliente[]>();
   for (const c of clientes) {
-    const ufs = new Set<string>();
-    for (const ct of c.contatos ?? []) {
-      const ddd = extrairDDD(ct?.telefone);
-      if (ddd) ufs.add(DDD_PARA_UF[ddd]);
-    }
-    ufs.forEach((uf) => { contagem[uf] = (contagem[uf] ?? 0) + 1; });
+    const chave = c.grupo?.trim() || c.id;
+    if (!grupos.has(chave)) grupos.set(chave, []);
+    grupos.get(chave)!.push(c);
   }
-  return contagem;
+
+  for (const lojas of grupos.values()) {
+    const ufs = new Set<string>();
+    for (const c of lojas) {
+      for (const ct of c.contatos ?? []) {
+        const ddd = extrairDDD(ct?.telefone);
+        if (ddd) ufs.add(DDD_PARA_UF[ddd]);
+      }
+    }
+    if (ufs.size === 0) { lojas.forEach((c) => semContato.push(c.empresa)); continue; }
+    lojas.forEach((c) => ufs.forEach((uf) => { (porUf[uf] ??= []).push(c.empresa); }));
+  }
+
+  Object.values(porUf).forEach((lista) => lista.sort((a, b) => a.localeCompare(b, 'pt-BR')));
+  semContato.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  return { porUf, semContato };
+}
+
+/** Só a contagem por UF — usado pra colorir o mapa sem precisar da lista de nomes. */
+export function contarClientesPorUf(clientes: Cliente[]): Record<string, number> {
+  const { porUf } = agruparClientesPorUf(clientes);
+  return Object.fromEntries(Object.entries(porUf).map(([uf, lista]) => [uf, lista.length]));
 }

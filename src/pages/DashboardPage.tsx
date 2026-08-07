@@ -128,6 +128,7 @@ export default function DashboardPage() {
           filtroServico={d.filtroServicoVencendo}
           onFiltroServico={d.setFiltroServicoVencendo}
         />
+        <AbrangenciaMapaCard clientes={clientes} />
       </div>
 
       {/* Serviços + próximas agendas */}
@@ -159,8 +160,6 @@ export default function DashboardPage() {
           nomeCliente={(clientId) => clientes.find((c) => c.id === clientId)?.empresa}
         />
       </div>
-
-      <AbrangenciaMapaCard clientes={clientes} />
 
       {/* Tendência mensal (fim da página) */}
       <TendenciaMensalCard linhaPorMes={d.linhaPorMes} linhaHighlight={d.linhaHighlight} />
