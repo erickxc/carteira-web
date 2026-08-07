@@ -8,6 +8,7 @@ import { gerarAtaPdf } from '../utils/ataPdf';
 import { toastError } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ModalShell } from './ModalShell';
+import { ClienteCombobox } from './ClienteCombobox';
 import { useRecorrencia } from './eventForm/useRecorrencia';
 import { useChecklist } from './eventForm/useChecklist';
 import { usePreAnalise } from './eventForm/usePreAnalise';
@@ -235,10 +236,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
       }
     >
             <Field label="Cliente">
-              <Select tone="modal" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
-                <option value="" disabled>Selecione...</option>
-                {clientes.map((c) => (<option key={c.id} value={c.id}>{c.empresa}</option>))}
-              </Select>
+              <ClienteCombobox clientes={clientes} value={clientId} onChange={setClientId} tone="modal" />
             </Field>
 
             <Field label="Monitor">

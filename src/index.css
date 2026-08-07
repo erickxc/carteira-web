@@ -1223,7 +1223,7 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
   color: var(--text-secondary); background: none; border: none; cursor: pointer;
   transition: background 0.1s ease, color 0.1s ease;
 }
-.filter-pop-item:hover { background: var(--card-hover); color: var(--text-primary); }
+.filter-pop-item:hover, .filter-pop-item.is-active { background: var(--card-hover); color: var(--text-primary); }
 .filter-check {
   width: 17px; height: 17px; border-radius: 5px; border: 1px solid var(--border-strong);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #000;
