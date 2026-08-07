@@ -14,6 +14,7 @@ import { ProximasAgendasCard } from '../components/dashboard/ProximasAgendasCard
 import { AlertasSemAcompanhamentoCard } from '../components/dashboard/AlertasSemAcompanhamentoCard';
 import { AlertasProgramadosCard } from '../components/dashboard/AlertasProgramadosCard';
 import { TendenciaMensalCard } from '../components/dashboard/TendenciaMensalCard';
+import { AbrangenciaMapaCard } from '../components/dashboard/AbrangenciaMapaCard';
 import { ReminderFormModal } from '../components/ReminderFormModal';
 import type { Cliente } from '../types';
 
@@ -158,6 +159,8 @@ export default function DashboardPage() {
           nomeCliente={(clientId) => clientes.find((c) => c.id === clientId)?.empresa}
         />
       </div>
+
+      <AbrangenciaMapaCard clientes={clientes} />
 
       {/* Tendência mensal (fim da página) */}
       <TendenciaMensalCard linhaPorMes={d.linhaPorMes} linhaHighlight={d.linhaHighlight} />
