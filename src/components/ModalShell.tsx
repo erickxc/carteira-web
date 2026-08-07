@@ -8,8 +8,9 @@ interface ModalShellProps {
   onSubmit: (e: FormEvent) => void;
   /** Botões do rodapé (Cancelar/Salvar/Excluir etc.) — cada modal decide os seus. */
   footer: ReactNode;
-  /** 'lg' = modal largo (usado pelo EventFormModal, que tem muitos campos). */
-  size?: 'lg';
+  /** 'lg' = modal largo (formulários com muitos campos, ex. EventFormModal).
+   *  'xl' = modal extra largo (conteúdo visual, ex. mapa). */
+  size?: 'lg' | 'xl';
   children: ReactNode;
 }
 
@@ -27,7 +28,7 @@ export function ModalShell({ title, onClose, onSubmit, footer, size, children }:
   // tela e não redimensionava. No body, o fixed volta a valer pela viewport.
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className={`modal${size === 'lg' ? ' modal-lg' : ''}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`modal${size ? ` modal-${size}` : ''}`} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{title}</h2>
         </div>

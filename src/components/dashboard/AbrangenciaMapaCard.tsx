@@ -167,7 +167,12 @@ export function AbrangenciaMapaCard({ clientes }: AbrangenciaMapaCardProps) {
       {tooltip && (
         <div
           style={{
-            position: 'fixed', left: tooltip.x + 14, top: tooltip.y + 14, zIndex: 1000,
+            // zIndex bem acima do .modal-overlay (1000) — o tooltip não é
+            // portalado pro body como o modal, então em DOM/paint order ele
+            // ficava ATRÁS do modal com o mesmo z-index (empate resolvido pela
+            // ordem no DOM, e o modal é anexado depois). Bug real: o card de
+            // hover sumia atrás do modal quando aberto.
+            position: 'fixed', left: tooltip.x + 14, top: tooltip.y + 14, zIndex: 2100,
             background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 8,
             boxShadow: 'var(--shadow-lg)', padding: '8px 10px', fontSize: 12, maxWidth: 220,
             pointerEvents: 'none',
@@ -184,12 +189,12 @@ export function AbrangenciaMapaCard({ clientes }: AbrangenciaMapaCardProps) {
           title="Abrangência da Monitoria"
           onClose={() => setExpandido(false)}
           onSubmit={fecharModal}
-          size="lg"
+          size="xl"
           footer={<Button variant="secondary" onClick={() => setExpandido(false)}>Fechar</Button>}
         >
-          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', alignItems: 'flex-start' }}>
             <div style={{ flexShrink: 0 }}>
-              <MapaSvg largura={380} porUf={porUf} max={max} onHover={mostrar} onLeave={esconder} />
+              <MapaSvg largura={520} porUf={porUf} max={max} onHover={mostrar} onLeave={esconder} />
             </div>
             <div style={{ flex: 1, minWidth: 220 }}>
               <p className="text-text-muted" style={{ fontSize: 12, marginBottom: 10 }}>

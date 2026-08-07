@@ -1342,6 +1342,7 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 
 /* --- Modal largo (evento) + tabela de pré-análise --- */
 .modal.modal-lg { width: min(720px, 100%); }
+.modal.modal-xl { width: min(960px, 95vw); }
 /* Garante que o <form> ocupe o modal e só o corpo role (rodapé fixo, sem cortar). */
 .modal > form { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
 .modal > form > .modal-body { flex: 1; min-height: 0; }
