@@ -319,7 +319,12 @@ a { color: inherit; }
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
-  align-items: start; /* só o card em hover cresce; o vizinho não estica */
+  /* stretch: os 4 cards ficam com a MESMA altura (a do conteúdo mais alto),
+     por pedido explícito — antes cada um tinha uma altura diferente (285 a
+     364px) e destoava visualmente. "Ver clientes" expandido tem teto de 480px
+     (.gauge-detalhe.is-open), então o crescimento é sempre parelho — todos
+     esticam juntos, não fica um card avulso mais alto. */
+  align-items: stretch;
 }
 
 /* StatCard compacto (topo do dashboard) com barra de acento à esquerda */
