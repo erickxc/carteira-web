@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent, type MouseEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { Maximize2 } from 'lucide-react';
 import { Button, Card } from '../../ui';
 import { ModalShell } from '../ModalShell';
@@ -164,24 +165,35 @@ export function AbrangenciaMapaCard({ clientes }: AbrangenciaMapaCardProps) {
         </p>
       )}
 
-      {tooltip && (
+      {tooltip && createPortal(
         <div
           style={{
-            // zIndex bem acima do .modal-overlay (1000) — o tooltip não é
-            // portalado pro body como o modal, então em DOM/paint order ele
-            // ficava ATRÁS do modal com o mesmo z-index (empate resolvido pela
-            // ordem no DOM, e o modal é anexado depois). Bug real: o card de
-            // hover sumia atrás do modal quando aberto.
-            position: 'fixed', left: tooltip.x + 14, top: tooltip.y + 14, zIndex: 2100,
+            // Portal pro <body> (mesmo padrão de Dropdown.tsx/ModalShell): o
+            // ".card" tem `transform: translateY(-3px)` no hover, e um
+            // ancestral com transform vira a referência de um `position:
+            // fixed` descendente (deixa de valer contra a viewport). Era por
+            // isso que o tooltip não seguia o mouse direito e podia ficar
+            // preso atrás do modal, mesmo com z-index alto — ele estava preso
+            // no stacking context local do card, não no do documento.
+            position: 'fixed', left: tooltip.x + 16, top: tooltip.y + 10, zIndex: 2100,
             background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 8,
             boxShadow: 'var(--shadow-lg)', padding: '8px 10px', fontSize: 12, maxWidth: 220,
             pointerEvents: 'none',
           }}
         >
+          {/* Setinha apontando pro cursor/estado, efeito de balão. */}
+          <span
+            style={{
+              position: 'absolute', left: -5, top: 12, width: 9, height: 9,
+              background: 'var(--card)', borderLeft: '1px solid var(--border-strong)', borderBottom: '1px solid var(--border-strong)',
+              transform: 'rotate(45deg)',
+            }}
+          />
           <div style={{ fontWeight: 700, marginBottom: 4 }}>{tooltip.titulo} <span className="text-text-muted" style={{ fontWeight: 400 }}>({tooltip.nomes.length})</span></div>
           {tooltip.nomes.slice(0, 10).map((n) => <div key={n} className="text-text-secondary">{n}</div>)}
           {tooltip.nomes.length > 10 && <div className="text-text-muted">+{tooltip.nomes.length - 10} outro(s)</div>}
-        </div>
+        </div>,
+        document.body
       )}
 
       {expandido && (
