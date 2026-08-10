@@ -23,7 +23,7 @@ export function CeoEventoPopover({ evento, onClose }: CeoEventoPopoverProps) {
       <div className="modal ceo-evento-popover" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="flex items-center gap-2">
-            <span aria-hidden>📅</span> Agenda do CEO
+            Agendas do Marco
           </h2>
         </div>
         <div className="modal-body">
@@ -40,7 +40,7 @@ export function CeoEventoPopover({ evento, onClose }: CeoEventoPopoverProps) {
             </div>
           )}
           <p className="text-text-muted" style={{ fontSize: '0.76rem', marginTop: 14, marginBottom: 0 }}>
-            Compromisso importado do Google Agenda do CEO — somente leitura, não editável pela Carteira.
+            Compromisso importado do Google Agendas do Marco — somente leitura, não editável pela Carteira.
           </p>
         </div>
         <div className="modal-footer">

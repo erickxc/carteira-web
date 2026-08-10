@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   addDays, addMonths, addWeeks, differenceInCalendarDays, eachDayOfInterval, endOfMonth, endOfWeek,
-  format, isSameDay, isSameMonth, parse, parseISO, startOfMonth, startOfWeek, subMonths, subWeeks,
+  format, isSameDay, isSameMonth, parse, parseISO, startOfMonth, startOfWeek, subDays, subMonths, subWeeks,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, Paperclip, Plus, Printer, User } from 'lucide-react';
@@ -110,7 +110,10 @@ export default function AgendaPage() {
     if (!mostrarAgendaCeo) return map;
     ceoAgenda.events.forEach((ev) => {
       const inicio = parseISO(ev.start);
-      const fim = ev.end ? parseISO(ev.end) : inicio;
+      // Evento de dia inteiro: o Google usa data final EXCLUSIVA (ex.: um
+      // compromisso só no dia 20 vem com end=21) — sem o -1 dia, o loop abaixo
+      // também marcaria o dia 21, que não faz parte do compromisso.
+      const fim = ev.end ? (ev.allDay ? subDays(parseISO(ev.end), 1) : parseISO(ev.end)) : inicio;
       eachDayOfInterval({ start: inicio, end: fim }).forEach((dia) => {
         const key = format(dia, 'yyyy-MM-dd');
         if (!map.has(key)) map.set(key, []);
@@ -295,11 +298,11 @@ export default function AgendaPage() {
               <input type="checkbox" checked={mostrarCancelados} onChange={(e) => setMostrarCancelados(e.target.checked)} /> Mostrar cancelados
             </label>
             <label className="check-row" style={{ fontSize: '0.85rem' }}>
-              <input type="checkbox" checked={mostrarAgendaCeo} onChange={(e) => setMostrarAgendaCeo(e.target.checked)} /> 📅 Agenda do CEO
+              <input type="checkbox" checked={mostrarAgendaCeo} onChange={(e) => setMostrarAgendaCeo(e.target.checked)} /> Agendas do Marco
             </label>
             {mostrarAgendaCeo && ceoAgenda.lastSync === null && (
               <span className="text-text-muted" style={{ fontSize: '0.72rem' }} title={ceoAgenda.lastError ?? undefined}>
-                Agenda do CEO indisponível no momento
+                Agendas do Marco indisponível no momento
               </span>
             )}
           </div>
@@ -366,10 +369,10 @@ export default function AgendaPage() {
                           type="button"
                           className="calendar-chip calendar-chip-ceo"
                           onClick={() => setEventoCeoAberto(ev)}
-                          title={`${ev.title}${ev.allDay ? '' : ' · ' + format(parseISO(ev.start), 'HH:mm')} — Agenda do CEO (Google, somente leitura)`}>
+                          title={`${ev.title}${ev.allDay ? '' : ' · ' + format(parseISO(ev.start), 'HH:mm')} — Agendas do Marco (Google, somente leitura)`}>
                           <span className="calendar-chip-title">📅 {ev.allDay ? '' : `${format(parseISO(ev.start), 'HH:mm')} `}{ev.title}</span>
                           <span className="calendar-chip-meta">
-                            <span className="calendar-chip-type">Agenda do CEO</span>
+                            <span className="calendar-chip-type">Agendas do Marco</span>
                           </span>
                         </button>
                       ))}
