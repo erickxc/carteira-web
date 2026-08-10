@@ -763,6 +763,12 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .calendar-day {
   position: relative;
   min-height: 104px;
+  /* Sem isso, texto longo sem quebra (títulos de evento) faz esta célula do
+     grid crescer além da fração (1fr) que ela deveria ocupar — "grid
+     blowout": o item de grid, por padrão, nunca encolhe menor que o
+     min-content do seu conteúdo, então uma célula com título grande empurra
+     a linha inteira e estoura a largura do calendário. */
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 8px;
