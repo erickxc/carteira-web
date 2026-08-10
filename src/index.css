@@ -1284,8 +1284,17 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .agenda-ticker:hover .agenda-ticker-track { animation-play-state: paused; }
 @keyframes ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) {
-  .agenda-ticker { overflow-x: auto; padding-bottom: 8px; }
+  .agenda-ticker {
+    overflow-x: auto; padding-bottom: 8px;
+    scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent;
+  }
+  .agenda-ticker::-webkit-scrollbar { height: 4px; }
+  .agenda-ticker::-webkit-scrollbar-track { background: transparent; }
+  .agenda-ticker::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
   .agenda-ticker-track { animation: none; }
+  /* Sem animação, a cópia duplicada da lista (necessária só pro loop contínuo)
+     viraria repetição visível ao rolar — esconde. */
+  .agenda-ticker-item[aria-hidden="true"] { display: none; }
 }
 .agenda-ticker-item {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px;
