@@ -1,5 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { Bell, CalendarDays, CalendarPlus, ChevronRight, Contact, FileDown, FileSpreadsheet, LayoutDashboard, MessageSquare, PanelLeftClose, Search, Settings, Target, TrendingUp, Users, X } from 'lucide-react';
+import prismaLogo from '../assets/prisma-logo.png';
+import priceLogo from '../assets/price-logo.svg';
 
 interface SidebarProps {
   onOpenSearch: () => void;
@@ -105,6 +107,28 @@ export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder, onImportarRes
             <FileDown size={17} className="shrink-0" /> <span className="sidebar-label">Importar Resumo</span>
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-[0.4rem] border-t border-border pt-[0.85rem]">
+        <span className={SECTION_LABEL}>Sistemas</span>
+        <a
+          href="http://danielloureiro-2d"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Abrir PRISMA"
+          className="sidebar-action flex items-center justify-center gap-[0.4rem] w-full h-[52px] rounded-sm px-[0.7rem] text-[0.82rem] font-semibold text-white bg-black border-none cursor-pointer no-underline transition-all duration-150 hover:bg-neutral-800"
+        >
+          <img src={prismaLogo} alt="" className="shrink-0" style={{ width: 18, height: 18, objectFit: 'contain' }} /> <span className="sidebar-label">PRISMA</span>
+        </a>
+        <a
+          href="http://77.37.126.180:5005/login"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Abrir Price 2D"
+          className="sidebar-action flex items-center justify-center w-full h-[52px] rounded-sm px-[0.7rem] bg-white border border-border cursor-pointer no-underline transition-all duration-150 hover:bg-neutral-100"
+        >
+          <img src={priceLogo} alt="Price 2D" className="shrink-0" style={{ height: 28, width: 'auto' }} />
+        </a>
       </div>
 
       <nav className="flex flex-col gap-0.5 mt-auto border-t border-border pt-[0.85rem]">
