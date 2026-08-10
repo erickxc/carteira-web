@@ -27,6 +27,10 @@ function turnoDe(ev: EventoAgenda): 'manha' | 'tarde' {
   if (!ev.time) return 'manha';
   return Number(ev.time.slice(0, 2)) >= 12 ? 'tarde' : 'manha';
 }
+function turnoDeCeo(ev: EventoCeo): 'manha' | 'tarde' {
+  if (ev.allDay) return 'manha';
+  return Number(format(parseISO(ev.start), 'HH')) >= 12 ? 'tarde' : 'manha';
+}
 function ordenaPorHora(a: EventoAgenda, b: EventoAgenda) {
   return (a.time || '99:99').localeCompare(b.time || '99:99');
 }
@@ -389,6 +393,9 @@ export default function AgendaPage() {
               const dayEvents = eventsByDay.get(key) ?? [];
               const manha = dayEvents.filter((e) => turnoDe(e) === 'manha');
               const tarde = dayEvents.filter((e) => turnoDe(e) === 'tarde');
+              const dayEventsCeo = eventsByDayCeo.get(key) ?? [];
+              const manhaCeo = dayEventsCeo.filter((e) => turnoDeCeo(e) === 'manha');
+              const tardeCeo = dayEventsCeo.filter((e) => turnoDeCeo(e) === 'tarde');
               const holiday = getHoliday(day);
               return (
                 <div key={key} className={`kanban-col${isSameDay(day, hoje) ? ' is-today' : ''}`}>
@@ -400,6 +407,7 @@ export default function AgendaPage() {
                   {(['manha', 'tarde'] as const).map((turno) => {
                     const dkey = `${key}|${turno}`;
                     const lista = turno === 'manha' ? manha : tarde;
+                    const listaCeo = turno === 'manha' ? manhaCeo : tardeCeo;
                     return (
                       <div key={turno} className={`kanban-turno${dragOverKey === dkey ? ' is-drop-target' : ''}`}
                         onDragOver={(e) => { e.preventDefault(); if (dragOverKey !== dkey) setDragOverKey(dkey); }}
@@ -418,6 +426,18 @@ export default function AgendaPage() {
                             onConcluir={() => concluir(ev)}
                             onReagendar={(novaData) => moverParaDia(ev.id, novaData)}
                           />
+                        ))}
+                        {listaCeo.map((ev) => (
+                          <button key={ev.id}
+                            type="button"
+                            className="calendar-chip calendar-chip-ceo"
+                            onClick={() => setEventoCeoAberto(ev)}
+                            title={`${ev.title}${ev.allDay ? '' : ' · ' + format(parseISO(ev.start), 'HH:mm')} — Agendas do Marco (Google, somente leitura)`}>
+                            <span className="calendar-chip-title">📅 {ev.allDay ? '' : `${format(parseISO(ev.start), 'HH:mm')} `}{ev.title}</span>
+                            <span className="calendar-chip-meta">
+                              <span className="calendar-chip-type">Agendas do Marco</span>
+                            </span>
+                          </button>
                         ))}
                         <button className="kanban-add" onClick={() => setModalState({ defaultDate: day })}><Plus size={13} /> reunião</button>
                       </div>
