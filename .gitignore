@@ -29,6 +29,12 @@ uploads/
 .env
 .env.*
 
+# Credenciais do Google (Agenda do CEO) — nunca versionar
+*service-account*.json
+agenda-*.json
+client_secret*.json
+ceo-agenda-*.json
+
 # Arquivos gerados localmente
 error.log
 *.ico

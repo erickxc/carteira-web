@@ -11,12 +11,13 @@ import { EventFormModal } from '../components/EventFormModal';
 import { Dropdown } from '../components/Dropdown';
 import { CardEvento } from '../components/agenda/CardEvento';
 import { ReagendarButton } from '../components/agenda/ReagendarButton';
+import { CeoEventoPopover } from '../components/agenda/CeoEventoPopover';
 import { formatHolidayLabel, getHoliday } from '../utils/holidays';
 import { gerarAta } from '../utils/ata';
 import { corTipo } from '../utils/tipoCor';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { Badge, Button, Card } from '../ui';
-import type { EventoAgenda } from '../types';
+import type { EventoAgenda, EventoCeo } from '../types';
 
 const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -31,7 +32,7 @@ function ordenaPorHora(a: EventoAgenda, b: EventoAgenda) {
 }
 
 export default function AgendaPage() {
-  const { agenda, clientes, atualizarEvento, opcoesPorTipo } = useCarteira();
+  const { agenda, clientes, atualizarEvento, opcoesPorTipo, ceoAgenda } = useCarteira();
   const location = useLocation();
   const navigate = useNavigate();
   const hoje = new Date();
@@ -47,6 +48,8 @@ export default function AgendaPage() {
   // Cancelado/Reagendado somem do calendário por padrão (evento morto, sem
   // ocupar mais o horário) — toggle revela pra quem quiser ver o histórico.
   const [mostrarCancelados, setMostrarCancelados] = usePersistedState('filtro:agenda:mostrarCancelados', false);
+  const [mostrarAgendaCeo, setMostrarAgendaCeo] = usePersistedState('carteira:mostrarAgendaCeo', false);
+  const [eventoCeoAberto, setEventoCeoAberto] = useState<EventoCeo | null>(null);
 
   const statusConcluido = useMemo(
     () => opcoesPorTipo('status_evento').find((s) => /conclu|realiz/i.test(s)) ?? 'Concluído',
@@ -99,6 +102,23 @@ export default function AgendaPage() {
     for (const list of map.values()) list.sort(ordenaPorHora);
     return map;
   }, [agendaFiltrada]);
+
+  // Eventos da Agenda do CEO, por dia (chave 'yyyy-MM-dd') — inclui todos os
+  // dias entre start/end para compromissos que abrangem mais de um dia.
+  const eventsByDayCeo = useMemo(() => {
+    const map = new Map<string, EventoCeo[]>();
+    if (!mostrarAgendaCeo) return map;
+    ceoAgenda.events.forEach((ev) => {
+      const inicio = parseISO(ev.start);
+      const fim = ev.end ? parseISO(ev.end) : inicio;
+      eachDayOfInterval({ start: inicio, end: fim }).forEach((dia) => {
+        const key = format(dia, 'yyyy-MM-dd');
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(ev);
+      });
+    });
+    return map;
+  }, [ceoAgenda, mostrarAgendaCeo]);
 
   // Conflitos: mesmo MONITOR + mesmo dia + mesma hora (não vazia). Monitores
   // diferentes no mesmo horário não é conflito (cada um pode ter sua própria
@@ -274,6 +294,14 @@ export default function AgendaPage() {
             <label className="check-row" style={{ fontSize: '0.85rem' }}>
               <input type="checkbox" checked={mostrarCancelados} onChange={(e) => setMostrarCancelados(e.target.checked)} /> Mostrar cancelados
             </label>
+            <label className="check-row" style={{ fontSize: '0.85rem' }}>
+              <input type="checkbox" checked={mostrarAgendaCeo} onChange={(e) => setMostrarAgendaCeo(e.target.checked)} /> 📅 Agenda do CEO
+            </label>
+            {mostrarAgendaCeo && ceoAgenda.lastSync === null && (
+              <span className="text-text-muted" style={{ fontSize: '0.72rem' }} title={ceoAgenda.lastError ?? undefined}>
+                Agenda do CEO indisponível no momento
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap gap-3">
             {tiposUnicos.map((t) => (
@@ -293,6 +321,7 @@ export default function AgendaPage() {
               {monthDays.map((day) => {
                 const key = format(day, 'yyyy-MM-dd');
                 const dayEvents = eventsByDay.get(key) ?? [];
+                const dayEventsCeo = eventsByDayCeo.get(key) ?? [];
                 const holiday = getHoliday(day);
                 const classes = ['calendar-day', 'calendar-day-big',
                   !isSameMonth(day, currentMonth) && 'is-outside', isSameDay(day, hoje) && 'is-today',
@@ -329,6 +358,18 @@ export default function AgendaPage() {
                             {conflitos.has(ev.id) && <AlertTriangle size={10} className="text-[color:var(--danger)]" />}
                             {ev.attachments.length > 0 && <Paperclip size={10} className="calendar-chip-clip" />}
                             <ReagendarButton className="calendar-chip-reagendar" dataAtual={ev.date} onReagendar={(novaData) => moverParaDia(ev.id, novaData)} />
+                          </span>
+                        </button>
+                      ))}
+                      {dayEventsCeo.map((ev) => (
+                        <button key={ev.id}
+                          type="button"
+                          className="calendar-chip calendar-chip-ceo"
+                          onClick={() => setEventoCeoAberto(ev)}
+                          title={`${ev.title}${ev.allDay ? '' : ' · ' + format(parseISO(ev.start), 'HH:mm')} — Agenda do CEO (Google, somente leitura)`}>
+                          <span className="calendar-chip-title">📅 {ev.allDay ? '' : `${format(parseISO(ev.start), 'HH:mm')} `}{ev.title}</span>
+                          <span className="calendar-chip-meta">
+                            <span className="calendar-chip-type">Agenda do CEO</span>
                           </span>
                         </button>
                       ))}
@@ -396,6 +437,10 @@ export default function AgendaPage() {
           onClose={() => setModalState(null)}
           onAgendarProximo={(clientId) => setModalState({ initialClientId: clientId, defaultDate: new Date() })}
         />
+      )}
+
+      {eventoCeoAberto && (
+        <CeoEventoPopover evento={eventoCeoAberto} onClose={() => setEventoCeoAberto(null)} />
       )}
     </div>
   );

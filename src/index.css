@@ -1108,6 +1108,18 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   text-overflow: ellipsis;
 }
 .calendar-chip-clip { color: var(--text-muted); flex-shrink: 0; }
+
+/* Agenda do CEO (Google Calendar, somente leitura) — única exceção à
+   identidade preto-e-branco do projeto: cor própria (azul Google) pra deixar
+   claro que a origem é externa, e nunca confundir com um evento editável. */
+.calendar-chip-ceo {
+  cursor: pointer;
+  border: 1px dashed #4285f4;
+  background: color-mix(in srgb, #4285f4 10%, var(--card) 90%);
+}
+.calendar-chip-ceo::before { background: #4285f4; }
+.calendar-chip-ceo:hover { background: color-mix(in srgb, #4285f4 18%, var(--card) 82%); border-color: #4285f4; }
+.calendar-chip-ceo .calendar-chip-type { color: #4285f4; }
 .calendar-chip-reagendar {
   display: inline-flex; align-items: center; justify-content: center;
   width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0;

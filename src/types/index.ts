@@ -184,6 +184,22 @@ export interface Lembrete {
 
 export type NovoLembrete = Omit<Lembrete, 'id' | 'createdAt' | 'status'> & { status?: LembreteStatus };
 
+// --- Agenda do CEO (Google Calendar, somente leitura) ---
+export interface EventoCeo {
+  id: string;
+  title: string;
+  start: string;
+  end: string | null;
+  location: string;
+  allDay: boolean;
+}
+
+export interface CeoAgendaCache {
+  events: EventoCeo[];
+  lastSync: string | null;
+  lastError: string | null;
+}
+
 // --- Feriados ---
 export interface Holiday {
   date: Date;

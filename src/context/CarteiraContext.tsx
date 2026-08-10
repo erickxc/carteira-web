@@ -5,6 +5,7 @@ import type {
   Acao,
   Anexo,
   Cadencias,
+  CeoAgendaCache,
   Categoria,
   CategoriaTipo,
   Cliente,
@@ -15,6 +16,8 @@ import type {
   NovoEvento,
   NovoLembrete,
 } from '../types';
+
+const CEO_AGENDA_VAZIA: CeoAgendaCache = { events: [], lastSync: null, lastError: null };
 
 const CADENCIAS_PADRAO: Cadencias = {
   reuniao_dias: 30,
@@ -36,6 +39,11 @@ interface CarteiraContextValue {
   loading: boolean;
   error: string | null;
   recarregar: () => Promise<void>;
+
+  /** Camada isolada e somente-leitura: nunca afeta `loading`/`error` acima —
+   *  uma falha aqui (Google fora do ar, link não configurado) não pode
+   *  impedir o carregamento do resto da Carteira. */
+  ceoAgenda: CeoAgendaCache;
 
   /** Lista de valores (strings) de uma categoria, na ordem cadastrada. */
   opcoesPorTipo: (tipo: CategoriaTipo) => string[];
@@ -82,6 +90,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
   const [cadencias, setCadencias] = useState<Cadencias>(CADENCIAS_PADRAO);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [ceoAgenda, setCeoAgenda] = useState<CeoAgendaCache>(CEO_AGENDA_VAZIA);
 
   const buscarTudo = useCallback(async () => {
     const [clientesData, agendaData, lembretesData, categoriasData, acoesData, modelosData, cadenciasData] = await Promise.all([
@@ -181,6 +190,29 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('focus', aoVoltarPraTela);
     };
   }, [buscarTudo, aplicarDados]);
+
+  // -------------------------------------------------------------------------
+  // Agenda do CEO (Google Calendar, somente leitura)
+  // Efeito totalmente separado do carregamento principal: uma falha aqui
+  // (backend sem CEO_AGENDA_ICS_URL configurada, Google fora do ar) nunca deve
+  // aparecer como erro global nem atrasar o resto da Carteira. O backend já
+  // cacheia e sincroniza 1x/dia — aqui só refazemos a leitura do cache
+  // periodicamente para refletir uma sincronização nova sem exigir reload.
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    let cancelado = false;
+    const buscar = async () => {
+      try {
+        const dados = await api.buscarAgendaCeo();
+        if (!cancelado) setCeoAgenda(dados);
+      } catch (err) {
+        console.warn('Agenda do CEO indisponível (mantendo dados atuais):', err);
+      }
+    };
+    buscar();
+    const timer = window.setInterval(buscar, 30 * 60_000);
+    return () => { cancelado = true; window.clearInterval(timer); };
+  }, []);
 
   const opcoesPorTipo = useCallback(
     (tipo: CategoriaTipo) =>
@@ -332,6 +364,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       recarregar,
+      ceoAgenda,
       opcoesPorTipo,
       criarCliente,
       criarClientesEmLote,
@@ -357,7 +390,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       salvarCadencias: salvarCadenciasFn,
     }),
     [
-      clientes, agenda, lembretes, categorias, acoes, modelos, cadencias, loading, error, recarregar, opcoesPorTipo,
+      clientes, agenda, lembretes, categorias, acoes, modelos, cadencias, loading, error, recarregar, ceoAgenda, opcoesPorTipo,
       criarCliente, criarClientesEmLote, atualizarClienteFn, removerClienteFn,
       criarEventoFn, atualizarEventoFn, removerEventoFn, enviarAnexoEvento, removerAnexoEvento,
       criarLembreteFn, atualizarLembreteFn, removerLembreteFn,

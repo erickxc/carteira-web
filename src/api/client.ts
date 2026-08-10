@@ -1,4 +1,4 @@
-import type { Acao, Anexo, Cadencias, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, Lembrete, Modelo, PreAnalise, RelatorioCadencia, SecoesReuniao } from '../types';
+import type { Acao, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, Lembrete, Modelo, PreAnalise, RelatorioCadencia, SecoesReuniao } from '../types';
 
 const PRE_ANALISE_VAZIA: PreAnalise = { orientacoes: [], clientesGeral: '', produtosGeral: '' };
 function parsePreAnalise(raw: unknown): PreAnalise {
@@ -213,6 +213,9 @@ export const removerModelo = (id: string) => request<{ success: boolean }>(`/mod
 export const listarCadencias = () => request<Cadencias>('/cadencias');
 export const salvarCadencias = (data: Cadencias) =>
   request<{ success: boolean }>('/cadencias', { method: 'PUT', body: JSON.stringify(data) });
+
+// --- Agenda do CEO (Google Calendar, somente leitura) ---
+export const buscarAgendaCeo = () => request<CeoAgendaCache>('/ceo-agenda');
 
 // --- Importação de resumo de reunião ---
 export const identificarReuniao = (texto: string) =>

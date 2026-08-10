@@ -10,6 +10,15 @@ const path = require('path');
 const HOST = process.env.APP_HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT) || 3001;
 
+// Agenda do CEO (Google Calendar, somente leitura via OAuth) — camada isolada
+// em server/ceoAgenda.cjs. Autorizado uma única vez com a própria conta dona
+// da agenda (negocios@2dconsultores.com.br) via server/scripts/authorizeCeoAgenda.cjs
+// (script local, fora do fluxo HTTP normal). calendarId não é segredo (é só
+// um e-mail/ID de agenda); os caminhos abaixo apontam pra fora do repositório
+// (dentro do OneDrive, junto dos outros dados sensíveis do app) — os arquivos
+// .json em si (client_secret, refresh_token) nunca devem ir pro git.
+const CEO_AGENDA_CALENDAR_ID = process.env.CEO_AGENDA_CALENDAR_ID || 'negocios@2dconsultores.com.br';
+
 /**
  * Todos os dados (planilha + anexos) vivem DENTRO do OneDrive do usuário —
  * nunca na pasta do projeto nem em qualquer outro lugar. É intencional:
@@ -20,6 +29,10 @@ const PORT = Number(process.env.PORT) || 3001;
  */
 const ONEDRIVE_ROOT = 'C:/Users/Monitor1-2D/OneDrive - 2dconsultores.com.br/01 - Marco + Monitores/6 - Erick';
 const DATA_DIR = path.join(ONEDRIVE_ROOT, 'Carteira Web');
+// Credenciais OAuth (Google Cloud) usadas só para ler a Agenda do CEO — ficam
+// fora do repositório, junto com o resto dos dados sensíveis no OneDrive.
+const CEO_AGENDA_OAUTH_CLIENT_PATH = process.env.CEO_AGENDA_OAUTH_CLIENT_PATH || path.join(DATA_DIR, 'ceo-agenda-oauth-client.json');
+const CEO_AGENDA_OAUTH_TOKEN_PATH = process.env.CEO_AGENDA_OAUTH_TOKEN_PATH || path.join(DATA_DIR, 'ceo-agenda-oauth-token.json');
 // Pasta onde cada reunião é gravada como .json (integração com outro sistema).
 const REUNIOES_DIR = path.join(DATA_DIR, 'reunioes_json');
 
@@ -102,7 +115,7 @@ const CATEGORIAS_SEED = [
 ];
 
 module.exports = {
-  HOST, PORT,
+  HOST, PORT, CEO_AGENDA_CALENDAR_ID, CEO_AGENDA_OAUTH_CLIENT_PATH, CEO_AGENDA_OAUTH_TOKEN_PATH,
   ONEDRIVE_ROOT, DATA_DIR, REUNIOES_DIR, DB_FILE, UPLOADS_DIR,
   CLIENTES_HEADERS, AGENDA_HEADERS, LEMBRETES_HEADERS, CATEGORIAS_HEADERS, ACOES_HEADERS, MODELOS_HEADERS, CADENCIAS_HEADERS,
   HEADERS_BY_SHEET,

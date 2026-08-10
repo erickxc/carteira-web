@@ -7,6 +7,7 @@ const { initDB } = require('./server/db.cjs');
 const { backupDiario } = require('./server/backup.cjs');
 const { registerUploads } = require('./server/routes/uploads.cjs');
 const { gerarRelatoriosPendentes } = require('./server/relatoriosAutomaticos.cjs');
+const { iniciarSincronizacaoPeriodica: iniciarSyncCeoAgenda } = require('./server/ceoAgenda.cjs');
 
 const app = express();
 
@@ -40,6 +41,15 @@ app.use('/api/acoes', require('./server/routes/acoes.cjs'));
 app.use('/api/modelos', require('./server/routes/modelos.cjs'));
 app.use('/api/cadencias', require('./server/routes/cadencias.cjs'));
 app.use('/api/reunioes', require('./server/routes/reunioes.cjs'));
+app.use('/api/ceo-agenda', require('./server/routes/ceoAgenda.cjs'));
+
+// Agenda do CEO (Google Calendar, somente leitura): camada isolada, não usa
+// db.cjs nem sheets do Excel — uma falha aqui nunca deve impedir o boot.
+try {
+  iniciarSyncCeoAgenda();
+} catch (err) {
+  console.warn('Falha ao iniciar sincronização da Agenda do CEO:', err.message);
+}
 
 app.listen(PORT, HOST, () => {
   console.log(`Server running on http://${HOST}:${PORT} (acesso pela intranet)`);

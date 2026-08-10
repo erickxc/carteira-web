@@ -1,14 +1,24 @@
 # Agenda do CEO (Google Calendar, somente leitura) — Design
 
+> **Nota de implementação (2026-08-10):** o plano original abaixo previa ler
+> um link `.ics` público. Na prática, o link público não estava configurado
+> (404) e a alternativa via Service Account esbarrou numa restrição do
+> Google Workspace (contas fora do domínio só recebem "Ver disponibilidade",
+> nunca "Ver todos os detalhes do evento"). A implementação final usa
+> **OAuth 2.0** autorizado uma única vez pela própria conta dona da agenda
+> (`negocios@2dconsultores.com.br`) via script local
+> (`server/scripts/authorizeCeoAgenda.cjs`), que gera um `refresh_token`
+> reutilizado indefinidamente pelo backend. O restante do design (cache
+> diário, endpoint `/api/ceo-agenda`, isolamento total da Agenda existente,
+> toggle + chip distinto no frontend) permanece como descrito abaixo.
+
 ## Contexto
 
-O CEO da 2D Consultores mantém uma agenda pública no Google Calendar (`negocios@2dconsultores.com.br`), exposta via link iCal público:
-
-```
-https://calendar.google.com/calendar/ical/negocios%402dconsultores.com.br/public/basic.ics
-```
-
-Objetivo: exibir esses compromissos dentro da `AgendaPage` da Carteira Web, para consulta rápida (ex: saber se o CEO está disponível antes de agendar algo com um cliente), sem nenhuma integração de escrita e sem risco para a Agenda existente da Carteira.
+O CEO da 2D Consultores mantém uma agenda no Google Calendar
+(`negocios@2dconsultores.com.br`). Objetivo: exibir esses compromissos dentro
+da `AgendaPage` da Carteira Web, para consulta rápida (ex: saber se o CEO está
+disponível antes de agendar algo com um cliente), sem nenhuma integração de
+escrita e sem risco para a Agenda existente da Carteira.
 
 ## Restrição inegociável
 
@@ -19,13 +29,18 @@ Objetivo: exibir esses compromissos dentro da `AgendaPage` da Carteira Web, para
 
 ## Backend
 
+### Autorização (OAuth, uma vez só)
+
+- `server/scripts/authorizeCeoAgenda.cjs`: script local, roda fora do servidor HTTP. Gera a URL de consentimento do Google, sobe um servidor HTTP temporário em `localhost:41823` pra capturar o `code` do redirect, troca por tokens (`access_type=offline`) e salva em `CEO_AGENDA_OAUTH_TOKEN_PATH`.
+- Credencial OAuth (tipo "App para computador") e o token gerado ficam fora do repositório, na pasta do OneDrive (`ceo-agenda-oauth-client.json`, `ceo-agenda-oauth-token.json`) — nunca versionados (reforçado no `.gitignore`).
+- Autorizado com a própria conta dona da agenda (`negocios@2dconsultores.com.br`) — acesso total garantido, sem depender de compartilhamento nem de políticas de domínio do Workspace.
+
 ### Novo módulo `ceoAgenda.cjs`
 
 Isolado do restante do `server.cjs` (que só o importa e registra a rota). Responsabilidades:
 
-- Buscar o `.ics` via `fetch` na URL (guardada em variável de ambiente `CEO_AGENDA_ICS_URL`, nunca hardcoded no código — permite trocar sem deploy).
-- Parsear com a lib `node-ical`.
-- Filtrar eventos: descarta os com `end` anterior ao 1º dia do mês corrente (janela = mês atual em diante, sem limite futuro).
+- Montar um `OAuth2Client` (`google-auth-library`) com o `refresh_token` salvo — a lib renova o `access_token` automaticamente quando expira.
+- Chamar `GET /calendars/{calendarId}/events` (Calendar API v3) com `timeMin` = 1º dia do mês corrente (janela = mês atual em diante, sem limite futuro), `singleEvents=true`, `orderBy=startTime`.
 - Normalizar cada evento para: `{ id, title, start, end, location, allDay }` — sem qualquer campo do domínio da Carteira (sem `clientId`, `attachments`, notas). Esses eventos nunca entram nas sheets do Excel.
 - Manter cache em memória: `{ events: EventoCeo[], lastSync: string|null, lastError: string|null }`.
 
@@ -33,7 +48,7 @@ Isolado do restante do `server.cjs` (que só o importa e registra a rota). Respo
 
 - Fetch inicial no boot do servidor (dentro de `try/catch` — se falhar, cache fica com `events: []`, `lastError` preenchido, servidor sobe normalmente).
 - Depois, `setInterval` a cada 24h refazendo o fetch. Erros são logados e mantêm o cache anterior (não zera eventos válidos por causa de uma falha pontual).
-- Nenhum fetch síncrono acontece durante uma requisição HTTP — o endpoint só lê o cache já pronto, latência zero adicional pra quem consome.
+- Nenhuma chamada síncrona acontece durante uma requisição HTTP — o endpoint só lê o cache já pronto, latência zero adicional pra quem consome.
 
 ### Endpoint
 
@@ -54,11 +69,11 @@ Isolado do restante do `server.cjs` (que só o importa e registra a rota). Respo
 
 ## Dependências novas
 
-- `node-ical` (parsing de `.ics`, only-read, sem SDK do Google, sem OAuth).
+- `google-auth-library` (cliente OAuth2 + renovação automática de token, sem o SDK completo `googleapis`).
 
 ## Fora de escopo
 
 - Escrita/criação de eventos no Google Calendar.
-- Autenticação OAuth (desnecessária — calendário é público).
+- Botão de (re)conexão dentro do app — a autorização é feita uma única vez via script local; se o `refresh_token` for revogado, basta rodar o script de novo.
 - Sincronização em tempo real (frequência decidida: 1x/dia).
 - Suporte a mais de uma agenda externa (só a do CEO, por enquanto).
