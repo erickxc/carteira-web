@@ -27,7 +27,7 @@ const CEO_AGENDA_CALENDAR_ID = process.env.CEO_AGENDA_CALENDAR_ID || 'negocios@2
  * Não adicione fallback para pasta local aqui — se o OneDrive não estiver
  * disponível, o servidor deve falhar ao iniciar, não gravar em outro lugar.
  */
-const ONEDRIVE_ROOT = 'C:/Users/Monitor1-2D/OneDrive - 2dconsultores.com.br/01 - Marco + Monitores/6 - Erick';
+const ONEDRIVE_ROOT = process.env.ONEDRIVE_ROOT || 'C:/Users/Monitor1-2D/OneDrive - 2dconsultores.com.br/01 - Marco + Monitores/6 - Erick';
 const DATA_DIR = path.join(ONEDRIVE_ROOT, 'Carteira Web');
 // Credenciais OAuth (Google Cloud) usadas só para ler a Agenda do CEO — ficam
 // fora do repositório, junto com o resto dos dados sensíveis no OneDrive.
