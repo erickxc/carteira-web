@@ -46,11 +46,17 @@ function normalizar(item) {
   const allDay = Boolean(item.start?.date && !item.start?.dateTime);
   const start = item.start?.dateTime || item.start?.date;
   const end = item.end?.dateTime || item.end?.date || null;
+  // Evento de dia inteiro: o Google manda só a data ("2026-08-20", sem hora/
+  // timezone) representando um dia local, não um instante. Rodar isso por
+  // `new Date(...).toISOString()` fixa um instante UTC (meia-noite UTC) que,
+  // em qualquer fuso atrás de UTC (ex.: Brasil), volta pro dia anterior ao
+  // ser lido no navegador — por isso mantemos a data crua (sem conversão de
+  // fuso) e só normalizamos pra ISO instant quando é um evento com horário.
   return {
     id: `ceo-${item.id}`,
     title: item.summary || '(sem título)',
-    start: start ? new Date(start).toISOString() : null,
-    end: end ? new Date(end).toISOString() : null,
+    start: allDay ? (start || null) : (start ? new Date(start).toISOString() : null),
+    end: allDay ? (end || null) : (end ? new Date(end).toISOString() : null),
     location: item.location || '',
     allDay,
   };
