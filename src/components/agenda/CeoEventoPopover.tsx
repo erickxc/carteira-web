@@ -3,6 +3,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar, MapPin } from 'lucide-react';
 import { Button } from '../../ui';
+import { useFecharAnimado } from '../../hooks/useFecharAnimado';
 import type { EventoCeo } from '../../types';
 
 interface CeoEventoPopoverProps {
@@ -17,9 +18,10 @@ interface CeoEventoPopoverProps {
 export function CeoEventoPopover({ evento, onClose }: CeoEventoPopoverProps) {
   const inicio = parseISO(evento.start);
   const fim = evento.end ? parseISO(evento.end) : null;
+  const { fechando, fechar } = useFecharAnimado(onClose);
 
   return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
+    <div className={`modal-overlay${fechando ? ' is-closing' : ''}`} onClick={fechar}>
       <div className="modal ceo-evento-popover" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="flex items-center gap-2">
@@ -44,7 +46,7 @@ export function CeoEventoPopover({ evento, onClose }: CeoEventoPopoverProps) {
           </p>
         </div>
         <div className="modal-footer">
-          <Button variant="secondary" onClick={onClose}>Fechar</Button>
+          <Button variant="secondary" onClick={fechar}>Fechar</Button>
         </div>
       </div>
     </div>,

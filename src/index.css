@@ -92,6 +92,11 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 14px 34px rgba(0, 0, 0, 0.6);
+
+  /* Anel de foco por teclado. Token próprio (não --accent direto) porque no
+     tema claro o dourado escurecido tem contraste baixo contra fundos claros —
+     ver o override em [data-theme='light']. */
+  --focus-ring: #e8cc86;
 }
 
 /* Tema CLARO — suave (cinza off-white), não branco puro, a pedido. Só
@@ -133,6 +138,9 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.12);
   --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.14);
   --shadow-lg: 0 14px 34px rgba(0, 0, 0, 0.2);
+
+  /* Bronze escuro: no claro o anel precisa ser mais escuro que o fundo. */
+  --focus-ring: #7a611a;
 }
 
 * {
@@ -167,6 +175,39 @@ h3 {
 
 a { color: inherit; }
 
+/* Crossfade das cores ao alternar claro/escuro. Aplicado por uma classe
+   TEMPORÁRIA (useTheme adiciona, remove ao terminar) em vez de uma transição
+   permanente: deixar `transition: background-color` em tudo atrasaria também
+   os hovers, que precisam ser imediatos. Restrito a cores — nada de layout. */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease, fill 200ms ease, stroke 200ms ease !important;
+  transition-delay: 0s !important;
+}
+
+/* Anel de foco único pra navegação por teclado. `:focus-visible` (não `:focus`)
+   só aparece em teclado/leitor de tela, nunca em clique de mouse. Global porque
+   a maioria dos controles do projeto (botões, cards clicáveis, itens de
+   dropdown, abas, chips do calendário, checkbox custom) não tinha estilo de
+   foco próprio e caía no outline padrão do navegador — que quase desaparece
+   sobre os fundos escuros e os cantos arredondados daqui. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+/* Campos de texto/select já sinalizam foco com borda dourada + halo próprios
+   (ui/Field.tsx); o anel por cima ficaria duplicado. Checkbox/radio ficam de
+   FORA da exceção: são `appearance: none` (sem borda de foco própria), então
+   precisam do anel para serem navegáveis por teclado. */
+.field-input:focus-visible,
+input:not([type='checkbox']):not([type='radio']):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
 /* ---------------------------------------------------------------------------
    Layout
    --------------------------------------------------------------------------- */
@@ -175,7 +216,13 @@ a { color: inherit; }
   min-height: 100vh;
   display: grid;
   grid-template-columns: 248px 1fr;
-  transition: grid-template-columns 0.2s ease;
+  /* SEM transição em grid-template-columns: é propriedade de layout, então
+     animá-la reflui o main inteiro (calendário/tabelas) a cada frame. Medido
+     com CPU 4x throttled na Agenda: frames de 50–83ms durante a animação
+     (contra 17ms constantes sem ela). O colapso agora é um reflow único e
+     imediato. Uma versão animada exigiria FLIP (largura final aplicada de uma
+     vez + transform pra deslizar), reestruturando sidebar/main — não se paga
+     numa ação pontual. */
 }
 .app-shell[data-collapsed='true'] { grid-template-columns: 76px 1fr; }
 
@@ -668,6 +715,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   align-items: center;
   justify-content: center;
   padding: 1.25rem;
+  animation: overlay-in 0.16s ease both;
 }
 
 .modal {
@@ -680,7 +728,31 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   border-radius: var(--radius);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
   overflow: hidden;
+  animation: modal-in 0.18s cubic-bezier(0.2, 0.9, 0.3, 1) both;
 }
+
+/* Entrada/saída de overlay. Só `opacity`/`transform` (composáveis, sem
+   reflow). A saída depende do hook useFecharAnimado, que segura o unmount
+   pela duração da animação — sem ele o nó sai do DOM na hora e `*-out` nunca
+   chega a rodar. */
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes overlay-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes modal-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(4px) scale(0.98); }
+}
+.modal-overlay.is-closing { animation: overlay-out 0.13s ease both; }
+.modal-overlay.is-closing .modal { animation: modal-out 0.13s ease both; }
 
 .modal-header {
   display: flex;
@@ -1241,6 +1313,15 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
   z-index: 1000; min-width: 190px; max-height: 260px; overflow: auto;
   background: var(--card); border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); padding: 5px;
+  /* Só entrada: a saída exigiria segurar o unmount, o que atrasaria o efeito
+     de escolher uma opção (single-select fecha no clique). `top left` porque o
+     popover é ancorado logo abaixo/à esquerda do gatilho. */
+  transform-origin: top left;
+  animation: pop-in 0.13s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .filter-pop-item {
   display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
@@ -1388,3 +1469,40 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .acao-hist-item { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-secondary); padding: 2px 0; }
 .acao-hist-item + .acao-hist-item { border-top: 1px dashed var(--border); padding-top: 6px; }
 .acao-sug { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
+
+/* ---------------------------------------------------------------------------
+   Carregamento inicial
+   --------------------------------------------------------------------------- */
+
+/* Spinner com delay: em rede local os dados chegam em poucas dezenas de ms, e
+   mostrar/esconder o spinner nesse intervalo é só um flash. Com o fade-in
+   atrasado, um carregamento rápido termina antes de o spinner ficar visível;
+   um lento mostra normalmente. `both` mantém a opacidade 0 durante o delay. */
+.loading-screen { animation: fade-in 0.2s ease 0.18s both; }
+/* App entra com fade quando o loading sai (antes: corte seco spinner → app).
+   Só `opacity` — `transform` aqui viraria containing block e quebraria o
+   `position: fixed` da sidebar-drawer no mobile. */
+.app-shell { animation: fade-in 0.26s ease both; }
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ---------------------------------------------------------------------------
+   Movimento reduzido (acessibilidade)
+   Antes só page-transition/gauge/ticker respeitavam a preferência; hovers com
+   transform e as animações de overlay ignoravam. Cores/opacidade continuam
+   (não causam desconforto vestibular) — o que sai é deslocamento e escala.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .glass-card:hover,
+  .agenda-row:hover,
+  .calendar-chip:hover,
+  .kanban-card:hover,
+  .sidebar-link:hover { transform: none; }
+
+  /* Overlays/popover: sem deslizar nem escalar (o fade curto fica). */
+  .modal,
+  .modal-overlay.is-closing .modal,
+  .filter-pop { animation: none; }
+}

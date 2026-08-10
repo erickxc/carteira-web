@@ -3,6 +3,7 @@ import { format, isValid, parse } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { Bell, CalendarDays, Search, Users } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
+import { useFecharAnimado } from '../hooks/useFecharAnimado';
 
 const DATE_FORMATS = ['dd/MM/yyyy', 'dd/MM/yy', 'dd/MM'];
 
@@ -20,6 +21,7 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
   const [selected, setSelected] = useState(0);
   const [queryAnterior, setQueryAnterior] = useState(query);
   const navigate = useNavigate();
+  const { fechando, fechar } = useFecharAnimado(onClose);
 
   // Reseta a seleção quando a busca muda — ajuste durante o render (padrão
   // recomendado pelo React para "resetar estado quando uma prop/derivado
@@ -84,7 +86,7 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className={`modal-overlay${fechando ? ' is-closing' : ''}`} onClick={fechar}>
       <div className="modal glass-card search-modal" onClick={(e) => e.stopPropagation()}>
         <div className="search-input-row">
           <Search size={18} className="text-text-muted" />

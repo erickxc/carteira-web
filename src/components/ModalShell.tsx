@@ -1,5 +1,6 @@
 import type { FormEvent, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useFecharAnimado } from '../hooks/useFecharAnimado';
 
 interface ModalShellProps {
   title: string;
@@ -22,12 +23,14 @@ interface ModalShellProps {
  * componente de cada um.
  */
 export function ModalShell({ title, onClose, onSubmit, footer, size, children }: ModalShellProps) {
+  const { fechando, fechar } = useFecharAnimado(onClose);
+
   // Portal para o <body>: o modal é renderizado dentro das páginas, que ficam
   // sob `.page-transition` (tem transform/animação). Um ancestral com transform
   // faz `position: fixed` se ancorar NELE em vez da viewport — o modal saía da
   // tela e não redimensionava. No body, o fixed volta a valer pela viewport.
   return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
+    <div className={`modal-overlay${fechando ? ' is-closing' : ''}`} onClick={fechar}>
       <div className={`modal${size ? ` modal-${size}` : ''}`} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{title}</h2>
