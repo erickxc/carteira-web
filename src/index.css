@@ -1547,6 +1547,37 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 }
 .atend-barra-parte { height: 100%; transition: width 0.2s ease; }
 
+/* Filtros da Agenda em botões (uma linha por grupo: Tipos, Monitor, opções). */
+.agenda-filtros {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.agenda-filtro-linha {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.filtro-grupo-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  /* Largura fixa alinha os grupos ("Tipos:" e "Monitor:") em coluna. */
+  min-width: 58px;
+}
+/* A legenda de cores é redundante na tela (os botões de tipo já são coloridos),
+   mas necessária no papel, onde os filtros não são impressos. */
+.agenda-legenda-print { display: none; }
+@media print {
+  .agenda-legenda-print { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; }
+}
+
 .atend-subtitulo {
   margin: 0 0 2px;
   font-size: 0.78rem;

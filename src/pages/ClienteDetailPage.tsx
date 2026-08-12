@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
-import { AlertTriangle, ArrowLeft, Bell as BellIcon, CalendarPlus, MessageCircle, Paperclip, Pencil, PhoneCall, PhoneIncoming, Save, Trash2, UserPlus } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Bell as BellIcon, CalendarPlus, MessageCircle, Paperclip, Pencil, PhoneCall, PhoneIncoming, Save, Trash2, UserPlus, Users2 } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { urlAnexo } from '../api/client';
 import { clienteStatusBadge, eventoStatusBadge, isGratuidade } from '../utils/badges';
 import { confirmDialog } from '../utils/confirmDialog';
 import { linkWhatsApp } from '../utils/whatsapp';
+import { contatosVisiveis, servicosSemResponsavel } from '../utils/contatos';
 import { Dropdown } from '../components/Dropdown';
 import { ClientFormModal } from '../components/ClientFormModal';
 import { EventFormModal } from '../components/EventFormModal';
@@ -66,25 +67,18 @@ export default function ClienteDetailPage() {
   const [contatoCargo, setContatoCargo] = useState('');
   const [contatoTelefone, setContatoTelefone] = useState('');
   const [contatoServicos, setContatoServicos] = useState<string[]>([]);
+  const [contatoDoGrupo, setContatoDoGrupo] = useState(false);
   const [waContato, setWaContato] = useState<Contato | null>(null);
 
-  // Memoizado pelo mesmo motivo de `cliente`: `?? []` cria um array novo a cada
-  // render, o que instabilizaria os memos que dependem de `contatos`.
-  const contatos = useMemo(() => cliente?.contatos ?? [], [cliente]);
+  // Inclui os contatos herdados de outras lojas do mesmo grupo (escopo 'grupo').
+  const contatos = useMemo(() => contatosVisiveis(cliente, clientes), [cliente, clientes]);
+  /** Só os gravados NESTE cliente — é o que pode ser editado/removido aqui. */
+  const contatosProprios = useMemo(() => cliente?.contatos ?? [], [cliente]);
   const servicoOpcoes = opcoesPorTipo('servico');
 
-  // Serviços contratados pelo cliente que não têm NINGUÉM responsável entre os
-  // contatos cadastrados. Contato sem serviço marcado conta como geral (cobre
-  // qualquer serviço) — só acusa falta quando há contatos e todos são
-  // específicos de outros serviços.
-  const servicosSemContato = useMemo(() => {
-    const doCliente = cliente?.servicos ?? [];
-    if (doCliente.length === 0 || contatos.length === 0) return [];
-    const temGeral = contatos.some((c) => (c.servicos ?? []).length === 0);
-    if (temGeral) return [];
-    const cobertos = new Set(contatos.flatMap((c) => c.servicos ?? []));
-    return doCliente.filter((s) => !cobertos.has(s));
-  }, [cliente, contatos]);
+  // Cobertura considera também os contatos do grupo: se a pessoa que cuida de
+  // Precificação está cadastrada na loja irmã, este serviço não está descoberto.
+  const servicosSemContato = useMemo(() => servicosSemResponsavel(cliente, contatos), [cliente, contatos]);
 
   const historico = useMemo(
     () => agenda.filter((a) => a.clientId === id).sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()),
@@ -159,12 +153,27 @@ export default function ClienteDetailPage() {
       cargo: contatoCargo.trim(),
       telefone: contatoTelefone.trim(),
       servicos: contatoServicos,
+      escopo: contatoDoGrupo ? 'grupo' : 'loja',
     };
-    await atualizarCliente(id, { contatos: [...contatos, novo] });
+    // Grava sempre nos contatos DESTE cliente (não em `contatos`, que também
+    // traz os herdados do grupo — salvar aquela lista duplicaria os herdados
+    // dentro desta loja).
+    await atualizarCliente(id, { contatos: [...contatosProprios, novo] });
     setContatoNome('');
     setContatoCargo('');
     setContatoTelefone('');
     setContatoServicos([]);
+    setContatoDoGrupo(false);
+  }
+
+  /** Alterna o escopo (loja x grupo) de um contato gravado neste cliente. */
+  async function alternarEscopo(contatoId: string) {
+    if (!id) return;
+    await atualizarCliente(id, {
+      contatos: contatosProprios.map((c) =>
+        c.id === contatoId ? { ...c, escopo: c.escopo === 'grupo' ? 'loja' : 'grupo' } : c
+      ),
+    });
   }
 
   function toggleContatoServico(s: string) {
@@ -173,7 +182,7 @@ export default function ClienteDetailPage() {
 
   async function removerContato(contatoId: string) {
     if (!id) return;
-    await atualizarCliente(id, { contatos: contatos.filter((c) => c.id !== contatoId) });
+    await atualizarCliente(id, { contatos: contatosProprios.filter((c) => c.id !== contatoId) });
   }
 
   async function handleExcluir() {
@@ -266,6 +275,17 @@ export default function ClienteDetailPage() {
                     ) : (
                       (c.servicos ?? []).map((s) => (<Badge key={s} variant="accent" style={{ fontSize: 10 }}>{s}</Badge>))
                     )}
+                    {/* Herdado de outra loja do grupo: mostra de onde vem, porque
+                        editar/remover só é possível na loja de origem. */}
+                    {c.doGrupo ? (
+                      <Badge variant="success" style={{ fontSize: 10 }} title={`Cadastrado em ${c.origemEmpresa} e compartilhado com o grupo`}>
+                        <Users2 size={10} /> do grupo · {c.origemEmpresa}
+                      </Badge>
+                    ) : c.escopo === 'grupo' ? (
+                      <Badge variant="success" style={{ fontSize: 10 }} title="Aparece em todas as lojas deste grupo">
+                        <Users2 size={10} /> vale para o grupo
+                      </Badge>
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex-row" style={{ gap: 6 }}>
@@ -277,9 +297,34 @@ export default function ClienteDetailPage() {
                   >
                     <MessageCircle size={15} /> WhatsApp
                   </Button>
-                  <Button variant="danger" size="icon" onClick={() => removerContato(c.id)} title="Remover contato">
-                    <Trash2 size={15} />
-                  </Button>
+                  {/* Compartilhar/parar de compartilhar só faz sentido em cliente
+                      de grupo, e só no contato gravado aqui. */}
+                  {!c.doGrupo && cliente.grupo && (
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      onClick={() => alternarEscopo(c.id)}
+                      title={c.escopo === 'grupo'
+                        ? 'Deixar de compartilhar com as outras lojas do grupo'
+                        : 'Compartilhar este contato com todas as lojas do grupo'}
+                    >
+                      <Users2 size={15} />
+                    </Button>
+                  )}
+                  {!c.doGrupo ? (
+                    <Button variant="danger" size="icon" onClick={() => removerContato(c.id)} title="Remover contato">
+                      <Trash2 size={15} />
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      onClick={() => navigate(`/clientes/${c.origemClienteId}`, { state: { from: location.pathname, fromLabel: cliente.empresa } })}
+                      title={`Editar em ${c.origemEmpresa}`}
+                    >
+                      <Pencil size={15} />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -310,6 +355,14 @@ export default function ClienteDetailPage() {
                 {contatoServicos.length === 0 ? '(nenhum marcado = contato geral)' : ''}
               </span>
             </div>
+          )}
+          {/* Só aparece em cliente de grupo: é o caso em que a mesma pessoa pode
+              atender mais de uma loja. */}
+          {cliente.grupo && (
+            <label className="check-row" style={{ fontSize: 13, marginBottom: 12 }}>
+              <input type="checkbox" checked={contatoDoGrupo} onChange={(e) => setContatoDoGrupo(e.target.checked)} />
+              Este contato atende todas as lojas do grupo <strong>{cliente.grupo}</strong>
+            </label>
           )}
           <Button variant="primary" onClick={adicionarContato} disabled={!contatoNome.trim()}>
             <UserPlus size={15} /> Adicionar contato

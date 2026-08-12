@@ -8,7 +8,7 @@ import { ptBR } from 'date-fns/locale';
 import { AlertTriangle, CalendarDays, CalendarSync, ChevronLeft, ChevronRight, LayoutGrid, Paperclip, Plus, Printer, User } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { EventFormModal } from '../components/EventFormModal';
-import { Dropdown } from '../components/Dropdown';
+import { FiltroBotoes } from '../components/FiltroBotoes';
 import { CardEvento } from '../components/agenda/CardEvento';
 import { ReagendarButton } from '../components/agenda/ReagendarButton';
 import { CeoEventoPopover } from '../components/agenda/CeoEventoPopover';
@@ -318,15 +318,28 @@ export default function AgendaPage() {
           </div>
         </div>
 
-        {/* Filtros (somem na impressão) + legenda de tipos (fica na impressão, é a chave de cores do calendário) */}
-        <div className="flex items-center justify-between gap-3 flex-wrap mb-[14px] pb-[14px] border-b border-border">
-          <div className="flex-row agenda-noprint" style={{ gap: 8, flexWrap: 'wrap' }}>
-            <div style={{ minWidth: 150 }}>
-              <Dropdown label="Monitor" multiple options={monitorOpcoes.map((m) => ({ value: m, label: m }))} value={fMonitores} onChange={(v) => setFMonitores(v as string[])} />
-            </div>
-            <div style={{ minWidth: 150 }}>
-              <Dropdown label="Tipo" multiple options={tiposUnicos.map((t) => ({ value: t, label: t }))} value={fTipos} onChange={(v) => setFTipos(v as string[])} />
-            </div>
+        {/* Filtros em botões (somem na impressão). Trocaram os dropdowns de
+            Monitor/Tipo: são poucas opções e a troca é constante, então um clique
+            resolve em vez de abrir → escolher → fechar. O botão de Tipo carrega a
+            própria cor do tipo, que é a mesma do chip no calendário — a legenda
+            separada continua só para a impressão. */}
+        <div className="agenda-filtros agenda-noprint">
+          <FiltroBotoes
+            label="Tipos"
+            opcoes={tiposUnicos}
+            valor={fTipos}
+            onChange={setFTipos}
+            corDe={corTipo}
+          />
+          {monitorOpcoes.length > 0 && (
+            <FiltroBotoes
+              label="Monitor"
+              opcoes={monitorOpcoes}
+              valor={fMonitores}
+              onChange={setFMonitores}
+            />
+          )}
+          <div className="agenda-filtro-linha">
             <label className="check-row" style={{ fontSize: '0.85rem' }}>
               <input type="checkbox" checked={mostrarCancelados} onChange={(e) => setMostrarCancelados(e.target.checked)} /> Mostrar cancelados
             </label>
@@ -339,13 +352,15 @@ export default function AgendaPage() {
               </span>
             )}
           </div>
-          <div className="flex flex-wrap gap-3">
-            {tiposUnicos.map((t) => (
-              <span key={t} className="inline-flex items-center gap-[6px] text-[0.74rem] text-text-secondary">
-                <i className="w-[10px] h-[10px] rounded-[3px] inline-block" style={{ background: corTipo(t) }} /> {t}
-              </span>
-            ))}
-          </div>
+        </div>
+
+        {/* Legenda de cores — só na impressão, onde não há botão colorido. */}
+        <div className="agenda-legenda-print">
+          {tiposUnicos.map((t) => (
+            <span key={t} className="inline-flex items-center gap-[6px] text-[0.74rem] text-text-secondary">
+              <i className="w-[10px] h-[10px] rounded-[3px] inline-block" style={{ background: corTipo(t) }} /> {t}
+            </span>
+          ))}
         </div>
 
         {view === 'mes' ? (

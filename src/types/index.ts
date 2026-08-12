@@ -37,6 +37,15 @@ export interface Contato {
    *  sem isso não há como saber a quem recorrer para cada serviço. Vazio =
    *  contato geral (serve para qualquer serviço). */
   servicos?: string[];
+  /**
+   * Alcance do contato quando o cliente faz parte de um grupo (análise
+   * segmentada, uma loja por cliente):
+   *  - 'loja' (padrão, e o que vale para todo contato antigo sem o campo):
+   *    aparece só na loja onde foi cadastrado;
+   *  - 'grupo': a mesma pessoa atende todas as lojas do grupo, então as outras
+   *    lojas também o exibem — sem precisar cadastrar de novo em cada uma.
+   */
+  escopo?: 'loja' | 'grupo';
 }
 
 // --- Cadência de relatório automático (por cliente) ---

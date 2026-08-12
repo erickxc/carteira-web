@@ -4,6 +4,7 @@ import { useCarteira } from '../context/CarteiraContext';
 import { ModalShell } from './ModalShell';
 import { ClienteCombobox } from './ClienteCombobox';
 import { toastError, toastSuccess } from '../utils/toast';
+import { contatosVisiveis } from '../utils/contatos';
 import { Button, Chip, Field, Input, Select, Textarea } from '../ui';
 
 interface RegistroContatoModalProps {
@@ -57,7 +58,9 @@ export function RegistroContatoModal({ clienteId, onClose }: RegistroContatoModa
   const [salvando, setSalvando] = useState(false);
 
   const cliente = clientes.find((c) => c.id === clientId);
-  const contatosDoCliente = cliente?.contatos ?? [];
+  // Inclui contatos compartilhados por outras lojas do mesmo grupo — quem ligou
+  // pode ser a pessoa cadastrada na loja irmã.
+  const contatosDoCliente = useMemo(() => contatosVisiveis(cliente, clientes), [cliente, clientes]);
 
   function toggleServico(s: string) {
     setServicos((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
