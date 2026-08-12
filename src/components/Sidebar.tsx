@@ -117,7 +117,7 @@ export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder, onImportarRes
       <div className="flex flex-col gap-[0.4rem] border-t border-border pt-[0.85rem]">
         <span className={SECTION_LABEL}>Sistemas</span>
         <a
-          href="http://danielloureiro-2d"
+          href="http://127.0.0.1:8004"
           target="_blank"
           rel="noopener noreferrer"
           title="Abrir PRISMA"
