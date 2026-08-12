@@ -1479,10 +1479,14 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
    atrasado, um carregamento rápido termina antes de o spinner ficar visível;
    um lento mostra normalmente. `both` mantém a opacidade 0 durante o delay. */
 .loading-screen { animation: fade-in 0.2s ease 0.18s both; }
-/* App entra com fade quando o loading sai (antes: corte seco spinner → app).
-   Só `opacity` — `transform` aqui viraria containing block e quebraria o
-   `position: fixed` da sidebar-drawer no mobile. */
-.app-shell { animation: fade-in 0.26s ease both; }
+/* NÃO animar (nem dar opacity/transform a) .app-shell: qualquer um desses cria
+   um STACKING CONTEXT nele, e ConfirmHost/ToastHost/ReminderPopup são
+   renderizados dentro do shell (sem portal) contando com z-index alto para
+   ficar sobre os modais — que são portalados no <body>. Com o shell virando
+   stacking context, esses z-index ficam confinados nele e perdem para o modal,
+   que passa a cobrir o dialogo de confirmacao e os toasts. Bug real: o
+   "Deseja agendar o proximo evento?" ficava atras do formulario, invisivel e
+   sem receber clique, e o modal nunca fechava porque seguia esperando resposta. */
 @keyframes fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
