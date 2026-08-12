@@ -9,16 +9,16 @@ interface ServicosCardProps {
   servicosDist: ServicoDist[];
 }
 
-/** "Serviços dos Clientes Atendidos" — % de clientes atendidos (últ. 60 dias) por produto contratado. */
+/** "Serviços dos Clientes Atendidos" — % de clientes atendidos (últ. 30 dias) por produto contratado. */
 export function ServicosCard({ totalAtendidos, servicosDist }: ServicosCardProps) {
   return (
     <Card className="flex flex-col servicos-card">
       <div className="section-header">
         <h3>Serviços dos Clientes Atendidos</h3>
-        <span className="text-text-muted" style={{ fontSize: 12 }}>reunião ou ação · últ. 60 dias · {totalAtendidos}</span>
+        <span className="text-text-muted" style={{ fontSize: 12 }}>reunião ou ação · últ. 30 dias · {totalAtendidos}</span>
       </div>
       {totalAtendidos === 0 ? (
-        <div className="empty-state">Nenhum cliente atendido nos últimos 60 dias.</div>
+        <div className="empty-state">Nenhum cliente atendido nos últimos 30 dias.</div>
       ) : (
         // flex-1 ocupa a altura do card (que estica pra igualar o card ao lado
         // no grid); centralizado pra distribuir o espaço sobrando por igual

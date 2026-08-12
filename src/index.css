@@ -63,6 +63,15 @@
   --tipo-reserva-3: var(--danger);        /* = #e0645c */
   --tipo-reserva-4: #6dc0d1;
 
+  /* Cor do TEXTO dos badges semânticos. No tema escuro é a própria cor viva
+     (contraste alto sobre fundo quase preto); o tema claro sobrescreve com
+     versões escurecidas — ver o bloco [data-theme='light']. */
+  --accent-fg: var(--accent);
+  --success-fg: var(--success);
+  --danger-fg: var(--danger);
+  --warning-fg: var(--warning);
+  --gratuidade-fg: var(--gratuidade);
+
   /* Semânticas (sucesso/erro/atenção) — mantidas fixas por convenção universal,
      não seguem o rebrand de marca. */
   --success: #4cae7a;
@@ -148,6 +157,24 @@
 
   /* Bronze escuro: no claro o anel precisa ser mais escuro que o fundo. */
   --focus-ring: #7a611a;
+
+  /* Texto dos badges semânticos, escurecido para o fundo claro.
+     As cores vivas (--success/--danger/--warning/--gratuidade) continuam as
+     mesmas — elas seguem pintando o FUNDO do badge (com 14% de alpha) e as
+     bordas/ícones. O problema era usar a mesma cor viva como TEXTO sobre esse
+     fundo claríssimo: medido, dava 1.89:1 no warning e 1.35:1 na gratuidade
+     (mínimo AA é 4.5:1) — daí "não conseguir ler o texto por ser laranja
+     também". Com estes tons, o mesmo par passa AA mantendo o significado da
+     cor. */
+  --success-fg: #1b5e3c;
+  --danger-fg: #932c26;
+  --warning-fg: #7d560e;
+  --gratuidade-fg: #6b5e09;
+  /* Texto do badge accent. Um pouco mais escuro que --accent porque o badge
+     costuma ficar sobre --card-hover (linhas de lista), onde o fundo
+     accent-soft escurece e o par caía a 4.46:1 — pouco abaixo de AA. Aqui dá
+     5.56:1 sobre card e 5.08:1 sobre a linha. */
+  --accent-fg: #614d16;
 }
 
 * {
@@ -1613,6 +1640,47 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .atend-big-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .atend-big-txt > strong { font-size: 0.9rem; color: var(--text-primary); }
 .atend-big-txt > span { font-size: 0.76rem; }
+
+/* Dois KPIs clicáveis (recuperados x ainda parados) — funcionam como abas da
+   lista abaixo, por isso são <button> e não texto. */
+.recup-duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.recup-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: flex-start;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--card-hover);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.recup-kpi:hover { background: var(--card); border-color: var(--border-strong); }
+/* Aba selecionada: borda na cor do próprio indicador (accent x atenção). */
+.recup-kpi.is-active { border-color: var(--accent); background: var(--accent-soft); }
+.recup-kpi.is-alerta.is-active { border-color: var(--warning); background: var(--warning-bg); }
+.recup-kpi-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.recup-kpi.is-alerta .recup-kpi-num { color: var(--warning-fg); }
+.recup-kpi-label { font-size: 0.78rem; font-weight: 600; color: var(--text-primary); }
+.recup-kpi-nota { font-size: 0.7rem; color: var(--text-muted); }
 
 /* Lista de clientes recuperados — rola quando passa de ~5 itens, pra o card
    não empurrar o resto da Visão Geral pra baixo. */

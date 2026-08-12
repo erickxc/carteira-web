@@ -8,11 +8,13 @@ const badge = cva(
   {
     variants: {
       variant: {
-        accent: 'bg-accent-soft text-accent',
-        success: 'bg-[var(--success-bg)] text-success',
-        danger: 'bg-[var(--danger-bg)] text-danger',
-        warning: 'bg-[var(--warning-bg)] text-warning',
-        gratuidade: 'bg-[var(--gratuidade-bg)] text-[color:var(--gratuidade)]',
+        accent: 'bg-accent-soft text-[color:var(--accent-fg)]',
+        // Texto usa o token *-fg (não a cor viva): no tema claro a cor viva
+        // sobre o próprio fundo do badge dava contraste de 1.3 a 2.5:1.
+        success: 'bg-[var(--success-bg)] text-[color:var(--success-fg)]',
+        danger: 'bg-[var(--danger-bg)] text-[color:var(--danger-fg)]',
+        warning: 'bg-[var(--warning-bg)] text-[color:var(--warning-fg)]',
+        gratuidade: 'bg-[var(--gratuidade-bg)] text-[color:var(--gratuidade-fg)]',
         muted: 'bg-bg text-text-secondary border border-border',
         // sem fundo/cor própria (herda a cor do contexto) — equivale ao `.badge`
         // "puro" sem modificador de cor.

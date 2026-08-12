@@ -9,6 +9,7 @@ import { usePersistedState } from './usePersistedState';
 import { isStatusAtivo } from '../utils/formatters';
 import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
 import { buildFilaCadencia, buildVencendoDashboard, type ServicoCad } from '../utils/cadenciaServico';
+import { mesesComDados } from '../utils/periodo';
 import type { Cliente, EventoAgenda } from '../types';
 
 const FOLLOW_UP_THRESHOLD_DAYS = 30;
@@ -69,6 +70,15 @@ export function useDashboardData() {
     return [...anos].sort((a, b) => a - b);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agendaAtiva]);
+
+  // Só os meses que existem no ano escolhido (+ o mês corrente): o filtro
+  // listava os 12 sempre, e escolher um mês anterior ao início da base só
+  // mostrava tela vazia.
+  const mesesDisponiveis = useMemo(
+    () => mesesComDados(agendaAtiva.map((a) => a.date), ano, hoje),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [agendaAtiva, ano]
+  );
 
   // Base de REUNIÕES (só tipo Reunião) de clientes ativos — usada tanto nos KPIs
   // de reunião quanto no gráfico "Reuniões por Mês", pra baterem entre si. NÃO
@@ -134,11 +144,11 @@ export function useDashboardData() {
   }, [reunioesAtivas, mes, ano]);
 
   // --- Serviços da carteira: % dos clientes ATENDIDOS por produto CONTRATADO ---
-  // "Atendido" = cliente ativo com interação (reunião OU ação) nos últimos 60 dias.
+  // "Atendido" = cliente ativo com interação (reunião OU ação) nos últimos 30 dias.
   // O produto vem exclusivamente do CADASTRO do cliente (servicos/flags) — não do
   // que foi tratado. Serviços não são exclusivos (vários por cliente) → anel, não pizza.
   const { servicosDist, totalAtendidos } = useMemo(() => {
-    const JANELA = 60;
+    const JANELA = 30;
     const atendidos = ativos.filter((c) => {
       const uc = ultimaInteracao.get(c.id);
       return uc != null && differenceInCalendarDays(hoje, uc) <= JANELA;
@@ -318,7 +328,7 @@ export function useDashboardData() {
     filtroTipo, setFiltroTipo, filtroMonitor, setFiltroMonitor, filtroTipoEvento, setFiltroTipoEvento,
     filtroServicoAderencia, setFiltroServicoAderencia,
     mes, setMes, ano, setAno, periodo,
-    monitoresDisponiveis, tiposEventoDisponiveis, anosDisponiveis,
+    monitoresDisponiveis, tiposEventoDisponiveis, anosDisponiveis, mesesDisponiveis,
     // base
     ativos,
     // KPIs

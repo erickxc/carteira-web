@@ -1,7 +1,7 @@
-import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
+import { differenceInCalendarMonths, endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export type PeriodoKey = 'mes_anterior' | 'mes_atual' | 'd90' | 'm6' | 'm12' | 'tudo';
+export type PeriodoKey = 'mes_atual' | 'mes_anterior' | 'trimestre' | 'semestre' | 'ano' | 'tudo';
 
 export interface Janela {
   /** Início do intervalo (null = sem limite inferior). */
@@ -14,14 +14,32 @@ export interface Janela {
   curta: string;
 }
 
-export const PERIODOS: { key: PeriodoKey; label: string }[] = [
-  { key: 'mes_anterior', label: 'Mês anterior' },
-  { key: 'mes_atual', label: 'Mês atual' },
-  { key: 'd90', label: '90 dias' },
-  { key: 'm6', label: '6 meses' },
-  { key: 'm12', label: '12 meses' },
-  { key: 'tudo', label: 'Tudo' },
+/** Meses de histórico que cada período exige para fazer sentido na tela. */
+export const PERIODOS: { key: PeriodoKey; label: string; mesesNecessarios: number }[] = [
+  { key: 'mes_atual', label: 'Mês atual', mesesNecessarios: 0 },
+  { key: 'mes_anterior', label: 'Mês anterior', mesesNecessarios: 1 },
+  { key: 'trimestre', label: 'Trimestre', mesesNecessarios: 3 },
+  { key: 'semestre', label: 'Semestre', mesesNecessarios: 6 },
+  { key: 'ano', label: 'Ano', mesesNecessarios: 12 },
+  { key: 'tudo', label: 'Tudo', mesesNecessarios: 0 },
 ];
+
+/**
+ * Filtra os períodos pelos que o histórico realmente cobre.
+ *
+ * Oferecer "Ano" com 4 meses de dados é pior que não oferecer: o usuário compara
+ * períodos que na prática são o mesmo recorte e conclui que o número não muda.
+ * `dataMaisAntiga` deve ser a data do registro mais antigo em uso na tela; a
+ * lista cresce sozinha conforme a base envelhece.
+ *
+ * "Mês atual" e "Tudo" entram sempre — o primeiro é o recorte mínimo, o segundo
+ * é justamente a saída para quando o histórico é curto.
+ */
+export function periodosDisponiveis(dataMaisAntiga: Date | null, agora: Date = new Date()) {
+  if (!dataMaisAntiga) return PERIODOS.filter((p) => p.mesesNecessarios === 0);
+  const mesesDeHistorico = differenceInCalendarMonths(agora, dataMaisAntiga);
+  return PERIODOS.filter((p) => p.mesesNecessarios <= mesesDeHistorico);
+}
 
 /**
  * Traduz o filtro de período em um intervalo concreto.
@@ -44,20 +62,44 @@ export function janelaDe(key: PeriodoKey, agora: Date): Janela {
       const inicio = startOfMonth(agora);
       return { inicio, fim: agora, descricao: `${mes(agora)} · ${dia(inicio)} até hoje`, curta: `${mes(agora)} até hoje` };
     }
-    case 'd90':
-    case 'm6':
-    case 'm12': {
-      const dias = key === 'd90' ? 90 : key === 'm6' ? 180 : 365;
-      const inicio = new Date(agora.getTime() - dias * 24 * 60 * 60 * 1000);
+    // Trimestre/semestre/ano são meses fechados + o mês atual (ex.: trimestre =
+    // este mês e os 2 anteriores completos), não janelas de 90/180/365 dias:
+    // é assim que fechamento é lido, e casa com o filtro de mês.
+    case 'trimestre':
+    case 'semestre':
+    case 'ano': {
+      const meses = key === 'trimestre' ? 3 : key === 'semestre' ? 6 : 12;
+      const inicio = startOfMonth(subMonths(agora, meses - 1));
       return {
         inicio, fim: agora,
-        descricao: `últimos ${dias} dias · ${dia(inicio)} até hoje`,
-        curta: `últimos ${dias} dias`,
+        descricao: `${mes(inicio)} a ${mes(agora)} · ${dia(inicio)} até hoje`,
+        curta: `últimos ${meses} meses`,
       };
     }
     default:
       return { inicio: null, fim: null, descricao: 'todo o histórico registrado', curta: 'todo o histórico' };
   }
+}
+
+/**
+ * Meses (0–11) que fazem sentido oferecer no filtro de um determinado ano:
+ * os que têm registro + o mês corrente quando o ano é o atual.
+ *
+ * Os filtros de mês da Visão Geral e de Relatórios listavam os 12 meses fixos,
+ * mesmo com a base começando em abril — escolher janeiro só mostrava tela vazia.
+ * O mês corrente entra sempre (ainda que sem registro) porque "este mês está
+ * vazio" é uma informação legítima, diferente de "esse mês não existe".
+ */
+export function mesesComDados(datasISO: (string | undefined)[], ano: number, agora: Date = new Date()): number[] {
+  const meses = new Set<number>();
+  for (const iso of datasISO) {
+    if (!iso) continue;
+    const d = new Date(iso);
+    if (isNaN(d.getTime()) || d.getFullYear() !== ano) continue;
+    meses.add(d.getMonth());
+  }
+  if (ano === agora.getFullYear()) meses.add(agora.getMonth());
+  return [...meses].sort((a, b) => a - b);
 }
 
 /** True se a data ISO cai dentro da janela (fim inclusive). */

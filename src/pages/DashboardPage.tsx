@@ -65,7 +65,7 @@ export default function DashboardPage() {
           <div style={{ minWidth: 130 }}>
             <Dropdown
               label={MESES[d.mes]}
-              options={MESES.map((nome, i) => ({ value: String(i), label: nome }))}
+              options={d.mesesDisponiveis.map((i) => ({ value: String(i), label: MESES[i] }))}
               value={String(d.mes)}
               onChange={(v) => d.setMes(Number(v))}
             />

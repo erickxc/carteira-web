@@ -3,7 +3,7 @@ import { CalendarSync, PhoneCall, PhoneIncoming } from 'lucide-react';
 import {
   calcularCicloAtendimento, calcularConfiabilidade, calcularEsforcoAgenda, formatarDias,
 } from '../../utils/metricasAtendimento';
-import { dentroDaJanela, janelaDe, PERIODOS, type PeriodoKey } from '../../utils/periodo';
+import { dentroDaJanela, janelaDe, periodosDisponiveis, type PeriodoKey } from '../../utils/periodo';
 import { Card } from '../../ui';
 import type { Acao, Cliente, EventoAgenda } from '../../types';
 
@@ -40,6 +40,19 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
   // exatamente a mesma referência de tempo.
   const agora = useMemo(() => new Date(), []);
   const janela = useMemo(() => janelaDe(periodo, agora), [periodo, agora]);
+
+  // Só períodos que o histórico cobre: com dados de poucos meses, "Ano" seria
+  // idêntico a "Tudo" e daria a impressão de que o número não muda.
+  const periodos = useMemo(() => {
+    let maisAntiga: Date | null = null;
+    for (const e of agenda) {
+      if (!e.date) continue;
+      const d = new Date(e.date);
+      if (isNaN(d.getTime())) continue;
+      if (!maisAntiga || d < maisAntiga) maisAntiga = d;
+    }
+    return periodosDisponiveis(maisAntiga, agora);
+  }, [agenda, agora]);
 
   const monitores = useMemo(
     () => [...new Set(clientes.map((c) => c.monitor).filter(Boolean))].sort(),
@@ -90,7 +103,7 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
   return (
     <Card flat className="atendimento-card">
       <div className="section-header" style={{ flexWrap: 'wrap', gap: 4, display: 'block' }}>
-        <h3 style={{ marginBottom: 2 }}>Qualidade do atendimento</h3>
+        <h3 style={{ marginBottom: 2 }}>Tendência de Contato Assertivo</h3>
         {/* Curta no texto, completa no title: em meia tela a faixa de datas não
             cabe, e o nome do mês já identifica o período. */}
         <p className="atend-subtitulo" title={janela.descricao}>
@@ -101,7 +114,7 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
 
       {/* Filtros como botões */}
       <div className="flex-row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
-        {PERIODOS.map((p) => (
+        {periodos.map((p) => (
           <button
             key={p.key}
             className={`filtro-btn${periodo === p.key ? ' is-active' : ''}`}

@@ -12,8 +12,15 @@ export interface ClienteRecuperado {
   diasParado: number;
   /** Data da última entrega antes do hiato (null quando nunca houve nenhuma). */
   ultimaAntes: Date | null;
-  /** A entrega CONCLUÍDA que recuperou o cliente. */
-  entrega: { tipo: string; data: Date };
+  /**
+   * A entrega CONCLUÍDA que recuperou o cliente.
+   * `monitor` é quem de fato fez a entrega (monitor do EVENTO), não o monitor
+   * cadastrado no cliente: a carteira pode estar com um monitor e o atendimento
+   * ter sido feito por outro — mostrar o do cliente atribuía a reunião à pessoa
+   * errada. Cai no monitor do cliente só quando o evento não tem monitor
+   * informado (registros antigos).
+   */
+  entrega: { tipo: string; data: Date; monitor: string };
   /** 'hiato' = ficou parado depois de já ter sido atendido; 'nunca' = primeira entrega. */
   motivo: 'hiato' | 'nunca';
 }
@@ -128,7 +135,11 @@ export function calcularRecuperados(
         cliente: c,
         diasParado,
         ultimaAntes: anterior?.d ?? null,
-        entrega: { tipo: atual.ev.type || 'Reunião', data: atual.d },
+        entrega: {
+          tipo: atual.ev.type || 'Reunião',
+          data: atual.d,
+          monitor: atual.ev.monitor || c.monitor || '',
+        },
         motivo,
       };
     }
@@ -138,4 +149,56 @@ export function calcularRecuperados(
 
   // Mais recente primeiro — é a leitura útil ("o que foi recuperado agora").
   return out.sort((a, b) => b.entrega.data.getTime() - a.entrega.data.getTime());
+}
+
+export interface AindaSemAtendimento {
+  cliente: Cliente;
+  /** Dias desde a última entrega concluída (null = nunca teve nenhuma). */
+  diasSemEntrega: number | null;
+}
+
+/**
+ * Clientes que CONTINUAM parados: elegíveis a atendimento e sem nenhuma entrega
+ * concluída nos últimos `limiarDias`. É o contraponto do número de recuperados
+ * — sem ele, "5 recuperados" não diz se sobraram 2 ou 30 para recuperar.
+ *
+ * Elegível = status ativo (ou gratuidade). Suspenso, Problemas Externos e
+ * Atendido pelo Marco ficam fora: em nenhum dos três a falta de reunião é um
+ * problema a cobrar da equipe. `isStatusAtivo` já implementa esse corte (casa
+ * apenas com "ativo"/"gratuidade"), então a regra não é duplicada aqui.
+ */
+export function calcularAindaSemAtendimento(
+  clientes: Cliente[],
+  agenda: EventoAgenda[],
+  agora: Date = new Date(),
+  limiarDias: number = LIMIAR_RECUPERACAO_DIAS
+): AindaSemAtendimento[] {
+  const ultimaPorCliente = new Map<string, Date>();
+  for (const e of agenda) {
+    if (!e.clientId || !ehEntrega(e) || !vale(e)) continue;
+    const d = dataDe(e);
+    if (!d || d > agora) continue;
+    const atual = ultimaPorCliente.get(e.clientId);
+    if (!atual || d > atual) ultimaPorCliente.set(e.clientId, d);
+  }
+
+  const out: AindaSemAtendimento[] = [];
+  for (const c of clientes) {
+    if (!isStatusAtivo(c.status)) continue;
+    const ultima = ultimaPorCliente.get(c.id) ?? null;
+    if (!ultima) {
+      // Nunca atendido: só conta se o cadastro já passou do limiar (cliente
+      // recém-cadastrado ainda está no prazo normal de primeiro atendimento).
+      const criado = c.createdAt ? parseISO(c.createdAt) : null;
+      if (!criado || isNaN(criado.getTime())) continue;
+      if (differenceInCalendarDays(agora, criado) < limiarDias) continue;
+      out.push({ cliente: c, diasSemEntrega: null });
+      continue;
+    }
+    const dias = differenceInCalendarDays(agora, ultima);
+    if (dias >= limiarDias) out.push({ cliente: c, diasSemEntrega: dias });
+  }
+
+  // Mais tempo parado primeiro (nunca atendido no topo).
+  return out.sort((a, b) => (b.diasSemEntrega ?? Infinity) - (a.diasSemEntrega ?? Infinity));
 }

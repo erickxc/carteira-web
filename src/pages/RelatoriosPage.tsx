@@ -4,6 +4,7 @@ import { Download, FileSpreadsheet } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { Dropdown } from '../components/Dropdown';
 import { exportarExcel } from '../utils/exportExcel';
+import { mesesComDados } from '../utils/periodo';
 import { toastError, toastSuccess } from '../utils/toast';
 import { Button, Card, Th, Td } from '../ui';
 
@@ -34,6 +35,8 @@ export default function RelatoriosPage() {
     relatorios.forEach((e) => { const d = parseISO(e.date); if (!isNaN(d.getTime())) s.add(d.getFullYear()); });
     return [...s].sort((a, b) => b - a);
   }, [relatorios, anoAtual]);
+
+  const mesesDoAno = useMemo(() => mesesComDados(relatorios.map((e) => e.date), ano), [relatorios, ano]);
 
   const opcoes = useMemo(() => {
     const servicos = new Set<string>(), monitores = new Set<string>(), status = new Set<string>();
@@ -106,7 +109,9 @@ export default function RelatoriosPage() {
 
       <Card flat className="mb-4" style={{ marginTop: '1.25rem' }}>
         <div className="filter-grid">
-          <Dropdown label="Mês" options={[{ value: 'todos', label: 'Ano inteiro' }, ...MESES.map((m, i) => ({ value: String(i), label: m }))]} value={mes} onChange={(v) => setMes(v as string)} />
+          {/* Só os meses que têm relatório no ano escolhido (+ o mês corrente):
+              listar os 12 fixos oferecia meses anteriores ao início da base. */}
+          <Dropdown label="Mês" options={[{ value: 'todos', label: 'Ano inteiro' }, ...mesesDoAno.map((i) => ({ value: String(i), label: MESES[i] }))]} value={mes} onChange={(v) => setMes(v as string)} />
           <Dropdown label="Ano" options={anos.map((a) => ({ value: String(a), label: String(a) }))} value={String(ano)} onChange={(v) => setAno(Number(v))} />
           <Dropdown label="Serviço" multiple options={opcoes.servicos.map((s) => ({ value: s, label: s }))} value={fServicos} onChange={(v) => setFServicos(v as string[])} />
           <Dropdown label="Monitor" multiple options={opcoes.monitores.map((m) => ({ value: m, label: m }))} value={fMonitores} onChange={(v) => setFMonitores(v as string[])} />
