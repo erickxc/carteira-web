@@ -143,16 +143,24 @@ export function useDashboardData() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reunioesAtivas, mes, ano]);
 
-  // --- Serviços da carteira: % dos clientes ATENDIDOS por produto CONTRATADO ---
-  // "Atendido" = cliente ativo com interação (reunião OU ação) nos últimos 30 dias.
-  // O produto vem exclusivamente do CADASTRO do cliente (servicos/flags) — não do
-  // que foi tratado. Serviços não são exclusivos (vários por cliente) → anel, não pizza.
+  // --- COBERTURA por serviço: dos clientes que CONTRATARAM cada serviço,
+  // quantos foram atendidos nos últimos 30 dias.
+  //
+  // Antes era o inverso (dos atendidos, quantos tinham o serviço), o que dava
+  // 97% em Monitoria e informava pouco: quase todo cliente da carteira tem
+  // Monitoria, então o número fica alto por definição e não aponta ação. A
+  // leitura de cobertura responde "quem contratou e não está sendo atendido" —
+  // com os mesmos dados dava 90%, revelando 4 clientes descobertos.
+  //
+  // "Atendido" = cliente ativo com interação (reunião OU ação) nos últimos 30
+  // dias. Serviços não são exclusivos (vários por cliente) → anel, não pizza.
   const { servicosDist, totalAtendidos } = useMemo(() => {
     const JANELA = 30;
-    const atendidos = ativos.filter((c) => {
+    const foiAtendido = (c: Cliente) => {
       const uc = ultimaInteracao.get(c.id);
       return uc != null && differenceInCalendarDays(hoje, uc) <= JANELA;
-    });
+    };
+    const atendidos = ativos.filter(foiAtendido);
     const total = atendidos.length;
 
     const temProduto = (c: Cliente, re: RegExp, flag: keyof Cliente) =>
@@ -178,8 +186,24 @@ export function useDashboardData() {
       { label: 'Price', re: /(price|prec)/i, flag: 'price', color: 'var(--accent-tertiary)', pred: temServicoPrice },
     ];
     const dist = defs.map((d) => {
-      const n = atendidos.filter((c) => temProduto(c, d.re, d.flag)).length;
-      return { label: d.label, n, pct: total > 0 ? Math.round((n / total) * 100) : 0, color: d.color, top: topClientes(d.pred) };
+      // Base = quem CONTRATOU o serviço; numerador = os que foram atendidos.
+      const contrataram = ativos.filter((c) => temProduto(c, d.re, d.flag));
+      const cobertos = contrataram.filter(foiAtendido);
+      const descobertos = contrataram
+        .filter((c) => !foiAtendido(c))
+        .map((c) => ({ empresa: c.empresa, n: 0 }))
+        .sort((a, b) => a.empresa.localeCompare(b.empresa));
+      return {
+        label: d.label,
+        n: cobertos.length,
+        base: contrataram.length,
+        pct: contrataram.length > 0 ? Math.round((cobertos.length / contrataram.length) * 100) : 0,
+        color: d.color,
+        // Ranking por serviço tratado continua útil; os descobertos são o que
+        // pede ação, então vêm primeiro na lista do card.
+        top: descobertos.length > 0 ? descobertos : topClientes(d.pred),
+        descobertos: descobertos.length,
+      };
     });
     return { servicosDist: dist, totalAtendidos: total };
     // eslint-disable-next-line react-hooks/exhaustive-deps

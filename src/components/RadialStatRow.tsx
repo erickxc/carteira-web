@@ -6,6 +6,10 @@ interface RadialItem {
   n: number;
   color: string;
   top?: TopCliente[];
+  /** Total da base do percentual (ex.: quantos contrataram o serviço). */
+  base?: number;
+  /** Quantos da base ficaram DE FORA — quando > 0, `top` lista esses nomes. */
+  descobertos?: number;
 }
 
 interface RadialStatRowProps {
@@ -30,12 +34,20 @@ function Ring({ it, size, thickness }: { it: RadialItem; size: number; thickness
             strokeDasharray={`${len} ${circ - len}`}
             transform={`rotate(-90 ${cx} ${cx})`}
           >
-            <title>{`${it.label}: ${it.n} (${it.pct}%)`}</title>
+            <title>
+              {it.base != null
+                ? `${it.label}: ${it.n} de ${it.base} atendidos (${it.pct}%)`
+                : `${it.label}: ${it.n} (${it.pct}%)`}
+            </title>
           </circle>
         </svg>
         <div className="radial-center">
           <div className="radial-center-value">{it.pct}%</div>
-          <div className="radial-center-label">{it.n} clientes</div>
+          {/* Com base definida, mostra a fração — "36 clientes" sozinho não deixa
+              claro sobre quantos o percentual foi calculado. */}
+          <div className="radial-center-label">
+            {it.base != null ? `${it.n} de ${it.base}` : `${it.n} clientes`}
+          </div>
         </div>
       </div>
       <span className="radial-item-label"><span className="donut-swatch" style={{ background: it.color }} /> {it.label}</span>
@@ -45,14 +57,19 @@ function Ring({ it, size, thickness }: { it: RadialItem; size: number; thickness
 
 function Top3({ it, align }: { it: RadialItem; align: 'left' | 'right' }) {
   if (!it.top || it.top.length === 0) return null;
+  // Lista de descobertos: é o que pede ação, então troca o título e não mostra
+  // "0x" (não houve atendimento — contagem não faz sentido aqui).
+  const listaDeFalta = (it.descobertos ?? 0) > 0;
   return (
     <div className={`radial-top3 radial-top3-${align}`}>
-      <span className="radial-top3-title">Top · {it.label}</span>
+      <span className="radial-top3-title">
+        {listaDeFalta ? `Sem atendimento · ${it.label}` : `Top · ${it.label}`}
+      </span>
       {it.top.map((t, i) => (
         <div key={t.empresa} className="radial-top3-row">
-          <span className="radial-top3-rank">{i + 1}º</span>
+          <span className="radial-top3-rank">{listaDeFalta ? '·' : `${i + 1}º`}</span>
           <span className="radial-top3-name">{t.empresa}</span>
-          <span className="radial-top3-n">{t.n}x</span>
+          {!listaDeFalta && <span className="radial-top3-n">{t.n}x</span>}
         </div>
       ))}
     </div>

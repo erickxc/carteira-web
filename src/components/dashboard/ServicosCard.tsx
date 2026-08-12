@@ -2,20 +2,34 @@ import { RadialStatRow } from '../RadialStatRow';
 import { Card } from '../../ui';
 
 interface TopCliente { empresa: string; n: number }
-interface ServicoDist { label: string; pct: number; n: number; color: string; top: TopCliente[] }
+interface ServicoDist {
+  label: string; pct: number; n: number; color: string; top: TopCliente[];
+  base?: number; descobertos?: number;
+}
 
 interface ServicosCardProps {
   totalAtendidos: number;
   servicosDist: ServicoDist[];
 }
 
-/** "Serviços dos Clientes Atendidos" — % de clientes atendidos (últ. 30 dias) por produto contratado. */
+/**
+ * "Cobertura por Serviço" — dos clientes que CONTRATARAM cada serviço, quantos
+ * foram atendidos nos últimos 30 dias.
+ *
+ * Era o inverso ("dos atendidos, quantos têm o serviço"), que dava 97% em
+ * Monitoria só porque quase toda a carteira tem Monitoria — número alto por
+ * definição e sem ação possível. Assim o card mostra quem contratou e não está
+ * sendo atendido.
+ */
 export function ServicosCard({ totalAtendidos, servicosDist }: ServicosCardProps) {
+  const descobertosTotal = servicosDist.reduce((s, d) => s + (d.descobertos ?? 0), 0);
   return (
     <Card className="flex flex-col servicos-card">
       <div className="section-header">
-        <h3>Serviços dos Clientes Atendidos</h3>
-        <span className="text-text-muted" style={{ fontSize: 12 }}>reunião ou ação · últ. 30 dias · {totalAtendidos}</span>
+        <h3>Cobertura por Serviço</h3>
+        <span className="text-text-muted" style={{ fontSize: 12 }}>
+          atendidos em 30 dias · {descobertosTotal > 0 ? `${descobertosTotal} sem atendimento` : 'todos cobertos'}
+        </span>
       </div>
       {totalAtendidos === 0 ? (
         <div className="empty-state">Nenhum cliente atendido nos últimos 30 dias.</div>
