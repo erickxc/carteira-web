@@ -88,8 +88,11 @@ export function RegistroContatoModal({ clienteId, onClose }: RegistroContatoModa
         servicos,
         monitor: monitor || undefined,
       });
-      toastSuccess('Contato do cliente registrado.');
+      // Fecha ANTES de avisar: se o toast falhar por qualquer motivo, o modal
+      // já saiu da frente (o registro está gravado). Na ordem inversa, uma falha
+      // no aviso deixava o modal aberto como se nada tivesse sido salvo.
       onClose();
+      toastSuccess(`Contato de ${cliente.empresa} registrado.`);
     } catch (err) {
       toastError(err instanceof Error ? err.message : 'Falha ao registrar o contato.');
     } finally {
