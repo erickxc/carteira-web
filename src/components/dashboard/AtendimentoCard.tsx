@@ -4,11 +4,12 @@ import {
   calcularCicloAtendimento, calcularConfiabilidade, calcularEsforcoAgenda, formatarDias,
 } from '../../utils/metricasAtendimento';
 import { Card } from '../../ui';
-import type { Cliente, EventoAgenda } from '../../types';
+import type { Acao, Cliente, EventoAgenda } from '../../types';
 
 interface AtendimentoCardProps {
   agenda: EventoAgenda[];
   clientes: Cliente[];
+  acoes: Acao[];
 }
 
 /** Janelas de análise. 0 = todo o histórico. */
@@ -36,7 +37,7 @@ const CORES = {
  *
  * Filtros são botões (não dropdown) porque são poucos e de alternância rápida.
  */
-export function AtendimentoCard({ agenda, clientes }: AtendimentoCardProps) {
+export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProps) {
   const [dias, setDias] = useState(180);
   const [monitor, setMonitor] = useState<string>('');
 
@@ -67,8 +68,25 @@ export function AtendimentoCard({ agenda, clientes }: AtendimentoCardProps) {
     });
   }, [agenda, dias, monitor, monitorPorCliente]);
 
+  // Ações registradas passam pelo mesmo filtro de período/monitor dos eventos —
+  // senão o numerador cobriria um intervalo diferente do denominador.
+  const acoesFiltradas = useMemo(() => {
+    const agora = new Date();
+    const limite = dias > 0 ? new Date(agora.getTime() - dias * 24 * 60 * 60 * 1000) : null;
+    return acoes.filter((a) => {
+      if (monitor) {
+        const responsavel = a.monitor || monitorPorCliente.get(a.clientId) || '';
+        if (responsavel !== monitor) return false;
+      }
+      if (!limite) return true;
+      const quando = a.dueAt || a.createdAt;
+      const d = quando ? new Date(quando) : null;
+      return d !== null && !isNaN(d.getTime()) && d >= limite;
+    });
+  }, [acoes, dias, monitor, monitorPorCliente]);
+
   const conf = useMemo(() => calcularConfiabilidade(filtrada), [filtrada]);
-  const esforco = useMemo(() => calcularEsforcoAgenda(filtrada), [filtrada]);
+  const esforco = useMemo(() => calcularEsforcoAgenda(filtrada, acoesFiltradas), [filtrada, acoesFiltradas]);
   const ciclo = useMemo(() => calcularCicloAtendimento(filtrada), [filtrada]);
 
   const barras = [
@@ -143,18 +161,27 @@ export function AtendimentoCard({ agenda, clientes }: AtendimentoCardProps) {
         </>
       )}
 
-      {/* Esforço + ciclo */}
-      <div className="atend-metricas">
-        <div className="atend-metrica">
-          <span className="atend-metrica-label"><PhoneCall size={13} /> Contatos nossos por reunião</span>
-          <strong className="atend-metrica-valor">
-            {esforco.contatosPorAgenda === null ? '—' : esforco.contatosPorAgenda.toFixed(1)}
-          </strong>
-          <span className="atend-metrica-nota">
-            {esforco.contatosNossos + esforco.contatosSemOrigem} contato(s) · {esforco.agendasImportantes} agenda(s)
+      {/* Big number: esforço para conseguir uma reunião */}
+      <div className="atend-big">
+        <div className="atend-big-num">
+          <PhoneCall size={18} className="shrink-0" />
+          <strong>{esforco.acoesPorReuniao === null ? '—' : esforco.acoesPorReuniao.toFixed(1)}</strong>
+        </div>
+        <div className="atend-big-txt">
+          <strong>ações para cada reunião</strong>
+          <span className="text-text-muted">
+            {esforco.totalAcoes} ação(ões) no total ÷ {esforco.acoesReuniao} do tipo Reunião
+          </span>
+          <span className="text-text-muted" style={{ fontSize: '0.7rem' }}>
+            Reunião {esforco.porTipo.reuniao} · Contato {esforco.porTipo.contato} · Relatório {esforco.porTipo.relatorio}
+            {esforco.porTipo.price > 0 ? ` · Price ${esforco.porTipo.price}` : ''}
+            {esforco.porTipo.outros > 0 ? ` · outros ${esforco.porTipo.outros}` : ''}
           </span>
         </div>
+      </div>
 
+      {/* Esforço + ciclo */}
+      <div className="atend-metricas">
         <div className="atend-metrica">
           <span className="atend-metrica-label"><PhoneIncoming size={13} /> Contatos recebidos do cliente</span>
           <strong className="atend-metrica-valor">{esforco.contatosDoCliente}</strong>

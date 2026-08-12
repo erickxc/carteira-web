@@ -22,7 +22,7 @@ import type { Cliente } from '../types';
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function DashboardPage() {
-  const { clientes, agenda } = useCarteira();
+  const { clientes, agenda, acoes } = useCarteira();
   const navigate = useNavigate();
   const [programados, setProgramados] = useState<Set<string>>(new Set());
   const [relatorioModal, setRelatorioModal] = useState<Cliente | null>(null);
@@ -164,7 +164,7 @@ export default function DashboardPage() {
 
       {/* Qualidade do atendimento (desfecho das reuniões, esforço e ciclo) */}
       <div style={{ marginBottom: 24 }}>
-        <AtendimentoCard agenda={agenda} clientes={clientes} />
+        <AtendimentoCard agenda={agenda} clientes={clientes} acoes={acoes} />
       </div>
 
       {/* Tendência mensal (fim da página) */}

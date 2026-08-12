@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, parseISO } from 'date-fns';
-import type { EventoAgenda } from '../types';
+import type { Acao, EventoAgenda } from '../types';
 
 /**
  * Métricas de ATENDIMENTO (não de resultado do cliente): confiabilidade da
@@ -17,7 +17,6 @@ import type { EventoAgenda } from '../types';
 const ehReuniao = (e: EventoAgenda) => /reuni/i.test(e.type || '');
 const ehRelatorio = (e: EventoAgenda) => /relat/i.test(e.type || '');
 const ehContato = (e: EventoAgenda) => /contato|liga[çc]/i.test(e.type || '');
-const ehAgendaImportante = (e: EventoAgenda) => ehReuniao(e) || ehRelatorio(e);
 
 const foiCancelado = (e: EventoAgenda) => /cancel/i.test(e.status || '');
 const foiReagendado = (e: EventoAgenda) => /reagend/i.test(e.status || '');
@@ -86,51 +85,81 @@ export function calcularConfiabilidade(eventos: EventoAgenda[], agora: Date = ne
 }
 
 // ---------------------------------------------------------------------------
-// Esforço: contatos por agenda importante (ponto 6b)
+// Esforço: ações por reunião (ponto 6b)
 // ---------------------------------------------------------------------------
 
 export interface EsforcoAgenda {
-  contatosNossos: number;
-  contatosDoCliente: number;
-  contatosSemOrigem: number;
-  agendasImportantes: number;
+  /** Ações de todos os tipos (numerador). */
+  totalAcoes: number;
+  /** Ações do tipo Reunião (denominador). */
+  acoesReuniao: number;
+  /** Quebra por tipo, para a tela explicar de onde vem o número. */
+  porTipo: { reuniao: number; contato: number; relatorio: number; price: number; outros: number };
   /**
-   * Quantos contatos (nossos) foram gastos, em média, por reunião/relatório
-   * realizado. null quando não houve nenhuma agenda importante no período —
-   * dividir por zero aqui viraria "Infinity" na tela.
+   * Quantas ações, no total, para cada reunião:
+   *
+   *   acoesPorReuniao = total de ações / ações do tipo Reunião
+   *
+   * Como as reuniões fazem parte do total, o resultado é sempre >= 1 (1.0 = a
+   * reunião saiu sem nenhuma outra ação em volta). Uma versão anterior dividia
+   * contatos por reuniões e podia dar menos de 1 (dava 0.4), o que não responde
+   * "quantas vezes preciso acionar o cliente pra marcar uma reunião?".
+   *
+   * null quando não há nenhuma reunião no período: sem denominador não há média.
    */
-  contatosPorAgenda: number | null;
+  acoesPorReuniao: number | null;
+  /** Contatos recebidos do cliente — demanda dele, não esforço nosso. */
+  contatosDoCliente: number;
 }
 
 /**
- * Mede o ESFORÇO de agendamento: quantos contatos nossos, em média, para cada
- * reunião/relatório que aconteceu.
+ * Esforço de agendamento sobre a MESMA base do módulo de Ações: lá "ação" é o
+ * histórico unificado — eventos da agenda (Reunião/Contato/Relatório/Ligação)
+ * MAIS as ações registradas na tabela Acoes (ver o memo `itens` em
+ * AcoesPage.tsx). Usar só uma das duas fontes daria um número que não bate com
+ * o que a tela de Ações mostra.
  *
- *   contatosPorAgenda = contatos nossos realizados / agendas importantes realizadas
- *
- * Contatos recebidos do cliente são contados à parte de propósito: eles não são
- * esforço nosso — são demanda espontânea dele (e um sinal bom de engajamento).
+ * Fora da conta: o que não aconteceu — evento cancelado/reagendado e ação
+ * dispensada. Eventos futuros também não entram (esforço é histórico).
  */
-export function calcularEsforcoAgenda(eventos: EventoAgenda[], agora: Date = new Date()): EsforcoAgenda {
-  let contatosNossos = 0, contatosDoCliente = 0, contatosSemOrigem = 0, agendasImportantes = 0;
+export function calcularEsforcoAgenda(
+  eventos: EventoAgenda[],
+  acoes: Acao[],
+  agora: Date = new Date()
+): EsforcoAgenda {
+  const porTipo = { reuniao: 0, contato: 0, relatorio: 0, price: 0, outros: 0 };
+  let contatosDoCliente = 0;
+
   for (const e of eventos) {
     if (!aconteceu(e, agora)) continue;
-    if (ehContato(e)) {
+    if (ehReuniao(e)) porTipo.reuniao++;
+    else if (ehContato(e)) {
+      porTipo.contato++;
       if (e.origem === 'cliente') contatosDoCliente++;
-      else if (e.origem === 'nos') contatosNossos++;
-      else contatosSemOrigem++; // legado, antes do campo existir
-    } else if (ehAgendaImportante(e)) {
-      agendasImportantes++;
-    }
+    } else if (ehRelatorio(e)) porTipo.relatorio++;
+    else porTipo.outros++;
   }
+
+  for (const a of acoes) {
+    if (a.status === 'dispensado') continue;
+    // Ação programada para o futuro ainda não é esforço realizado.
+    const quando = a.dueAt || a.createdAt;
+    const d = quando ? parseISO(quando) : null;
+    if (d && !isNaN(d.getTime()) && d > agora) continue;
+    if (a.tipo === 'reuniao') porTipo.reuniao++;
+    else if (a.tipo === 'contato') porTipo.contato++;
+    else if (a.tipo === 'relatorio') porTipo.relatorio++;
+    else if (a.tipo === 'price') porTipo.price++;
+    else porTipo.outros++;
+  }
+
+  const totalAcoes = porTipo.reuniao + porTipo.contato + porTipo.relatorio + porTipo.price + porTipo.outros;
   return {
-    contatosNossos,
+    totalAcoes,
+    acoesReuniao: porTipo.reuniao,
+    porTipo,
+    acoesPorReuniao: porTipo.reuniao > 0 ? totalAcoes / porTipo.reuniao : null,
     contatosDoCliente,
-    contatosSemOrigem,
-    agendasImportantes,
-    // Legado entra no numerador: antes do campo `origem`, todo contato
-    // registrado era feito por nós (o cliente não tinha como registrar).
-    contatosPorAgenda: agendasImportantes > 0 ? (contatosNossos + contatosSemOrigem) / agendasImportantes : null,
   };
 }
 
