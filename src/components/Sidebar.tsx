@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Bell, CalendarDays, CalendarPlus, ChevronRight, Contact, FileDown, FileSpreadsheet, LayoutDashboard, MessageSquare, PanelLeftClose, Search, Settings, Target, TrendingUp, Users, X } from 'lucide-react';
+import { Bell, CalendarDays, CalendarPlus, ChevronRight, Contact, FileDown, FileSpreadsheet, LayoutDashboard, MessageSquare, PanelLeftClose, PhoneIncoming, Search, Settings, Target, TrendingUp, Users, X } from 'lucide-react';
 import prismaLogo from '../assets/prisma-logo.png';
 import priceLogo from '../assets/price-logo.svg';
 
@@ -9,6 +9,8 @@ interface SidebarProps {
   onNewEvent: (initialType?: string) => void;
   onNewReminder: () => void;
   onImportarResumo: () => void;
+  /** Registro rápido de contato recebido do cliente (origem = cliente). */
+  onRegistrarContatoCliente: () => void;
   /** Colapsado = modo só-ícone (desktop). */
   collapsed: boolean;
   onToggleCollapse: () => void;
@@ -37,7 +39,7 @@ function linkClass(isActive: boolean): string {
     : `${LINK_BASE} text-text-secondary hover:bg-card-hover hover:text-accent hover:translate-x-1`;
 }
 
-export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder, onImportarResumo, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: SidebarProps) {
+export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder, onImportarResumo, onRegistrarContatoCliente, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: SidebarProps) {
   // No mobile (drawer), clicar num link fecha o menu.
   const closeIfMobile = () => onCloseMobile();
 
@@ -105,6 +107,9 @@ export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder, onImportarRes
           </button>
           <button className={QUICK_BTN} onClick={() => { onImportarResumo(); closeIfMobile(); }} title="Importar Resumo de Reunião">
             <FileDown size={17} className="shrink-0" /> <span className="sidebar-label">Importar Resumo</span>
+          </button>
+          <button className={QUICK_BTN} onClick={() => { onRegistrarContatoCliente(); closeIfMobile(); }} title="Registrar que o cliente entrou em contato">
+            <PhoneIncoming size={17} className="shrink-0" /> <span className="sidebar-label">Cliente procurou</span>
           </button>
         </div>
       </div>

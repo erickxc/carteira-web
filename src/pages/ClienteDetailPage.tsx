@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
-import { ArrowLeft, Bell as BellIcon, CalendarPlus, MessageCircle, Paperclip, Pencil, Save, Trash2, UserPlus } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Bell as BellIcon, CalendarPlus, MessageCircle, Paperclip, Pencil, PhoneIncoming, Save, Trash2, UserPlus } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { urlAnexo } from '../api/client';
 import { clienteStatusBadge, eventoStatusBadge, isGratuidade } from '../utils/badges';
@@ -12,8 +12,9 @@ import { Dropdown } from '../components/Dropdown';
 import { ClientFormModal } from '../components/ClientFormModal';
 import { EventFormModal } from '../components/EventFormModal';
 import { ReminderFormModal } from '../components/ReminderFormModal';
+import { RegistroContatoModal } from '../components/RegistroContatoModal';
 import { WhatsAppMensagemModal } from '../components/WhatsAppMensagemModal';
-import { Badge, Button, Card, Input, Textarea } from '../ui';
+import { Badge, Button, Card, Chip, Input, Textarea } from '../ui';
 import type { Contato, EventoAgenda } from '../types';
 
 /** Mesma regra usada em src/components/agenda/CardEvento.tsx: concluído/realizado
@@ -35,6 +36,7 @@ export default function ClienteDetailPage() {
   const [eventoEditando, setEventoEditando] = useState<EventoAgenda | null>(null);
   const [eventoKey, setEventoKey] = useState(0); // muda p/ remontar a modal limpa (fechar o loop)
   const [reminderModalOpen, setReminderModalOpen] = useState(false);
+  const [registroContatoOpen, setRegistroContatoOpen] = useState(false);
 
   // Memoizado: sem isso, `cliente` é recalculado (nova referência) a cada
   // render, e o compilador do React não consegue provar que memos que dependem
@@ -47,9 +49,26 @@ export default function ClienteDetailPage() {
   const [contatoNome, setContatoNome] = useState('');
   const [contatoCargo, setContatoCargo] = useState('');
   const [contatoTelefone, setContatoTelefone] = useState('');
+  const [contatoServicos, setContatoServicos] = useState<string[]>([]);
   const [waContato, setWaContato] = useState<Contato | null>(null);
 
-  const contatos = cliente?.contatos ?? [];
+  // Memoizado pelo mesmo motivo de `cliente`: `?? []` cria um array novo a cada
+  // render, o que instabilizaria os memos que dependem de `contatos`.
+  const contatos = useMemo(() => cliente?.contatos ?? [], [cliente]);
+  const servicoOpcoes = opcoesPorTipo('servico');
+
+  // Serviços contratados pelo cliente que não têm NINGUÉM responsável entre os
+  // contatos cadastrados. Contato sem serviço marcado conta como geral (cobre
+  // qualquer serviço) — só acusa falta quando há contatos e todos são
+  // específicos de outros serviços.
+  const servicosSemContato = useMemo(() => {
+    const doCliente = cliente?.servicos ?? [];
+    if (doCliente.length === 0 || contatos.length === 0) return [];
+    const temGeral = contatos.some((c) => (c.servicos ?? []).length === 0);
+    if (temGeral) return [];
+    const cobertos = new Set(contatos.flatMap((c) => c.servicos ?? []));
+    return doCliente.filter((s) => !cobertos.has(s));
+  }, [cliente, contatos]);
 
   const historico = useMemo(
     () => agenda.filter((a) => a.clientId === id).sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()),
@@ -87,11 +106,22 @@ export default function ClienteDetailPage() {
 
   async function adicionarContato() {
     if (!id || !contatoNome.trim()) return;
-    const novo: Contato = { id: uuidv4(), nome: contatoNome.trim(), cargo: contatoCargo.trim(), telefone: contatoTelefone.trim() };
+    const novo: Contato = {
+      id: uuidv4(),
+      nome: contatoNome.trim(),
+      cargo: contatoCargo.trim(),
+      telefone: contatoTelefone.trim(),
+      servicos: contatoServicos,
+    };
     await atualizarCliente(id, { contatos: [...contatos, novo] });
     setContatoNome('');
     setContatoCargo('');
     setContatoTelefone('');
+    setContatoServicos([]);
+  }
+
+  function toggleContatoServico(s: string) {
+    setContatoServicos((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
   }
 
   async function removerContato(contatoId: string) {
@@ -153,6 +183,9 @@ export default function ClienteDetailPage() {
         <Button variant="secondary" onClick={() => setReminderModalOpen(true)}>
           <BellIcon size={15} /> Novo Lembrete
         </Button>
+        <Button variant="secondary" onClick={() => setRegistroContatoOpen(true)} title="Registrar que o cliente entrou em contato">
+          <PhoneIncoming size={15} /> Cliente entrou em contato
+        </Button>
       </div>
 
       <Card flat style={{ marginBottom: 24 }}>
@@ -160,6 +193,15 @@ export default function ClienteDetailPage() {
           <h3>Contatos</h3>
           <span className="text-text-muted" style={{ fontSize: 12 }}>{contatos.length}</span>
         </div>
+
+        {servicosSemContato.length > 0 && (
+          <div className="flex-row" style={{ gap: 6, alignItems: 'center', marginBottom: 12, fontSize: 13 }}>
+            <AlertTriangle size={14} className="text-[color:var(--warning)] shrink-0" />
+            <span className="text-text-secondary">
+              Sem contato responsável por <strong>{servicosSemContato.join(', ')}</strong> — só há contatos de outros serviços.
+            </span>
+          </div>
+        )}
 
         {contatos.length === 0 ? (
           <div className="empty-state" style={{ marginBottom: 12 }}>Nenhum contato cadastrado.</div>
@@ -171,6 +213,13 @@ export default function ClienteDetailPage() {
                   <strong style={{ fontSize: 14 }}>{c.nome}</strong>
                   {c.cargo && <span className="text-text-muted" style={{ fontSize: 13 }}> · {c.cargo}</span>}
                   {c.telefone && <div className="text-text-muted" style={{ fontSize: 13 }}>{c.telefone}</div>}
+                  <div className="flex-row" style={{ gap: 5, flexWrap: 'wrap', marginTop: 4 }}>
+                    {(c.servicos ?? []).length === 0 ? (
+                      <Badge variant="muted" style={{ fontSize: 10 }}>Geral</Badge>
+                    ) : (
+                      (c.servicos ?? []).map((s) => (<Badge key={s} variant="accent" style={{ fontSize: 10 }}>{s}</Badge>))
+                    )}
+                  </div>
                 </div>
                 <div className="flex-row" style={{ gap: 6 }}>
                   <Button
@@ -190,18 +239,33 @@ export default function ClienteDetailPage() {
           </div>
         )}
 
-        <div className="flex-row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div style={{ flex: '1 1 180px' }}>
-            <Input placeholder="Nome" value={contatoNome} onChange={(e) => setContatoNome(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && adicionarContato()} />
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+          <div className="flex-row" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+            <div style={{ flex: '1 1 180px' }}>
+              <Input placeholder="Nome" value={contatoNome} onChange={(e) => setContatoNome(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && adicionarContato()} />
+            </div>
+            <div style={{ flex: '1 1 140px' }}>
+              <Input placeholder="Cargo" value={contatoCargo} onChange={(e) => setContatoCargo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && adicionarContato()} />
+            </div>
+            <div style={{ flex: '1 1 140px' }}>
+              <Input placeholder="Telefone (DDD + número)" value={contatoTelefone} onChange={(e) => setContatoTelefone(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && adicionarContato()} />
+            </div>
           </div>
-          <div style={{ flex: '1 1 140px' }}>
-            <Input placeholder="Cargo" value={contatoCargo} onChange={(e) => setContatoCargo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && adicionarContato()} />
-          </div>
-          <div style={{ flex: '1 1 140px' }}>
-            <Input placeholder="Telefone (DDD + número)" value={contatoTelefone} onChange={(e) => setContatoTelefone(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && adicionarContato()} />
-          </div>
+          {servicoOpcoes.length > 0 && (
+            <div className="flex-row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+              <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                Atende
+              </span>
+              {servicoOpcoes.map((s) => (
+                <Chip variant="toggle" key={s} active={contatoServicos.includes(s)} onClick={() => toggleContatoServico(s)}>{s}</Chip>
+              ))}
+              <span className="text-text-muted" style={{ fontSize: 12 }}>
+                {contatoServicos.length === 0 ? '(nenhum marcado = contato geral)' : ''}
+              </span>
+            </div>
+          )}
           <Button variant="primary" onClick={adicionarContato} disabled={!contatoNome.trim()}>
-            <UserPlus size={15} /> Adicionar
+            <UserPlus size={15} /> Adicionar contato
           </Button>
         </div>
       </Card>
@@ -297,6 +361,7 @@ export default function ClienteDetailPage() {
         />
       )}
       {reminderModalOpen && <ReminderFormModal initialClientId={cliente.id} onClose={() => setReminderModalOpen(false)} />}
+      {registroContatoOpen && <RegistroContatoModal clienteId={cliente.id} onClose={() => setRegistroContatoOpen(false)} />}
       {waContato && <WhatsAppMensagemModal contato={waContato} empresa={cliente.empresa} onClose={() => setWaContato(null)} />}
     </div>
   );

@@ -7,6 +7,7 @@ import { Button } from './ui';
 import { usePersistedState } from './hooks/usePersistedState';
 import { GlobalSearch } from './components/GlobalSearch';
 import { ReminderFormModal } from './components/ReminderFormModal';
+import { RegistroContatoModal } from './components/RegistroContatoModal';
 import { ImportarResumoModal } from './components/ImportarResumoModal';
 import { ReminderPopup } from './components/ReminderPopup';
 import { ToastHost } from './components/ToastHost';
@@ -31,6 +32,7 @@ function Layout({ children }: { children: ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [reminderModalOpen, setReminderModalOpen] = useState(false);
   const [importarResumoOpen, setImportarResumoOpen] = useState(false);
+  const [registroContatoOpen, setRegistroContatoOpen] = useState(false);
   const [collapsed, setCollapsed] = usePersistedState('sidebar:collapsed', false);
   const [mobileOpen, setMobileOpen] = useState(false);
   // Fecha o drawer ao trocar de rota (mobile) — ajuste de estado durante o
@@ -64,6 +66,7 @@ function Layout({ children }: { children: ReactNode }) {
         onNewEvent={handleNewEvent}
         onNewReminder={() => setReminderModalOpen(true)}
         onImportarResumo={() => setImportarResumoOpen(true)}
+        onRegistrarContatoCliente={() => setRegistroContatoOpen(true)}
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed((c) => !c)}
         mobileOpen={mobileOpen}
@@ -94,6 +97,7 @@ function Layout({ children }: { children: ReactNode }) {
       {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} />}
       {reminderModalOpen && <ReminderFormModal onClose={() => setReminderModalOpen(false)} />}
       {importarResumoOpen && <ImportarResumoModal onClose={() => setImportarResumoOpen(false)} />}
+      {registroContatoOpen && <RegistroContatoModal onClose={() => setRegistroContatoOpen(false)} />}
       <ReminderPopup />
       <ToastHost />
       <ConfirmHost />

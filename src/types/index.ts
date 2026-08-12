@@ -32,6 +32,11 @@ export interface Contato {
   nome: string;
   cargo: string;
   telefone: string;
+  /** Serviços que ESTA pessoa atende (Monitoria/Precificação/...). Numa mesma
+   *  loja o contato de monitoria costuma ser diferente do de precificação —
+   *  sem isso não há como saber a quem recorrer para cada serviço. Vazio =
+   *  contato geral (serve para qualquer serviço). */
+  servicos?: string[];
 }
 
 // --- Cadência de relatório automático (por cliente) ---
@@ -94,6 +99,16 @@ export type NovoCliente = Omit<Cliente, 'id' | 'createdAt'>;
 export type EventoStatus = string;
 export type EventoTipo = string;
 
+/** De quem partiu a interação. Eventos antigos não têm o campo (undefined =
+ *  não informado) — nunca assuma 'nos' nesse caso, senão as métricas de
+ *  contato recebido do cliente ficam infladas com histórico legado. */
+export type OrigemEvento = 'nos' | 'cliente';
+
+export const ORIGEM_LABEL: Record<OrigemEvento, string> = {
+  nos: 'Nós procuramos',
+  cliente: 'Cliente procurou',
+};
+
 export interface Anexo {
   id: string;
   filename: string;
@@ -115,11 +130,38 @@ export interface OrientacaoItem {
   orientacao: string;
 }
 
-/** Pré-análise da reunião (preparação): orientações + visões gerais. */
+/**
+ * Pré-análise da reunião (preparação). Hoje é só um texto breve: a versão
+ * anterior pedia uma tabela de orientações por cliente/produto + dois campos
+ * gerais, detalhe que não se justificava para uma anotação de preparação.
+ *
+ * Os campos antigos continuam no tipo (e são lidos) para não perder o que já
+ * está gravado: `preAnaliseParaTexto` converte o legado em texto na abertura.
+ */
 export interface PreAnalise {
+  /** Campo atual — anotação livre de preparação. */
+  texto?: string;
+  /** @deprecated Legado (tabela de orientações). Só leitura/migração. */
   orientacoes: OrientacaoItem[];
+  /** @deprecated Legado. */
   clientesGeral: string;
+  /** @deprecated Legado. */
   produtosGeral: string;
+}
+
+/** Texto da pré-análise, convertendo o formato legado quando `texto` não existe. */
+export function preAnaliseParaTexto(pa?: PreAnalise): string {
+  if (!pa) return '';
+  if (pa.texto?.trim()) return pa.texto;
+  const partes: string[] = [];
+  (pa.orientacoes ?? []).forEach((o) => {
+    const cabeca = [o.cliente, o.produto].filter(Boolean).join(' / ');
+    const linha = [cabeca, o.orientacao].filter(Boolean).join(': ');
+    if (linha) partes.push(linha);
+  });
+  if (pa.clientesGeral?.trim()) partes.push(`Clientes em geral: ${pa.clientesGeral.trim()}`);
+  if (pa.produtosGeral?.trim()) partes.push(`Produtos em geral: ${pa.produtosGeral.trim()}`);
+  return partes.join('\n');
 }
 
 export interface EventoAgenda {
@@ -153,6 +195,8 @@ export interface EventoAgenda {
   /** Sala da reunião (Nova Iorque/Paris/...) — só relevante quando type = Reunião.
    * Duas reuniões não podem ocupar a mesma sala no mesmo dia/horário. */
   sala?: string;
+  /** De quem partiu a interação (Contato/Ligação). Ausente = não informado. */
+  origem?: OrigemEvento;
   /** Id da série de recorrência (agrupa ocorrências geradas juntas). */
   serie?: string;
   createdAt: string;

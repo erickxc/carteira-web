@@ -213,7 +213,12 @@ export default function AgendaPage() {
 
   function concluir(ev: EventoAgenda) {
     // Não sobrescreve ata editada manualmente.
-    atualizarEvento(ev.id, { status: statusConcluido, ata: ev.ata?.trim() ? ev.ata : gerarAta(ev) });
+    atualizarEvento(ev.id, {
+      status: statusConcluido,
+      // Contexto do cliente para a ata sair com participantes; sem ele o
+      // cabeçalho perderia essa seção.
+      ata: ev.ata?.trim() ? ev.ata : gerarAta(ev, { cliente: clientes.find((c) => c.id === ev.clientId) }),
+    });
   }
 
   function tituloPeriodo() {

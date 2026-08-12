@@ -17,7 +17,7 @@ import { ChecklistField } from './eventForm/ChecklistField';
 import { PreAnaliseField } from './eventForm/PreAnaliseField';
 import { AnexosField } from './eventForm/AnexosField';
 import { Badge, Button, Chip, Field, Input, Select, Textarea } from '../ui';
-import type { EventoAgenda } from '../types';
+import { ORIGEM_LABEL, type EventoAgenda, type OrigemEvento } from '../types';
 
 interface EventFormModalProps {
   initial?: EventoAgenda;
@@ -56,6 +56,11 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   );
   const [servicos, setServicos] = useState<string[]>(initial?.servicos ?? []);
   const [sala, setSala] = useState(initial?.sala ?? '');
+  // Contato/Ligação criados aqui são, por definição, iniciativa nossa (quem
+  // registra é o monitor). Contato recebido do cliente entra pelo
+  // RegistroContatoModal, que grava 'cliente'. Em edição, preserva o que já
+  // estava gravado (inclusive vazio, nos eventos anteriores ao campo).
+  const [origem, setOrigem] = useState<OrigemEvento | ''>(initial ? (initial.origem ?? '') : 'nos');
   const rec = useRecorrencia();
   const ck = useChecklist(initial?.checklist ?? []);
   const pa = usePreAnalise(initial?.preAnalise);
@@ -74,6 +79,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const modoSimples = /contato|relat[óo]rio|liga[çc]/i.test(type);
   // Sala só faz sentido pra Reunião (não modoSimples, que já cobre o resto).
   const ehReuniao = /reuni/i.test(type);
+  // Interação pontual (Contato/Ligação) — a única em que "quem procurou quem"
+  // faz sentido. Relatório é entrega nossa; reunião é agendamento.
+  const ehInteracao = /contato|liga[çc]/i.test(type);
   // Status "Reagendado" exige informar o motivo do reagendamento.
   const precisaMotivo = /reagend/i.test(status);
   const naoOcupaHorario = (a: EventoAgenda) => /cancel|reagend/i.test(a.status || '');
@@ -92,11 +100,18 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const dataSegura = dataValida ? dataParseada : new Date();
 
   // Ata automática (base para o botão "Gerar" e para preencher se vazia).
-  const ataAuto = gerarAta({
-    clientName: clientes.find((c) => c.id === clientId)?.empresa ?? '',
-    date: dataSegura.toISOString(),
-    time, type, checklist: ck.checklist, preAnalise: pa.preAnalise, description,
-  });
+  // Passa o cliente no contexto: é dele que saem os participantes (contatos do
+  // serviço tratado) no cabeçalho da ata.
+  const clienteSelecionado = clientes.find((c) => c.id === clientId);
+  const ataAuto = gerarAta(
+    {
+      clientName: clienteSelecionado?.empresa ?? '',
+      date: dataSegura.toISOString(),
+      time, duracao, type, sala, monitor, subject, servicos,
+      checklist: ck.checklist, resumo, description,
+    },
+    { cliente: clienteSelecionado }
+  );
 
   // Conflito de MONITOR: só Reunião ocupa horário de fato (é a única que trava
   // a agenda do monitor) — Contato/Relatório/Ligação são registros rápidos e
@@ -148,11 +163,20 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         monitor: monitor || undefined,
         sala: ehReuniao ? (sala || undefined) : undefined,
         motivo: /reagend/i.test(statusFinal) ? motivo : undefined,
+        // Só faz sentido em interação pontual (Contato/Ligação): reunião e
+        // relatório não são "quem procurou quem".
+        origem: ehInteracao ? (origem || undefined) : undefined,
       };
       // Contato/Relatório não têm ata. Fora isso: ata manual tem prioridade;
       // se vazia, gera automaticamente.
       const ataDe = (iso: string, cl: EventoAgenda['checklist']) =>
-        modoSimples ? '' : (ata.trim() ? ata : gerarAta({ clientName: cliente.empresa, date: iso, time, type, checklist: cl, preAnalise: pa.preAnalise, description }));
+        modoSimples ? '' : (ata.trim() ? ata : gerarAta(
+          {
+            clientName: cliente.empresa, date: iso, time, duracao, type, sala, monitor, subject, servicos,
+            checklist: cl, resumo, description,
+          },
+          { cliente }
+        ));
       async function lembretePara(evId: string, d: Date) {
         if (lembreteAntes === 'none') return;
         const [h, m] = (time || '09:00').split(':').map(Number);
@@ -277,6 +301,16 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                 </Field>
               )}
             </div>
+
+            {ehInteracao && (
+              <Field label="Quem procurou">
+                <Select tone="modal" value={origem} onChange={(e) => setOrigem(e.target.value as OrigemEvento | '')}>
+                  <option value="">— não informado —</option>
+                  <option value="nos">{ORIGEM_LABEL.nos}</option>
+                  <option value="cliente">{ORIGEM_LABEL.cliente}</option>
+                </Select>
+              </Field>
+            )}
 
             {ehReuniao && (
               <Field label="Sala">

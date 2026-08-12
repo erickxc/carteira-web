@@ -1,19 +1,19 @@
 import { useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import type { OrientacaoItem, PreAnalise } from '../../types';
+import { preAnaliseParaTexto, type PreAnalise } from '../../types';
 
-/** Estado da pré-análise (preparação da reunião): orientações por cliente/produto. */
+/**
+ * Estado da pré-análise (preparação da reunião) — hoje só um texto breve.
+ *
+ * O formato antigo (tabela de orientações cliente/produto + dois campos gerais)
+ * é convertido para texto na abertura por `preAnaliseParaTexto`, então nada do
+ * que já estava gravado se perde de vista. Ao salvar, os campos legados vão
+ * vazios: o conteúdo passou a viver em `texto`, e manter os dois preenchidos
+ * criaria duas fontes de verdade para a mesma anotação.
+ */
 export function usePreAnalise(initial?: PreAnalise) {
-  const [orientacoes, setOrientacoes] = useState<OrientacaoItem[]>(initial?.orientacoes ?? []);
-  const [clientesGeral, setClientesGeral] = useState(initial?.clientesGeral ?? '');
-  const [produtosGeral, setProdutosGeral] = useState(initial?.produtosGeral ?? '');
+  const [texto, setTexto] = useState(preAnaliseParaTexto(initial));
 
-  const addOrientacao = () => setOrientacoes((prev) => [...prev, { id: uuidv4(), cliente: '', produto: '', orientacao: '' }]);
-  const updOrientacao = (id: string, campo: keyof OrientacaoItem, valor: string) =>
-    setOrientacoes((prev) => prev.map((o) => (o.id === id ? { ...o, [campo]: valor } : o)));
-  const removeOrientacao = (id: string) => setOrientacoes((prev) => prev.filter((o) => o.id !== id));
+  const preAnalise: PreAnalise = { texto, orientacoes: [], clientesGeral: '', produtosGeral: '' };
 
-  const preAnalise: PreAnalise = { orientacoes, clientesGeral, produtosGeral };
-
-  return { orientacoes, clientesGeral, setClientesGeral, produtosGeral, setProdutosGeral, addOrientacao, updOrientacao, removeOrientacao, preAnalise };
+  return { texto, setTexto, preAnalise };
 }

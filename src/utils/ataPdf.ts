@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import { format, parseISO } from 'date-fns';
-import type { EventoAgenda } from '../types';
+import { preAnaliseParaTexto, type EventoAgenda } from '../types';
 
 const GOLD: [number, number, number] = [218, 187, 108];
 const DARK: [number, number, number] = [20, 20, 22];
@@ -67,16 +67,13 @@ export function gerarAtaPdf(ev: Partial<EventoAgenda>) {
   if (ev.servicos && ev.servicos.length) meta('Serviços', ev.servicos.join(', '));
 
   // --- Pré-Análise ---
-  const pa = ev.preAnalise;
-  const ori = (pa?.orientacoes ?? []).filter((o) => o.cliente || o.produto || o.orientacao);
-  if (ori.length || pa?.clientesGeral?.trim() || pa?.produtosGeral?.trim()) {
+  // `preAnaliseParaTexto` cobre os dois formatos: o texto breve atual e o
+  // legado (tabela de orientações), que continuaria invisível aqui se o PDF
+  // seguisse lendo só os campos antigos.
+  const preAnaliseTexto = preAnaliseParaTexto(ev.preAnalise);
+  if (preAnaliseTexto.trim()) {
     h2('Pré-Análise');
-    if (ori.length) {
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...TXT); ensure(5); doc.text('Orientações:', M, cy); cy += 5;
-      ori.forEach((o) => par(`• ${[o.cliente, o.produto].filter(Boolean).join(' / ')}${o.orientacao ? `: ${o.orientacao}` : ''}`, 3));
-    }
-    if (pa?.clientesGeral?.trim()) { cy += 1; par(`Clientes em geral: ${pa.clientesGeral.trim()}`); }
-    if (pa?.produtosGeral?.trim()) { par(`Produtos em geral: ${pa.produtosGeral.trim()}`); }
+    preAnaliseTexto.split('\n').forEach((linha) => par(linha, 3));
   }
 
   // --- Checklist ---
