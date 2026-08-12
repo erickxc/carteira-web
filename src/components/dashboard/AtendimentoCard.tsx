@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PhoneCall, PhoneIncoming } from 'lucide-react';
+import { CalendarSync, PhoneCall, PhoneIncoming } from 'lucide-react';
 import {
   calcularCicloAtendimento, calcularConfiabilidade, calcularEsforcoAgenda, formatarDias,
 } from '../../utils/metricasAtendimento';
@@ -159,6 +159,16 @@ export function AtendimentoCard({ agenda, clientes }: AtendimentoCardProps) {
           <span className="atend-metrica-label"><PhoneIncoming size={13} /> Contatos recebidos do cliente</span>
           <strong className="atend-metrica-valor">{esforco.contatosDoCliente}</strong>
           <span className="atend-metrica-nota">demanda espontânea (não é esforço nosso)</span>
+        </div>
+
+        <div className="atend-metrica">
+          <span className="atend-metrica-label"><CalendarSync size={13} /> Reuniões remarcadas</span>
+          <strong className="atend-metrica-valor">
+            {conf.total > 0 ? `${Math.round(conf.taxaRemarcacao)}%` : '—'}
+          </strong>
+          <span className="atend-metrica-nota">
+            {conf.reunioesRemarcadas} de {conf.total} · {conf.remarcacoes} remarcação(ões) no total
+          </span>
         </div>
 
         <div className="atend-metrica">

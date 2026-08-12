@@ -5,7 +5,7 @@ import {
   format, isSameDay, isSameMonth, parse, parseISO, startOfMonth, startOfWeek, subDays, subMonths, subWeeks,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, Paperclip, Plus, Printer, User } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CalendarSync, ChevronLeft, ChevronRight, LayoutGrid, Paperclip, Plus, Printer, User } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { EventFormModal } from '../components/EventFormModal';
 import { Dropdown } from '../components/Dropdown';
@@ -197,10 +197,23 @@ export default function AgendaPage() {
     return [0, 1, 2, 3, 4].map((i) => addDays(start, i)); // Seg..Sex
   }, [weekRef]);
 
+  /**
+   * Mudar o DIA de um evento é uma remarcação — conta no `reagendamentos`.
+   * Só reunião entra na conta: mover um Contato/Relatório de dia é ajuste de
+   * registro, não uma reunião desmarcada com o cliente.
+   */
+  function contarRemarcacao(ev: EventoAgenda): Partial<EventoAgenda> {
+    if (!/reuni/i.test(ev.type || '')) return {};
+    return { reagendamentos: (ev.reagendamentos ?? 0) + 1 };
+  }
+
   async function moverParaDia(id: string, targetKey: string) {
     const ev = agenda.find((e) => e.id === id);
     if (!ev || format(parseISO(ev.date), 'yyyy-MM-dd') === targetKey) return;
-    await atualizarEvento(id, { date: parse(targetKey, 'yyyy-MM-dd', new Date()).toISOString() });
+    await atualizarEvento(id, {
+      date: parse(targetKey, 'yyyy-MM-dd', new Date()).toISOString(),
+      ...contarRemarcacao(ev),
+    });
   }
 
   async function moverKanban(id: string, dayKey: string, turno: 'manha' | 'tarde') {
@@ -209,7 +222,13 @@ export default function AgendaPage() {
     const curTurno = turnoDe(ev);
     let novaHora = ev.time || '';
     if (turno !== curTurno || !ev.time) novaHora = turno === 'manha' ? '09:00' : '14:00';
-    await atualizarEvento(id, { date: parse(dayKey, 'yyyy-MM-dd', new Date()).toISOString(), time: novaHora });
+    // Trocar só de turno no mesmo dia não é remarcação com o cliente.
+    const mudouDeDia = format(parseISO(ev.date), 'yyyy-MM-dd') !== dayKey;
+    await atualizarEvento(id, {
+      date: parse(dayKey, 'yyyy-MM-dd', new Date()).toISOString(),
+      time: novaHora,
+      ...(mudouDeDia ? contarRemarcacao(ev) : {}),
+    });
   }
 
   function concluir(ev: EventoAgenda) {
@@ -372,6 +391,14 @@ export default function AgendaPage() {
                               {/reuni/i.test(ev.type) && ev.servicos.length > 0 ? ev.servicos.join(', ') : ev.type}
                             </span>
                             {ev.monitor && <span className="chip-monitor"><User size={10} /> {ev.monitor}</span>}
+                            {(ev.reagendamentos ?? 0) > 0 && (
+                              <span
+                                className="chip-remarcada"
+                                title={`Remarcada ${ev.reagendamentos}x`}
+                              >
+                                <CalendarSync size={10} /> {ev.reagendamentos}x
+                              </span>
+                            )}
                             {conflitos.has(ev.id) && <AlertTriangle size={10} className="text-[color:var(--danger)]" />}
                             {ev.attachments.length > 0 && <Paperclip size={10} className="calendar-chip-clip" />}
                             <ReagendarButton className="calendar-chip-reagendar" dataAtual={ev.date} onReagendar={(novaData) => moverParaDia(ev.id, novaData)} />

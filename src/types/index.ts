@@ -197,6 +197,15 @@ export interface EventoAgenda {
   sala?: string;
   /** De quem partiu a interação (Contato/Ligação). Ausente = não informado. */
   origem?: OrigemEvento;
+  /**
+   * Quantas vezes esta reunião foi remarcada (arrastada no calendário, movida
+   * no Kanban ou remarcada pelo botão). Contador PRÓPRIO, separado do status
+   * "Reagendado": aquele status é desfecho final (o evento morreu e some do
+   * calendário por padrão), enquanto aqui o evento continua vivo e só mudou de
+   * data. Sem esse campo não havia como medir remarcação, porque arrastar o
+   * card nunca mexeu no status.
+   */
+  reagendamentos?: number;
   /** Id da série de recorrência (agrupa ocorrências geradas juntas). */
   serie?: string;
   createdAt: string;

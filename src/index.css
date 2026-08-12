@@ -1187,6 +1187,17 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 }
 .calendar-chip-clip { color: var(--text-muted); flex-shrink: 0; }
 
+/* Reunião já remarcada — âmbar (atenção, não erro: ela segue valendo). */
+.chip-remarcada {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--warning);
+}
+
 /* Agenda do CEO (Google Calendar, somente leitura) — única exceção à
    identidade preto-e-branco do projeto: cor própria (azul Google) pra deixar
    claro que a origem é externa, e nunca confundir com um evento editável. */

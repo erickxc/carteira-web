@@ -44,10 +44,15 @@ export interface Confiabilidade {
   realizadas: number;
   reagendadas: number;
   canceladas: number;
-  /** Reuniões marcadas por iniciativa do cliente (origem='cliente'). */
   total: number;
   /** realizadas / total, em % (0 quando não há histórico). */
   taxaRealizacao: number;
+  /** Nº de reuniões que foram remarcadas ao menos uma vez. */
+  reunioesRemarcadas: number;
+  /** Total de remarcações (uma reunião pode ter sido movida várias vezes). */
+  remarcacoes: number;
+  /** reunioesRemarcadas / total, em %. */
+  taxaRemarcacao: number;
 }
 
 /**
@@ -57,6 +62,7 @@ export interface Confiabilidade {
  */
 export function calcularConfiabilidade(eventos: EventoAgenda[], agora: Date = new Date()): Confiabilidade {
   let realizadas = 0, reagendadas = 0, canceladas = 0;
+  let reunioesRemarcadas = 0, remarcacoes = 0;
   for (const e of eventos) {
     if (!ehReuniao(e)) continue;
     const d = dataDe(e);
@@ -64,9 +70,19 @@ export function calcularConfiabilidade(eventos: EventoAgenda[], agora: Date = ne
     if (foiCancelado(e)) canceladas++;
     else if (foiReagendado(e)) reagendadas++;
     else realizadas++;
+    // Remarcação é ORTOGONAL ao desfecho: uma reunião pode ter sido movida
+    // duas vezes e ainda assim ter acontecido. Por isso conta em separado, e
+    // não como uma quarta fatia da barra de desfecho.
+    const n = e.reagendamentos ?? 0;
+    if (n > 0) { reunioesRemarcadas++; remarcacoes += n; }
   }
   const total = realizadas + reagendadas + canceladas;
-  return { realizadas, reagendadas, canceladas, total, taxaRealizacao: total > 0 ? (realizadas / total) * 100 : 0 };
+  return {
+    realizadas, reagendadas, canceladas, total,
+    taxaRealizacao: total > 0 ? (realizadas / total) * 100 : 0,
+    reunioesRemarcadas, remarcacoes,
+    taxaRemarcacao: total > 0 ? (reunioesRemarcadas / total) * 100 : 0,
+  };
 }
 
 // ---------------------------------------------------------------------------
