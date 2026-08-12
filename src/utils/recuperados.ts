@@ -12,20 +12,27 @@ export interface ClienteRecuperado {
   diasParado: number;
   /** Data da última entrega antes do hiato (null quando nunca houve nenhuma). */
   ultimaAntes: Date | null;
-  /** A entrega que recuperou o cliente. */
-  entrega: {
-    tipo: string;
-    data: Date;
-    /** false = está marcada para o futuro (recuperação ainda por acontecer). */
-    jaAconteceu: boolean;
-  };
+  /** A entrega CONCLUÍDA que recuperou o cliente. */
+  entrega: { tipo: string; data: Date };
   /** 'hiato' = ficou parado depois de já ter sido atendido; 'nunca' = primeira entrega. */
   motivo: 'hiato' | 'nunca';
 }
 
+/**
+ * Só eventos da AGENDA do tipo Reunião ou Relatório. Lembrete nunca entra aqui:
+ * lembrete é um aviso interno (nem chega ao cliente), então não comprova
+ * atendimento nenhum.
+ */
 const ehEntrega = (e: EventoAgenda) => /reuni|relat/i.test(e.type || '');
-/** Cancelado/reagendado não conta: o encontro não existiu nem vai existir. */
-const vale = (e: EventoAgenda) => !/cancel|reagend/i.test(e.status || '');
+/**
+ * Só CONCLUÍDO/REALIZADO conta como recuperação.
+ *
+ * Antes bastava a entrega não estar cancelada — o que incluía reunião apenas
+ * marcada (status Agendado, inclusive no futuro). Isso tornava o indicador
+ * potencialmente falso: marcar a reunião não é o cliente recuperado, e se ela
+ * fosse desmarcada depois o cliente seguia contado como recuperado.
+ */
+const vale = (e: EventoAgenda) => /conclu|realiz/i.test(e.status || '');
 
 function dataDe(e: EventoAgenda): Date | null {
   if (!e.date) return null;
@@ -35,10 +42,10 @@ function dataDe(e: EventoAgenda): Date | null {
 
 /**
  * Clientes RECUPERADOS: estavam há >= 60 dias sem nenhuma entrega (reunião ou
- * relatório) e voltaram a ter uma — já realizada ou marcada para o futuro.
+ * relatório) e voltaram a ser atendidos DE FATO — só entrega concluída conta.
  *
- * Como é detectado: as entregas de cada cliente são ordenadas por data e o
- * algoritmo procura um "salto" de 60+ dias entre uma entrega e a seguinte. A
+ * Como é detectado: as entregas concluídas de cada cliente são ordenadas por
+ * data e o algoritmo procura um "salto" de 60+ dias entre uma e a seguinte. A
  * entrega que fecha esse salto é a recuperação; ela precisa cair dentro da
  * janela analisada (senão uma recuperação de um ano atrás apareceria como se
  * fosse de agora).
@@ -49,9 +56,9 @@ function dataDe(e: EventoAgenda): Date | null {
  *    cadastro tem mais de 60 dias, senão todo cliente novo entraria na lista
  *    (é atendimento inicial, não recuperação).
  *
- * Entrega futura marcada conta (`jaAconteceu: false`): o objetivo do indicador é
- * mostrar reengajamento, e marcar a reunião já é o reengajamento — mas a tela
- * diferencia as duas situações para não parecer que já foi entregue.
+ * Fora da conta: lembretes (aviso interno, não é atendimento) e entrega apenas
+ * agendada, mesmo futura — reunião marcada pode ser desmarcada, e o indicador
+ * ficaria afirmando uma recuperação que não aconteceu.
  *
  * Só clientes ativos entram (suspenso/inativo não é recuperação real).
  */
@@ -65,6 +72,10 @@ export function calcularRecuperados(
   const porCliente = new Map<string, EventoAgenda[]>();
   for (const e of agenda) {
     if (!e.clientId || !ehEntrega(e) || !vale(e)) continue;
+    // Data futura marcada como concluída é inconsistência de cadastro; ignorar
+    // evita afirmar uma recuperação que ainda não ocorreu.
+    const d = dataDe(e);
+    if (!d || d > agora) continue;
     if (!porCliente.has(e.clientId)) porCliente.set(e.clientId, []);
     porCliente.get(e.clientId)!.push(e);
   }
@@ -117,7 +128,7 @@ export function calcularRecuperados(
         cliente: c,
         diasParado,
         ultimaAntes: anterior?.d ?? null,
-        entrega: { tipo: atual.ev.type || 'Reunião', data: atual.d, jaAconteceu: atual.d <= agora },
+        entrega: { tipo: atual.ev.type || 'Reunião', data: atual.d },
         motivo,
       };
     }

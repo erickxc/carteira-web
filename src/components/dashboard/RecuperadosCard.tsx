@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { CalendarCheck, CalendarClock, TrendingUp } from 'lucide-react';
+import { CalendarCheck, TrendingUp } from 'lucide-react';
 import { calcularRecuperados, LIMIAR_RECUPERACAO_DIAS } from '../../utils/recuperados';
 import { janelaDe, PERIODOS, type PeriodoKey } from '../../utils/periodo';
 import { Badge, Card } from '../../ui';
@@ -31,15 +31,27 @@ export function RecuperadosCard({ clientes, agenda }: RecuperadosCardProps) {
     [clientes, agenda, janela, agora]
   );
 
-  const marcados = recuperados.filter((r) => !r.entrega.jaAconteceu).length;
-  const realizados = recuperados.length - marcados;
+  const porTipo = recuperados.reduce(
+    (acc, r) => {
+      if (/relat/i.test(r.entrega.tipo)) acc.relatorio++; else acc.reuniao++;
+      return acc;
+    },
+    { reuniao: 0, relatorio: 0 }
+  );
+
+  // Plural por extenso: concatenar sufixo daria "reuniãoões".
+  const partes = [
+    porTipo.reuniao > 0 ? `${porTipo.reuniao} ${porTipo.reuniao > 1 ? 'reuniões' : 'reunião'}` : null,
+    porTipo.relatorio > 0 ? `${porTipo.relatorio} ${porTipo.relatorio > 1 ? 'relatórios' : 'relatório'}` : null,
+  ].filter(Boolean);
 
   return (
     <Card flat className="recuperados-card">
       <div className="section-header" style={{ display: 'block', gap: 4 }}>
         <h3 style={{ marginBottom: 2 }}>Clientes recuperados</h3>
         <p className="atend-subtitulo">
-          {janela.descricao} · voltaram a ter reunião ou relatório após {LIMIAR_RECUPERACAO_DIAS}+ dias parados
+          {janela.descricao} · voltaram a ter reunião ou relatório <strong>concluído</strong> após{' '}
+          {LIMIAR_RECUPERACAO_DIAS}+ dias parados
         </p>
       </div>
 
@@ -63,7 +75,9 @@ export function RecuperadosCard({ clientes, agenda }: RecuperadosCardProps) {
         <div className="atend-big-txt">
           <strong>{recuperados.length === 1 ? 'cliente recuperado' : 'clientes recuperados'}</strong>
           <span className="text-text-muted">
-            {realizados} já com entrega realizada · {marcados} com entrega marcada
+            {recuperados.length === 0
+              ? 'só conta reunião ou relatório concluído'
+              : `por ${partes.join(' e ')} — já concluída(s)`}
           </span>
         </div>
       </div>
@@ -92,10 +106,8 @@ export function RecuperadosCard({ clientes, agenda }: RecuperadosCardProps) {
                 </div>
               </div>
               <div className="recup-item-dir">
-                <Badge variant={r.entrega.jaAconteceu ? 'success' : 'muted'} style={{ fontSize: 10 }}>
-                  {r.entrega.jaAconteceu
-                    ? <><CalendarCheck size={10} /> realizada</>
-                    : <><CalendarClock size={10} /> marcada</>}
+                <Badge variant="success" style={{ fontSize: 10 }}>
+                  <CalendarCheck size={10} /> concluída
                 </Badge>
                 <span style={{ fontSize: 13 }} className="text-text-secondary">
                   {format(r.entrega.data, 'dd/MM/yyyy')}
