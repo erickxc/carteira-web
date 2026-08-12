@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { format, parseISO } from 'date-fns';
 import { preAnaliseParaTexto, type EventoAgenda } from '../types';
+import type { AtaContexto } from './ata';
 
 const GOLD: [number, number, number] = [218, 187, 108];
 const DARK: [number, number, number] = [20, 20, 22];
@@ -11,8 +12,15 @@ function sanitize(s: string) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'reuniao';
 }
 
-/** Gera e baixa a Ata da reunião em PDF, com a marca da 2D Consultores. */
-export function gerarAtaPdf(ev: Partial<EventoAgenda>) {
+/**
+ * Gera e baixa a Ata da reunião em PDF, com a marca da 2D Consultores.
+ *
+ * As seções seguem a MESMA estrutura de `gerarAta` (utils/ata.ts): antes o PDF
+ * tinha layout próprio (Checklist / Resumo / Observações) e despejava a ata
+ * inteira dentro de "Observações", repetindo o conteúdo — o documento enviado ao
+ * cliente não batia com a ata vista na tela.
+ */
+export function gerarAtaPdf(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = 210, M = 16, BOTTOM = 282;
   let cy = 0;
@@ -76,21 +84,57 @@ export function gerarAtaPdf(ev: Partial<EventoAgenda>) {
     preAnaliseTexto.split('\n').forEach((linha) => par(linha, 3));
   }
 
-  // --- Checklist ---
-  const cl = ev.checklist ?? [];
-  if (cl.length) {
-    h2('Checklist / pauta');
-    cl.forEach((i) => par(`${i.done ? '[x]' : '[ ]'} ${i.text}`, 3));
+  // --- Participantes ---
+  // Mesma regra da ata em texto: contatos do serviço tratado + o monitor.
+  const servicosEv = ev.servicos ?? [];
+  const contatos = ctx.cliente?.contatos ?? [];
+  const doCliente = ctx.participantesCliente?.filter(Boolean) ?? (
+    servicosEv.length > 0
+      ? contatos.filter((c) => (c.servicos ?? []).length === 0 || (c.servicos ?? []).some((s) => servicosEv.includes(s)))
+      : contatos
+  ).map((c) => (c.cargo ? `${c.nome} (${c.cargo})` : c.nome));
+  if (doCliente.length > 0 || ev.monitor) {
+    h2('Participantes');
+    doCliente.forEach((p) => par(`• ${p} — ${ev.clientName ?? 'cliente'}`, 3));
+    if (ev.monitor) par(`• ${ev.monitor} — 2D Consultores`, 3);
   }
 
-  // --- Resumo ---
-  if (ev.resumo?.trim()) { h2('Resumo da Reunião'); par(ev.resumo.trim()); }
+  // --- 1. Pauta ---
+  const cl = ev.checklist ?? [];
+  h2('1. Pauta');
+  if (cl.length === 0) par('(sem pauta registrada)', 3);
+  else cl.forEach((i) => par(`${i.done ? '[x]' : '[ ]'} ${i.text}${i.done ? '' : '  (não tratado)'}`, 3));
 
-  // --- Observações (ata) ---
-  if (ev.ata?.trim()) { h2('Observações'); par(ev.ata.trim()); }
+  // --- 2. O que foi tratado ---
+  h2('2. O que foi tratado');
+  const relato = ev.resumo?.trim() || ev.description?.trim() || '';
+  par(relato || '(a preencher)', 3);
 
-  // --- Descrição ---
-  if (ev.description?.trim()) { h2('Descrição'); par(ev.description.trim()); }
+  // --- 3. Decisões / 4. Próximos passos ---
+  // Mesma heurística da ata em texto (linha que começa com marcador de decisão).
+  const linhasRelato = relato
+    .split('\n')
+    .map((l) => l.replace(/^\s*(?:[-*•—]|\d+[.)])\s*/, '').trim())
+    .filter(Boolean);
+  const decisoes = linhasRelato.filter((l) => /^(decis|decidid|ficou\s+(definido|acordado)|acordad)/i.test(l));
+  h2('3. Decisões');
+  if (decisoes.length > 0) decisoes.forEach((x) => par(`— ${x}`, 3));
+  else par('(a preencher)', 3);
+
+  const pendentes = cl.filter((i) => !i.done).map((i) => i.text);
+  h2('4. Próximos passos');
+  if (pendentes.length > 0) pendentes.forEach((p) => par(`[2D] ${p}`, 3));
+  else par('(a preencher)', 3);
+
+  // --- Ata editada à mão ---
+  // Só entra se o usuário escreveu algo que NÃO é a ata gerada (senão o PDF
+  // repetiria as seções acima dentro de um bloco de observações — era o que
+  // acontecia antes, quando a ata inteira caía numa seção "Observações").
+  const ataManual = ev.ata?.trim();
+  if (ataManual && !/^ATA (DE REUNIÃO|—)/i.test(ataManual)) {
+    h2('Observações');
+    par(ataManual, 3);
+  }
 
   // --- Rodapé em todas as páginas ---
   const pages = doc.getNumberOfPages();

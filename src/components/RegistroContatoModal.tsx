@@ -38,6 +38,14 @@ export function RegistroContatoModal({ clienteId, onClose }: RegistroContatoModa
   const servicoOpcoes = opcoesPorTipo('servico');
   const monitorOpcoes = opcoesPorTipo('monitor');
 
+  // Status vem das categorias (o usuário pode renomear "Concluído"), então
+  // procura por palavra-chave em vez de gravar a string fixa — mesmo padrão do
+  // EventFormModal. O fallback só vale se não houver nada parecido cadastrado.
+  const statusConcluido = useMemo(
+    () => opcoesPorTipo('status_evento').find((s) => /conclu|realiz/i.test(s)) ?? 'Concluído',
+    [opcoesPorTipo]
+  );
+
   const [clientId, setClientId] = useState(clienteId ?? '');
   const [tipo, setTipo] = useState(tiposContato[0]);
   const [quem, setQuem] = useState('');
@@ -75,7 +83,7 @@ export function RegistroContatoModal({ clienteId, onClose }: RegistroContatoModa
         description: quem.trim() ? `Falou com: ${quem.trim()}` : '',
         date: quando.toISOString(),
         time: hora,
-        status: 'Concluído', // já aconteceu — não é algo a fazer
+        status: statusConcluido, // já aconteceu — não é algo a fazer
         origem: 'cliente',
         servicos,
         monitor: monitor || undefined,

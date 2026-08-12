@@ -397,14 +397,17 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                 style={{ marginTop: 8, alignSelf: 'flex-start' }}
                 onClick={() => {
                   if (!dataValida) { toastError('Data inválida — confira o dia informado.'); return; }
-                  gerarAtaPdf({
-                    clientName: clientes.find((c) => c.id === clientId)?.empresa ?? '',
-                    date: dataSegura.toISOString(),
-                    time, type, status, subject, servicos,
-                    checklist: ck.checklist, preAnalise: pa.preAnalise, resumo,
-                    ata: ata.trim() ? ata : ataAuto,
-                    description,
-                  });
+                  gerarAtaPdf(
+                    {
+                      clientName: clienteSelecionado?.empresa ?? '',
+                      date: dataSegura.toISOString(),
+                      time, duracao, type, status, subject, servicos, sala, monitor,
+                      checklist: ck.checklist, preAnalise: pa.preAnalise, resumo,
+                      ata: ata.trim() ? ata : ataAuto,
+                      description,
+                    },
+                    { cliente: clienteSelecionado }
+                  );
                 }}
               >
                 <FileText size={15} /> Gerar Ata (PDF)
