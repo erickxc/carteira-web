@@ -381,14 +381,19 @@ export default function AgendaPage() {
                           draggable onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); setDraggedId(ev.id); }}
                           onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
                           onClick={() => setModalState({ editing: ev })}
-                          title={`${ev.clientName} — ${ev.subject || ev.type}${ev.time ? ' ' + ev.time : ''}${ev.monitor ? ' · Monitor: ' + ev.monitor : ''} · clique para editar/reagendar (ou arraste para outro dia)`}>
+                          title={`${ev.clientName} — ${ev.subject || ev.type}${ev.time ? ' ' + ev.time : ''}${ev.servicos.length > 0 ? ' · ' + ev.servicos.join(', ') : ''}${ev.monitor ? ' · Monitor: ' + ev.monitor : ''} · clique para editar/reagendar (ou arraste para outro dia)`}>
                           <span className="calendar-chip-title">{ev.time ? `${ev.time} ` : ''}{ev.clientName}</span>
                           <span className="calendar-chip-meta">
                             {/* Reunião: a cor da barra lateral já indica o tipo — mostrar o
                                 serviço tratado (Monitoria/Precificação) é mais útil que repetir
                                 "Reunião" no texto. Sem serviço tagueado (legado), cai no tipo. */}
                             <span className="calendar-chip-type">
-                              {/reuni/i.test(ev.type) && ev.servicos.length > 0 ? ev.servicos.join(', ') : ev.type}
+                              {/* Com 2+ serviços, "Monitoria, Precificação" não cabe na
+                                  coluna e era cortado no meio da palavra. Mostra o
+                                  primeiro + contador; a lista completa está no title. */}
+                              {/reuni/i.test(ev.type) && ev.servicos.length > 0
+                                ? (ev.servicos.length > 1 ? `${ev.servicos[0]} +${ev.servicos.length - 1}` : ev.servicos[0])
+                                : ev.type}
                             </span>
                             {ev.monitor && <span className="chip-monitor"><User size={10} /> {ev.monitor}</span>}
                             {(ev.reagendamentos ?? 0) > 0 && (

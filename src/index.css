@@ -116,10 +116,17 @@
   --text-muted: #71717a;
 
   /* Dourado da marca escurecido para virar bronze legível como texto e como
-     fundo de botão (com texto branco). */
-  --accent: #9a7c22;
-  --accent-hover: #b3922f;
-  --accent-soft: rgba(154, 124, 34, 0.15);
+     fundo de botão (com texto branco).
+     Os valores foram calculados por contraste WCAG, não a olho: o bronze
+     anterior (#9a7c22) dava 3.37:1 como texto sobre card e 2.80:1 sobre o fundo
+     da página — abaixo do mínimo AA (4.5:1) —, e branco sobre ele no botão dava
+     3.98:1. Ficava lavado e cansativo de ler. Este par passa AA em todos os
+     usos reais: texto sobre card 6.05:1, sobre bg 5.03:1, sobre sidebar 4.52:1,
+     sobre accent-soft 4.88:1, e branco sobre o botão 7.15:1.
+     Diferente do tema escuro, aqui o hover ESCURECE (no escuro ele clareia). */
+  --accent: #6b5518;
+  --accent-hover: #5c4a15;
+  --accent-soft: rgba(107, 85, 24, 0.15);
   --accent-contrast: #ffffff;
 
   /* Tipos de evento — versões mais escuras (as do escuro eram clareadas p/ fundo
@@ -1169,10 +1176,15 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Linha de meta do chip (serviço + monitor + ícones). `flex-wrap` porque a
+   coluna do calendário é estreita (~150px): numa linha única o serviço era
+   cortado ("MONITO...") e o nome do monitor quebrava no meio. Com wrap, o que
+   não cabe desce para a linha seguinte inteiro, em vez de ser comido. */
 .calendar-chip-meta {
   display: flex;
   align-items: center;
-  gap: 5px;
+  flex-wrap: wrap;
+  gap: 2px 5px;
   min-width: 0;
 }
 .calendar-chip-type {
@@ -1182,6 +1194,11 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   letter-spacing: 0.05em;
   color: var(--text-muted);
   white-space: nowrap;
+  /* Não encolhe: se não couber ao lado do monitor, vai pra linha de baixo
+     completo. O ellipsis fica só para o caso extremo de um nome de serviço
+     maior que a largura toda do chip. */
+  flex-shrink: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1405,7 +1422,19 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .agenda-ticker-date { font-size: 0.72rem; font-weight: 700; color: var(--accent); }
 .agenda-ticker-name { font-size: 0.83rem; font-weight: 600; }
 .agenda-ticker-meta { font-size: 0.75rem; color: var(--text-muted); }
-.chip-monitor { display: inline-flex; align-items: center; gap: 3px; color: var(--text-muted); }
+/* `nowrap` para o nome do monitor não quebrar no meio ("Erick / Cardoso" em duas
+   linhas dentro do chip); se faltar espaço, o bloco todo desce pela quebra da
+   linha de meta. */
+.chip-monitor {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .chip-monitor svg { flex-shrink: 0; }
 
 /* --- Agenda: Kanban semana × turno --- */

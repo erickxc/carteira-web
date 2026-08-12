@@ -83,7 +83,12 @@ export function useDashboardData() {
   // dois significam "feito"). O dashboard conta SÓ concluídas; agendadas entram
   // como projeção à parte.
   const concluida = (a: EventoAgenda) => /conclu|realiz/i.test(a.status || '');
-  const agendada = (a: EventoAgenda) => /agend/i.test(a.status || '');
+  // `^agend` (ancorado) e não `/agend/`: "Reagendado" TAMBÉM contém "agend", e o
+  // regex solto fazia reunião reagendada ser contada como agendada — inflando o
+  // card "Agendadas" e aparecendo em dois cards ao mesmo tempo (o de
+  // Reagendamentos usa /reagend/). Não afetava os dados atuais só porque agosto
+  // não tem nenhum reagendado; era um erro esperando dado para aparecer.
+  const agendada = (a: EventoAgenda) => /^agend/i.test((a.status || '').trim());
 
   // --- KPIs (escopo do período, base de ativos) ---
   const reunioesConcluidasMes = reunioesAtivas.filter((a) => concluida(a) && isSameMonth(parseISO(a.date), periodo)).length;
