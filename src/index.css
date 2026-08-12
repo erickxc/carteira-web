@@ -446,7 +446,10 @@ textarea:focus-visible {
 .gauge-detalhe-grid {
   border-top: 1px solid var(--border);
   margin-top: 10px; padding-top: 12px;
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.5rem 1.25rem;
+  /* Uma coluna: os grupos ficam empilhados e cada nome usa a largura inteira do
+     card (ver o comentário em GaugeDetalhe.tsx). O componente informa quantos
+     grupos existem em `--gauge-grupos`, usado abaixo para dividir a altura. */
+  display: grid; grid-template-columns: 1fr; gap: 10px;
 }
 .gauge-detalhe-col { min-width: 0; display: flex; flex-direction: column; }
 /* Título fixo (fora da área que rola) — a lista nunca passa por cima dele. */
@@ -463,7 +466,13 @@ textarea:focus-visible {
      coluna por linha em telas estreitas) ficavam mais baixas que as outras —
      altura fixa garante caixas do mesmo tamanho sempre, com ou sem scroll. */
   list-style: none; margin: 0; padding: 0;
-  height: 220px; overflow-y: auto;
+  /* Altura TOTAL constante (~390px) repartida entre os grupos: com 3 grupos dá
+     ~104px cada, com 2 dá ~169px — então o card de Aderência (3 grupos) e o de
+     Cobertura (2) terminam na mesma altura, que é o que mantinha a fila de
+     gauges alinhada quando ambos estão expandidos. Os 26px descontados são o
+     título de cada grupo mais o gap. */
+  height: calc(390px / var(--gauge-grupos, 3) - 26px);
+  overflow-y: auto;
   /* Scrollbar minimalista: fina, sem trilho visível, só o "dedo". */
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
@@ -473,7 +482,7 @@ textarea:focus-visible {
 .gauge-detalhe-col ul::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
 .gauge-detalhe-col ul::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 .gauge-detalhe-col li { font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gauge-detalhe-vazio { display: block; height: 220px; font-size: 0.8rem; color: var(--text-muted); }
+.gauge-detalhe-vazio { display: block; height: calc(390px / var(--gauge-grupos, 3) - 26px); font-size: 0.8rem; color: var(--text-muted); }
 @media (prefers-reduced-motion: reduce) { .gauge-detalhe { transition: none; } }
 
 /* Card "Vencendo" — sem donut (só 1 categoria não faz proporção): número

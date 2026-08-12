@@ -10,11 +10,21 @@ export interface GaugeGrupo {
 export function GaugeDetalhe({ grupos, aberto }: { grupos: GaugeGrupo[]; aberto: boolean }) {
   return (
     <div className={`gauge-detalhe${aberto ? ' is-open' : ''}`}>
-      {/* Colunas em número fixo (não auto-fit): cada card tem uma quantidade
-          diferente de grupos (2 ou 3) — com auto-fit, cada card reflui sozinho
-          em larguras diferentes, fazendo as colunas de cards vizinhos (mesma
-          largura de card) ficarem com tamanhos visivelmente diferentes. */}
-      <div className="gauge-detalhe-grid" style={{ gridTemplateColumns: `repeat(${grupos.length}, 1fr)` }}>
+      {/* Grupos EMPILHADOS (um por linha), não em colunas lado a lado.
+          Antes eram N colunas fixas, e como estes cards ficam 4 por linha
+          (~270–330px de largura), cada coluna sobrava com 76–97px: nomes como
+          "Altese - Recreio + Barra" (145px) e "Pecita - Campo Grande" (142px)
+          eram truncados — a maioria da carteira, porque os nomes de loja levam
+          o grupo no começo. Empilhado, cada nome tem a largura inteira do card.
+
+          `--gauge-grupos` deixa o CSS dividir uma altura TOTAL fixa entre os
+          grupos, então um card com 2 grupos e outro com 3 terminam na mesma
+          altura — era essa a razão de as colunas serem em número fixo, e ela
+          continua atendida. */}
+      <div
+        className="gauge-detalhe-grid"
+        style={{ ['--gauge-grupos' as string]: grupos.length }}
+      >
         {grupos.map((g) => (
           <div key={g.label} className="gauge-detalhe-col">
             <span className="gauge-detalhe-titulo">
