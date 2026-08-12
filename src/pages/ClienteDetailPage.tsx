@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
-import { AlertTriangle, ArrowLeft, Bell as BellIcon, CalendarPlus, MessageCircle, Paperclip, Pencil, PhoneIncoming, Save, Trash2, UserPlus } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Bell as BellIcon, CalendarPlus, MessageCircle, Paperclip, Pencil, PhoneCall, PhoneIncoming, Save, Trash2, UserPlus } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { urlAnexo } from '../api/client';
 import { clienteStatusBadge, eventoStatusBadge, isGratuidade } from '../utils/badges';
@@ -14,13 +14,29 @@ import { EventFormModal } from '../components/EventFormModal';
 import { ReminderFormModal } from '../components/ReminderFormModal';
 import { RegistroContatoModal } from '../components/RegistroContatoModal';
 import { WhatsAppMensagemModal } from '../components/WhatsAppMensagemModal';
+import { usePersistedState } from '../hooks/usePersistedState';
 import { Badge, Button, Card, Chip, Input, Textarea } from '../ui';
-import type { Contato, EventoAgenda } from '../types';
+import { ORIGEM_LABEL, type Contato, type EventoAgenda, type Lembrete } from '../types';
 
 /** Mesma regra usada em src/components/agenda/CardEvento.tsx: concluído/realizado
  * ou cancelado/reagendado são status finais — fora isso, o evento ainda está
  * em aberto ("agendado") e pode ser editado. */
 const eventoAgendado = (ev: EventoAgenda) => !/conclu|realiz|cancel|reagend/i.test(ev.status || '');
+
+type TimelineFiltro = 'tudo' | 'reunioes' | 'contatos' | 'relatorios' | 'lembretes';
+
+const TIMELINE_FILTROS: { valor: TimelineFiltro; label: string }[] = [
+  { valor: 'tudo', label: 'Tudo' },
+  { valor: 'reunioes', label: 'Reuniões' },
+  { valor: 'contatos', label: 'Contatos' },
+  { valor: 'relatorios', label: 'Relatórios' },
+  { valor: 'lembretes', label: 'Lembretes' },
+];
+
+/** Item da linha do tempo — evento de agenda ou lembrete, unificados. */
+type TimelineItem =
+  | { kind: 'evento'; id: string; quando: Date; evento: EventoAgenda }
+  | { kind: 'lembrete'; id: string; quando: Date; lembrete: Lembrete };
 
 export default function ClienteDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -29,7 +45,7 @@ export default function ClienteDetailPage() {
   const voltar = (location.state as { from?: string; fromLabel?: string } | null) ?? null;
   const backTo = voltar?.from ?? '/clientes';
   const backLabel = voltar?.fromLabel ?? 'Carteira';
-  const { clientes, agenda, removerCliente, atualizarCliente, opcoesPorTipo } = useCarteira();
+  const { clientes, agenda, lembretes, removerCliente, atualizarCliente, opcoesPorTipo } = useCarteira();
   const statusOpcoes = opcoesPorTipo('status_cliente');
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [eventModalOpen, setEventModalOpen] = useState(false);
@@ -74,6 +90,37 @@ export default function ClienteDetailPage() {
     () => agenda.filter((a) => a.clientId === id).sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()),
     [agenda, id]
   );
+
+  // Linha do tempo unificada: antes o histórico mostrava só eventos de agenda,
+  // e os lembretes do cliente ficavam invisíveis aqui — quem abria a tela antes
+  // de falar com o cliente tinha que cruzar duas telas pra saber o que já houve.
+  const [filtroTimeline, setFiltroTimeline] = usePersistedState<TimelineFiltro>('filtro:cliente:timeline', 'tudo');
+
+  const timeline = useMemo(() => {
+    const itens: TimelineItem[] = historico.map((ev) => ({
+      kind: 'evento',
+      id: ev.id,
+      quando: parseISO(ev.date),
+      evento: ev,
+    }));
+    lembretes
+      .filter((l) => l.clientId === id)
+      .forEach((l) => {
+        const d = parseISO(l.datetime);
+        if (!isNaN(d.getTime())) itens.push({ kind: 'lembrete', id: l.id, quando: d, lembrete: l });
+      });
+    return itens
+      .filter((i) => {
+        if (filtroTimeline === 'tudo') return true;
+        if (i.kind === 'lembrete') return filtroTimeline === 'lembretes';
+        const t = i.evento.type || '';
+        if (filtroTimeline === 'reunioes') return /reuni/i.test(t);
+        if (filtroTimeline === 'contatos') return /contato|liga[çc]/i.test(t);
+        if (filtroTimeline === 'relatorios') return /relat/i.test(t);
+        return true;
+      })
+      .sort((a, b) => b.quando.getTime() - a.quando.getTime());
+  }, [historico, lembretes, id, filtroTimeline]);
 
   // Lojas do mesmo grupo (rede) — cada loja é um cliente próprio.
   const lojasDoGrupo = useMemo(() => {
@@ -307,12 +354,46 @@ export default function ClienteDetailPage() {
         </Card>
 
         <Card flat>
-          <div className="section-header"><h3>Histórico</h3></div>
-          {historico.length === 0 ? (
-            <div className="empty-state">Nenhum evento registrado para este cliente.</div>
+          <div className="section-header" style={{ flexWrap: 'wrap', gap: 8 }}>
+            <h3>Linha do tempo</h3>
+            <span className="text-text-muted" style={{ fontSize: 12 }}>{timeline.length}</span>
+          </div>
+          <div className="flex-row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+            {TIMELINE_FILTROS.map((f) => (
+              <button
+                key={f.valor}
+                className={`filtro-btn${filtroTimeline === f.valor ? ' is-active' : ''}`}
+                onClick={() => setFiltroTimeline(f.valor)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          {timeline.length === 0 ? (
+            <div className="empty-state">Nada registrado para este cliente com esse filtro.</div>
           ) : (
             <div>
-              {historico.map((evento) => {
+              {timeline.map((item) => {
+                if (item.kind === 'lembrete') {
+                  const l = item.lembrete;
+                  return (
+                    <div key={`l-${item.id}`} className="history-item">
+                      <div className="flex-between" style={{ marginBottom: 6 }}>
+                        <strong style={{ fontSize: 14 }}>{l.title}</strong>
+                        <Badge variant="accent">{format(item.quando, 'dd/MM/yyyy')}</Badge>
+                      </div>
+                      <div className="flex-row" style={{ marginBottom: l.description ? 6 : 0 }}>
+                        <Badge variant="muted"><BellIcon size={10} /> Lembrete</Badge>
+                        <Badge variant={l.status === 'concluido' ? 'success' : 'warning'}>
+                          {l.status === 'concluido' ? 'Concluído' : 'Ativo'}
+                        </Badge>
+                      </div>
+                      {l.description && <p className="text-text-muted" style={{ fontSize: 13, margin: 0 }}>{l.description}</p>}
+                    </div>
+                  );
+                }
+
+                const evento = item.evento;
                 const editavel = eventoAgendado(evento);
                 return (
                 <div
@@ -328,9 +409,17 @@ export default function ClienteDetailPage() {
                     <strong style={{ fontSize: 14 }}>{evento.subject || evento.type}</strong>
                     <Badge variant="accent">{format(parseISO(evento.date), 'dd/MM/yyyy')}</Badge>
                   </div>
-                  <div className="flex-row" style={{ marginBottom: evento.description ? 6 : 0 }}>
+                  <div className="flex-row" style={{ marginBottom: evento.description ? 6 : 0, flexWrap: 'wrap' }}>
                     <Badge variant="accent">{evento.type}</Badge>
                     <Badge variant={eventoStatusBadge(evento.status)}>{evento.status}</Badge>
+                    {/* Só aparece onde faz sentido (Contato/Ligação) e onde foi
+                        informado — eventos antigos não têm origem. */}
+                    {evento.origem && (
+                      <Badge variant={evento.origem === 'cliente' ? 'success' : 'muted'}>
+                        {evento.origem === 'cliente' ? <PhoneIncoming size={10} /> : <PhoneCall size={10} />}
+                        {ORIGEM_LABEL[evento.origem]}
+                      </Badge>
+                    )}
                   </div>
                   {evento.description && <p className="text-text-muted" style={{ fontSize: 13, margin: 0 }}>{evento.description}</p>}
                   {evento.attachments.length > 0 && (

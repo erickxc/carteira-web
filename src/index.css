@@ -1471,6 +1471,73 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .acao-sug { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
 
 /* ---------------------------------------------------------------------------
+   Card "Qualidade do atendimento" (dashboard)
+   --------------------------------------------------------------------------- */
+
+/* Botão de filtro em pílula — alternativa ao Dropdown quando as opções são
+   poucas e a troca é frequente (um clique em vez de abrir/escolher/fechar). */
+.filtro-btn {
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--card);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.filtro-btn:hover { background: var(--card-hover); color: var(--text-primary); border-color: var(--text-muted); }
+.filtro-btn.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.atend-barra {
+  display: flex;
+  height: 12px;
+  width: 100%;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--card-hover);
+  margin-bottom: 10px;
+}
+.atend-barra-parte { height: 100%; transition: width 0.2s ease; }
+
+.atend-metricas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.atend-metrica {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0.7rem 0.8rem;
+  background: var(--card-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  min-width: 0;
+}
+.atend-metrica-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.atend-metrica-valor { font-size: 1.35rem; font-weight: 700; line-height: 1.15; color: var(--text-primary); }
+.atend-metrica-nota { font-size: 0.72rem; color: var(--text-muted); }
+
+/* ---------------------------------------------------------------------------
    Carregamento inicial
    --------------------------------------------------------------------------- */
 

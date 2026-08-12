@@ -26,13 +26,16 @@ interface EventFormModalProps {
   /** Pré-seleciona o Tipo na criação (ex.: atalhos "Criar Relatório"/"Criar
    * Contato" do sidebar) — usuário ainda pode trocar. Ignorado em edição. */
   initialType?: string;
+  /** Pré-preenche a Hora na criação (usado pelas sugestões de encaixe da
+   *  Agenda, que propõem dia E horário). Ignorado em edição. */
+  initialTime?: string;
   onClose: () => void;
   /** Fechar o loop: chamado quando a reunião é concluída e o usuário aceita
    *  agendar o próximo evento — o pai abre uma nova modal para o mesmo cliente. */
   onAgendarProximo?: (clientId: string) => void;
 }
 
-export function EventFormModal({ initial, defaultDate, initialClientId, initialType, onClose, onAgendarProximo }: EventFormModalProps) {
+export function EventFormModal({ initial, defaultDate, initialClientId, initialType, initialTime, onClose, onAgendarProximo }: EventFormModalProps) {
   const { clientes, agenda, criarEvento, atualizarEvento, enviarAnexoEvento, removerAnexoEvento, criarLembrete, opcoesPorTipo } = useCarteira();
   const tipoOpcoes = opcoesPorTipo('tipo_evento');
   const statusOpcoes = opcoesPorTipo('status_evento');
@@ -45,7 +48,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const [subject, setSubject] = useState(initial?.subject ?? '');
   const [type, setType] = useState(initial?.type ?? initialType ?? tipoOpcoes[0] ?? '');
   const [date, setDate] = useState(format(initial ? new Date(initial.date) : defaultDate ?? new Date(), 'yyyy-MM-dd'));
-  const [time, setTime] = useState(initial?.time ?? '');
+  const [time, setTime] = useState(initial?.time ?? initialTime ?? '');
   const [duracao, setDuracao] = useState<number>(initial?.duracao ?? 60);
   const [description, setDescription] = useState(initial?.description ?? '');
   const [status, setStatus] = useState(initial?.status ?? statusOpcoes[0] ?? 'Agendado');

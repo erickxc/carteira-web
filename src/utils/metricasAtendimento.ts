@@ -1,0 +1,208 @@
+import { differenceInCalendarDays, parseISO } from 'date-fns';
+import type { EventoAgenda } from '../types';
+
+/**
+ * Métricas de ATENDIMENTO (não de resultado do cliente): confiabilidade da
+ * agenda, esforço para conseguir uma reunião e tempo do ciclo de atendimento.
+ *
+ * Convenções usadas em todo o arquivo:
+ * - "Agenda importante" = Reunião ou Relatório (o que de fato entrega o serviço).
+ *   Contato/Ligação são o esforço para chegar lá, não a entrega.
+ * - Datas futuras nunca entram: métrica de histórico só olha o que já aconteceu.
+ * - Cancelado/Reagendado não conta como realizado (o encontro não ocorreu).
+ * - Match por palavra-chave (não igualdade) porque tipo/status vêm de
+ *   categorias editáveis pelo usuário — mesmo padrão do resto do projeto.
+ */
+
+const ehReuniao = (e: EventoAgenda) => /reuni/i.test(e.type || '');
+const ehRelatorio = (e: EventoAgenda) => /relat/i.test(e.type || '');
+const ehContato = (e: EventoAgenda) => /contato|liga[çc]/i.test(e.type || '');
+const ehAgendaImportante = (e: EventoAgenda) => ehReuniao(e) || ehRelatorio(e);
+
+const foiCancelado = (e: EventoAgenda) => /cancel/i.test(e.status || '');
+const foiReagendado = (e: EventoAgenda) => /reagend/i.test(e.status || '');
+/** Aconteceu de fato: nem cancelado nem reagendado, e já passou. */
+const aconteceu = (e: EventoAgenda, agora: Date) =>
+  !foiCancelado(e) && !foiReagendado(e) && dataDe(e) !== null && dataDe(e)! <= agora;
+
+function dataDe(e: EventoAgenda): Date | null {
+  if (!e.date) return null;
+  const d = parseISO(e.date);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function media(valores: number[]): number | null {
+  if (valores.length === 0) return null;
+  return valores.reduce((a, b) => a + b, 0) / valores.length;
+}
+
+// ---------------------------------------------------------------------------
+// Confiabilidade da agenda (ponto 2)
+// ---------------------------------------------------------------------------
+
+export interface Confiabilidade {
+  realizadas: number;
+  reagendadas: number;
+  canceladas: number;
+  /** Reuniões marcadas por iniciativa do cliente (origem='cliente'). */
+  total: number;
+  /** realizadas / total, em % (0 quando não há histórico). */
+  taxaRealizacao: number;
+}
+
+/**
+ * Conta o desfecho das reuniões passadas. O denominador é tudo que estava
+ * marcado para uma data já vencida — incluindo o que foi cancelado ou
+ * reagendado, porque é justamente isso que a taxa quer medir.
+ */
+export function calcularConfiabilidade(eventos: EventoAgenda[], agora: Date = new Date()): Confiabilidade {
+  let realizadas = 0, reagendadas = 0, canceladas = 0;
+  for (const e of eventos) {
+    if (!ehReuniao(e)) continue;
+    const d = dataDe(e);
+    if (!d || d > agora) continue; // ainda vai acontecer: não é desfecho
+    if (foiCancelado(e)) canceladas++;
+    else if (foiReagendado(e)) reagendadas++;
+    else realizadas++;
+  }
+  const total = realizadas + reagendadas + canceladas;
+  return { realizadas, reagendadas, canceladas, total, taxaRealizacao: total > 0 ? (realizadas / total) * 100 : 0 };
+}
+
+// ---------------------------------------------------------------------------
+// Esforço: contatos por agenda importante (ponto 6b)
+// ---------------------------------------------------------------------------
+
+export interface EsforcoAgenda {
+  contatosNossos: number;
+  contatosDoCliente: number;
+  contatosSemOrigem: number;
+  agendasImportantes: number;
+  /**
+   * Quantos contatos (nossos) foram gastos, em média, por reunião/relatório
+   * realizado. null quando não houve nenhuma agenda importante no período —
+   * dividir por zero aqui viraria "Infinity" na tela.
+   */
+  contatosPorAgenda: number | null;
+}
+
+/**
+ * Mede o ESFORÇO de agendamento: quantos contatos nossos, em média, para cada
+ * reunião/relatório que aconteceu.
+ *
+ *   contatosPorAgenda = contatos nossos realizados / agendas importantes realizadas
+ *
+ * Contatos recebidos do cliente são contados à parte de propósito: eles não são
+ * esforço nosso — são demanda espontânea dele (e um sinal bom de engajamento).
+ */
+export function calcularEsforcoAgenda(eventos: EventoAgenda[], agora: Date = new Date()): EsforcoAgenda {
+  let contatosNossos = 0, contatosDoCliente = 0, contatosSemOrigem = 0, agendasImportantes = 0;
+  for (const e of eventos) {
+    if (!aconteceu(e, agora)) continue;
+    if (ehContato(e)) {
+      if (e.origem === 'cliente') contatosDoCliente++;
+      else if (e.origem === 'nos') contatosNossos++;
+      else contatosSemOrigem++; // legado, antes do campo existir
+    } else if (ehAgendaImportante(e)) {
+      agendasImportantes++;
+    }
+  }
+  return {
+    contatosNossos,
+    contatosDoCliente,
+    contatosSemOrigem,
+    agendasImportantes,
+    // Legado entra no numerador: antes do campo `origem`, todo contato
+    // registrado era feito por nós (o cliente não tinha como registrar).
+    contatosPorAgenda: agendasImportantes > 0 ? (contatosNossos + contatosSemOrigem) / agendasImportantes : null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Ciclo de atendimento (ponto 11)
+// ---------------------------------------------------------------------------
+
+export interface CicloAtendimento {
+  /** Dias entre uma reunião realizada e a seguinte, na média (por cliente). */
+  intervaloEntreReunioes: number | null;
+  /** Dias entre a reunião e o 1º contato nosso depois dela (retomada). */
+  diasParaRetomarContato: number | null;
+  /** Dias entre esse 1º contato e a reunião seguinte (conversão do contato). */
+  diasDoContatoAteProximaReuniao: number | null;
+  /** Nº de pares de reuniões consecutivas usados no cálculo (confiança). */
+  amostraIntervalos: number;
+  amostraRetomadas: number;
+}
+
+/**
+ * Responde às duas perguntas do ponto 11, decompondo o ciclo em três trechos:
+ *
+ *   Reunião A ──(1)──> 1º contato nosso ──(2)──> Reunião B
+ *   └────────────────(3) intervalo total ─────────────────┘
+ *
+ * (1) diasParaRetomarContato — "quanto tempo levamos para voltar a falar com o
+ *     cliente depois da reunião". Para cada reunião realizada, procura o
+ *     primeiro Contato/Ligação NOSSO em data posterior; a diferença em dias é
+ *     uma amostra. Contato recebido do cliente não conta: a pergunta é sobre
+ *     a NOSSA iniciativa.
+ * (2) diasDoContatoAteProximaReuniao — quanto tempo esse contato levou para
+ *     virar reunião. Só conta quando existe reunião posterior ao contato.
+ * (3) intervaloEntreReunioes — a cadência real praticada, medida direto entre
+ *     reuniões consecutivas do mesmo cliente.
+ *
+ * Tudo é calculado POR CLIENTE e só depois entra na média geral — senão
+ * reuniões de clientes diferentes seriam pareadas entre si e o número não
+ * significaria nada.
+ */
+export function calcularCicloAtendimento(eventos: EventoAgenda[], agora: Date = new Date()): CicloAtendimento {
+  const porCliente = new Map<string, EventoAgenda[]>();
+  for (const e of eventos) {
+    if (!e.clientId || !aconteceu(e, agora)) continue;
+    if (!porCliente.has(e.clientId)) porCliente.set(e.clientId, []);
+    porCliente.get(e.clientId)!.push(e);
+  }
+
+  const intervalos: number[] = [];
+  const retomadas: number[] = [];
+  const conversoes: number[] = [];
+
+  for (const lista of porCliente.values()) {
+    const ordenados = [...lista].sort((a, b) => dataDe(a)!.getTime() - dataDe(b)!.getTime());
+    const reunioes = ordenados.filter(ehReuniao);
+    // Contato nosso — inclui legado sem origem (ver calcularEsforcoAgenda).
+    const contatos = ordenados.filter((e) => ehContato(e) && e.origem !== 'cliente');
+
+    for (let i = 0; i < reunioes.length; i++) {
+      const atual = dataDe(reunioes[i])!;
+
+      if (i + 1 < reunioes.length) {
+        intervalos.push(differenceInCalendarDays(dataDe(reunioes[i + 1])!, atual));
+      }
+
+      const primeiroContatoDepois = contatos.find((c) => dataDe(c)! > atual);
+      if (!primeiroContatoDepois) continue;
+      const dataContato = dataDe(primeiroContatoDepois)!;
+      retomadas.push(differenceInCalendarDays(dataContato, atual));
+
+      const reuniaoDepoisDoContato = reunioes.slice(i + 1).find((r) => dataDe(r)! > dataContato);
+      if (reuniaoDepoisDoContato) {
+        conversoes.push(differenceInCalendarDays(dataDe(reuniaoDepoisDoContato)!, dataContato));
+      }
+    }
+  }
+
+  return {
+    intervaloEntreReunioes: media(intervalos),
+    diasParaRetomarContato: media(retomadas),
+    diasDoContatoAteProximaReuniao: media(conversoes),
+    amostraIntervalos: intervalos.length,
+    amostraRetomadas: retomadas.length,
+  };
+}
+
+/** "12 dias" / "—" quando não há amostra. */
+export function formatarDias(v: number | null): string {
+  if (v === null) return '—';
+  const arredondado = Math.round(v);
+  return `${arredondado} ${arredondado === 1 ? 'dia' : 'dias'}`;
+}

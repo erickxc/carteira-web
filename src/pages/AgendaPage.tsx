@@ -12,6 +12,7 @@ import { Dropdown } from '../components/Dropdown';
 import { CardEvento } from '../components/agenda/CardEvento';
 import { ReagendarButton } from '../components/agenda/ReagendarButton';
 import { CeoEventoPopover } from '../components/agenda/CeoEventoPopover';
+import { SugestaoAgendaCard } from '../components/agenda/SugestaoAgendaCard';
 import { formatHolidayLabel, getHoliday } from '../utils/holidays';
 import { gerarAta } from '../utils/ata';
 import { corTipo } from '../utils/tipoCor';
@@ -43,7 +44,7 @@ export default function AgendaPage() {
   const [view, setView] = usePersistedState<'mes' | 'kanban'>('filtro:agenda:view', 'mes');
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(hoje));
   const [weekRef, setWeekRef] = useState(hoje);
-  const [modalState, setModalState] = useState<{ editing?: EventoAgenda; defaultDate?: Date; initialClientId?: string; initialType?: string } | null>(null);
+  const [modalState, setModalState] = useState<{ editing?: EventoAgenda; defaultDate?: Date; initialClientId?: string; initialType?: string; initialTime?: string } | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [fMonitores, setFMonitores] = usePersistedState<string[]>('filtro:agenda:monitores', []);
@@ -279,6 +280,10 @@ export default function AgendaPage() {
         )}
       </div>
 
+      <SugestaoAgendaCard
+        onAgendar={(clienteId, dia, hora) => setModalState({ initialClientId: clienteId, defaultDate: dia, initialTime: hora })}
+      />
+
       <Card flat className="agenda-board">
         <div className="flex-between" style={{ marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
           <strong style={{ textTransform: 'capitalize', fontSize: '1.3rem' }}>{tituloPeriodo()}</strong>
@@ -457,9 +462,10 @@ export default function AgendaPage() {
 
       {modalState && (
         <EventFormModal
-          key={modalState.editing ? 'edit-' + modalState.editing.id : 'new-' + (modalState.initialClientId ?? '') + '-' + (modalState.initialType ?? '')}
+          key={modalState.editing ? 'edit-' + modalState.editing.id : 'new-' + (modalState.initialClientId ?? '') + '-' + (modalState.initialType ?? '') + '-' + (modalState.initialTime ?? '')}
           initial={modalState.editing}
           defaultDate={modalState.defaultDate}
+          initialTime={modalState.initialTime}
           initialClientId={modalState.initialClientId}
           initialType={modalState.initialType}
           onClose={() => setModalState(null)}

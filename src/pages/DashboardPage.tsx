@@ -15,13 +15,14 @@ import { AlertasSemAcompanhamentoCard } from '../components/dashboard/AlertasSem
 import { AlertasProgramadosCard } from '../components/dashboard/AlertasProgramadosCard';
 import { TendenciaMensalCard } from '../components/dashboard/TendenciaMensalCard';
 import { AbrangenciaMapaCard } from '../components/dashboard/AbrangenciaMapaCard';
+import { AtendimentoCard } from '../components/dashboard/AtendimentoCard';
 import { ReminderFormModal } from '../components/ReminderFormModal';
 import type { Cliente } from '../types';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function DashboardPage() {
-  const { clientes } = useCarteira();
+  const { clientes, agenda } = useCarteira();
   const navigate = useNavigate();
   const [programados, setProgramados] = useState<Set<string>>(new Set());
   const [relatorioModal, setRelatorioModal] = useState<Cliente | null>(null);
@@ -159,6 +160,11 @@ export default function DashboardPage() {
           alertasProgramados={d.alertasProgramados}
           nomeCliente={(clientId) => clientes.find((c) => c.id === clientId)?.empresa}
         />
+      </div>
+
+      {/* Qualidade do atendimento (desfecho das reuniões, esforço e ciclo) */}
+      <div style={{ marginBottom: 24 }}>
+        <AtendimentoCard agenda={agenda} clientes={clientes} />
       </div>
 
       {/* Tendência mensal (fim da página) */}
