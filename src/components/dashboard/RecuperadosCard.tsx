@@ -49,9 +49,11 @@ export function RecuperadosCard({ clientes, agenda }: RecuperadosCardProps) {
     <Card flat className="recuperados-card">
       <div className="section-header" style={{ display: 'block', gap: 4 }}>
         <h3 style={{ marginBottom: 2 }}>Clientes recuperados</h3>
-        <p className="atend-subtitulo">
-          {janela.descricao} · voltaram a ter reunião ou relatório <strong>concluído</strong> após{' '}
-          {LIMIAR_RECUPERACAO_DIAS}+ dias parados
+        <p
+          className="atend-subtitulo"
+          title={`${janela.descricao} — clientes que voltaram a ter reunião ou relatório CONCLUÍDO após ${LIMIAR_RECUPERACAO_DIAS}+ dias sem nenhum atendimento`}
+        >
+          {janela.curta} · voltaram após {LIMIAR_RECUPERACAO_DIAS}+ dias parados
         </p>
       </div>
 
@@ -75,9 +77,7 @@ export function RecuperadosCard({ clientes, agenda }: RecuperadosCardProps) {
         <div className="atend-big-txt">
           <strong>{recuperados.length === 1 ? 'cliente recuperado' : 'clientes recuperados'}</strong>
           <span className="text-text-muted">
-            {recuperados.length === 0
-              ? 'só conta reunião ou relatório concluído'
-              : `por ${partes.join(' e ')} — já concluída(s)`}
+            {recuperados.length === 0 ? 'só conta entrega concluída' : partes.join(' · ')}
           </span>
         </div>
       </div>
@@ -94,23 +94,22 @@ export function RecuperadosCard({ clientes, agenda }: RecuperadosCardProps) {
               title="Abrir o cliente"
             >
               <div style={{ minWidth: 0, textAlign: 'left' }}>
-                <strong style={{ fontSize: 14 }}>{r.cliente.empresa}</strong>
-                <div className="flex-row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                  <Badge variant="warning" style={{ fontSize: 10 }}>
-                    {r.motivo === 'nunca' ? `${r.diasParado}d sem nunca ser atendido` : `${r.diasParado}d parado`}
+                <strong style={{ fontSize: 13.5 }}>{r.cliente.empresa}</strong>
+                <div className="flex-row" style={{ gap: 5, flexWrap: 'wrap', marginTop: 3 }}>
+                  <Badge variant="warning" style={{ fontSize: 10 }} title={r.motivo === 'nunca' ? 'Nunca havia sido atendido' : 'Dias sem reunião nem relatório'}>
+                    {r.diasParado}d parado
                   </Badge>
                   <Badge variant="accent" style={{ fontSize: 10 }}>{r.entrega.tipo}</Badge>
                   {r.cliente.monitor && (
-                    <span className="text-text-muted" style={{ fontSize: 12 }}>{r.cliente.monitor}</span>
+                    <span className="text-text-muted" style={{ fontSize: 11.5 }}>{r.cliente.monitor}</span>
                   )}
                 </div>
               </div>
+              {/* Badge "concluída" saiu: o card já diz que só conta concluída. */}
               <div className="recup-item-dir">
-                <Badge variant="success" style={{ fontSize: 10 }}>
-                  <CalendarCheck size={10} /> concluída
-                </Badge>
-                <span style={{ fontSize: 13 }} className="text-text-secondary">
-                  {format(r.entrega.data, 'dd/MM/yyyy')}
+                <CalendarCheck size={12} className="text-[color:var(--success)] shrink-0" />
+                <span style={{ fontSize: 12.5 }} className="text-text-secondary">
+                  {format(r.entrega.data, 'dd/MM/yy')}
                 </span>
               </div>
             </button>

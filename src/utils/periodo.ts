@@ -8,8 +8,10 @@ export interface Janela {
   inicio: Date | null;
   /** Fim do intervalo (null = até agora). Mês fechado tem fim; janela móvel não. */
   fim: Date | null;
-  /** Texto para o subtítulo — o período exato que está na tela. */
+  /** Período com as datas exatas — para tooltip, onde há espaço. */
   descricao: string;
+  /** Versão curta para o subtítulo do card (cabe em meia tela). */
+  curta: string;
 }
 
 export const PERIODOS: { key: PeriodoKey; label: string }[] = [
@@ -36,21 +38,25 @@ export function janelaDe(key: PeriodoKey, agora: Date): Janela {
       const ref = subMonths(agora, 1);
       const inicio = startOfMonth(ref);
       const fim = endOfMonth(ref);
-      return { inicio, fim, descricao: `${mes(ref)} · ${dia(inicio)} a ${dia(fim)}` };
+      return { inicio, fim, descricao: `${mes(ref)} · ${dia(inicio)} a ${dia(fim)}`, curta: mes(ref) };
     }
     case 'mes_atual': {
       const inicio = startOfMonth(agora);
-      return { inicio, fim: agora, descricao: `${mes(agora)} · ${dia(inicio)} até hoje` };
+      return { inicio, fim: agora, descricao: `${mes(agora)} · ${dia(inicio)} até hoje`, curta: `${mes(agora)} até hoje` };
     }
     case 'd90':
     case 'm6':
     case 'm12': {
       const dias = key === 'd90' ? 90 : key === 'm6' ? 180 : 365;
       const inicio = new Date(agora.getTime() - dias * 24 * 60 * 60 * 1000);
-      return { inicio, fim: agora, descricao: `últimos ${dias} dias · ${dia(inicio)} até hoje` };
+      return {
+        inicio, fim: agora,
+        descricao: `últimos ${dias} dias · ${dia(inicio)} até hoje`,
+        curta: `últimos ${dias} dias`,
+      };
     }
     default:
-      return { inicio: null, fim: null, descricao: 'todo o histórico registrado' };
+      return { inicio: null, fim: null, descricao: 'todo o histórico registrado', curta: 'todo o histórico' };
   }
 }
 

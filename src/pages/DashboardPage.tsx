@@ -165,13 +165,10 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Qualidade do atendimento (desfecho das reuniões, esforço e ciclo) */}
-      <div style={{ marginBottom: 24 }}>
+      {/* Atendimento + recuperados lado a lado (metade da tela cada), no mesmo
+          grid dos outros pares de cards. Empilham abaixo de 980px. */}
+      <div className="dash-two-col">
         <AtendimentoCard agenda={agenda} clientes={clientes} acoes={acoes} />
-      </div>
-
-      {/* Clientes recuperados (voltaram após 2+ meses parados) */}
-      <div style={{ marginBottom: 24 }}>
         <RecuperadosCard clientes={clientes} agenda={agenda} />
       </div>
 

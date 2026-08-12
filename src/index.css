@@ -1605,7 +1605,7 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
   color: var(--accent);
 }
 .atend-big-num strong {
-  font-size: 2.6rem;
+  font-size: 2.2rem;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -1643,18 +1643,20 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .recup-item:hover { background: var(--card); border-color: var(--accent); }
 .recup-item-dir { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
+/* Em meia tela cabem 2 por linha; minmax menor que antes (190px) porque o card
+   agora divide a largura com o de recuperados. */
 .atend-metricas {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
 }
 .atend-metrica {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 0.7rem 0.8rem;
+  gap: 2px;
+  padding: 0.55rem 0.65rem;
   background: var(--card-hover);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -1670,8 +1672,11 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
   letter-spacing: 0.04em;
   color: var(--text-muted);
 }
-.atend-metrica-valor { font-size: 1.35rem; font-weight: 700; line-height: 1.15; color: var(--text-primary); }
+.atend-metrica-valor { font-size: 1.2rem; font-weight: 700; line-height: 1.15; color: var(--text-primary); }
 .atend-metrica-nota { font-size: 0.72rem; color: var(--text-muted); }
+/* Rótulos são curtos (1–2 palavras): em telas menores é melhor quebrar a linha
+   que cortar com "…" — o grid mantém os cards com a mesma altura de todo jeito. */
+.atend-metrica-label { min-width: 0; flex-wrap: wrap; }
 
 /* ---------------------------------------------------------------------------
    Carregamento inicial

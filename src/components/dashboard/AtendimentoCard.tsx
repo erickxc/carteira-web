@@ -91,10 +91,10 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
     <Card flat className="atendimento-card">
       <div className="section-header" style={{ flexWrap: 'wrap', gap: 4, display: 'block' }}>
         <h3 style={{ marginBottom: 2 }}>Qualidade do atendimento</h3>
-        {/* Subtítulo: o período exato na tela — sem isso não dá pra saber se o
-            número é do mês fechado ou de uma janela móvel. */}
-        <p className="atend-subtitulo">
-          {janela.descricao} · {conf.total} reunião(ões) com desfecho
+        {/* Curta no texto, completa no title: em meia tela a faixa de datas não
+            cabe, e o nome do mês já identifica o período. */}
+        <p className="atend-subtitulo" title={janela.descricao}>
+          {janela.curta} · {conf.total} {conf.total === 1 ? 'reunião' : 'reuniões'}
           {monitor ? ` · ${monitor}` : ''}
         </p>
       </div>
@@ -161,51 +161,52 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
           <strong>{esforco.acoesPorEntrega === null ? '—' : esforco.acoesPorEntrega.toFixed(1)}</strong>
         </div>
         <div className="atend-big-txt">
-          <strong>ações para cada reunião ou relatório</strong>
-          <span className="text-text-muted">
-            {esforco.totalAcoes} ação(ões) no total ÷ {esforco.acoesEntrega} entrega(s)
-          </span>
-          <span className="text-text-muted" style={{ fontSize: '0.7rem' }}>
-            Entrega: Reunião {esforco.porTipo.reuniao} + Relatório {esforco.porTipo.relatorio} · Iniciais:
-            Contato/Ligação {esforco.porTipo.contato}
-            {esforco.porTipo.price > 0 ? ` · Price ${esforco.porTipo.price}` : ''}
-            {esforco.porTipo.outros > 0 ? ` · outros ${esforco.porTipo.outros}` : ''}
+          <strong>ações por reunião/relatório</strong>
+          {/* Uma linha só; a composição detalhada vai no title (antes eram três
+              linhas, que não caberiam em meia tela). */}
+          <span
+            className="text-text-muted"
+            title={`Entregas: ${esforco.porTipo.reuniao} reunião(ões) + ${esforco.porTipo.relatorio} relatório(s). `
+              + `Iniciais: ${esforco.porTipo.contato} contato/ligação`
+              + (esforco.porTipo.price > 0 ? `, ${esforco.porTipo.price} price` : '')
+              + (esforco.porTipo.outros > 0 ? `, ${esforco.porTipo.outros} outros` : '')}
+          >
+            {esforco.totalAcoes} ações ÷ {esforco.acoesEntrega} entregas
           </span>
         </div>
       </div>
 
-      {/* Esforço + ciclo */}
+      {/* Esforço + ciclo. Rótulos curtos e o detalhe (amostra, composição) no
+          title: em meia tela as notas de duas linhas dominavam o card. */}
       <div className="atend-metricas">
-        <div className="atend-metrica">
-          <span className="atend-metrica-label"><PhoneIncoming size={13} /> Contatos recebidos do cliente</span>
+        <div className="atend-metrica" title="Contatos registrados como iniciativa do cliente — demanda espontânea, não é esforço nosso">
+          <span className="atend-metrica-label"><PhoneIncoming size={13} /> Cliente procurou</span>
           <strong className="atend-metrica-valor">{esforco.contatosDoCliente}</strong>
-          <span className="atend-metrica-nota">demanda espontânea (não é esforço nosso)</span>
         </div>
 
-        <div className="atend-metrica">
-          <span className="atend-metrica-label"><CalendarSync size={13} /> Reuniões remarcadas</span>
+        <div
+          className="atend-metrica"
+          title={`${conf.reunioesRemarcadas} de ${conf.total} reuniões foram remarcadas, ${conf.remarcacoes} remarcação(ões) no total`}
+        >
+          <span className="atend-metrica-label"><CalendarSync size={13} /> Remarcadas</span>
           <strong className="atend-metrica-valor">
             {conf.total > 0 ? `${Math.round(conf.taxaRemarcacao)}%` : '—'}
           </strong>
-          <span className="atend-metrica-nota">
-            {conf.reunioesRemarcadas} de {conf.total} · {conf.remarcacoes} remarcação(ões) no total
-          </span>
         </div>
 
-        <div className="atend-metrica">
-          <span className="atend-metrica-label">Intervalo real entre reuniões</span>
+        <div className="atend-metrica" title={`Média entre reuniões consecutivas do mesmo cliente (${ciclo.amostraIntervalos} par(es) medidos)`}>
+          <span className="atend-metrica-label">Entre reuniões</span>
           <strong className="atend-metrica-valor">{formatarDias(ciclo.intervaloEntreReunioes)}</strong>
-          <span className="atend-metrica-nota">{ciclo.amostraIntervalos} par(es) de reuniões</span>
         </div>
 
-        <div className="atend-metrica">
-          <span className="atend-metrica-label">Para retomar contato após a reunião</span>
+        <div
+          className="atend-metrica"
+          title={ciclo.amostraRetomadas > 0
+            ? `Da reunião até o 1º contato nosso depois dela (${ciclo.amostraRetomadas} medições). Desse contato até a reunião seguinte: ${formatarDias(ciclo.diasDoContatoAteProximaReuniao)}`
+            : 'Sem contato registrado após reuniões no período'}
+        >
+          <span className="atend-metrica-label">Retomar contato</span>
           <strong className="atend-metrica-valor">{formatarDias(ciclo.diasParaRetomarContato)}</strong>
-          <span className="atend-metrica-nota">
-            {ciclo.amostraRetomadas > 0
-              ? `depois, ${formatarDias(ciclo.diasDoContatoAteProximaReuniao)} até a próxima reunião`
-              : 'sem contato registrado após reuniões'}
-          </span>
         </div>
       </div>
     </Card>
