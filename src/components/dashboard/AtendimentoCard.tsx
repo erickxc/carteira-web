@@ -1,8 +1,12 @@
 import { useMemo, useState } from 'react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { CalendarSync, PhoneCall, PhoneIncoming } from 'lucide-react';
 import {
   calcularCicloAtendimento, calcularConfiabilidade, calcularEsforcoAgenda, formatarDias,
+  serieEsforcoPorMes,
 } from '../../utils/metricasAtendimento';
+import { LineChart } from '../LineChart';
 import { dentroDaJanela, janelaDe, periodosDisponiveis, type PeriodoKey } from '../../utils/periodo';
 import { Card } from '../../ui';
 import type { Acao, Cliente, EventoAgenda } from '../../types';
@@ -90,6 +94,30 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
   // avaliados contra a data de hoje e o corte mudaria conforme o dia em que a
   // tela é aberta.
   const referencia = janela.fim ?? agora;
+  /**
+   * Série do gráfico: usa a agenda/ações filtradas só por MONITOR, não pelo
+   * período — a tendência só faz sentido no histórico inteiro (recortar pelo
+   * mês selecionado deixaria a linha com um ponto só).
+   */
+  const serie = useMemo(() => {
+    const porMonitorEv = monitor
+      ? agenda.filter((e) => (e.monitor || monitorPorCliente.get(e.clientId) || '') === monitor)
+      : agenda;
+    const porMonitorAc = monitor
+      ? acoes.filter((a) => (a.monitor || monitorPorCliente.get(a.clientId) || '') === monitor)
+      : acoes;
+    const pontos = serieEsforcoPorMes(porMonitorEv, porMonitorAc, agora);
+    // Teto de 12 meses: além disso os rótulos ficam ilegíveis em meia tela.
+    const ultimos = pontos.slice(-12);
+    return ultimos.map((p) => ({
+      label: format(p.mes, 'MMM', { locale: ptBR }).replace('.', ''),
+      // Composição no tooltip: um mês com 1 entrega e 15 ações dá 15.0, e sem
+      // ver o denominador o pico parece erro de cálculo em vez de amostra curta.
+      full: `${format(p.mes, "MMMM 'de' yyyy", { locale: ptBR })} (${p.totalAcoes} ações ÷ ${p.acoesEntrega} ${p.acoesEntrega === 1 ? 'entrega' : 'entregas'})`,
+      value: Number(p.acoesPorEntrega.toFixed(1)),
+    }));
+  }, [agenda, acoes, monitor, monitorPorCliente, agora]);
+
   const conf = useMemo(() => calcularConfiabilidade(filtrada, referencia), [filtrada, referencia]);
   const esforco = useMemo(() => calcularEsforcoAgenda(filtrada, acoesFiltradas, referencia), [filtrada, acoesFiltradas, referencia]);
   const ciclo = useMemo(() => calcularCicloAtendimento(filtrada, referencia), [filtrada, referencia]);
@@ -188,6 +216,26 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
           </span>
         </div>
       </div>
+
+      {/* Tendência do indicador mês a mês — é o que dá sentido ao nome do card:
+          o número do topo é do período filtrado, a linha mostra a evolução. */}
+      {serie.length > 1 && (
+        <div className="atend-serie">
+          <span className="atend-serie-titulo">
+            Evolução mensal
+            <span className="text-text-muted" style={{ fontWeight: 400 }}>
+              {' '}· ações por entrega{monitor ? ` · ${monitor}` : ''}
+            </span>
+          </span>
+          <LineChart
+            points={serie}
+            height={150}
+            formatValue={(v) => v.toFixed(1)}
+            unidade="ações por entrega"
+            ocultarRotulos={serie.length > 6}
+          />
+        </div>
+      )}
 
       {/* Esforço + ciclo. Rótulos curtos e o detalhe (amostra, composição) no
           title: em meia tela as notas de duas linhas dominavam o card. */}

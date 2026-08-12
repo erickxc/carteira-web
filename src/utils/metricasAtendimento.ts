@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { addMonths, differenceInCalendarDays, endOfMonth, parseISO, startOfMonth } from 'date-fns';
 import type { Acao, EventoAgenda } from '../types';
 
 /**
@@ -167,6 +167,75 @@ export function calcularEsforcoAgenda(
     acoesPorEntrega: acoesEntrega > 0 ? totalAcoes / acoesEntrega : null,
     contatosDoCliente,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Série mensal do esforço (gráfico de tendência)
+// ---------------------------------------------------------------------------
+
+export interface PontoEsforcoMes {
+  /** Primeiro dia do mês. */
+  mes: Date;
+  acoesPorEntrega: number;
+  totalAcoes: number;
+  acoesEntrega: number;
+}
+
+/**
+ * `acoesPorEntrega` mês a mês — a série que dá sentido ao nome "Tendência":
+ * um número único não mostra se o esforço por entrega está subindo ou caindo.
+ *
+ * Cada mês é calculado isoladamente pela MESMA função do card, então o ponto do
+ * mês bate com o número que aparece ao filtrar aquele mês.
+ *
+ * Mês sem nenhuma entrega é OMITIDO em vez de virar 0: sem denominador o
+ * indicador não existe, e plotar zero sugeriria "esforço nenhum" quando o caso é
+ * "nada entregue". Meses são varridos do mais antigo ao atual, sem buracos.
+ */
+export function serieEsforcoPorMes(
+  eventos: EventoAgenda[],
+  acoes: Acao[],
+  agora: Date = new Date()
+): PontoEsforcoMes[] {
+  const datas: number[] = [];
+  for (const e of eventos) {
+    const d = dataDe(e);
+    if (d && d <= agora) datas.push(d.getTime());
+  }
+  for (const a of acoes) {
+    const iso = a.dueAt || a.createdAt;
+    if (!iso) continue;
+    const d = parseISO(iso);
+    if (!isNaN(d.getTime()) && d <= agora) datas.push(d.getTime());
+  }
+  if (datas.length === 0) return [];
+
+  const inicio = startOfMonth(new Date(Math.min(...datas)));
+  const fim = startOfMonth(agora);
+  const out: PontoEsforcoMes[] = [];
+
+  for (let m = inicio; m <= fim; m = addMonths(m, 1)) {
+    const inicioMes = m;
+    const fimMes = endOfMonth(m);
+    const doMes = (iso: string | undefined) => {
+      if (!iso) return false;
+      const d = parseISO(iso);
+      return !isNaN(d.getTime()) && d >= inicioMes && d <= fimMes;
+    };
+    const evsMes = eventos.filter((e) => doMes(e.date));
+    const acoesMes = acoes.filter((a) => doMes(a.dueAt || a.createdAt));
+    // `fimMes` como referência de "já aconteceu": no mês corrente o próprio
+    // `agora` limita, nos anteriores o mês está fechado.
+    const r = calcularEsforcoAgenda(evsMes, acoesMes, fimMes < agora ? fimMes : agora);
+    if (r.acoesPorEntrega === null) continue;
+    out.push({
+      mes: inicioMes,
+      acoesPorEntrega: r.acoesPorEntrega,
+      totalAcoes: r.totalAcoes,
+      acoesEntrega: r.acoesEntrega,
+    });
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------

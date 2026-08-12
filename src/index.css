@@ -1641,6 +1641,21 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .atend-big-txt > strong { font-size: 0.9rem; color: var(--text-primary); }
 .atend-big-txt > span { font-size: 0.76rem; }
 
+.atend-serie {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.atend-serie-titulo {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
 /* Dois KPIs clicáveis (recuperados x ainda parados) — funcionam como abas da
    lista abaixo, por isso são <button> e não texto. */
 .recup-duo {
