@@ -13,7 +13,9 @@ export function ThemeToggle() {
   const { tema, setTema } = useTheme();
   return (
     <div
-      className="inline-flex items-center gap-1 rounded-full border border-border bg-card p-1 shadow-sm"
+      // h-[43px]: mesma altura do botão Agenda e do indicador de base, para os
+      // três ficarem alinhados na barra (o toggle tinha 37px e sobrava um degrau).
+      className="inline-flex h-[43px] items-center gap-1 rounded-full border border-border bg-card p-1 shadow-sm"
       role="group"
       aria-label="Tema"
     >

@@ -1578,16 +1578,19 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .agenda-filtros {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
   margin-bottom: 14px;
-  padding-bottom: 14px;
+  padding: 10px 12px 12px;
   border-bottom: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--card-hover) 42%, transparent);
 }
 .agenda-filtro-linha {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   flex-wrap: wrap;
+  min-height: 30px;
 }
 .filtro-grupo-label {
   font-size: 0.7rem;
@@ -1596,7 +1599,24 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
   letter-spacing: 0.04em;
   color: var(--text-muted);
   /* Largura fixa alinha os grupos ("Tipos:" e "Monitor:") em coluna. */
-  min-width: 58px;
+  min-width: 62px;
+  line-height: 30px;
+}
+.agenda-filtro-opcoes {
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.agenda-filtro-opcoes .check-row {
+  padding: 3px 8px 3px 4px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--card);
+}
+.agenda-filtro-opcoes .check-row:hover {
+  border-color: var(--border-strong);
+  background: var(--card-hover);
 }
 /* A legenda de cores é redundante na tela (os botões de tipo já são coloridos),
    mas necessária no papel, onde os filtros não são impressos. */
@@ -1640,6 +1660,19 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .atend-big-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .atend-big-txt > strong { font-size: 0.9rem; color: var(--text-primary); }
 .atend-big-txt > span { font-size: 0.76rem; }
+
+/* Indicador "Base sincronizada" na barra superior. Altura fixa igual à do botão
+   Agenda e do seletor de tema (43px) e largura pelo conteúdo — antes tinha o
+   dobro da altura por causa da segunda linha de texto. */
+.base-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 43px;
+  padding: 0 0.8rem;
+  white-space: nowrap;
+}
+.base-sync-txt { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
 
 .atend-serie {
   margin-top: 14px;
