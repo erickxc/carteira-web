@@ -91,23 +91,27 @@ export function calcularConfiabilidade(eventos: EventoAgenda[], agora: Date = ne
 export interface EsforcoAgenda {
   /** Ações de todos os tipos (numerador). */
   totalAcoes: number;
-  /** Ações do tipo Reunião (denominador). */
-  acoesReuniao: number;
+  /** Ações de ENTREGA: Reunião + Relatório (denominador). */
+  acoesEntrega: number;
+  /** Ações INICIAIS: Contato + Ligação — o esforço para chegar na entrega. */
+  acoesIniciais: number;
   /** Quebra por tipo, para a tela explicar de onde vem o número. */
-  porTipo: { reuniao: number; contato: number; relatorio: number; price: number; outros: number };
+  porTipo: { reuniao: number; relatorio: number; contato: number; price: number; outros: number };
   /**
-   * Quantas ações, no total, para cada reunião:
+   * Quantas ações, no total, para cada entrega (reunião ou relatório):
    *
-   *   acoesPorReuniao = total de ações / ações do tipo Reunião
+   *   acoesPorEntrega = total de ações / (ações de Reunião + Relatório)
    *
-   * Como as reuniões fazem parte do total, o resultado é sempre >= 1 (1.0 = a
-   * reunião saiu sem nenhuma outra ação em volta). Uma versão anterior dividia
-   * contatos por reuniões e podia dar menos de 1 (dava 0.4), o que não responde
-   * "quantas vezes preciso acionar o cliente pra marcar uma reunião?".
+   * Reunião e Relatório são a ENTREGA; Contato e Ligação são as ações iniciais
+   * que levam até ela. Como a entrega faz parte do total, o resultado é sempre
+   * >= 1 (1.0 = a entrega saiu sem nenhuma ação inicial em volta).
    *
-   * null quando não há nenhuma reunião no período: sem denominador não há média.
+   * Uma versão anterior dividia contatos por reuniões e podia dar menos de 1
+   * (dava 0.4) — não respondia "quantas vezes preciso acionar o cliente?".
+   *
+   * null quando não houve entrega no período: sem denominador não há média.
    */
-  acoesPorReuniao: number | null;
+  acoesPorEntrega: number | null;
   /** Contatos recebidos do cliente — demanda dele, não esforço nosso. */
   contatosDoCliente: number;
 }
@@ -127,7 +131,7 @@ export function calcularEsforcoAgenda(
   acoes: Acao[],
   agora: Date = new Date()
 ): EsforcoAgenda {
-  const porTipo = { reuniao: 0, contato: 0, relatorio: 0, price: 0, outros: 0 };
+  const porTipo = { reuniao: 0, relatorio: 0, contato: 0, price: 0, outros: 0 };
   let contatosDoCliente = 0;
 
   for (const e of eventos) {
@@ -153,12 +157,14 @@ export function calcularEsforcoAgenda(
     else porTipo.outros++;
   }
 
-  const totalAcoes = porTipo.reuniao + porTipo.contato + porTipo.relatorio + porTipo.price + porTipo.outros;
+  const totalAcoes = porTipo.reuniao + porTipo.relatorio + porTipo.contato + porTipo.price + porTipo.outros;
+  const acoesEntrega = porTipo.reuniao + porTipo.relatorio;
   return {
     totalAcoes,
-    acoesReuniao: porTipo.reuniao,
+    acoesEntrega,
+    acoesIniciais: porTipo.contato,
     porTipo,
-    acoesPorReuniao: porTipo.reuniao > 0 ? totalAcoes / porTipo.reuniao : null,
+    acoesPorEntrega: acoesEntrega > 0 ? totalAcoes / acoesEntrega : null,
     contatosDoCliente,
   };
 }

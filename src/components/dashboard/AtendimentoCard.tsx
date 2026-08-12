@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { CalendarSync, PhoneCall, PhoneIncoming } from 'lucide-react';
 import {
   calcularCicloAtendimento, calcularConfiabilidade, calcularEsforcoAgenda, formatarDias,
@@ -12,13 +14,58 @@ interface AtendimentoCardProps {
   acoes: Acao[];
 }
 
-/** Janelas de análise. 0 = todo o histórico. */
-const PERIODOS = [
-  { label: '90 dias', dias: 90 },
-  { label: '6 meses', dias: 180 },
-  { label: '12 meses', dias: 365 },
-  { label: 'Tudo', dias: 0 },
+type PeriodoKey = 'mes_anterior' | 'mes_atual' | 'd90' | 'm6' | 'm12' | 'tudo';
+
+interface Janela {
+  /** Início do intervalo (null = sem limite inferior). */
+  inicio: Date | null;
+  /** Fim do intervalo (null = até agora). Mês fechado tem fim; janela móvel não. */
+  fim: Date | null;
+  /** Texto do subtítulo — o período exato que está na tela. */
+  descricao: string;
+}
+
+const PERIODOS: { key: PeriodoKey; label: string }[] = [
+  { key: 'mes_anterior', label: 'Mês anterior' },
+  { key: 'mes_atual', label: 'Mês atual' },
+  { key: 'd90', label: '90 dias' },
+  { key: 'm6', label: '6 meses' },
+  { key: 'm12', label: '12 meses' },
+  { key: 'tudo', label: 'Tudo' },
 ];
+
+/**
+ * Traduz o filtro em um intervalo concreto.
+ *
+ * "Mês anterior"/"Mês atual" são períodos FECHADOS de calendário (têm início e
+ * fim), diferente das janelas móveis de N dias — é o corte que serve para
+ * fechamento mensal, em que comparar "últimos 30 dias" não fecha com nada.
+ */
+function janelaDe(key: PeriodoKey, agora: Date): Janela {
+  const mes = (d: Date) => format(d, "MMMM 'de' yyyy", { locale: ptBR });
+  const dia = (d: Date) => format(d, 'dd/MM/yyyy');
+  switch (key) {
+    case 'mes_anterior': {
+      const ref = subMonths(agora, 1);
+      const inicio = startOfMonth(ref);
+      const fim = endOfMonth(ref);
+      return { inicio, fim, descricao: `${mes(ref)} · ${dia(inicio)} a ${dia(fim)}` };
+    }
+    case 'mes_atual': {
+      const inicio = startOfMonth(agora);
+      return { inicio, fim: agora, descricao: `${mes(agora)} · ${dia(inicio)} até hoje` };
+    }
+    case 'd90':
+    case 'm6':
+    case 'm12': {
+      const dias = key === 'd90' ? 90 : key === 'm6' ? 180 : 365;
+      const inicio = new Date(agora.getTime() - dias * 24 * 60 * 60 * 1000);
+      return { inicio, fim: agora, descricao: `últimos ${dias} dias · ${dia(inicio)} até hoje` };
+    }
+    default:
+      return { inicio: null, fim: null, descricao: 'todo o histórico registrado' };
+  }
+}
 
 /** Cores semânticas do desfecho — verde/amarelo/vermelho, não a paleta da marca:
  *  aqui a cor carrega o significado (deu certo / escorregou / não aconteceu). */
@@ -38,8 +85,15 @@ const CORES = {
  * Filtros são botões (não dropdown) porque são poucos e de alternância rápida.
  */
 export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProps) {
-  const [dias, setDias] = useState(180);
+  // Padrão = mês anterior: é o corte fechado que serve pra leitura de
+  // fechamento (janela móvel de N dias não fecha com mês nenhum).
+  const [periodo, setPeriodo] = useState<PeriodoKey>('mes_anterior');
   const [monitor, setMonitor] = useState<string>('');
+
+  // `agora` fixo por render para início/fim do intervalo e os cálculos usarem
+  // exatamente a mesma referência de tempo.
+  const agora = useMemo(() => new Date(), []);
+  const janela = useMemo(() => janelaDe(periodo, agora), [periodo, agora]);
 
   const monitores = useMemo(
     () => [...new Set(clientes.map((c) => c.monitor).filter(Boolean))].sort(),
@@ -54,40 +108,45 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
     return m;
   }, [clientes]);
 
-  const filtrada = useMemo(() => {
-    const agora = new Date();
-    const limite = dias > 0 ? new Date(agora.getTime() - dias * 24 * 60 * 60 * 1000) : null;
-    return agenda.filter((e) => {
-      if (monitor) {
-        const responsavel = e.monitor || monitorPorCliente.get(e.clientId) || '';
-        if (responsavel !== monitor) return false;
-      }
-      if (!limite) return true;
-      const d = e.date ? new Date(e.date) : null;
-      return d !== null && !isNaN(d.getTime()) && d >= limite;
-    });
-  }, [agenda, dias, monitor, monitorPorCliente]);
+  /** Dentro do intervalo da janela (fim inclusive). */
+  const noPeriodo = (iso: string | undefined): boolean => {
+    if (!janela.inicio && !janela.fim) return true; // "Tudo"
+    if (!iso) return false;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return false;
+    if (janela.inicio && d < janela.inicio) return false;
+    if (janela.fim && d > janela.fim) return false;
+    return true;
+  };
+
+  const filtrada = useMemo(() => agenda.filter((e) => {
+    if (monitor) {
+      const responsavel = e.monitor || monitorPorCliente.get(e.clientId) || '';
+      if (responsavel !== monitor) return false;
+    }
+    return noPeriodo(e.date);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [agenda, janela, monitor, monitorPorCliente]);
 
   // Ações registradas passam pelo mesmo filtro de período/monitor dos eventos —
   // senão o numerador cobriria um intervalo diferente do denominador.
-  const acoesFiltradas = useMemo(() => {
-    const agora = new Date();
-    const limite = dias > 0 ? new Date(agora.getTime() - dias * 24 * 60 * 60 * 1000) : null;
-    return acoes.filter((a) => {
-      if (monitor) {
-        const responsavel = a.monitor || monitorPorCliente.get(a.clientId) || '';
-        if (responsavel !== monitor) return false;
-      }
-      if (!limite) return true;
-      const quando = a.dueAt || a.createdAt;
-      const d = quando ? new Date(quando) : null;
-      return d !== null && !isNaN(d.getTime()) && d >= limite;
-    });
-  }, [acoes, dias, monitor, monitorPorCliente]);
+  const acoesFiltradas = useMemo(() => acoes.filter((a) => {
+    if (monitor) {
+      const responsavel = a.monitor || monitorPorCliente.get(a.clientId) || '';
+      if (responsavel !== monitor) return false;
+    }
+    return noPeriodo(a.dueAt || a.createdAt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [acoes, janela, monitor, monitorPorCliente]);
 
-  const conf = useMemo(() => calcularConfiabilidade(filtrada), [filtrada]);
-  const esforco = useMemo(() => calcularEsforcoAgenda(filtrada, acoesFiltradas), [filtrada, acoesFiltradas]);
-  const ciclo = useMemo(() => calcularCicloAtendimento(filtrada), [filtrada]);
+  // Num período FECHADO (mês anterior), a referência de "já aconteceu" é o fim
+  // do intervalo, não hoje — senão eventos do fim do mês passado seriam
+  // avaliados contra a data de hoje e o corte mudaria conforme o dia em que a
+  // tela é aberta.
+  const referencia = janela.fim ?? agora;
+  const conf = useMemo(() => calcularConfiabilidade(filtrada, referencia), [filtrada, referencia]);
+  const esforco = useMemo(() => calcularEsforcoAgenda(filtrada, acoesFiltradas, referencia), [filtrada, acoesFiltradas, referencia]);
+  const ciclo = useMemo(() => calcularCicloAtendimento(filtrada, referencia), [filtrada, referencia]);
 
   const barras = [
     { key: 'realizadas' as const, label: 'Realizadas', valor: conf.realizadas },
@@ -97,22 +156,23 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
 
   return (
     <Card flat className="atendimento-card">
-      <div className="section-header" style={{ flexWrap: 'wrap', gap: 10 }}>
-        <h3>
-          Qualidade do atendimento{' '}
-          <span className="text-text-muted" style={{ fontWeight: 400, fontSize: 13 }}>
-            · {conf.total} reunião(ões) com desfecho
-          </span>
-        </h3>
+      <div className="section-header" style={{ flexWrap: 'wrap', gap: 4, display: 'block' }}>
+        <h3 style={{ marginBottom: 2 }}>Qualidade do atendimento</h3>
+        {/* Subtítulo: o período exato na tela — sem isso não dá pra saber se o
+            número é do mês fechado ou de uma janela móvel. */}
+        <p className="atend-subtitulo">
+          {janela.descricao} · {conf.total} reunião(ões) com desfecho
+          {monitor ? ` · ${monitor}` : ''}
+        </p>
       </div>
 
       {/* Filtros como botões */}
       <div className="flex-row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
         {PERIODOS.map((p) => (
           <button
-            key={p.dias}
-            className={`filtro-btn${dias === p.dias ? ' is-active' : ''}`}
-            onClick={() => setDias(p.dias)}
+            key={p.key}
+            className={`filtro-btn${periodo === p.key ? ' is-active' : ''}`}
+            onClick={() => setPeriodo(p.key)}
           >
             {p.label}
           </button>
@@ -161,19 +221,20 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
         </>
       )}
 
-      {/* Big number: esforço para conseguir uma reunião */}
+      {/* Big number: esforço para chegar a uma entrega (reunião ou relatório) */}
       <div className="atend-big">
         <div className="atend-big-num">
           <PhoneCall size={18} className="shrink-0" />
-          <strong>{esforco.acoesPorReuniao === null ? '—' : esforco.acoesPorReuniao.toFixed(1)}</strong>
+          <strong>{esforco.acoesPorEntrega === null ? '—' : esforco.acoesPorEntrega.toFixed(1)}</strong>
         </div>
         <div className="atend-big-txt">
-          <strong>ações para cada reunião</strong>
+          <strong>ações para cada reunião ou relatório</strong>
           <span className="text-text-muted">
-            {esforco.totalAcoes} ação(ões) no total ÷ {esforco.acoesReuniao} do tipo Reunião
+            {esforco.totalAcoes} ação(ões) no total ÷ {esforco.acoesEntrega} entrega(s)
           </span>
           <span className="text-text-muted" style={{ fontSize: '0.7rem' }}>
-            Reunião {esforco.porTipo.reuniao} · Contato {esforco.porTipo.contato} · Relatório {esforco.porTipo.relatorio}
+            Entrega: Reunião {esforco.porTipo.reuniao} + Relatório {esforco.porTipo.relatorio} · Iniciais:
+            Contato/Ligação {esforco.porTipo.contato}
             {esforco.porTipo.price > 0 ? ` · Price ${esforco.porTipo.price}` : ''}
             {esforco.porTipo.outros > 0 ? ` · outros ${esforco.porTipo.outros}` : ''}
           </span>

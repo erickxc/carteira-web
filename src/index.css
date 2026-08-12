@@ -1518,6 +1518,14 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 }
 .atend-barra-parte { height: 100%; transition: width 0.2s ease; }
 
+.atend-subtitulo {
+  margin: 0 0 2px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 /* Big number do esforço — o indicador principal do card, em destaque. */
 .atend-big {
   display: flex;
