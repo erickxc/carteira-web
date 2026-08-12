@@ -1124,10 +1124,14 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
    do card — 130px/145px final cabe com folga (~545px de ~586px) e ainda
    preenche o card decentemente. */
 .radial-row-mirrored { align-items: center; gap: 1rem; flex-wrap: nowrap; }
-/* width 130px: abaixo disso, nomes longos ("Pecita - Campo Grande") cortam o
-   INÍCIO do texto sem reticências (lista alinhada à direita/row-reverse trunca
-   pelo lado oposto ao normal) — não reduzir sem checar nomes reais. */
-.radial-row-mirrored .radial-top3 { width: 130px; border-top: none; padding-top: 0; flex-shrink: 0; }
+/* Antes era `width: 130px` fixo, e o card de coluna num monitor grande tem
+   sobra horizontal de dezenas de pixels que ficava sem uso enquanto o nome era
+   truncado: "Altese - GM, Ford, Fiat, VW" precisa de 160px e recebia 108px.
+   Agora as duas listas crescem com o espaço disponível (`flex: 1`) a partir de
+   um piso de 130px — abaixo disso, nomes longos cortam o INÍCIO do texto sem
+   reticências (lista à direita/row-reverse trunca pelo lado oposto ao normal),
+   então o piso não deve ser reduzido sem checar nomes reais. */
+.radial-row-mirrored .radial-top3 { flex: 1 1 130px; min-width: 130px; max-width: 210px; border-top: none; padding-top: 0; }
 .radial-row-mirrored .radial-top3-right { align-items: flex-end; text-align: right; }
 .radial-row-mirrored .radial-top3-right .radial-top3-row { flex-direction: row-reverse; }
 /* Nome herda text-align:right do container acima — com nomes compridos isso
@@ -1136,15 +1140,34 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
    sumia sem aviso nenhum. text-align:left aqui restaura a truncagem normal
    (com "…" no fim), que é mais legível mesmo. */
 .radial-row-mirrored .radial-top3-right .radial-top3-name { text-align: left; }
+/* Card largo (monitor grande): o conteúdo ocupava 154px de um card de ~494px —
+   340px vazios, porque o grid estica este card para acompanhar a lista de
+   próximas agendas ao lado. Aqui os anéis crescem (o SVG escala pelo width) e o
+   conteúdo respira, em vez de ficar uma faixa fina no meio do vazio. */
+@container (min-width: 620px) {
+  .radial-row-mirrored { gap: 1.5rem; }
+  .radial-row-mirrored .radial-svg-wrap { width: 150px !important; height: 150px !important; }
+  .radial-row-mirrored .radial-svg-wrap svg { width: 100%; height: 100%; }
+  .radial-row-mirrored .radial-center-value { font-size: 1.5rem; }
+  .radial-row-mirrored .radial-center-label { font-size: 0.7rem; }
+  .radial-row-mirrored .radial-item { gap: 12px; }
+}
+
 @container (max-width: 520px) {
   .radial-row-mirrored { flex-wrap: wrap; }
-  .radial-row-mirrored .radial-top3 { width: 100%; border-top: 1px solid var(--border); padding-top: 10px; }
+  /* `flex: 1 1 100%` (e não só width) porque no modo lado a lado as listas usam
+     `flex: 1 1 130px`: sem resetar a base, o flex-grow as fazia dividir a linha
+     em larguras diferentes uma da outra em vez de cada uma ocupar 100%. */
+  .radial-row-mirrored .radial-top3 { flex: 1 1 100%; width: 100%; min-width: 0; max-width: none; border-top: 1px solid var(--border); padding-top: 10px; }
   .radial-row-mirrored .radial-top3-right { align-items: flex-start; text-align: left; }
   .radial-row-mirrored .radial-top3-right .radial-top3-row { flex-direction: row; }
 }
 @media (max-width: 720px) {
   .radial-row-mirrored { flex-wrap: wrap; }
-  .radial-row-mirrored .radial-top3 { width: 100%; border-top: 1px solid var(--border); padding-top: 10px; }
+  /* `flex: 1 1 100%` (e não só width) porque no modo lado a lado as listas usam
+     `flex: 1 1 130px`: sem resetar a base, o flex-grow as fazia dividir a linha
+     em larguras diferentes uma da outra em vez de cada uma ocupar 100%. */
+  .radial-row-mirrored .radial-top3 { flex: 1 1 100%; width: 100%; min-width: 0; max-width: none; border-top: 1px solid var(--border); padding-top: 10px; }
   .radial-row-mirrored .radial-top3-right { align-items: flex-start; text-align: left; }
   .radial-row-mirrored .radial-top3-right .radial-top3-row { flex-direction: row; }
 }

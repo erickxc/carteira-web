@@ -26,7 +26,17 @@ function Ring({ it, size, thickness }: { it: RadialItem; size: number; thickness
   return (
     <div className="radial-item">
       <div className="radial-svg-wrap" style={{ width: size, height: size }}>
-        <svg width={size} height={size} role="img" aria-label={`${it.label}: ${it.pct}%`}>
+        {/* viewBox é obrigatório aqui: sem ele, esticar o SVG por CSS (o card
+            largo aumenta o anel) muda só a caixa — o desenho fica no tamanho
+            original, encostado no canto, e o texto central (posicionado pela
+            caixa) desalinha do anel. Com viewBox o conteúdo escala junto. */}
+        <svg
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+          role="img"
+          aria-label={`${it.label}: ${it.pct}%`}
+        >
           <circle cx={cx} cy={cx} r={r} fill="none" stroke="var(--border)" strokeWidth={thickness} />
           <circle
             cx={cx} cy={cx} r={r} fill="none"
@@ -67,7 +77,10 @@ function Top3({ it, align }: { it: RadialItem; align: 'left' | 'right' }) {
       </span>
       {it.top.map((t, i) => (
         <div key={t.empresa} className="radial-top3-row">
-          <span className="radial-top3-rank">{listaDeFalta ? '·' : `${i + 1}º`}</span>
+          {/* Marcador só no ranking. Na lista de falta ele era um "·" solto que,
+              na coluna da esquerda (row-reverse, espelhada), caía DEPOIS do nome
+              e parecia sujeira no fim da linha. */}
+          {!listaDeFalta && <span className="radial-top3-rank">{i + 1}º</span>}
           <span className="radial-top3-name">{t.empresa}</span>
           {!listaDeFalta && <span className="radial-top3-n">{t.n}x</span>}
         </div>
