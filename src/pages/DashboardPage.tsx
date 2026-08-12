@@ -16,6 +16,7 @@ import { AlertasProgramadosCard } from '../components/dashboard/AlertasProgramad
 import { TendenciaMensalCard } from '../components/dashboard/TendenciaMensalCard';
 import { AbrangenciaMapaCard } from '../components/dashboard/AbrangenciaMapaCard';
 import { AtendimentoCard } from '../components/dashboard/AtendimentoCard';
+import { RecuperadosCard } from '../components/dashboard/RecuperadosCard';
 import { ReminderFormModal } from '../components/ReminderFormModal';
 import type { Cliente } from '../types';
 
@@ -165,6 +166,11 @@ export default function DashboardPage() {
       {/* Qualidade do atendimento (desfecho das reuniões, esforço e ciclo) */}
       <div style={{ marginBottom: 24 }}>
         <AtendimentoCard agenda={agenda} clientes={clientes} acoes={acoes} />
+      </div>
+
+      {/* Clientes recuperados (voltaram após 2+ meses parados) */}
+      <div style={{ marginBottom: 24 }}>
+        <RecuperadosCard clientes={clientes} agenda={agenda} />
       </div>
 
       {/* Tendência mensal (fim da página) */}

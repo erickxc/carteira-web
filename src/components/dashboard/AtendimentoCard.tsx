@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
-import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { CalendarSync, PhoneCall, PhoneIncoming } from 'lucide-react';
 import {
   calcularCicloAtendimento, calcularConfiabilidade, calcularEsforcoAgenda, formatarDias,
 } from '../../utils/metricasAtendimento';
+import { dentroDaJanela, janelaDe, PERIODOS, type PeriodoKey } from '../../utils/periodo';
 import { Card } from '../../ui';
 import type { Acao, Cliente, EventoAgenda } from '../../types';
 
@@ -12,59 +11,6 @@ interface AtendimentoCardProps {
   agenda: EventoAgenda[];
   clientes: Cliente[];
   acoes: Acao[];
-}
-
-type PeriodoKey = 'mes_anterior' | 'mes_atual' | 'd90' | 'm6' | 'm12' | 'tudo';
-
-interface Janela {
-  /** Início do intervalo (null = sem limite inferior). */
-  inicio: Date | null;
-  /** Fim do intervalo (null = até agora). Mês fechado tem fim; janela móvel não. */
-  fim: Date | null;
-  /** Texto do subtítulo — o período exato que está na tela. */
-  descricao: string;
-}
-
-const PERIODOS: { key: PeriodoKey; label: string }[] = [
-  { key: 'mes_anterior', label: 'Mês anterior' },
-  { key: 'mes_atual', label: 'Mês atual' },
-  { key: 'd90', label: '90 dias' },
-  { key: 'm6', label: '6 meses' },
-  { key: 'm12', label: '12 meses' },
-  { key: 'tudo', label: 'Tudo' },
-];
-
-/**
- * Traduz o filtro em um intervalo concreto.
- *
- * "Mês anterior"/"Mês atual" são períodos FECHADOS de calendário (têm início e
- * fim), diferente das janelas móveis de N dias — é o corte que serve para
- * fechamento mensal, em que comparar "últimos 30 dias" não fecha com nada.
- */
-function janelaDe(key: PeriodoKey, agora: Date): Janela {
-  const mes = (d: Date) => format(d, "MMMM 'de' yyyy", { locale: ptBR });
-  const dia = (d: Date) => format(d, 'dd/MM/yyyy');
-  switch (key) {
-    case 'mes_anterior': {
-      const ref = subMonths(agora, 1);
-      const inicio = startOfMonth(ref);
-      const fim = endOfMonth(ref);
-      return { inicio, fim, descricao: `${mes(ref)} · ${dia(inicio)} a ${dia(fim)}` };
-    }
-    case 'mes_atual': {
-      const inicio = startOfMonth(agora);
-      return { inicio, fim: agora, descricao: `${mes(agora)} · ${dia(inicio)} até hoje` };
-    }
-    case 'd90':
-    case 'm6':
-    case 'm12': {
-      const dias = key === 'd90' ? 90 : key === 'm6' ? 180 : 365;
-      const inicio = new Date(agora.getTime() - dias * 24 * 60 * 60 * 1000);
-      return { inicio, fim: agora, descricao: `últimos ${dias} dias · ${dia(inicio)} até hoje` };
-    }
-    default:
-      return { inicio: null, fim: null, descricao: 'todo o histórico registrado' };
-  }
 }
 
 /** Cores semânticas do desfecho — verde/amarelo/vermelho, não a paleta da marca:
@@ -108,24 +54,12 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
     return m;
   }, [clientes]);
 
-  /** Dentro do intervalo da janela (fim inclusive). */
-  const noPeriodo = (iso: string | undefined): boolean => {
-    if (!janela.inicio && !janela.fim) return true; // "Tudo"
-    if (!iso) return false;
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return false;
-    if (janela.inicio && d < janela.inicio) return false;
-    if (janela.fim && d > janela.fim) return false;
-    return true;
-  };
-
   const filtrada = useMemo(() => agenda.filter((e) => {
     if (monitor) {
       const responsavel = e.monitor || monitorPorCliente.get(e.clientId) || '';
       if (responsavel !== monitor) return false;
     }
-    return noPeriodo(e.date);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return dentroDaJanela(e.date, janela);
   }), [agenda, janela, monitor, monitorPorCliente]);
 
   // Ações registradas passam pelo mesmo filtro de período/monitor dos eventos —
@@ -135,8 +69,7 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
       const responsavel = a.monitor || monitorPorCliente.get(a.clientId) || '';
       if (responsavel !== monitor) return false;
     }
-    return noPeriodo(a.dueAt || a.createdAt);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return dentroDaJanela(a.dueAt || a.createdAt, janela);
   }), [acoes, janela, monitor, monitorPorCliente]);
 
   // Num período FECHADO (mês anterior), a referência de "já aconteceu" é o fim
