@@ -6,7 +6,7 @@ import { ModalShell } from './ModalShell';
 import { DIAS_SEMANA } from '../utils/diasSemana';
 import { Badge, Button, Chip, Field, Input, Select, Textarea } from '../ui';
 import {
-  TIPO_ANALISE_LABEL, UNIDADE_CADENCIA_LABEL,
+  TIPO_ANALISE_LABEL, UNIDADE_CADENCIA_LABEL, CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES,
   type Cliente, type NovoCliente, type RelatorioCadencia, type TipoAnalise, type UnidadeCadenciaRelatorio,
 } from '../types';
 
@@ -20,7 +20,7 @@ interface ClientFormModalProps {
 export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const { criarCliente, criarClientesEmLote, atualizarCliente, opcoesPorTipo } = useCarteira();
   const servicoOpcoes = opcoesPorTipo('servico');
-  const statusOpcoes = opcoesPorTipo('status_cliente');
+  const statusOpcoes = [...CLIENTE_STATUS_OPCOES];
   const monitorOpcoes = opcoesPorTipo('monitor');
   const editando = !!initial;
 
@@ -28,7 +28,9 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const [monitor, setMonitor] = useState(initial?.monitor ?? '');
   const [servicos, setServicos] = useState<string[]>(initial?.servicos ?? []);
   const [servicosIndependentes, setServicosIndependentes] = useState<string[]>(initial?.servicosIndependentes ?? []);
-  const [status, setStatus] = useState(initial?.status ?? statusOpcoes[0] ?? 'Ativo');
+  const statusLegado = /^(ativ|inativ|suspens)/i.test(initial?.status ?? '');
+  const [status, setStatus] = useState(statusLegado ? 'Regular' : (initial?.status ?? 'Regular'));
+  const [estado, setEstado] = useState(initial?.estado ?? (/^(ativ|gratuidade)/i.test(initial?.status ?? '') ? 'Ativo' : 'Inativo'));
   const [observacao, setObservacao] = useState(initial?.observacao ?? '');
   const [tipoAnalise, setTipoAnalise] = useState<TipoAnalise>(initial?.tipoAnalise ?? 'unitaria');
   const [lojas, setLojas] = useState<string[]>([]);
@@ -87,30 +89,30 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
         const [primeira, ...resto] = lojasFinais;
         await atualizarCliente(initial.id, {
           empresa: `${grupo} - ${primeira}`, grupo, tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, status, observacao, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, estado, status, observacao, relatorioCadencia,
         });
         if (resto.length > 0) {
           const novos: NovoCliente[] = resto.map((nome) => ({
             empresa: `${grupo} - ${nome}`,
             grupo,
             tipoAnalise: 'segmentado',
-            monitor, servicos, servicosIndependentes, status, observacao, relatorioCadencia,
+            monitor, servicos, servicosIndependentes, estado, status, observacao, relatorioCadencia,
           }));
           await criarClientesEmLote(novos);
         }
       } else if (editando) {
-        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, status, observacao, tipoAnalise, relatorioCadencia });
+        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, tipoAnalise, relatorioCadencia });
       } else if (tipoAnalise === 'segmentado') {
         if (lojasFinais.length === 0) { toastError('Adicione ao menos uma loja para a análise segmentada.'); setSaving(false); return; }
         const novos: NovoCliente[] = lojasFinais.map((nome) => ({
           empresa: `${base} - ${nome}`,
           grupo: base,
           tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, status, observacao, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, estado, status, observacao, relatorioCadencia,
         }));
         await criarClientesEmLote(novos);
       } else {
-        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, status, observacao, tipoAnalise: 'unitaria', relatorioCadencia });
+        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, tipoAnalise: 'unitaria', relatorioCadencia });
       }
       onClose();
     } catch (err) {
@@ -159,9 +161,15 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
 
             <Field label="Status">
               <Select tone="modal" value={status} onChange={(e) => setStatus(e.target.value)}>
-                {statusOpcoes.map((s) => (
+                {(statusOpcoes.length ? statusOpcoes : [...CLIENTE_STATUS_OPCOES]).map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
+              </Select>
+            </Field>
+
+            <Field label="Estado">
+              <Select tone="modal" value={estado} onChange={(e) => setEstado(e.target.value)}>
+                {CLIENTE_ESTADO_OPCOES.map((e) => <option key={e} value={e}>{e}</option>)}
               </Select>
             </Field>
 

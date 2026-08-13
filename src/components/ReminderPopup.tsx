@@ -9,6 +9,7 @@ import { Badge, Button, Card } from '../ui';
 import type { Lembrete, Recorrencia } from '../types';
 
 const CHECK_INTERVAL_MS = 20_000;
+const TOAST_TIMEOUT_MS = 45_000;
 
 function effectiveNotifyDate(originalDate: Date): Date {
   const dayOnly = previousBusinessDay(startOfDay(originalDate));
@@ -57,6 +58,7 @@ export function ReminderPopup() {
           firingRef.current.add(reminder.id);
           setQueue((prev) => [...prev, reminder]);
           tocarSomNotificacao(); // barulho ao disparar o lembrete
+          setTimeout(() => dismiss(reminder.id), TOAST_TIMEOUT_MS);
 
           const next = nextOccurrence(original, reminder.recurrence);
           const update = next ? { datetime: next.toISOString() } : { status: 'concluido' as const };

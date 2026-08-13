@@ -8,7 +8,7 @@ interface RadialItem {
   top?: TopCliente[];
   /** Total da base do percentual (ex.: quantos contrataram o serviço). */
   base?: number;
-  /** Quantos da base ficaram DE FORA — quando > 0, `top` lista esses nomes. */
+  /** Quantos da base ficaram DE FORA — exibido separadamente no resumo do card. */
   descobertos?: number;
 }
 
@@ -67,22 +67,16 @@ function Ring({ it, size, thickness }: { it: RadialItem; size: number; thickness
 
 function Top3({ it, align }: { it: RadialItem; align: 'left' | 'right' }) {
   if (!it.top || it.top.length === 0) return null;
-  // Lista de descobertos: é o que pede ação, então troca o título e não mostra
-  // "0x" (não houve atendimento — contagem não faz sentido aqui).
-  const listaDeFalta = (it.descobertos ?? 0) > 0;
   return (
     <div className={`radial-top3 radial-top3-${align}`}>
       <span className="radial-top3-title">
-        {listaDeFalta ? `Sem atendimento · ${it.label}` : `Top · ${it.label}`}
+        {`Top · ${it.label}`}
       </span>
       {it.top.map((t, i) => (
         <div key={t.empresa} className="radial-top3-row">
-          {/* Marcador só no ranking. Na lista de falta ele era um "·" solto que,
-              na coluna da esquerda (row-reverse, espelhada), caía DEPOIS do nome
-              e parecia sujeira no fim da linha. */}
-          {!listaDeFalta && <span className="radial-top3-rank">{i + 1}º</span>}
+          <span className="radial-top3-rank">{i + 1}º</span>
           <span className="radial-top3-name">{t.empresa}</span>
-          {!listaDeFalta && <span className="radial-top3-n">{t.n}x</span>}
+          <span className="radial-top3-n">{t.n}x</span>
         </div>
       ))}
     </div>

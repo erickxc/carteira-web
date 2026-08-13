@@ -26,6 +26,8 @@ const CADENCIAS_PADRAO: Cadencias = {
   esfriando_dias: 45,
   monitoria_dias: 30,
   price_dias: 30,
+  recontato_dias: 5,
+  peso_contato_recente: 50,
 };
 
 interface CarteiraContextValue {

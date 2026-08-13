@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, parseISO } from 'date-fns';
-import { isStatusAtivo } from './formatters';
+import { isClienteAtivo } from './formatters';
 import { buildUltimaInteracaoMap } from './ultimaInteracao';
 import type { Acao, Cadencias, Cliente, EventoAgenda, RelatorioCadencia } from '../types';
 
@@ -191,7 +191,7 @@ export function buildFilaCadencia(
 
   const out: FilaCadItem[] = [];
   for (const c of clientes) {
-    if (!isStatusAtivo(c.status)) continue;
+    if (!isClienteAtivo(c)) continue;
     const evs = porCliente.get(c.id) ?? [];
 
     const relogios: RelogioServico[] = [];
@@ -259,7 +259,7 @@ export function buildVencendoDashboard(
 
   const out: VencendoDashboardItem[] = [];
   for (const c of clientes) {
-    if (!isStatusAtivo(c.status)) continue;
+    if (!isClienteAtivo(c)) continue;
     const evs = porCliente.get(c.id) ?? [];
 
     const relogios: RelogioServico[] = [];

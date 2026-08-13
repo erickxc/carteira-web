@@ -6,9 +6,9 @@ import {
 import { ptBR } from 'date-fns/locale';
 import { useCarteira } from '../context/CarteiraContext';
 import { usePersistedState } from './usePersistedState';
-import { isStatusAtivo } from '../utils/formatters';
+import { isClienteAtivo } from '../utils/formatters';
 import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
-import { buildFilaCadencia, buildVencendoDashboard, type ServicoCad } from '../utils/cadenciaServico';
+import { buildFilaCadencia, buildVencendoDashboard, contatoRecenteNaoRefletido, type ServicoCad } from '../utils/cadenciaServico';
 import { mesesComDados } from '../utils/periodo';
 import type { Cliente, EventoAgenda } from '../types';
 
@@ -35,7 +35,7 @@ export function useDashboardData() {
 
   // Opções de filtro derivadas da base (não mostra opção que não existe nos dados).
   const monitoresDisponiveis = useMemo(
-    () => ['Todos', ...[...new Set(clientes.filter((c) => isStatusAtivo(c.status)).map((c) => c.monitor).filter(Boolean))].sort()],
+    () => ['Todos', ...[...new Set(clientes.filter(isClienteAtivo).map((c) => c.monitor).filter(Boolean))].sort()],
     [clientes]
   );
   const tiposEventoDisponiveis = useMemo(
@@ -46,7 +46,7 @@ export function useDashboardData() {
   // Toda a operação considera apenas clientes ATIVOS (exclui suspensos), com os
   // filtros globais de Monitor (carteira) e Tipo de evento aplicados em cascata.
   const ativos = useMemo(
-    () => clientes.filter((c) => isStatusAtivo(c.status) && (filtroMonitor === 'Todos' || c.monitor === filtroMonitor)),
+    () => clientes.filter((c) => isClienteAtivo(c) && (filtroMonitor === 'Todos' || c.monitor === filtroMonitor)),
     [clientes, filtroMonitor]
   );
   const ativosIds = useMemo(() => new Set(ativos.map((c) => c.id)), [ativos]);
@@ -152,27 +152,41 @@ export function useDashboardData() {
   // leitura de cobertura responde "quem contratou e não está sendo atendido" —
   // com os mesmos dados dava 90%, revelando 4 clientes descobertos.
   //
-  // "Atendido" = cliente ativo com interação (reunião OU ação) nos últimos 30
-  // dias. Serviços não são exclusivos (vários por cliente) → anel, não pizza.
+  // "Atendido" = cliente ativo com reunião ou relatório realizado nos últimos
+  // 30 dias, com o serviço correspondente tratado no evento, E status Regular
+  // ou Gratuidade. Ações genéricas, contatos e ligações não cobrem um serviço.
   const { servicosDist, totalAtendidos } = useMemo(() => {
     const JANELA = 30;
-    const foiAtendido = (c: Cliente) => {
-      const uc = ultimaInteracao.get(c.id);
-      return uc != null && differenceInCalendarDays(hoje, uc) <= JANELA;
-    };
-    const atendidos = ativos.filter(foiAtendido);
-    const total = atendidos.length;
-
     const temProduto = (c: Cliente, re: RegExp, flag: keyof Cliente) =>
       (c.servicos ?? []).some((s) => re.test(s)) || Boolean(c[flag]);
 
     // Top clientes por SERVIÇO tratado. Precificação virou serviço numa reunião
     // (não é mais tipo de evento), então Price = reunião com serviço Precificação;
     // Monitoria = reunião sem Price (a reunião comum é de monitoria).
+    const eventoRealizado = (a: EventoAgenda) =>
+      /reuni|relat/i.test(a.type || '') && /conclu|realiz/i.test(a.status || '');
     const temServicoPrice = (a: EventoAgenda) => (a.servicos ?? []).some((s) => /(price|prec)/i.test(s));
+    const temServicoMonitoria = (a: EventoAgenda) =>
+      /monitor/i.test((a.servicos ?? []).join(' ')) ||
+      (/reuni/i.test(a.type || '') && !temServicoPrice(a));
+    const foiAtendido = (c: Cliente, pred: (a: EventoAgenda) => boolean) =>
+      // `Ativo` é o status legado da base; equivale a Regular até o cliente
+      // ser salvo novamente no novo modelo de Estado + Status.
+      /^(regular|gratuidade|ativo)$/i.test((c.status || '').trim()) && agendaAtiva.some((a) => {
+        if (a.clientId !== c.id || !eventoRealizado(a) || !pred(a)) return false;
+        const d = parseISO(a.date);
+        return !isNaN(d.getTime()) && differenceInCalendarDays(hoje, d) >= 0 && differenceInCalendarDays(hoje, d) <= JANELA;
+      });
+    const total = ativos.filter((c) => foiAtendido(c, () => true)).length;
     function topClientes(pred: (a: EventoAgenda) => boolean) {
       const contagem = new Map<string, number>();
-      agendaAtiva.forEach((a) => { if (pred(a)) contagem.set(a.clientId, (contagem.get(a.clientId) ?? 0) + 1); });
+      agendaAtiva.forEach((a) => {
+        if (!eventoRealizado(a) || !pred(a)) return;
+        const d = parseISO(a.date);
+        const dias = differenceInCalendarDays(hoje, d);
+        if (isNaN(d.getTime()) || dias < 0 || dias > JANELA) return;
+        contagem.set(a.clientId, (contagem.get(a.clientId) ?? 0) + 1);
+      });
       return [...contagem.entries()]
         .map(([clientId, n]) => ({ empresa: clientes.find((c) => c.id === clientId)?.empresa ?? '—', n }))
         .sort((a, b) => b.n - a.n)
@@ -182,15 +196,15 @@ export function useDashboardData() {
     // `re`/`flag` casam com o CADASTRO do cliente (servicos/flag) para o %; `pred`
     // casa com o EVENTO da agenda (serviço tratado) para o ranking de top clientes.
     const defs: { label: string; re: RegExp; flag: keyof Cliente; color: string; pred: (a: EventoAgenda) => boolean }[] = [
-      { label: 'Monitoria', re: /monitor/i, flag: 'monitoria', color: 'var(--accent)', pred: (a) => /reuni/i.test(a.type || '') && !temServicoPrice(a) },
+      { label: 'Monitoria', re: /monitor/i, flag: 'monitoria', color: 'var(--accent)', pred: temServicoMonitoria },
       { label: 'Price', re: /(price|prec)/i, flag: 'price', color: 'var(--accent-tertiary)', pred: temServicoPrice },
     ];
     const dist = defs.map((d) => {
       // Base = quem CONTRATOU o serviço; numerador = os que foram atendidos.
       const contrataram = ativos.filter((c) => temProduto(c, d.re, d.flag));
-      const cobertos = contrataram.filter(foiAtendido);
+      const cobertos = contrataram.filter((c) => foiAtendido(c, d.pred));
       const descobertos = contrataram
-        .filter((c) => !foiAtendido(c))
+        .filter((c) => !foiAtendido(c, d.pred))
         .map((c) => ({ empresa: c.empresa, n: 0 }))
         .sort((a, b) => a.empresa.localeCompare(b.empresa));
       return {
@@ -201,7 +215,7 @@ export function useDashboardData() {
         color: d.color,
         // Ranking por serviço tratado continua útil; os descobertos são o que
         // pede ação, então vêm primeiro na lista do card.
-        top: descobertos.length > 0 ? descobertos : topClientes(d.pred),
+        top: topClientes(d.pred),
         descobertos: descobertos.length,
       };
     });
@@ -250,6 +264,11 @@ export function useDashboardData() {
     // pelo "Tipo" do topo quebraria esse cálculo, não é um filtro que se aplique aqui.
     const fila = buildFilaCadencia(ativos, agenda, acoes, cadencias, hoje);
     const nomes = (arr: typeof fila) => arr.map((f) => f.cliente.empresa).sort((a, b) => a.localeCompare(b));
+    // Contato/ligação sem resposta ainda não reflete no relógio do serviço
+    // (só reunião/relatório zeram Monitoria/Price) — sem isso, quem acabou de
+    // ser contatado (e está dentro do prazo de recontato) aparecia junto com
+    // quem ninguém tratou ainda.
+    const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now: hoje });
 
     const relevantes = filtroServicoAderencia === 'Todos'
       ? fila
@@ -262,7 +281,7 @@ export function useDashboardData() {
         ? f.relogios
         : f.relogios.filter((r) => r.servico === filtroServicoAderencia);
     }
-    function classificar(f: (typeof fila)[number]): 'em_dia' | 'agenda_marcada' | 'precisa_contato' {
+    function classificar(f: (typeof fila)[number]): 'em_dia' | 'agenda_marcada' | 'contato_recente' | 'precisa_contato' {
       const rels = relogiosRelevantes(f);
       // "Todos" (geral): PERMISSIVO — só precisa 1 serviço não estar mal das
       // pernas (em_dia OU vencendo, que é só o aviso prévio de 5 dias antes do
@@ -275,18 +294,31 @@ export function useDashboardData() {
         : rels.some((r) => r.statusReal === 'em_dia');
       if (emDia) return 'em_dia';
       if (rels.some((r) => r.status === 'coberto')) return 'agenda_marcada';
+      const ultimoContato = ultimaInteracaoMap.get(f.cliente.id) ?? null;
+      if (
+        ultimoContato
+        && contatoRecenteNaoRefletido(f.relogios, ultimoContato)
+        && differenceInCalendarDays(hoje, ultimoContato) <= cadencias.recontato_dias
+      ) {
+        return 'contato_recente';
+      }
       return 'precisa_contato';
     }
 
     const total = relevantes.length;
     const emDiaClientes = nomes(relevantes.filter((f) => classificar(f) === 'em_dia'));
     const agendaMarcadaClientes = nomes(relevantes.filter((f) => classificar(f) === 'agenda_marcada'));
+    const contatoRecenteClientes = nomes(relevantes.filter((f) => classificar(f) === 'contato_recente'));
     const precisaClientes = nomes(relevantes.filter((f) => classificar(f) === 'precisa_contato'));
-    const pct = total > 0 ? Math.round((emDiaClientes.length / total) * 100) : 0;
+    // Contato/ligação pesa menos que reunião/relatório (que já conta 100% em
+    // "Em dia") na % central — peso configurável em Configurações, 0-100.
+    const pesoContatoRecente = Math.min(100, Math.max(0, Number(cadencias.peso_contato_recente) || 0)) / 100;
+    const pct = total > 0 ? Math.round(((emDiaClientes.length + contatoRecenteClientes.length * pesoContatoRecente) / total) * 100) : 0;
     return {
       total, pct,
-      emDia: emDiaClientes.length, agendaMarcada: agendaMarcadaClientes.length, precisa: precisaClientes.length,
-      emDiaClientes, agendaMarcadaClientes, precisaClientes,
+      emDia: emDiaClientes.length, agendaMarcada: agendaMarcadaClientes.length,
+      contatoRecente: contatoRecenteClientes.length, precisa: precisaClientes.length,
+      emDiaClientes, agendaMarcadaClientes, contatoRecenteClientes, precisaClientes,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativos, agenda, acoes, cadencias, filtroServicoAderencia]);

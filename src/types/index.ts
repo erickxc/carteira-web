@@ -77,6 +77,9 @@ export interface Cliente {
    * daquele serviço específico. */
   servicosIndependentes?: string[];
   observacao: string;
+  /** Estado comercial/operacional: define se entra na carteira. */
+  estado?: 'Ativo' | 'Inativo' | string;
+  /** Situação do cliente, independente do estado. */
   status: string;
   /** Pessoas de contato do cliente (nome, cargo, telefone). */
   contatos?: Contato[];
@@ -101,6 +104,9 @@ export interface Cliente {
   lastPricing?: string;
   userId?: string;
 }
+
+export const CLIENTE_ESTADO_OPCOES = ['Ativo', 'Inativo'] as const;
+export const CLIENTE_STATUS_OPCOES = ['Regular', 'Suspenso', 'Atendido pelo Marco', 'Gratuidade', 'Problemas Externos'] as const;
 
 export type NovoCliente = Omit<Cliente, 'id' | 'createdAt'>;
 
@@ -326,6 +332,14 @@ export interface Cadencias {
   /** Cadência-alvo por serviço (dias) — priorização por serviço no Acompanhamento. */
   monitoria_dias: number;
   price_dias: number;
+  /** Janela (dias) após um contato/ligação sem resposta em que o cliente ainda
+   * conta como "sendo tratado" — não some da carteira, só não entra em
+   * "Precisa contato" nesse intervalo. Passado esse prazo, volta a precisar de ação. */
+  recontato_dias: number;
+  /** Peso (0-100) do cliente em "Contato recente" na % central de "Carteira no
+   * Ritmo" — contato/ligação vale menos que reunião/relatório (que conta 100%
+   * como "Em dia"), mas não é zero: já está sendo tratado. */
+  peso_contato_recente: number;
 }
 
 // --- Importação de resumo de reunião (identificação de cliente + extração de seções) ---

@@ -13,9 +13,9 @@ import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
 import { Dropdown } from '../components/Dropdown';
 import { Badge, Button, Card, Td, Th } from '../ui';
-import { TIPO_ANALISE_LABEL, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
+import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
 
-type SortCol = 'empresa' | 'monitor' | 'servicos' | 'analise' | 'status' | 'anotacoes' | 'ultimaReuniao' | 'proximo' | 'ultimoContato' | 'diasSemContato';
+type SortCol = 'empresa' | 'monitor' | 'servicos' | 'analise' | 'estado' | 'status' | 'anotacoes' | 'ultimaReuniao' | 'proximo' | 'ultimoContato' | 'diasSemContato';
 
 const PERIODOS = [
   { valor: 'Todos', label: 'Últ. reunião: todas' },
@@ -34,7 +34,8 @@ export default function ClientesPage() {
   const [fMonitores, setFMonitores] = usePersistedState<string[]>('filtro:clientes:monitores', []);
   const [fTipoAnalise, setFTipoAnalise] = usePersistedState<string>('filtro:clientes:analise', 'Todos');
   const [fServicos, setFServicos] = usePersistedState<string[]>('filtro:clientes:servicos', []);
-  const [fStatus, setFStatus] = usePersistedState<string>('filtro:clientes:status', 'Ativo');
+  const [fEstado, setFEstado] = usePersistedState<string>('filtro:clientes:estado:v2', 'Ativo');
+  const [fStatus, setFStatus] = usePersistedState<string>('filtro:clientes:status:v2', 'Todos');
   const [fPeriodo, setFPeriodo] = usePersistedState<string>('filtro:clientes:periodo', 'Todos');
   const [sortBy, setSortBy] = usePersistedState<SortCol>('filtro:clientes:sortBy', 'empresa');
   const [sortDir, setSortDir] = usePersistedState<'asc' | 'desc'>('filtro:clientes:sortDir', 'asc');
@@ -96,14 +97,14 @@ export default function ClientesPage() {
     [clientes]
   );
   const servicoOpcoes = useMemo(() => opcoesPorTipo('servico'), [opcoesPorTipo]);
-  const statusOpcoes = useMemo(() => ['Todos', ...opcoesPorTipo('status_cliente')], [opcoesPorTipo]);
+  const statusOpcoes = useMemo(() => ['Todos', ...CLIENTE_STATUS_OPCOES], []);
 
   const filtrosAtivos =
     !!debouncedSearch.trim() || fMonitores.length > 0 || fTipoAnalise !== 'Todos' ||
-    fServicos.length > 0 || fStatus !== 'Ativo' || fPeriodo !== 'Todos';
+    fServicos.length > 0 || fEstado !== 'Todos' && fEstado !== 'Ativo' || fStatus !== 'Todos' || fPeriodo !== 'Todos';
 
   function limparFiltros() {
-    setSearch(''); setFMonitores([]); setFTipoAnalise('Todos'); setFServicos([]); setFStatus('Ativo'); setFPeriodo('Todos');
+    setSearch(''); setFMonitores([]); setFTipoAnalise('Todos'); setFServicos([]); setFEstado('Ativo'); setFStatus('Todos'); setFPeriodo('Todos');
   }
 
   // Valor comparável de cada coluna, pra ordenação por clique no cabeçalho.
@@ -113,6 +114,7 @@ export default function ClientesPage() {
       case 'monitor': return (c.monitor || '').toLowerCase();
       case 'servicos': return (c.servicos ?? []).join(', ').toLowerCase();
       case 'analise': return c.tipoAnalise === 'segmentado' || !!c.grupo ? 1 : 0;
+      case 'estado': return (c.estado || '').toLowerCase();
       case 'status': return (c.status || '').toLowerCase();
       case 'anotacoes': return (c.observacao || '').toLowerCase();
       case 'ultimaReuniao': return ultimaReuniao.get(c.id)?.getTime() ?? -Infinity;
@@ -140,6 +142,7 @@ export default function ClientesPage() {
   const filtrados = useMemo(() => {
     const termo = debouncedSearch.trim().toLowerCase();
     return clientes
+      .filter((c) => fEstado === 'Todos' || (c.estado || (c.status === 'Suspenso' ? 'Inativo' : 'Ativo')) === fEstado)
       .filter((c) => fStatus === 'Todos' || c.status === fStatus)
       .filter((c) => !termo || c.empresa?.toLowerCase().includes(termo) || (c.monitor ?? '').toLowerCase().includes(termo))
       .filter((c) => fMonitores.length === 0 || fMonitores.includes(c.monitor))
@@ -160,7 +163,7 @@ export default function ClientesPage() {
         return sortDir === 'asc' ? r : -r;
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientes, debouncedSearch, fMonitores, fTipoAnalise, fServicos, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir]);
+  }, [clientes, debouncedSearch, fMonitores, fTipoAnalise, fServicos, fEstado, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir]);
 
   async function handleDelete(cliente: Cliente) {
     if (!(await confirmDialog(`Excluir o cliente "${cliente.empresa}"? Isso também remove os eventos de agenda vinculados.`, { danger: true, confirmLabel: 'Excluir' }))) return;
@@ -185,7 +188,7 @@ export default function ClientesPage() {
           monitor: String(row.Monitor ?? row.monitor ?? '').trim(),
           servicos,
           observacao: String(row.Observacao ?? row.Observação ?? row.observacao ?? ''),
-          status: String(row.Status ?? row.status ?? 'Ativo').trim() || 'Ativo',
+          status: String(row.Status ?? row.status ?? 'Regular').trim() || 'Regular',
         };
       })
       .filter((c) => c.empresa);
@@ -260,8 +263,14 @@ export default function ClientesPage() {
           />
 
           <Dropdown
+            label="Estado: ativos"
+            options={['Todos', ...CLIENTE_ESTADO_OPCOES].map((e) => ({ value: e, label: e === 'Todos' ? 'Estado: todos' : e }))}
+            value={fEstado}
+            onChange={(v) => setFEstado(v as string)}
+          />
+
+          <Dropdown
             label="Status: todos"
-            defaultValue="Ativo"
             options={statusOpcoes.map((s) => ({ value: s, label: s === 'Todos' ? 'Status: todos' : s }))}
             value={fStatus}
             onChange={(v) => setFStatus(v as string)}
@@ -298,6 +307,7 @@ export default function ClientesPage() {
                   <Th sortable onClick={() => ordenarPor('monitor')}>Monitor{seta('monitor')}</Th>
                   <Th sortable onClick={() => ordenarPor('servicos')}>Serviços{seta('servicos')}</Th>
                   <Th sortable onClick={() => ordenarPor('analise')}>Análise{seta('analise')}</Th>
+                  <Th sortable onClick={() => ordenarPor('estado')}>Estado{seta('estado')}</Th>
                   <Th sortable onClick={() => ordenarPor('status')}>Status{seta('status')}</Th>
                   <Th sortable onClick={() => ordenarPor('anotacoes')}>Anotações{seta('anotacoes')}</Th>
                   <Th sortable onClick={() => ordenarPor('ultimaReuniao')}>Última reunião{seta('ultimaReuniao')}</Th>
@@ -339,6 +349,7 @@ export default function ClientesPage() {
                           ? <Badge variant="warning">Segmentado</Badge>
                           : <span className="text-text-muted">Unitária</span>}
                       </Td>
+                      <Td><Badge variant={cliente.estado === 'Ativo' ? 'success' : 'danger'}>{cliente.estado || 'Ativo'}</Badge></Td>
                       <Td>
                         <Badge variant={clienteStatusBadge(cliente.status)}>{cliente.status || '—'}</Badge>
                       </Td>

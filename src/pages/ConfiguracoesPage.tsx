@@ -8,13 +8,15 @@ import { CATEGORIA_TIPO_LABEL, SEGMENTO_LABEL, type Cadencias, type CategoriaTip
 
 const TIPOS: CategoriaTipo[] = ['servico', 'tipo_evento', 'status_cliente', 'status_evento', 'monitor', 'tipo_lembrete', 'sala'];
 
-const CADENCIA_CAMPOS: { chave: keyof Cadencias; label: string; ajuda: string }[] = [
+const CADENCIA_CAMPOS: { chave: keyof Cadencias; label: string; ajuda: string; min?: number; max?: number }[] = [
   { chave: 'monitoria_dias', label: 'Monitoria a cada (dias)', ajuda: 'Cadência-alvo de reunião de Monitoria. Cliente sem reunião há mais que isso fica vencido na fila de Acompanhamento.' },
   { chave: 'price_dias', label: 'Price a cada (dias)', ajuda: 'Cadência-alvo de Price. Zera com reunião OU relatório de Price. Vencido entra na fila.' },
   { chave: 'reuniao_dias', label: 'Reunião a cada (dias)', ajuda: 'Cliente engajado sem próxima reunião marcada vira recomendação após este intervalo.' },
   { chave: 'relatorio_dias', label: 'Relatório a cada (dias)', ajuda: 'Sugere envio de relatório do período após este intervalo sem contato.' },
   { chave: 'esfriando_dias', label: 'Esfriando após (dias)', ajuda: 'Cliente sem contato há mais que isso entra no segmento Esfriando.' },
   { chave: 'primeiro_contato_dias', label: 'Primeiro contato (dias)', ajuda: 'Janela alvo para buscar clientes nunca atendidos.' },
+  { chave: 'recontato_dias', label: 'Aguardando retorno (dias)', ajuda: 'Depois de um contato/ligação sem resposta, o cliente fica nessa janela como "Contato recente" em vez de "Precisa contato".' },
+  { chave: 'peso_contato_recente', label: 'Peso do contato recente (%)', ajuda: 'Quanto "Contato recente" pesa na % de "Carteira no Ritmo" — 100 conta igual reunião/relatório, 0 não conta nada na %.', min: 0, max: 100 },
 ];
 
 const SEGMENTOS: Segmento[] = ['engajado', 'esfriando', 'frio'];
@@ -55,11 +57,12 @@ function CadenciasCard() {
         Regras que geram as recomendações da Central de Ações.
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-        {CADENCIA_CAMPOS.map(({ chave, label, ajuda }) => (
+        {CADENCIA_CAMPOS.map(({ chave, label, ajuda, min = 1, max }) => (
           <Field key={chave} label={label}>
             <Input
               type="number"
-              min={1}
+              min={min}
+              max={max}
               value={form[chave]}
               onChange={(e) => setForm((f) => ({ ...f, [chave]: Number(e.target.value) }))}
             />

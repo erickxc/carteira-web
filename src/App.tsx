@@ -10,6 +10,7 @@ import { ReminderFormModal } from './components/ReminderFormModal';
 import { RegistroContatoModal } from './components/RegistroContatoModal';
 import { ImportarResumoModal } from './components/ImportarResumoModal';
 import { ReminderPopup } from './components/ReminderPopup';
+import { BaseSincronizadaCard } from './components/dashboard/BaseSincronizadaCard';
 import { ToastHost } from './components/ToastHost';
 import { ConfirmHost } from './components/ConfirmHost';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -79,6 +80,7 @@ function Layout({ children }: { children: ReactNode }) {
             <Menu size={22} />
           </button>
           <div className="ml-auto flex items-center gap-3">
+            <BaseSincronizadaCard />
             <Button
               variant={location.pathname === '/agenda' ? 'secondary' : 'primary'}
               onClick={() => navigate('/agenda')}

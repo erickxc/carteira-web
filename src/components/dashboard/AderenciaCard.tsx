@@ -12,10 +12,12 @@ interface AderenciaCardProps {
   total: number;
   emDia: number;
   agendaMarcada: number;
+  contatoRecente: number;
   precisa: number;
   pct: number;
   emDiaClientes: string[];
   agendaMarcadaClientes: string[];
+  contatoRecenteClientes: string[];
   precisaClientes: string[];
   filtroServico: FiltroServico;
   onFiltroServico: (s: FiltroServico) => void;
@@ -27,7 +29,7 @@ interface AderenciaCardProps {
  * os filtros Monitoria/Price olham só o relógio daquele serviço. Quem não está
  * em dia mas já tem reunião futura marcada cai em "Agenda marcada" (já sendo
  * tratado), não junto com "Precisa contato" (ninguém cuidando ainda). */
-export function AderenciaCard({ total, emDia, agendaMarcada, precisa, pct, emDiaClientes, agendaMarcadaClientes, precisaClientes, filtroServico, onFiltroServico }: AderenciaCardProps) {
+export function AderenciaCard({ total, emDia, agendaMarcada, contatoRecente, precisa, pct, emDiaClientes, agendaMarcadaClientes, contatoRecenteClientes, precisaClientes, filtroServico, onFiltroServico }: AderenciaCardProps) {
   const [aberto, setAberto] = useState(false);
   return (
     <Card className="cobertura-card gauge-card">
@@ -36,7 +38,7 @@ export function AderenciaCard({ total, emDia, agendaMarcada, precisa, pct, emDia
         <span className="text-text-muted" style={{ fontSize: 12 }}>{total} clientes</span>
       </div>
       <p className="text-text-muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 12, lineHeight: 1.4, minHeight: '2.8em' }}>
-        Clientes com Monitoria/Price <strong>em dia</strong>, <strong>com agenda marcada</strong> ou <strong>atrasados</strong> na cadência.
+        Clientes com Monitoria/Price <strong>em dia</strong>, <strong>com agenda marcada</strong>, <strong>contatados recentemente</strong> (aguardando retorno) ou <strong>atrasados</strong> na cadência.
       </p>
       <div className="gauge-card-filtros flex flex-wrap gap-[0.4rem] mb-4">
         {SERVICOS.map((s) => (
@@ -50,9 +52,10 @@ export function AderenciaCard({ total, emDia, agendaMarcada, precisa, pct, emDia
           items={[
             { label: 'Em dia', value: emDia },
             { label: 'Agenda marcada', value: agendaMarcada },
+            { label: 'Contato recente', value: contatoRecente },
             { label: 'Precisa contato', value: precisa },
           ]}
-          colors={['var(--success)', 'var(--warning)', 'var(--danger)']}
+          colors={['var(--success)', 'var(--warning)', 'var(--accent)', 'var(--danger)']}
           centerValue={`${pct}%`}
           centerLabel="em dia"
           size={96}
@@ -67,6 +70,7 @@ export function AderenciaCard({ total, emDia, agendaMarcada, precisa, pct, emDia
           <GaugeDetalhe aberto={aberto} grupos={[
             { label: 'Em dia', cor: 'var(--success)', clientes: emDiaClientes },
             { label: 'Agenda marcada', cor: 'var(--warning)', clientes: agendaMarcadaClientes },
+            { label: 'Contato recente', cor: 'var(--accent)', clientes: contatoRecenteClientes },
             { label: 'Precisa contato', cor: 'var(--danger)', clientes: precisaClientes },
           ]} />
         </>

@@ -16,6 +16,12 @@ export function truthy(value: unknown): boolean {
  * "Gratuidade" é caso especial: cliente inadimplente com gratuidade liberada
  * — continua sendo monitorado normalmente (não é como Suspenso), só com
  * destaque visual amarelo (ver isGratuidade em utils/badges.ts). */
+export function isClienteAtivo(cliente: { estado?: string; status?: string }): boolean {
+  if (cliente.estado) return /^ativo$/i.test(cliente.estado.trim());
+  return /^(ativ|gratuidade)/i.test((cliente.status || '').trim());
+}
+
+/** @deprecated use isClienteAtivo; mantido para compatibilidade. */
 export function isStatusAtivo(status: string | undefined): boolean {
   return /^(ativ|gratuidade)/i.test((status || '').trim());
 }

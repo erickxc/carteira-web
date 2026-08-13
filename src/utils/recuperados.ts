@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, parseISO } from 'date-fns';
-import { isStatusAtivo } from './formatters';
+import { isClienteAtivo } from './formatters';
 import type { Cliente, EventoAgenda } from '../types';
 import type { Janela } from './periodo';
 
@@ -97,7 +97,7 @@ export function calcularRecuperados(
   const out: ClienteRecuperado[] = [];
 
   for (const c of clientes) {
-    if (!isStatusAtivo(c.status)) continue;
+    if (!isClienteAtivo(c)) continue;
 
     const entregas = (porCliente.get(c.id) ?? [])
       .map((e) => ({ ev: e, d: dataDe(e)! }))
@@ -184,7 +184,7 @@ export function calcularAindaSemAtendimento(
 
   const out: AindaSemAtendimento[] = [];
   for (const c of clientes) {
-    if (!isStatusAtivo(c.status)) continue;
+    if (!isClienteAtivo(c)) continue;
     const ultima = ultimaPorCliente.get(c.id) ?? null;
     if (!ultima) {
       // Nunca atendido: só conta se o cadastro já passou do limiar (cliente

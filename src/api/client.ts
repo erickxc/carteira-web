@@ -20,6 +20,15 @@ const API_ORIGIN = import.meta.env.DEV
   : '';
 const API_BASE = `${API_ORIGIN}/api`;
 
+export interface StatusBase {
+  ok: boolean;
+  updatedAt?: string;
+  checkedAt: string;
+  error?: string;
+}
+
+export const verificarStatusBase = () => request<StatusBase>('/status/base');
+
 async function tratarResposta<T>(res: Response): Promise<T> {
   if (!res.ok) {
     throw new Error(`Erro ${res.status} ao chamar ${res.url}`);
@@ -113,6 +122,8 @@ function deserializeCliente(raw: Record<string, unknown>): Cliente {
     servicosIndependentes: parseListaJSON<string>(raw.servicosIndependentes),
     contatos: parseListaJSON<Contato>(raw.contatos),
     observacao: (raw.observacao as string) ?? '',
+    // Compatibilidade com a base anterior, que usava status para estado.
+    estado: (raw.estado as string) ?? (/^(ativ|gratuidade)/i.test(String(raw.status ?? '')) ? 'Ativo' : 'Inativo'),
     monitor: (raw.monitor as string) ?? '',
     status: (raw.status as string) ?? '',
     tipoAnalise: (raw.tipoAnalise as Cliente['tipoAnalise']) || 'unitaria',

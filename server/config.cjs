@@ -27,7 +27,7 @@ const CEO_AGENDA_CALENDAR_ID = process.env.CEO_AGENDA_CALENDAR_ID || 'negocios@2
  * Não adicione fallback para pasta local aqui — se o OneDrive não estiver
  * disponível, o servidor deve falhar ao iniciar, não gravar em outro lugar.
  */
-const ONEDRIVE_ROOT = process.env.ONEDRIVE_ROOT || 'C:/Users/Monitor1-2D/OneDrive - 2dconsultores.com.br/01 - Marco + Monitores/6 - Erick';
+const ONEDRIVE_ROOT = process.env.ONEDRIVE_ROOT || 'C:/Users/Kerol/OneDrive - 2dconsultores.com.br/01 - Marco + Monitores/6 - Erick';
 const DATA_DIR = path.join(ONEDRIVE_ROOT, 'Carteira Web');
 // Credenciais OAuth (Google Cloud) usadas só para ler a Agenda do CEO — ficam
 // fora do repositório, junto com o resto dos dados sensíveis no OneDrive.
@@ -63,7 +63,7 @@ if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 // inteira com json_to_sheet(dados, { header }), então qualquer coluna fora
 // dessa lista era apagada de TODAS as linhas a cada save (`sala` é campo ativo,
 // gravado pelo EventFormModal — bug real de perda de dado, não só legado).
-const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'servicosIndependentes', 'contatos', 'observacao', 'status', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'lastPricing', 'userId', 'lojas', 'relatorioCadencia'];
+const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'servicosIndependentes', 'contatos', 'observacao', 'estado', 'status', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'lastPricing', 'userId', 'lojas', 'relatorioCadencia'];
 // `origem` = de quem partiu a interação ('nos' | 'cliente'). Vazio nos eventos
 // antigos (tratado como não informado, nunca como 'nos') — é o que permite
 // separar contato que NÓS fizemos de contato que o CLIENTE fez.
@@ -96,6 +96,8 @@ const CADENCIAS_SEED = [
   // Cadência-alvo por serviço (dias) — usada na fila de priorização por serviço.
   { chave: 'monitoria_dias', valor: 30 },
   { chave: 'price_dias', valor: 30 },
+  { chave: 'recontato_dias', valor: 5 },
+  { chave: 'peso_contato_recente', valor: 50 },
 ];
 
 // Modelos/materiais por segmento (o que enviar).
@@ -111,7 +113,7 @@ const MODELOS_SEED = [
 const CATEGORIAS_SEED = [
   ['servico', ['Monitoria', 'Precificação']],
   ['tipo_evento', ['Reunião', 'Contato', 'Relatório', 'Ligação']],
-  ['status_cliente', ['Ativo', 'Suspenso', 'Problemas Externos', 'Gratuidade', 'Atendido pelo Marco']],
+  ['status_cliente', ['Regular', 'Suspenso', 'Problemas Externos', 'Gratuidade', 'Atendido pelo Marco']],
   ['status_evento', ['Agendado', 'Concluído', 'Cancelado', 'Realizado', 'Reagendado']],
   ['monitor', ['Yann Cruz', 'Erick Cardoso', 'Karol Santana', 'Administrador']],
   ['tipo_lembrete', ['Contato', 'Reunião', 'Relatório', 'Alvo', 'Outro']],

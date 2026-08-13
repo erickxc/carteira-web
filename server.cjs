@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const cron = require('node-cron');
 
-const { HOST, PORT, DATA_DIR } = require('./server/config.cjs');
+const { HOST, PORT, DATA_DIR, DB_FILE } = require('./server/config.cjs');
 const { initDB } = require('./server/db.cjs');
 const { backupDiario } = require('./server/backup.cjs');
 const { registerUploads } = require('./server/routes/uploads.cjs');
@@ -15,6 +15,15 @@ app.use(cors({
   origin: [`http://${HOST}:5173`, 'http://localhost:5173', 'http://127.0.0.1:5173']
 }));
 app.use(express.json());
+
+app.get('/api/status/base', (_req, res) => {
+  try {
+    const stat = require('fs').statSync(DB_FILE);
+    res.json({ ok: true, updatedAt: stat.mtime.toISOString(), checkedAt: new Date().toISOString() });
+  } catch (err) {
+    res.status(503).json({ ok: false, error: err.message, checkedAt: new Date().toISOString() });
+  }
+});
 
 initDB();
 

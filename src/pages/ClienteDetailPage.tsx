@@ -17,7 +17,7 @@ import { RegistroContatoModal } from '../components/RegistroContatoModal';
 import { WhatsAppMensagemModal } from '../components/WhatsAppMensagemModal';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { Badge, Button, Card, Chip, Input, Textarea } from '../ui';
-import { ORIGEM_LABEL, type Contato, type EventoAgenda, type Lembrete } from '../types';
+import { CLIENTE_ESTADO_OPCOES, ORIGEM_LABEL, type Contato, type EventoAgenda, type Lembrete } from '../types';
 
 /** Mesma regra usada em src/components/agenda/CardEvento.tsx: concluído/realizado
  * ou cancelado/reagendado são status finais — fora isso, o evento ainda está
@@ -211,6 +211,14 @@ export default function ClienteDetailPage() {
                   options={(statusOpcoes.includes(cliente.status) || !cliente.status ? statusOpcoes : [...statusOpcoes, cliente.status]).map((s) => ({ value: s, label: s }))}
                   value={cliente.status}
                   onChange={(v) => atualizarCliente(cliente.id, { status: v as string })}
+                />
+              </div>
+              <div style={{ minWidth: 130 }}>
+                <Dropdown
+                  label="Estado"
+                  options={CLIENTE_ESTADO_OPCOES.map((e) => ({ value: e, label: e }))}
+                  value={cliente.estado || 'Ativo'}
+                  onChange={(v) => atualizarCliente(cliente.id, { estado: v as string })}
                 />
               </div>
               <Badge variant={clienteStatusBadge(cliente.status)}>{cliente.status || '—'}</Badge>

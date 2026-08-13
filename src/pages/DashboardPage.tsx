@@ -109,10 +109,12 @@ export default function DashboardPage() {
           total={d.aderencia.total}
           emDia={d.aderencia.emDia}
           agendaMarcada={d.aderencia.agendaMarcada}
+          contatoRecente={d.aderencia.contatoRecente}
           precisa={d.aderencia.precisa}
           pct={d.aderencia.pct}
           emDiaClientes={d.aderencia.emDiaClientes}
           agendaMarcadaClientes={d.aderencia.agendaMarcadaClientes}
+          contatoRecenteClientes={d.aderencia.contatoRecenteClientes}
           precisaClientes={d.aderencia.precisaClientes}
           filtroServico={d.filtroServicoAderencia}
           onFiltroServico={d.setFiltroServicoAderencia}

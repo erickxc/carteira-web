@@ -339,7 +339,7 @@ export default function AgendaPage() {
               onChange={setFMonitores}
             />
           )}
-          <div className="agenda-filtro-linha">
+          <div className="agenda-filtro-linha agenda-filtro-opcoes">
             <label className="check-row" style={{ fontSize: '0.85rem' }}>
               <input type="checkbox" checked={mostrarCancelados} onChange={(e) => setMostrarCancelados(e.target.checked)} /> Mostrar cancelados
             </label>
