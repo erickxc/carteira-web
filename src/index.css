@@ -473,14 +473,13 @@ textarea:focus-visible {
      título de cada grupo mais o gap. */
   height: calc(390px / var(--gauge-grupos, 3) - 26px);
   overflow-y: auto;
-  /* Scrollbar minimalista: fina, sem trilho visível, só o "dedo". */
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
+  /* Scrollbar totalmente escondida — tentamos "fina, só o dedo" antes, mas o
+     botão de seta do scrollbar nativo (Windows) não some só estilizando
+     track/thumb/scrollbar-button; a lista cortada na última linha já avisa
+     que tem mais conteúdo, então nem precisa de indicador visível. */
+  scrollbar-width: none;
 }
-.gauge-detalhe-col ul::-webkit-scrollbar { width: 4px; }
-.gauge-detalhe-col ul::-webkit-scrollbar-track { background: transparent; }
-.gauge-detalhe-col ul::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
-.gauge-detalhe-col ul::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+.gauge-detalhe-col ul::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .gauge-detalhe-col li { font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gauge-detalhe-vazio { display: block; height: calc(390px / var(--gauge-grupos, 3) - 26px); font-size: 0.8rem; color: var(--text-muted); }
 @media (prefers-reduced-motion: reduce) { .gauge-detalhe { transition: none; } }
@@ -599,7 +598,7 @@ textarea:focus-visible {
 .donut-legend { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 0.65rem; }
 .donut-legend li { display: flex; align-items: center; gap: 0.55rem; font-size: 0.875rem; }
 .donut-swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
-.donut-legend-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+.donut-legend-label { flex: 1; white-space: normal; color: var(--text-secondary); }
 /* min-width + right-align: sem isso, o número ("5" vs "37") tinha larguras
    diferentes e "empurrava" a coluna de % pra posições diferentes em cada
    linha — coluna de números ficava serrilhada/desalinhada entre as fatias. */
@@ -1190,7 +1189,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   gap: 2px;
   width: 100%;
   text-align: left;
-  padding: 6px 8px 6px 12px;
+  padding: 6px 22px 8px 12px;
   border: 1px solid var(--border);
   border-left: none;
   border-radius: 6px;
@@ -1225,15 +1224,20 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .calendar-chip.is-dragging { opacity: 0.4; }
 
 .calendar-chip .calendar-chip-title {
-  display: block;
+  min-height: 1em;
   font-size: 0.76rem;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text-primary);
   line-height: 1.3;
-  white-space: nowrap;
+  /* Antes: nowrap + ellipsis. Numa coluna estreita (mês com muitos dias),
+     nome comprido cortava até sobrar só "..." ou nada visível — deixa
+     quebrar em até 2 linhas em vez de truncar até desaparecer. */
+  white-space: normal;
   overflow: hidden;
-  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 /* Linha de meta do chip (serviço + monitor + ícones). `flex-wrap` porque a
    coluna do calendário é estreita (~150px): numa linha única o serviço era
@@ -1285,9 +1289,18 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .calendar-chip-ceo::before { background: #4285f4; }
 .calendar-chip-ceo:hover { background: color-mix(in srgb, #4285f4 18%, var(--card) 82%); border-color: #4285f4; }
 .calendar-chip-ceo .calendar-chip-type { color: #4285f4; }
+/* Fixo no canto superior direito do card, fora do fluxo do texto — padrão em
+   todo card do mês, não importa se o título quebra em 1 ou 2 linhas ou se a
+   linha de meta (tipo/monitor) cresce e empurra o resto pra baixo. Antes era
+   o último item da linha de meta com flex-wrap: crescia junto e acabava
+   cortado pela borda arredondada do card quando o conteúdo enchia a altura. */
 .calendar-chip-reagendar {
+  position: absolute;
+  top: 5px;
+  right: 5px;
   display: inline-flex; align-items: center; justify-content: center;
   width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0;
+  background: var(--card);
   color: var(--text-muted); cursor: pointer;
 }
 .calendar-chip-reagendar:hover { background: var(--accent-soft); color: var(--accent); }
@@ -1309,7 +1322,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .tab.is-active { background: var(--accent); color: #000; }
 
 /* --- Sub-abas (ex.: Monitoria/Price dentro de Acompanhamento) --- */
-.tabs-sub { background: transparent; border: none; padding: 0; gap: 6px; }
+.tabs-sub { background: transparent; border: none; padding-top: 0.75rem; border-top: 1px solid var(--border); gap: 10px; }
 .tabs-sub .tab {
   padding: 0.4rem 0.9rem;
   border: 1px solid var(--border);
@@ -1534,6 +1547,14 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .kanban-card.is-done .kanban-card-title { text-decoration: line-through; }
 .kanban-card.is-cancel { opacity: 0.55; }
 .kanban-card.is-cancel .kanban-card-title { text-decoration: line-through; }
+/* "Pendente": cinza neutro com borda pontilhada — nem bom (concluído) nem mau
+   (cancelado) sinal, só "ainda não confirmado". */
+.kanban-card.is-pendente {
+  background: var(--card);
+  border-style: dashed;
+  border-color: var(--border-strong);
+  border-left-color: var(--text-muted);
+}
 
 @media print {
   aside, .agenda-noprint, .tabs { display: none !important; }

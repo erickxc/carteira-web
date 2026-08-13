@@ -203,8 +203,9 @@ export interface EventoAgenda {
   resumo?: string;
   attachments: Anexo[];
   status: EventoStatus;
-  /** Monitor responsável por este evento (referência, vinda do CRUD de monitores). */
-  monitor?: string;
+  /** Monitores responsáveis por este evento (múltipla escolha, vindos do CRUD
+   * de monitores) — uma reunião pode ter mais de um monitor presente. */
+  monitores: string[];
   /** Motivo do reagendamento — obrigatório quando status = Reagendado. */
   motivo?: string;
   /** Sala da reunião (Nova Iorque/Paris/...) — só relevante quando type = Reunião.
@@ -227,9 +228,10 @@ export interface EventoAgenda {
   userId?: string;
 }
 
-export type NovoEvento = Omit<EventoAgenda, 'id' | 'createdAt' | 'attachments' | 'servicos'> & {
+export type NovoEvento = Omit<EventoAgenda, 'id' | 'createdAt' | 'attachments' | 'servicos' | 'monitores'> & {
   attachments?: Anexo[];
   servicos?: string[];
+  monitores?: string[];
 };
 
 // --- Lembretes ---
@@ -336,9 +338,9 @@ export interface Cadencias {
    * conta como "sendo tratado" — não some da carteira, só não entra em
    * "Precisa contato" nesse intervalo. Passado esse prazo, volta a precisar de ação. */
   recontato_dias: number;
-  /** Peso (0-100) do cliente em "Contato recente" na % central de "Carteira no
-   * Ritmo" — contato/ligação vale menos que reunião/relatório (que conta 100%
-   * como "Em dia"), mas não é zero: já está sendo tratado. */
+  /** Peso (0-100) do cliente em "Aguardando Retorno" na % central de "Carteira
+   * no Ritmo" — contato/ligação vale menos que reunião/relatório (que conta
+   * 100% como "Em dia"), mas não é zero: já está sendo tratado. */
   peso_contato_recente: number;
 }
 

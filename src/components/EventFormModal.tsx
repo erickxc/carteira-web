@@ -53,10 +53,15 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const [description, setDescription] = useState(initial?.description ?? '');
   const [status, setStatus] = useState(initial?.status ?? statusOpcoes[0] ?? 'Agendado');
   const [motivo, setMotivo] = useState(initial?.motivo ?? '');
-  // Default = monitor do cliente (o mais provável), editável.
-  const [monitor, setMonitor] = useState(
-    initial?.monitor ?? clientes.find((c) => c.id === (initial?.clientId ?? initialClientId))?.monitor ?? ''
-  );
+  // Default = monitor do cliente (o mais provável), editável. Múltipla
+  // escolha: mais de um monitor pode estar presente na mesma reunião.
+  const [monitores, setMonitores] = useState<string[]>(() => {
+    if (initial?.monitores && initial.monitores.length > 0) return initial.monitores;
+    const doCliente = clientes.find((c) => c.id === (initial?.clientId ?? initialClientId))?.monitor;
+    return doCliente ? [doCliente] : [];
+  });
+  const toggleMonitor = (m: string) =>
+    setMonitores((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
   const [servicos, setServicos] = useState<string[]>(initial?.servicos ?? []);
   const [sala, setSala] = useState(initial?.sala ?? '');
   // Contato/Ligação criados aqui são, por definição, iniciativa nossa (quem
@@ -110,7 +115,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     {
       clientName: clienteSelecionado?.empresa ?? '',
       date: dataSegura.toISOString(),
-      time, duracao, type, sala, monitor, subject, servicos,
+      time, duracao, type, sala, monitores, subject, servicos,
       checklist: ck.checklist, resumo, description,
     },
     { cliente: clienteSelecionado }
@@ -119,10 +124,18 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   // Conflito de MONITOR: só Reunião ocupa horário de fato (é a única que trava
   // a agenda do monitor) — Contato/Relatório/Ligação são registros rápidos e
   // podem coexistir com qualquer outra coisa no mesmo dia/hora, inclusive entre
-  // si. Por isso o conflito só existe quando AMBOS os lados são Reunião.
-  const conflitoMonitor = ehReuniao && Boolean(monitor) && agenda.some((a) =>
-    a.id !== initial?.id && a.monitor === monitor && /reuni/i.test(a.type) && !naoOcupaHorario(a) && mesmoDiaHora(a)
-  );
+  // si. Por isso o conflito só existe quando AMBOS os lados são Reunião. Com
+  // múltiplos monitores, conflita se QUALQUER monitor em comum já está ocupado.
+  const monitorConflitante = ehReuniao && monitores.length > 0
+    ? agenda.find((a) =>
+        a.id !== initial?.id && /reuni/i.test(a.type) && !naoOcupaHorario(a) && mesmoDiaHora(a)
+        && (a.monitores ?? []).some((m) => monitores.includes(m))
+      )
+    : undefined;
+  const conflitoMonitor = Boolean(monitorConflitante);
+  const nomeMonitorConflitante = monitorConflitante
+    ? (monitorConflitante.monitores ?? []).find((m) => monitores.includes(m))
+    : undefined;
   // Conflito de SALA: a mesma sala não pode ter 2 reuniões no mesmo dia/horário
   // (recurso físico único), independente do monitor.
   const conflitoSala = ehReuniao && Boolean(sala) && agenda.some((a) =>
@@ -154,7 +167,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     if (/reagend/i.test(statusFinalPre) && !motivo.trim()) { toastError('Informe o motivo do reagendamento.'); return; }
     // Bloqueia de verdade (não só avisa): mesmo monitor ou mesma sala não podem
     // ocupar o mesmo dia/horário duas vezes.
-    if (conflitoMonitor) { toastError(`${monitor} já tem outro evento marcado nesse dia e horário.`); return; }
+    if (conflitoMonitor) { toastError(`${nomeMonitorConflitante} já tem outro evento marcado nesse dia e horário.`); return; }
     if (conflitoSala) { toastError(`A sala "${sala}" já está ocupada nesse dia e horário.`); return; }
     const statusFinal = statusOverride ?? status;
     setSaving(true);
@@ -163,7 +176,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
       const comum = {
         clientId, clientName: cliente.empresa, subject, type, time,
         duracao: duracao || undefined, description, status: statusFinal, servicos, preAnalise: pa.preAnalise, resumo,
-        monitor: monitor || undefined,
+        monitores,
         sala: ehReuniao ? (sala || undefined) : undefined,
         motivo: /reagend/i.test(statusFinal) ? motivo : undefined,
         // Só faz sentido em interação pontual (Contato/Ligação): reunião e
@@ -175,7 +188,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
       const ataDe = (iso: string, cl: EventoAgenda['checklist']) =>
         modoSimples ? '' : (ata.trim() ? ata : gerarAta(
           {
-            clientName: cliente.empresa, date: iso, time, duracao, type, sala, monitor, subject, servicos,
+            clientName: cliente.empresa, date: iso, time, duracao, type, sala, monitores, subject, servicos,
             checklist: cl, resumo, description,
           },
           { cliente }
@@ -266,11 +279,16 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
               <ClienteCombobox clientes={clientes} value={clientId} onChange={setClientId} tone="modal" />
             </Field>
 
-            <Field label="Monitor">
-              <Select tone="modal" value={monitor} onChange={(e) => setMonitor(e.target.value)}>
-                <option value="">— nenhum —</option>
-                {monitorOpcoes.map((m) => (<option key={m} value={m}>{m}</option>))}
-              </Select>
+            <Field as="div" label="Monitor(es)">
+              {monitorOpcoes.length === 0 ? (
+                <p className="text-text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>Nenhum monitor cadastrado — adicione em Configurações.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {monitorOpcoes.map((m) => (
+                    <Chip variant="toggle" key={m} active={monitores.includes(m)} onClick={() => toggleMonitor(m)}>{m}</Chip>
+                  ))}
+                </div>
+              )}
             </Field>
 
             {!modoSimples && (
@@ -326,7 +344,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
 
             {conflitoMonitor && (
               <Badge variant="danger" style={{ marginBottom: 8 }}>
-                <AlertTriangle size={12} /> {monitor} já tem outro evento nesse dia e horário — não vai dar pra salvar.
+                <AlertTriangle size={12} /> {nomeMonitorConflitante} já tem outro evento nesse dia e horário — não vai dar pra salvar.
               </Badge>
             )}
             {conflitoSala && (
@@ -401,7 +419,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                     {
                       clientName: clienteSelecionado?.empresa ?? '',
                       date: dataSegura.toISOString(),
-                      time, duracao, type, status, subject, servicos, sala, monitor,
+                      time, duracao, type, status, subject, servicos, sala, monitores,
                       checklist: ck.checklist, preAnalise: pa.preAnalise, resumo,
                       ata: ata.trim() ? ata : ataAuto,
                       description,

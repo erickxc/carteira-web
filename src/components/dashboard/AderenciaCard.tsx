@@ -37,8 +37,8 @@ export function AderenciaCard({ total, emDia, agendaMarcada, contatoRecente, pre
         <h3>Carteira no Ritmo</h3>
         <span className="text-text-muted" style={{ fontSize: 12 }}>{total} clientes</span>
       </div>
-      <p className="text-text-muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 12, lineHeight: 1.4, minHeight: '2.8em' }}>
-        Clientes com Monitoria/Price <strong>em dia</strong>, <strong>com agenda marcada</strong>, <strong>contatados recentemente</strong> (aguardando retorno) ou <strong>atrasados</strong> na cadência.
+      <p className="text-text-muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 12, lineHeight: 1.4 }}>
+        Situação da carteira na cadência de Monitoria/Price.
       </p>
       <div className="gauge-card-filtros flex flex-wrap gap-[0.4rem] mb-4">
         {SERVICOS.map((s) => (
@@ -52,10 +52,10 @@ export function AderenciaCard({ total, emDia, agendaMarcada, contatoRecente, pre
           items={[
             { label: 'Em dia', value: emDia },
             { label: 'Agenda marcada', value: agendaMarcada },
-            { label: 'Contato recente', value: contatoRecente },
+            { label: 'Aguardando Retorno', value: contatoRecente },
             { label: 'Precisa contato', value: precisa },
           ]}
-          colors={['var(--success)', 'var(--warning)', 'var(--accent)', 'var(--danger)']}
+          colors={['var(--success)', 'var(--warning)', '#6f8cc4', 'var(--danger)']}
           centerValue={`${pct}%`}
           centerLabel="em dia"
           size={96}
@@ -70,7 +70,7 @@ export function AderenciaCard({ total, emDia, agendaMarcada, contatoRecente, pre
           <GaugeDetalhe aberto={aberto} grupos={[
             { label: 'Em dia', cor: 'var(--success)', clientes: emDiaClientes },
             { label: 'Agenda marcada', cor: 'var(--warning)', clientes: agendaMarcadaClientes },
-            { label: 'Contato recente', cor: 'var(--accent)', clientes: contatoRecenteClientes },
+            { label: 'Aguardando Retorno', cor: '#6f8cc4', clientes: contatoRecenteClientes },
             { label: 'Precisa contato', cor: 'var(--danger)', clientes: precisaClientes },
           ]} />
         </>

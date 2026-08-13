@@ -57,7 +57,8 @@ export function gerarAta(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}): stri
   // --- Cabeçalho ---
   L.push(`${tipo} ${TRACO} ${ev.clientName ?? ''}`.trim());
   L.push([data, horario, ev.sala ? `Sala ${ev.sala}` : ''].filter(Boolean).join(' · '));
-  if (ev.monitor) L.push(`Monitor: ${ev.monitor}`);
+  const monitores = ev.monitores ?? [];
+  if (monitores.length > 0) L.push(`Monitor${monitores.length > 1 ? 'es' : ''}: ${monitores.join(', ')}`);
   const servicos = ev.servicos ?? [];
   if (servicos.length > 0) L.push(`Serviços tratados: ${servicos.join(', ')}`);
   if (ev.subject?.trim()) L.push(`Assunto: ${ev.subject.trim()}`);
@@ -73,7 +74,7 @@ export function gerarAta(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}): stri
   })();
   const participantes = [
     ...doCliente.map((p) => `${p} ${TRACO} ${ev.clientName ?? 'cliente'}`),
-    ...(ev.monitor ? [`${ev.monitor} ${TRACO} 2D Consultores`] : []),
+    ...monitores.map((m) => `${m} ${TRACO} 2D Consultores`),
   ];
   if (participantes.length > 0) {
     L.push('', 'PARTICIPANTES');

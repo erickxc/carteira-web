@@ -83,6 +83,12 @@ export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, his
               <span style={{ color: COR_TEXTO[r.status], fontWeight: r.status === 'vencido' || r.status === 'nunca' ? 600 : 400 }}>{rotuloRelogio(r)}</span>
             </span>
           ))}
+          {/* Relógio por serviço já mostra o atraso da CADÊNCIA (reunião/relatório),
+              mas não necessariamente a última interação de verdade (ex.: um Contato
+              leve não zera o relógio) — esta linha mostra isso à parte. */}
+          <span className="text-text-muted" style={{ fontSize: 11.5 }}>
+            {ultimoContato ? `Últ. contato há ${Math.max(0, Math.floor((Date.now() - ultimoContato.getTime()) / 86400000))} dias` : 'Sem registro de contato'}
+          </span>
         </div>
       ) : (
         <div className="acao-card-info">

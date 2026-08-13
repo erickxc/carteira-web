@@ -138,7 +138,7 @@ export function calcularRecuperados(
         entrega: {
           tipo: atual.ev.type || 'Reunião',
           data: atual.d,
-          monitor: atual.ev.monitor || c.monitor || '',
+          monitor: (atual.ev.monitores ?? []).join(', ') || c.monitor || '',
         },
         motivo,
       };

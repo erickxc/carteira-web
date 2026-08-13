@@ -62,9 +62,12 @@ export function sugerirAgenda(
     if (!/reuni/i.test(e.type || '') || naoOcupa(e)) continue;
     const d = e.date ? new Date(e.date) : null;
     if (!d || isNaN(d.getTime())) continue;
-    const chaveDia = `${format(d, 'yyyy-MM-dd')}|${e.monitor ?? ''}`;
-    cargaPorDia.set(chaveDia, (cargaPorDia.get(chaveDia) ?? 0) + 1);
-    if (e.time) ocupados.add(`${format(d, 'yyyy-MM-dd')}|${e.time}|${e.monitor ?? ''}`);
+    const monitoresEv = e.monitores && e.monitores.length > 0 ? e.monitores : [''];
+    monitoresEv.forEach((mon) => {
+      const chaveDia = `${format(d, 'yyyy-MM-dd')}|${mon}`;
+      cargaPorDia.set(chaveDia, (cargaPorDia.get(chaveDia) ?? 0) + 1);
+      if (e.time) ocupados.add(`${format(d, 'yyyy-MM-dd')}|${e.time}|${mon}`);
+    });
   }
 
   // Dias úteis candidatos, a partir de amanhã (hoje já está em andamento).

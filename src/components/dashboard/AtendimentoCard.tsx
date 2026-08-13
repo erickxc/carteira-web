@@ -71,11 +71,13 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
     return m;
   }, [clientes]);
 
+  // Monitor(es) do EVENTO quando informado; senão o do cliente (eventos
+  // antigos/sem monitor próprio não descartam o registro do gráfico).
+  const combinaMonitor = (monitores: string[] | undefined, clientId: string) =>
+    monitores && monitores.length > 0 ? monitores.includes(monitor) : monitorPorCliente.get(clientId) === monitor;
+
   const filtrada = useMemo(() => agenda.filter((e) => {
-    if (monitor) {
-      const responsavel = e.monitor || monitorPorCliente.get(e.clientId) || '';
-      if (responsavel !== monitor) return false;
-    }
+    if (monitor && !combinaMonitor(e.monitores, e.clientId)) return false;
     return dentroDaJanela(e.date, janela);
   }), [agenda, janela, monitor, monitorPorCliente]);
 
@@ -101,7 +103,7 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
    */
   const serie = useMemo(() => {
     const porMonitorEv = monitor
-      ? agenda.filter((e) => (e.monitor || monitorPorCliente.get(e.clientId) || '') === monitor)
+      ? agenda.filter((e) => combinaMonitor(e.monitores, e.clientId))
       : agenda;
     const porMonitorAc = monitor
       ? acoes.filter((a) => (a.monitor || monitorPorCliente.get(a.clientId) || '') === monitor)

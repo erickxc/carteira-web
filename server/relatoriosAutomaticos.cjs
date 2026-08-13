@@ -27,7 +27,7 @@ function criarEventoRelatorio(cliente, data) {
     time: '',
     description: '',
     status: 'Agendado',
-    monitor: cliente.monitor || undefined,
+    monitores: JSON.stringify(cliente.monitor ? [cliente.monitor] : []),
     servicos: JSON.stringify([]),
     checklist: JSON.stringify([]),
     preAnalise: JSON.stringify({ orientacoes: [], clientesGeral: '', produtosGeral: '' }),

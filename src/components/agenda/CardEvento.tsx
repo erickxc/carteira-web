@@ -20,19 +20,25 @@ interface CardEventoProps {
 export function CardEvento({ ev, isDragging, hasConflito, onDragStart, onDragEnd, onClick, onConcluir, onReagendar }: CardEventoProps) {
   const isDone = /conclu|realiz/i.test(ev.status);
   const isCancel = /cancel|reagend/i.test(ev.status);
+  const isPendente = /pendente/i.test(ev.status);
   // Fundo pastel sólido cobrindo o card inteiro (verde concluído / vermelho
   // cancelado) vence a cor de fundo do tipo. A barra lateral (borderLeftColor)
   // continua sempre com a cor do TIPO (Reunião/Contato/Ligação/Relatório) —
   // status é o fundo, tipo é a barra, nunca os dois disputando a mesma cor.
+  // "Pendente" é neutro (cinza, borda pontilhada) em vez de pastel — não é bom
+  // nem mau sinal como concluído/cancelado, só "ainda não confirmado". A cor
+  // vem toda do CSS (.is-pendente), não daqui.
   const background = isDone
     ? 'var(--success-pastel-bg)'
     : isCancel
       ? 'var(--danger-pastel-bg)'
-      : corTipoBg(ev.type);
+      : isPendente
+        ? undefined
+        : corTipoBg(ev.type);
   return (
     <button
-      className={`kanban-card${isDragging ? ' is-dragging' : ''}${isDone ? ' is-done' : ''}${isCancel ? ' is-cancel' : ''}`}
-      style={{ borderLeftColor: corTipo(ev.type), borderLeftWidth: 5, background }}
+      className={`kanban-card${isDragging ? ' is-dragging' : ''}${isDone ? ' is-done' : ''}${isCancel ? ' is-cancel' : ''}${isPendente ? ' is-pendente' : ''}`}
+      style={{ borderLeftColor: isPendente ? undefined : corTipo(ev.type), borderLeftWidth: 5, background }}
       draggable
       onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); onDragStart(); }}
       onDragEnd={onDragEnd}
@@ -52,7 +58,7 @@ export function CardEvento({ ev, isDragging, hasConflito, onDragStart, onDragEnd
         {/reuni/i.test(ev.type) && ev.servicos.length > 0 ? ev.servicos.join(', ') : ev.type}
         {ev.checklist && ev.checklist.length > 0 ? ` · ☑ ${ev.checklist.filter((c) => c.done).length}/${ev.checklist.length}` : ''}
       </span>
-      {ev.monitor && <span className="kanban-card-sub chip-monitor"><User size={11} /> {ev.monitor}</span>}
+      {ev.monitores.length > 0 && <span className="kanban-card-sub chip-monitor"><User size={11} /> {ev.monitores.join(', ')}</span>}
     </button>
   );
 }

@@ -42,7 +42,7 @@ export default function RelatoriosPage() {
     const servicos = new Set<string>(), monitores = new Set<string>(), status = new Set<string>();
     relatorios.forEach((e) => {
       (e.servicos ?? []).forEach((s) => servicos.add(s));
-      if (e.monitor) monitores.add(e.monitor);
+      (e.monitores ?? []).forEach((m) => monitores.add(m));
       if (e.status) status.add(e.status);
     });
     const ord = (set: Set<string>) => [...set].sort();
@@ -57,7 +57,7 @@ export default function RelatoriosPage() {
         if (d.getFullYear() !== ano) return false;
         if (mes !== 'todos' && d.getMonth() !== Number(mes)) return false;
         if (fStatus.length && !fStatus.includes(e.status)) return false;
-        if (fMonitores.length && !fMonitores.includes(e.monitor || '')) return false;
+        if (fMonitores.length && !(e.monitores ?? []).some((m) => fMonitores.includes(m))) return false;
         if (fServicos.length && !(e.servicos ?? []).some((s) => fServicos.includes(s))) return false;
         return true;
       })
@@ -74,7 +74,7 @@ export default function RelatoriosPage() {
       Tipo: e.type || '',
       Serviços: (e.servicos ?? []).join(', '),
       Status: e.status || '',
-      Monitor: e.monitor || '',
+      Monitor: (e.monitores ?? []).join(', '),
       Assunto: e.subject || '',
       'Duração (min)': e.duracao ?? '',
       Observação: e.description || '',
@@ -144,7 +144,7 @@ export default function RelatoriosPage() {
                     <Td>{e.type || '—'}</Td>
                     <Td className="text-text-muted">{(e.servicos ?? []).join(', ') || '—'}</Td>
                     <Td>{e.status || '—'}</Td>
-                    <Td className="text-text-muted">{e.monitor || '—'}</Td>
+                    <Td className="text-text-muted">{(e.monitores ?? []).join(', ') || '—'}</Td>
                     <Td className="text-text-muted" style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.subject || '—'}</Td>
                   </tr>
                 ))}

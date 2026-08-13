@@ -32,7 +32,8 @@ export interface FilaCadItem {
 
 /** Dias antes de vencer em que já sinalizamos "vencendo" (amarelo). */
 const JANELA_VENCENDO = 5;
-/** Peso para colocar "nunca atendido" no topo da fila. */
+/** Deslocamento pra jogar itens "cobertos" (já com ação futura marcada) pro
+ * fim da fila — não precisam de ação, então nunca competem por prioridade. */
 const PESO_NUNCA = 100000;
 
 function temServico(c: Cliente, re: RegExp, flag: keyof Cliente): boolean {
@@ -112,6 +113,7 @@ function calcularRelogio(
   ehToque: (a: EventoAgenda) => boolean,
   cadencia: number,
   now: Date,
+  desde: Date,
   janelaVencendo: number = JANELA_VENCENDO
 ): RelogioServico {
   // "Último" = histórico real do serviço (só o que de fato tratou aquele serviço).
@@ -129,7 +131,15 @@ function calcularRelogio(
   let atrasoReal: number;
   if (!ultimo) {
     statusReal = 'nunca';
-    atrasoReal = PESO_NUNCA;
+    // Atraso de "nunca atendido" medido em dias reais desde que o cliente
+    // entrou na carteira (não mais um peso fixo artificial) — senão um
+    // cliente com 1 serviço em dia + 1 nunca atendido pulava pra frente de
+    // quem está vencido há mais de 100 dias NOS DOIS serviços, só porque
+    // "nunca" usava um número gigante deslocado da escala de dias real.
+    // Aqui "nunca" ainda entra no bloco "vencido" (ver classificarCadencia),
+    // só a ORDEM dentro do bloco passa a respeitar dias reais de espera.
+    const referencia = !isNaN(desde.getTime()) ? desde : now;
+    atrasoReal = differenceInCalendarDays(now, referencia) - cadencia;
   } else {
     atrasoReal = differenceInCalendarDays(now, ultimo) - cadencia;
     statusReal = atrasoReal > 0 ? 'vencido' : atrasoReal > -janelaVencendo ? 'vencendo' : 'em_dia';
@@ -193,10 +203,11 @@ export function buildFilaCadencia(
   for (const c of clientes) {
     if (!isClienteAtivo(c)) continue;
     const evs = porCliente.get(c.id) ?? [];
+    const desde = c.createdAt ? parseISO(c.createdAt) : now;
 
     const relogios: RelogioServico[] = [];
-    if (temServico(c, /monitor/i, 'monitoria') && !ehIndependente(c, /monitor/i)) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now));
-    if (temServico(c, /(price|prec)/i, 'price') && !ehIndependente(c, /(price|prec)/i)) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now));
+    if (temServico(c, /monitor/i, 'monitoria') && !ehIndependente(c, /monitor/i)) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, desde));
+    if (temServico(c, /(price|prec)/i, 'price') && !ehIndependente(c, /(price|prec)/i)) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now, desde));
     if (relogios.length === 0) continue; // sem serviço cadastrado (ou só independentes) → fora do modelo
     const score = Math.max(...relogios.map((r) => r.atraso));
     const precisaAcao = relogios.some((r) => r.status === 'vencido' || r.status === 'vencendo' || r.status === 'nunca');
@@ -204,10 +215,19 @@ export function buildFilaCadencia(
   }
 
   const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now });
+  // Quantos relógios do cliente pedem ação (vencido/vencendo/nunca) — atrasado
+  // em 2 serviços é pior que atrasado em 1, mesmo que o pior atraso (score)
+  // dos dois dê um número parecido ou até maior no de 1 só. Checado ANTES do
+  // score: sem isso, um cliente com só 1 serviço ruim podia ficar na frente de
+  // quem está ruim nos dois só por aquele 1 serviço estar mais atrasado.
+  const qtdRuins = (f: FilaCadItem) => f.relogios.filter((r) => r.status === 'vencido' || r.status === 'vencendo' || r.status === 'nunca').length;
   return out.sort((a, b) => {
     const rankA = RANK_SEVERIDADE[classificarCadencia(a)];
     const rankB = RANK_SEVERIDADE[classificarCadencia(b)];
     if (rankA !== rankB) return rankA - rankB;
+    const qtdA = qtdRuins(a);
+    const qtdB = qtdRuins(b);
+    if (qtdA !== qtdB) return qtdB - qtdA;
     const ultimoA = ultimaInteracaoMap.get(a.cliente.id) ?? null;
     const ultimoB = ultimaInteracaoMap.get(b.cliente.id) ?? null;
     const recA = contatoRecenteNaoRefletido(a.relogios, ultimoA);
@@ -261,12 +281,13 @@ export function buildVencendoDashboard(
   for (const c of clientes) {
     if (!isClienteAtivo(c)) continue;
     const evs = porCliente.get(c.id) ?? [];
+    const desde = c.createdAt ? parseISO(c.createdAt) : now;
 
     const relogios: RelogioServico[] = [];
-    if (temServico(c, /monitor/i, 'monitoria') && !ehIndependente(c, /monitor/i)) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, janelaVencendo));
-    if (temServico(c, /(price|prec)/i, 'price') && !ehIndependente(c, /(price|prec)/i)) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now, janelaVencendo));
+    if (temServico(c, /monitor/i, 'monitoria') && !ehIndependente(c, /monitor/i)) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, desde, janelaVencendo));
+    if (temServico(c, /(price|prec)/i, 'price') && !ehIndependente(c, /(price|prec)/i)) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now, desde, janelaVencendo));
     const relatorioDias = relatorioCadenciaEmDias(c.relatorioCadencia, relatorioDiasPadrao);
-    relogios.push(calcularRelogio('Relatório', evs, ehToqueRelatorio, relatorioDias, now, janelaVencendo));
+    relogios.push(calcularRelogio('Relatório', evs, ehToqueRelatorio, relatorioDias, now, desde, janelaVencendo));
 
     out.push({ cliente: c, relogios });
   }

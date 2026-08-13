@@ -67,7 +67,7 @@ const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', '
 // `origem` = de quem partiu a interação ('nos' | 'cliente'). Vazio nos eventos
 // antigos (tratado como não informado, nunca como 'nos') — é o que permite
 // separar contato que NÓS fizemos de contato que o CLIENTE fez.
-const AGENDA_HEADERS = ['id', 'createdAt', 'clientId', 'clientName', 'type', 'subject', 'date', 'time', 'duracao', 'description', 'status', 'motivo', 'monitor', 'sala', 'origem', 'reagendamentos', 'servicos', 'checklist', 'preAnalise', 'ata', 'resumo', 'serie', 'attachments', 'userId', 'notifiedDay', 'notes'];
+const AGENDA_HEADERS = ['id', 'createdAt', 'clientId', 'clientName', 'type', 'subject', 'date', 'time', 'duracao', 'description', 'status', 'motivo', 'monitores', 'sala', 'origem', 'reagendamentos', 'servicos', 'checklist', 'preAnalise', 'ata', 'resumo', 'serie', 'attachments', 'userId', 'notifiedDay', 'notes'];
 const LEMBRETES_HEADERS = ['id', 'createdAt', 'title', 'datetime', 'description', 'status', 'clientId', 'eventId', 'recurrence', 'type', 'userId'];
 const CATEGORIAS_HEADERS = ['id', 'tipo', 'valor', 'ordem', 'createdAt'];
 const ACOES_HEADERS = ['id', 'clientId', 'tipo', 'segmento', 'status', 'servico', 'monitor', 'notes', 'dueAt', 'createdAt', 'updatedAt'];
@@ -114,7 +114,7 @@ const CATEGORIAS_SEED = [
   ['servico', ['Monitoria', 'Precificação']],
   ['tipo_evento', ['Reunião', 'Contato', 'Relatório', 'Ligação']],
   ['status_cliente', ['Regular', 'Suspenso', 'Problemas Externos', 'Gratuidade', 'Atendido pelo Marco']],
-  ['status_evento', ['Agendado', 'Concluído', 'Cancelado', 'Realizado', 'Reagendado']],
+  ['status_evento', ['Agendado', 'Pendente', 'Concluído', 'Cancelado', 'Realizado', 'Reagendado']],
   ['monitor', ['Yann Cruz', 'Erick Cardoso', 'Karol Santana', 'Administrador']],
   ['tipo_lembrete', ['Contato', 'Reunião', 'Relatório', 'Alvo', 'Outro']],
 ];

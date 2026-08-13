@@ -15,8 +15,8 @@ const CADENCIA_CAMPOS: { chave: keyof Cadencias; label: string; ajuda: string; m
   { chave: 'relatorio_dias', label: 'Relatório a cada (dias)', ajuda: 'Sugere envio de relatório do período após este intervalo sem contato.' },
   { chave: 'esfriando_dias', label: 'Esfriando após (dias)', ajuda: 'Cliente sem contato há mais que isso entra no segmento Esfriando.' },
   { chave: 'primeiro_contato_dias', label: 'Primeiro contato (dias)', ajuda: 'Janela alvo para buscar clientes nunca atendidos.' },
-  { chave: 'recontato_dias', label: 'Aguardando retorno (dias)', ajuda: 'Depois de um contato/ligação sem resposta, o cliente fica nessa janela como "Contato recente" em vez de "Precisa contato".' },
-  { chave: 'peso_contato_recente', label: 'Peso do contato recente (%)', ajuda: 'Quanto "Contato recente" pesa na % de "Carteira no Ritmo" — 100 conta igual reunião/relatório, 0 não conta nada na %.', min: 0, max: 100 },
+  { chave: 'recontato_dias', label: 'Aguardando retorno (dias)', ajuda: 'Depois de um contato/ligação sem resposta, o cliente fica nessa janela como "Aguardando Retorno" em vez de "Precisa contato".' },
+  { chave: 'peso_contato_recente', label: 'Peso de Aguardando Retorno (%)', ajuda: 'Quanto "Aguardando Retorno" pesa na % de "Carteira no Ritmo" — 100 conta igual reunião/relatório, 0 não conta nada na %.', min: 0, max: 100 },
 ];
 
 const SEGMENTOS: Segmento[] = ['engajado', 'esfriando', 'frio'];

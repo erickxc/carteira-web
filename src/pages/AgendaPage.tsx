@@ -134,10 +134,12 @@ export default function AgendaPage() {
   const conflitos = useMemo(() => {
     const m = new Map<string, string[]>();
     agendaFiltrada.forEach((a) => {
-      if (!a.time || !a.monitor || /cancel|reagend/i.test(a.status || '')) return;
-      const k = `${format(parseISO(a.date), 'yyyy-MM-dd')}|${a.time}|${a.monitor}`;
-      if (!m.has(k)) m.set(k, []);
-      m.get(k)!.push(a.id);
+      if (!a.time || /cancel|reagend/i.test(a.status || '')) return;
+      (a.monitores ?? []).forEach((mon) => {
+        const k = `${format(parseISO(a.date), 'yyyy-MM-dd')}|${a.time}|${mon}`;
+        if (!m.has(k)) m.set(k, []);
+        m.get(k)!.push(a.id);
+      });
     });
     const s = new Set<string>();
     m.forEach((ids) => { if (ids.length > 1) ids.forEach((id) => s.add(id)); });
@@ -288,7 +290,7 @@ export default function AgendaPage() {
                     <strong className="agenda-ticker-name">{ev.clientName}</strong>
                     <span className="agenda-ticker-meta">
                       {ev.time ? `${ev.time}` : ''}{ev.subject || ev.type ? `${ev.time ? ' · ' : ''}${ev.subject || ev.type}` : ''}
-                      {ev.monitor && <span className="chip-monitor"> · <User size={10} /> {ev.monitor}</span>}
+                      {ev.monitores.length > 0 && <span className="chip-monitor"> · <User size={10} /> {ev.monitores.join(', ')}</span>}
                     </span>
                     {conflitos.has(ev.id) && <AlertTriangle size={12} className="text-[color:var(--danger)] shrink-0" />}
                   </button>
@@ -396,7 +398,7 @@ export default function AgendaPage() {
                           draggable onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); setDraggedId(ev.id); }}
                           onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
                           onClick={() => setModalState({ editing: ev })}
-                          title={`${ev.clientName} — ${ev.subject || ev.type}${ev.time ? ' ' + ev.time : ''}${ev.servicos.length > 0 ? ' · ' + ev.servicos.join(', ') : ''}${ev.monitor ? ' · Monitor: ' + ev.monitor : ''} · clique para editar/reagendar (ou arraste para outro dia)`}>
+                          title={`${ev.clientName} — ${ev.subject || ev.type}${ev.time ? ' ' + ev.time : ''}${ev.servicos.length > 0 ? ' · ' + ev.servicos.join(', ') : ''}${ev.monitores.length > 0 ? ' · Monitor: ' + ev.monitores.join(', ') : ''} · clique para editar/reagendar (ou arraste para outro dia)`}>
                           <span className="calendar-chip-title">{ev.time ? `${ev.time} ` : ''}{ev.clientName}</span>
                           <span className="calendar-chip-meta">
                             {/* Reunião: a cor da barra lateral já indica o tipo — mostrar o
@@ -410,7 +412,7 @@ export default function AgendaPage() {
                                 ? (ev.servicos.length > 1 ? `${ev.servicos[0]} +${ev.servicos.length - 1}` : ev.servicos[0])
                                 : ev.type}
                             </span>
-                            {ev.monitor && <span className="chip-monitor"><User size={10} /> {ev.monitor}</span>}
+                            {ev.monitores.length > 0 && <span className="chip-monitor"><User size={10} /> {ev.monitores.join(', ')}</span>}
                             {(ev.reagendamentos ?? 0) > 0 && (
                               <span
                                 className="chip-remarcada"

@@ -16,9 +16,23 @@ export function truthy(value: unknown): boolean {
  * "Gratuidade" é caso especial: cliente inadimplente com gratuidade liberada
  * — continua sendo monitorado normalmente (não é como Suspenso), só com
  * destaque visual amarelo (ver isGratuidade em utils/badges.ts). */
+// Lista BRANCA dos valores de `status` que ainda contam como "em atendimento"
+// quando `estado` já diz "Ativo" — Suspenso/Atendido pelo Marco/Problemas
+// Externos (e qualquer status novo cadastrado depois) ficam fora por padrão.
+// Inclui "ativ" (prefixo) pro valor LEGADO "Ativo" — `deserializeCliente`
+// (src/api/client.ts) sempre preenche `estado` com um fallback calculado a
+// partir do `status` antigo quando a planilha não tem a coluna `estado`
+// ainda, então `cliente.estado` nunca chega undefined aqui; sem "ativ" na
+// whitelist, todo cliente legado (status="Ativo", nunca migrado pra
+// "Regular") era excluído — bug real, quase zerou a carteira em produção.
+// Bug original (antes desse ajuste) corrigido do mesmo jeito: "Atendido pelo
+// Marco" com estado="Ativo" entrava como ativo normal só por checar estado.
+const STATUS_EM_ATENDIMENTO = /^(ativo|regular|gratuidade)?$/i;
+
 export function isClienteAtivo(cliente: { estado?: string; status?: string }): boolean {
-  if (cliente.estado) return /^ativo$/i.test(cliente.estado.trim());
-  return /^(ativ|gratuidade)/i.test((cliente.status || '').trim());
+  const status = (cliente.status || '').trim();
+  if (cliente.estado) return /^ativo$/i.test(cliente.estado.trim()) && STATUS_EM_ATENDIMENTO.test(status);
+  return /^(ativ|gratuidade)/i.test(status);
 }
 
 /** @deprecated use isClienteAtivo; mantido para compatibilidade. */

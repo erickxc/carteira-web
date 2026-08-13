@@ -93,10 +93,11 @@ export function gerarAtaPdf(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}) {
       ? contatos.filter((c) => (c.servicos ?? []).length === 0 || (c.servicos ?? []).some((s) => servicosEv.includes(s)))
       : contatos
   ).map((c) => (c.cargo ? `${c.nome} (${c.cargo})` : c.nome));
-  if (doCliente.length > 0 || ev.monitor) {
+  const monitoresEv = ev.monitores ?? [];
+  if (doCliente.length > 0 || monitoresEv.length > 0) {
     h2('Participantes');
     doCliente.forEach((p) => par(`• ${p} — ${ev.clientName ?? 'cliente'}`, 3));
-    if (ev.monitor) par(`• ${ev.monitor} — 2D Consultores`, 3);
+    monitoresEv.forEach((m) => par(`• ${m} — 2D Consultores`, 3));
   }
 
   // --- 1. Pauta ---

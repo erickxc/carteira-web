@@ -89,7 +89,7 @@ export function RegistroContatoModal({ clienteId, onClose }: RegistroContatoModa
         status: statusConcluido, // já aconteceu — não é algo a fazer
         origem: 'cliente',
         servicos,
-        monitor: monitor || undefined,
+        monitores: monitor ? [monitor] : [],
       });
       // Fecha ANTES de avisar: se o toast falhar por qualquer motivo, o modal
       // já saiu da frente (o registro está gravado). Na ordem inversa, uma falha

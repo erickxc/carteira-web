@@ -136,6 +136,7 @@ function serializeEvento(e: EventoAgenda): Record<string, unknown> {
   return {
     ...e,
     servicos: JSON.stringify(e.servicos ?? []),
+    monitores: JSON.stringify(e.monitores ?? []),
     checklist: JSON.stringify(e.checklist ?? []),
     preAnalise: JSON.stringify(e.preAnalise ?? PRE_ANALISE_VAZIA),
     attachments: JSON.stringify(e.attachments ?? []),
@@ -146,6 +147,7 @@ function deserializeEvento(raw: Record<string, unknown>): EventoAgenda {
   return {
     ...(raw as unknown as EventoAgenda),
     servicos: parseListaJSON<string>(raw.servicos),
+    monitores: parseListaJSON<string>(raw.monitores),
     checklist: parseListaJSON<ChecklistItem>(raw.checklist),
     preAnalise: parsePreAnalise(raw.preAnalise),
     attachments: parseListaJSON<Anexo>(raw.attachments),
@@ -182,6 +184,7 @@ export const criarEvento = async (data: EventoAgenda) =>
 export const atualizarEvento = (id: string, data: Partial<EventoAgenda>) => {
   const payload: Record<string, unknown> = { ...data };
   if (data.servicos) payload.servicos = JSON.stringify(data.servicos);
+  if (data.monitores) payload.monitores = JSON.stringify(data.monitores);
   if (data.checklist) payload.checklist = JSON.stringify(data.checklist);
   if (data.preAnalise) payload.preAnalise = JSON.stringify(data.preAnalise);
   if (data.attachments) payload.attachments = JSON.stringify(data.attachments);

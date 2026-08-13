@@ -36,7 +36,7 @@ export default function AcoesPage() {
   // filtros da aba Acompanhamento
   const { value: acCliente, debounced: debouncedAcCliente, setValue: setAcCliente } = useSearchFilter();
   const [acMonitores, setAcMonitores] = usePersistedState<string[]>('filtro:acoes:acMonitores', []);
-  const [acProduto, setAcProduto] = usePersistedState<'Monitoria' | 'Price'>('filtro:acoes:acProduto', 'Monitoria');
+  const [acProduto, setAcProduto] = usePersistedState<'Todos' | 'Monitoria' | 'Price'>('filtro:acoes:acProduto', 'Monitoria');
   const [acOrd, setAcOrd] = usePersistedState('filtro:acoes:acOrd', 'contato-recente');
 
   const nomeCliente = (id: string) => clientes.find((c) => c.id === id)?.empresa ?? '—';
@@ -140,7 +140,7 @@ export default function AcoesPage() {
     const termo = debouncedAcCliente.trim().toLowerCase();
     return (!termo || c.empresa?.toLowerCase().includes(termo)) &&
       (acMonitores.length === 0 || acMonitores.includes(c.monitor || '')) &&
-      produtos(c).includes(acProduto);
+      (acProduto === 'Todos' || produtos(c).includes(acProduto));
   };
 
   // Mesmo filtro (busca/monitor/serviço) aplicado à fila — a badge "Precisam
@@ -210,16 +210,17 @@ export default function AcoesPage() {
         </div>
       </div>
 
-      <div className="tabs" style={{ margin: '1.25rem 0 1.5rem' }}>
+      <div className="tabs" style={{ margin: '1.25rem 0 2rem' }}>
         <button className={`tab${aba === 'acompanhamento' ? ' is-active' : ''}`} onClick={() => setAba('acompanhamento')}>Acompanhamento</button>
         <button className={`tab${aba === 'acoes' ? ' is-active' : ''}`} onClick={() => setAba('acoes')}>Ações</button>
       </div>
 
       {aba === 'acompanhamento' ? (
         <>
-          <div className="tabs tabs-sub" style={{ marginBottom: '1rem' }}>
+          <div className="tabs tabs-sub" style={{ marginTop: '0.25rem', marginBottom: '1.25rem' }}>
             <button className={`tab${acProduto === 'Monitoria' ? ' is-active' : ''}`} onClick={() => setAcProduto('Monitoria')}>Monitoria</button>
             <button className={`tab${acProduto === 'Price' ? ' is-active' : ''}`} onClick={() => setAcProduto('Price')}>Price</button>
+            <button className={`tab${acProduto === 'Todos' ? ' is-active' : ''}`} onClick={() => setAcProduto('Todos')}>Todos</button>
           </div>
 
           <Card flat className="mb-4">
@@ -248,7 +249,18 @@ export default function AcoesPage() {
           <div className="flex flex-wrap gap-[0.4rem]" style={{ marginBottom: 18 }}>
             <Chip active={visaoAcompanhamento === 'grupos'} onClick={() => setVisaoAcompanhamento('grupos')}>Todos os grupos</Chip>
             <Chip active={visaoAcompanhamento === 'sugestoes'} onClick={() => setVisaoAcompanhamento('sugestoes')}>
-              Precisam de ação{nPrecisaAcao > 0 && <Badge variant="warning" style={{ marginLeft: 6 }}>{nPrecisaAcao}</Badge>}
+              {/* Badge dentro do próprio Chip ativo (fundo dourado do accent): a
+                  variante "warning" normal (laranja sobre laranja/dourado) ficava
+                  ilegível ali — inverte pro contraste do próprio chip (escuro no
+                  dark theme, claro no light), sempre legível independente do tema. */}
+              Precisam de ação{nPrecisaAcao > 0 && (
+                <Badge
+                  variant="plain"
+                  style={{ marginLeft: 6, background: 'var(--accent-contrast)', color: 'var(--accent)', fontWeight: 700 }}
+                >
+                  {nPrecisaAcao}
+                </Badge>
+              )}
             </Chip>
           </div>
 
