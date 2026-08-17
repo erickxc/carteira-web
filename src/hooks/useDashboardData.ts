@@ -116,7 +116,15 @@ export function useDashboardData() {
   // Agendadas no mês = projeção (planejadas, ainda não concluídas).
   const reunioesAgendadasMes = reunioesAtivas.filter((a) => agendada(a) && isSameMonth(parseISO(a.date), periodo)).length;
   // Reagendamentos no período (sinal de instabilidade — cancelamento não conta).
-  const reagendamentosMes = reunioesAtivas.filter((a) => /reagend/i.test(a.status || '') && isSameMonth(parseISO(a.date), periodo)).length;
+  // Duas formas de "reagendar" no app, contadas as duas aqui: (1) status
+  // "Reagendado" (desfecho final — o evento original morre, sai do calendário
+  // por padrão) e (2) o contador `reagendamentos` (arrastar/mover a MESMA
+  // reunião pra outro dia via drag-and-drop ou o botão de reagendar — o evento
+  // continua vivo, só muda de data). Antes só contava a (1); como (2) é o jeito
+  // mais comum de remarcar no dia a dia, o card ficava sempre zerado/errado.
+  const reagendamentosMes = reunioesAtivas.filter((a) =>
+    (/reagend/i.test(a.status || '') || (a.reagendamentos ?? 0) > 0) && isSameMonth(parseISO(a.date), periodo)
+  ).length;
 
   // --- Linha: REUNIÕES CONCLUÍDAS por mês (bate com o card). A linha sólida é
   // o realizado; a projeção (concluídas + agendadas do mês) vira ponto pontilhado. ---

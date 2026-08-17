@@ -85,6 +85,10 @@ function relatorioCadenciaEmDias(rc: RelatorioCadencia | undefined, fallbackDias
     case 'trimestre': return n * 90;
     case 'semestre': return n * 180;
     case 'personalizado': return n * 7;
+    // Vários dias fixos por mês (ex.: 10/20/30) encurtam o intervalo médio
+    // entre toques — 3 dias marcados num ciclo de N meses dá ~ (N*30)/3 dias
+    // de intervalo, não N*30 (que ignoraria os outros dias configurados).
+    case 'dias_do_mes': return rc.diasDoMes && rc.diasDoMes.length > 0 ? Math.max(1, Math.round((n * 30) / rc.diasDoMes.length)) : n * 30;
     default: return fallbackDias;
   }
 }

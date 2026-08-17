@@ -1510,11 +1510,31 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .chip-monitor svg { flex-shrink: 0; }
 
 /* --- Agenda: Kanban semana × turno --- */
-.kanban { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-.kanban-col { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; display: flex; flex-direction: column; }
-.kanban-col.is-today { border-color: var(--accent); box-shadow: inset 0 2px 0 0 var(--accent); }
-.kanban-turno { padding: 8px; display: flex; flex-direction: column; gap: 6px; min-height: 120px; transition: background 0.12s ease; }
-.kanban-turno + .kanban-turno { border-top: 1px dashed var(--border); }
+/* Grid com linhas explícitas (cabeçalho / manhã / tarde) em vez de coluna por
+   dia com tudo empilhado — cada bloco é um item de grid próprio, então o Grid
+   alinha a altura de cada linha (ex.: "Manhã" de todos os dias) igual entre as
+   colunas. column-gap separa os dias; row-gap fica em 0 porque cabeçalho→manhã→
+   tarde do MESMO dia precisam ficar colados (visualmente é 1 card só, cor de
+   fundo + borda contínuas via .kanban-col-header/.kanban-turno-manha/-tarde). */
+.kanban { display: grid; grid-template-columns: repeat(5, 1fr); column-gap: 8px; row-gap: 0; }
+.kanban-col-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0.6rem 0.7rem;
+  background: var(--card-hover);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  margin-top: 8px;
+}
+.kanban-col-header.is-today { border-color: var(--accent); box-shadow: inset 0 2px 0 0 var(--accent); }
+.kanban-turno {
+  padding: 8px; display: flex; flex-direction: column; gap: 6px; min-height: 120px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-top: none;
+  transition: background 0.12s ease;
+}
+.kanban-turno-tarde { border-top: 1px dashed var(--border); border-radius: 0 0 var(--radius-sm) var(--radius-sm); margin-bottom: 8px; }
 .kanban-turno.is-drop-target { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
 .kanban-turno-label { font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
 

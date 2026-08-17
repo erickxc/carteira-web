@@ -252,6 +252,52 @@ export default function AgendaPage() {
   function irProximo() { if (view === 'mes') setCurrentMonth((m) => addMonths(m, 1)); else setWeekRef((w) => addWeeks(w, 1)); }
   function irHoje() { setCurrentMonth(startOfMonth(hoje)); setWeekRef(hoje); }
 
+  // Uma "célula" de turno (Manhã OU Tarde) de um dia — item de grid PRÓPRIO
+  // (não empilhado dentro de uma coluna por dia), pra o CSS Grid alinhar a
+  // altura de cada linha (Manhã de todos os dias / Tarde de todos os dias)
+  // entre as colunas. Ver comentário no JSX que chama isso.
+  function renderTurno(
+    day: Date, key: string, turno: 'manha' | 'tarde',
+    lista: EventoAgenda[], listaCeo: EventoCeo[], isManha: boolean
+  ) {
+    const dkey = `${key}|${turno}`;
+    return (
+      <div key={`${key}-${turno}`}
+        className={`kanban-turno${isManha ? ' kanban-turno-manha' : ' kanban-turno-tarde'}${dragOverKey === dkey ? ' is-drop-target' : ''}`}
+        onDragOver={(e) => { e.preventDefault(); if (dragOverKey !== dkey) setDragOverKey(dkey); }}
+        onDragLeave={() => setDragOverKey((k) => (k === dkey ? null : k))}
+        onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain') || draggedId; setDragOverKey(null); setDraggedId(null); if (id) moverKanban(id, key, turno); }}>
+        <div className="kanban-turno-label">{isManha ? 'Manhã' : 'Tarde'}</div>
+        {lista.map((ev) => (
+          <CardEvento
+            key={ev.id}
+            ev={ev}
+            isDragging={draggedId === ev.id}
+            hasConflito={conflitos.has(ev.id)}
+            onDragStart={() => setDraggedId(ev.id)}
+            onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
+            onClick={() => setModalState({ editing: ev })}
+            onConcluir={() => concluir(ev)}
+            onReagendar={(novaData) => moverParaDia(ev.id, novaData)}
+          />
+        ))}
+        {listaCeo.map((ev) => (
+          <button key={ev.id}
+            type="button"
+            className="calendar-chip calendar-chip-ceo"
+            onClick={() => setEventoCeoAberto(ev)}
+            title={`${ev.title}${ev.allDay ? '' : ' · ' + format(parseISO(ev.start), 'HH:mm')} — Agendas do Marco (Google, somente leitura)`}>
+            <span className="calendar-chip-title">📅 {ev.allDay ? '' : `${format(parseISO(ev.start), 'HH:mm')} `}{ev.title}</span>
+            <span className="calendar-chip-meta">
+              <span className="calendar-chip-type">Agendas do Marco</span>
+            </span>
+          </button>
+        ))}
+        <button className="kanban-add" onClick={() => setModalState({ defaultDate: day })}><Plus size={13} /> reunião</button>
+      </div>
+    );
+  }
+
   return (
     <div className="page-container">
       <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: 4 }}>
@@ -447,63 +493,38 @@ export default function AgendaPage() {
           </>
         ) : (
           <div className="kanban">
+            {/* 3 "linhas" de grid explícitas (cabeçalho / manhã / tarde) em vez
+                de uma coluna por dia com tudo empilhado dentro — o Grid só
+                alinha a altura entre colunas quando cada bloco é um item de
+                grid PRÓPRIO; empilhado num wrapper por dia, um dia com mais
+                reuniões de manhã empurrava "Tarde" pra baixo só naquela
+                coluna, desalinhando a régua toda (bug real relatado). */}
+            {weekDays.map((day) => {
+              const key = format(day, 'yyyy-MM-dd');
+              const holiday = getHoliday(day);
+              return (
+                <div key={key} className={`kanban-col-header${isSameDay(day, hoje) ? ' is-today' : ''}`}>
+                  <span className="font-bold text-[0.8rem] capitalize">{format(day, 'EEE', { locale: ptBR })}</span>
+                  <span className="text-[0.72rem] text-text-muted">{format(day, 'dd/MM')}</span>
+                  {holiday && <Badge variant="warning" style={{ fontSize: 10 }}>feriado</Badge>}
+                </div>
+              );
+            })}
             {weekDays.map((day) => {
               const key = format(day, 'yyyy-MM-dd');
               const dayEvents = eventsByDay.get(key) ?? [];
               const manha = dayEvents.filter((e) => turnoDe(e) === 'manha');
-              const tarde = dayEvents.filter((e) => turnoDe(e) === 'tarde');
               const dayEventsCeo = eventsByDayCeo.get(key) ?? [];
               const manhaCeo = dayEventsCeo.filter((e) => turnoDeCeo(e) === 'manha');
+              return renderTurno(day, key, 'manha', manha, manhaCeo, true);
+            })}
+            {weekDays.map((day) => {
+              const key = format(day, 'yyyy-MM-dd');
+              const dayEvents = eventsByDay.get(key) ?? [];
+              const tarde = dayEvents.filter((e) => turnoDe(e) === 'tarde');
+              const dayEventsCeo = eventsByDayCeo.get(key) ?? [];
               const tardeCeo = dayEventsCeo.filter((e) => turnoDeCeo(e) === 'tarde');
-              const holiday = getHoliday(day);
-              return (
-                <div key={key} className={`kanban-col${isSameDay(day, hoje) ? ' is-today' : ''}`}>
-                  <div className="flex items-center gap-[6px] px-[0.7rem] py-[0.6rem] border-b border-border bg-card-hover">
-                    <span className="font-bold text-[0.8rem] capitalize">{format(day, 'EEE', { locale: ptBR })}</span>
-                    <span className="text-[0.72rem] text-text-muted">{format(day, 'dd/MM')}</span>
-                    {holiday && <Badge variant="warning" style={{ fontSize: 10 }}>feriado</Badge>}
-                  </div>
-                  {(['manha', 'tarde'] as const).map((turno) => {
-                    const dkey = `${key}|${turno}`;
-                    const lista = turno === 'manha' ? manha : tarde;
-                    const listaCeo = turno === 'manha' ? manhaCeo : tardeCeo;
-                    return (
-                      <div key={turno} className={`kanban-turno${dragOverKey === dkey ? ' is-drop-target' : ''}`}
-                        onDragOver={(e) => { e.preventDefault(); if (dragOverKey !== dkey) setDragOverKey(dkey); }}
-                        onDragLeave={() => setDragOverKey((k) => (k === dkey ? null : k))}
-                        onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain') || draggedId; setDragOverKey(null); setDraggedId(null); if (id) moverKanban(id, key, turno); }}>
-                        <div className="kanban-turno-label">{turno === 'manha' ? 'Manhã' : 'Tarde'}</div>
-                        {lista.map((ev) => (
-                          <CardEvento
-                            key={ev.id}
-                            ev={ev}
-                            isDragging={draggedId === ev.id}
-                            hasConflito={conflitos.has(ev.id)}
-                            onDragStart={() => setDraggedId(ev.id)}
-                            onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
-                            onClick={() => setModalState({ editing: ev })}
-                            onConcluir={() => concluir(ev)}
-                            onReagendar={(novaData) => moverParaDia(ev.id, novaData)}
-                          />
-                        ))}
-                        {listaCeo.map((ev) => (
-                          <button key={ev.id}
-                            type="button"
-                            className="calendar-chip calendar-chip-ceo"
-                            onClick={() => setEventoCeoAberto(ev)}
-                            title={`${ev.title}${ev.allDay ? '' : ' · ' + format(parseISO(ev.start), 'HH:mm')} — Agendas do Marco (Google, somente leitura)`}>
-                            <span className="calendar-chip-title">📅 {ev.allDay ? '' : `${format(parseISO(ev.start), 'HH:mm')} `}{ev.title}</span>
-                            <span className="calendar-chip-meta">
-                              <span className="calendar-chip-type">Agendas do Marco</span>
-                            </span>
-                          </button>
-                        ))}
-                        <button className="kanban-add" onClick={() => setModalState({ defaultDate: day })}><Plus size={13} /> reunião</button>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
+              return renderTurno(day, key, 'tarde', tarde, tardeCeo, false);
             })}
           </div>
         )}

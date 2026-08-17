@@ -10,7 +10,8 @@ import {
   type Cliente, type NovoCliente, type RelatorioCadencia, type TipoAnalise, type UnidadeCadenciaRelatorio,
 } from '../types';
 
-const UNIDADES_CADENCIA: UnidadeCadenciaRelatorio[] = ['dia', 'semana', 'mes', 'trimestre', 'semestre', 'personalizado'];
+const UNIDADES_CADENCIA: UnidadeCadenciaRelatorio[] = ['dia', 'semana', 'mes', 'trimestre', 'semestre', 'personalizado', 'dias_do_mes'];
+const DIAS_DO_MES = Array.from({ length: 31 }, (_, i) => i + 1);
 
 interface ClientFormModalProps {
   initial?: Cliente;
@@ -41,9 +42,13 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const [relatorioNumero, setRelatorioNumero] = useState<number>(initial?.relatorioCadencia?.numero ?? 1);
   const [relatorioUnidade, setRelatorioUnidade] = useState<UnidadeCadenciaRelatorio>(initial?.relatorioCadencia?.unidade ?? 'mes');
   const [relatorioDiasSemana, setRelatorioDiasSemana] = useState<number[]>(initial?.relatorioCadencia?.diasSemana ?? []);
+  const [relatorioDiasDoMes, setRelatorioDiasDoMes] = useState<number[]>(initial?.relatorioCadencia?.diasDoMes ?? []);
 
   function toggleRelatorioDiaSemana(dia: number) {
     setRelatorioDiasSemana((prev) => (prev.includes(dia) ? prev.filter((d) => d !== dia) : [...prev, dia]));
+  }
+  function toggleRelatorioDiaDoMes(dia: number) {
+    setRelatorioDiasDoMes((prev) => (prev.includes(dia) ? prev.filter((d) => d !== dia) : [...prev, dia].sort((a, b) => a - b)));
   }
 
   const relatorioCadencia: RelatorioCadencia | undefined = relatorioAtivo
@@ -51,6 +56,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
         numero: Math.max(1, relatorioNumero || 1),
         unidade: relatorioUnidade,
         ...(relatorioUnidade === 'personalizado' ? { diasSemana: relatorioDiasSemana } : {}),
+        ...(relatorioUnidade === 'dias_do_mes' ? { diasDoMes: relatorioDiasDoMes } : {}),
       }
     : undefined;
 
@@ -274,6 +280,18 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                       <div className="flex flex-wrap gap-2">
                         {DIAS_SEMANA.map((d) => (
                           <Chip key={d.v} variant="toggle" active={relatorioDiasSemana.includes(d.v)} onClick={() => toggleRelatorioDiaSemana(d.v)}>{d.label}</Chip>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {relatorioUnidade === 'dias_do_mes' && (
+                    <div>
+                      <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal', display: 'block', marginBottom: 6 }}>
+                        Dias fixos do mês — "A cada" acima vira "a cada N meses" nesses dias. Ex.: marcar 10, 20 e 30 gera relatório todo mês nesses três dias.
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {DIAS_DO_MES.map((d) => (
+                          <Chip key={d} variant="toggle" active={relatorioDiasDoMes.includes(d)} onClick={() => toggleRelatorioDiaDoMes(d)}>{d}</Chip>
                         ))}
                       </div>
                     </div>

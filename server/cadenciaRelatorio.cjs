@@ -1,4 +1,4 @@
-const { addDays, addMonths, addWeeks, getDay } = require('date-fns');
+const { addDays, addMonths, addWeeks, getDate, getDaysInMonth, getDay, setDate, startOfMonth } = require('date-fns');
 
 /**
  * Calcula a próxima data de geração de relatório a partir de uma data de
@@ -30,6 +30,20 @@ function calcularProximaDataRelatorio(cadencia, referencia) {
         if (!proxima || candidata < proxima) proxima = candidata;
       }
       return addWeeks(proxima, numero - 1);
+    }
+    case 'dias_do_mes': {
+      const dias = cadencia.diasDoMes && cadencia.diasDoMes.length > 0 ? cadencia.diasDoMes : [getDate(referencia)];
+      const diaAtual = getDate(referencia);
+      const diasOrdenados = [...dias].sort((a, b) => a - b);
+      const diaEsteMes = diasOrdenados.find((d) => d > diaAtual);
+      let proxima;
+      if (diaEsteMes !== undefined) {
+        proxima = setDate(referencia, Math.min(diaEsteMes, getDaysInMonth(referencia)));
+      } else {
+        const proximoMes = addMonths(startOfMonth(referencia), 1);
+        proxima = setDate(proximoMes, Math.min(diasOrdenados[0], getDaysInMonth(proximoMes)));
+      }
+      return addMonths(proxima, numero - 1);
     }
     default:
       return addMonths(referencia, numero);
