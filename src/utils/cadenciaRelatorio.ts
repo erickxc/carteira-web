@@ -1,4 +1,4 @@
-import { addDays, addMonths, addWeeks, getDate, getDaysInMonth, getDay, setDate, startOfMonth } from 'date-fns';
+import { addDays, addMonths, addWeeks, getDay } from 'date-fns';
 import type { RelatorioCadencia } from '../types';
 
 /**
@@ -32,23 +32,6 @@ export function calcularProximaDataRelatorio(cadencia: RelatorioCadencia, refere
         if (!proxima || candidata < proxima) proxima = candidata;
       }
       return addWeeks(proxima as Date, numero - 1);
-    }
-    case 'dias_do_mes': {
-      // Dias fixos do mês (ex.: [10, 20, 30]) — "A cada" acima vira "a cada N
-      // meses" nesse conjunto de dias, não "a cada dia". Dia maior que o total
-      // de dias do mês (ex.: 30 em fevereiro) cai no último dia do mês.
-      const dias = cadencia.diasDoMes && cadencia.diasDoMes.length > 0 ? cadencia.diasDoMes : [getDate(referencia)];
-      const diaAtual = getDate(referencia);
-      const diasOrdenados = [...dias].sort((a, b) => a - b);
-      const diaEsteMes = diasOrdenados.find((d) => d > diaAtual);
-      let proxima: Date;
-      if (diaEsteMes !== undefined) {
-        proxima = setDate(referencia, Math.min(diaEsteMes, getDaysInMonth(referencia)));
-      } else {
-        const proximoMes = addMonths(startOfMonth(referencia), 1);
-        proxima = setDate(proximoMes, Math.min(diasOrdenados[0], getDaysInMonth(proximoMes)));
-      }
-      return addMonths(proxima, numero - 1);
     }
     default:
       return addMonths(referencia, numero);

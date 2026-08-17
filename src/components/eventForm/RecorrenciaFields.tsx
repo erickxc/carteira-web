@@ -4,6 +4,8 @@ import { Badge, Button, Chip, Field, Input, Select } from '../../ui';
 import { DIAS_SEMANA } from '../../utils/diasSemana';
 import type { useRecorrencia } from './useRecorrencia';
 
+const DIAS_DO_MES = Array.from({ length: 31 }, (_, i) => i + 1);
+
 interface RecorrenciaFieldsProps {
   rec: ReturnType<typeof useRecorrencia>;
 }
@@ -17,6 +19,7 @@ export function RecorrenciaFields({ rec }: RecorrenciaFieldsProps) {
           <Chip variant="toggle" active={rec.recorrMode === 'unica'} onClick={() => rec.setRecorrMode('unica')}>Única</Chip>
           <Chip variant="toggle" active={rec.recorrMode === 'cadencia'} onClick={() => rec.setRecorrMode('cadencia')}>Cadência</Chip>
           <Chip variant="toggle" active={rec.recorrMode === 'semana'} onClick={() => rec.setRecorrMode('semana')}>Dia da semana</Chip>
+          <Chip variant="toggle" active={rec.recorrMode === 'diasMes'} onClick={() => rec.setRecorrMode('diasMes')}>Dias do mês</Chip>
           <Chip variant="toggle" active={rec.recorrMode === 'avulso'} onClick={() => rec.setRecorrMode('avulso')}>Avulso</Chip>
         </div>
       </Field>
@@ -46,6 +49,26 @@ export function RecorrenciaFields({ rec }: RecorrenciaFieldsProps) {
             <Input tone="modal" type="number" min={1} max={52} value={rec.ocorrencias} onChange={(e) => rec.setOcorrencias(Number(e.target.value))} />
           </Field>
         </div>
+      )}
+
+      {rec.recorrMode === 'diasMes' && (
+        <>
+          <Field as="div" label="Dias fixos do mês">
+            <div className="flex flex-wrap gap-2">
+              {DIAS_DO_MES.map((d) => (
+                <Chip key={d} variant="toggle" active={rec.diasDoMes.includes(d)} onClick={() => rec.toggleDiaDoMes(d)}>{d}</Chip>
+              ))}
+            </div>
+          </Field>
+          <div className="flex-row" style={{ gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <Field className="w-[140px]" label="Durante (meses)">
+              <Input tone="modal" type="number" min={1} max={24} value={rec.duracaoMeses} onChange={(e) => rec.setDuracaoMeses(Number(e.target.value))} />
+            </Field>
+            <span className="text-text-muted" style={{ fontSize: 12, paddingBottom: 10 }}>
+              = {Math.max(1, rec.diasDoMes.length) * Math.max(1, Math.min(24, rec.duracaoMeses))} eventos no total
+            </span>
+          </div>
+        </>
       )}
 
       {rec.recorrMode === 'avulso' && (

@@ -49,7 +49,7 @@ export interface Contato {
 }
 
 // --- Cadência de relatório automático (por cliente) ---
-export type UnidadeCadenciaRelatorio = 'dia' | 'semana' | 'mes' | 'trimestre' | 'semestre' | 'personalizado' | 'dias_do_mes';
+export type UnidadeCadenciaRelatorio = 'dia' | 'semana' | 'mes' | 'trimestre' | 'semestre' | 'personalizado';
 
 export const UNIDADE_CADENCIA_LABEL: Record<UnidadeCadenciaRelatorio, string> = {
   dia: 'Dia',
@@ -58,7 +58,6 @@ export const UNIDADE_CADENCIA_LABEL: Record<UnidadeCadenciaRelatorio, string> = 
   trimestre: 'Trimestre',
   semestre: 'Semestre',
   personalizado: 'Personalizado',
-  dias_do_mes: 'Dias do mês',
 };
 
 export interface RelatorioCadencia {
@@ -66,10 +65,6 @@ export interface RelatorioCadencia {
   unidade: UnidadeCadenciaRelatorio;
   /** Só usado quando unidade = 'personalizado'. 0=domingo..6=sábado. */
   diasSemana?: number[];
-  /** Só usado quando unidade = 'dias_do_mes'. Dias fixos do mês (1-31) — ex.:
-   * [10, 20, 30] gera relatório todo dia 10, 20 e 30. Dia maior que o total de
-   * dias do mês cai no último dia (ex.: 30 em fevereiro vira 28/29). */
-  diasDoMes?: number[];
 }
 
 export interface Cliente {

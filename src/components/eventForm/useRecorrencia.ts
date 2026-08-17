@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { addDays, addMonths, addWeeks, format, getDay, parse } from 'date-fns';
+import { addDays, addMonths, addWeeks, format, getDay, getDaysInMonth, parse, setDate } from 'date-fns';
 
-export type RecorrMode = 'unica' | 'cadencia' | 'semana' | 'avulso';
+export type RecorrMode = 'unica' | 'cadencia' | 'semana' | 'diasMes' | 'avulso';
 
 /**
  * Estado + cálculo de datas da recorrência do formulário de evento. Cadência
@@ -14,6 +14,7 @@ export function useRecorrencia() {
   const [duracaoMeses, setDuracaoMeses] = useState(3);
   const [ocorrencias, setOcorrencias] = useState(4);
   const [diaSemana, setDiaSemana] = useState(1); // 0=dom..6=sáb
+  const [diasDoMes, setDiasDoMes] = useState<number[]>([]);
   const [datasAvulsas, setDatasAvulsas] = useState<string[]>([]);
   const [novaDataAvulsa, setNovaDataAvulsa] = useState('');
   const recorrente = recorrMode !== 'unica';
@@ -42,6 +43,18 @@ export function useRecorrencia() {
       const primeiro = addDays(baseISO, delta);
       return Array.from({ length: q }, (_, i) => addWeeks(primeiro, i));
     }
+    if (recorrMode === 'diasMes') {
+      // Dias fixos do mês (ex.: 10, 20 e 30) repetidos por N meses — dia maior
+      // que o total de dias do mês (30 em fevereiro) cai no último dia do mês.
+      const dias = diasDoMes.length > 0 ? [...diasDoMes].sort((a, b) => a - b) : [baseISO.getDate()];
+      const meses = Math.max(1, Math.min(24, duracaoMeses));
+      const datas: Date[] = [];
+      for (let m = 0; m < meses; m++) {
+        const mesRef = addMonths(baseISO, m);
+        for (const dia of dias) datas.push(setDate(mesRef, Math.min(dia, getDaysInMonth(mesRef))));
+      }
+      return datas;
+    }
     if (recorrMode === 'avulso') {
       const todas = [baseISO, ...datasAvulsas.map((s) => parse(s, 'yyyy-MM-dd', new Date()))];
       const vistos = new Set<string>();
@@ -50,6 +63,10 @@ export function useRecorrencia() {
         .sort((a, b) => a.getTime() - b.getTime());
     }
     return [baseISO];
+  }
+
+  function toggleDiaDoMes(dia: number) {
+    setDiasDoMes((prev) => (prev.includes(dia) ? prev.filter((d) => d !== dia) : [...prev, dia].sort((a, b) => a - b)));
   }
 
   function addDataAvulsa() {
@@ -65,11 +82,13 @@ export function useRecorrencia() {
     ? datasAvulsas.length + 1
     : recorrMode === 'cadencia'
     ? Math.max(1, Math.min(31, vezesPorMes)) * Math.max(1, Math.min(24, duracaoMeses))
+    : recorrMode === 'diasMes'
+    ? Math.max(1, diasDoMes.length) * Math.max(1, Math.min(24, duracaoMeses))
     : Math.max(1, ocorrencias);
 
   return {
     recorrMode, setRecorrMode, vezesPorMes, setVezesPorMes, duracaoMeses, setDuracaoMeses,
-    ocorrencias, setOcorrencias, diaSemana, setDiaSemana, datasAvulsas, novaDataAvulsa, setNovaDataAvulsa,
+    ocorrencias, setOcorrencias, diaSemana, setDiaSemana, diasDoMes, toggleDiaDoMes, datasAvulsas, novaDataAvulsa, setNovaDataAvulsa,
     recorrente, gerarDatas, addDataAvulsa, removeDataAvulsa, qtdeEventos,
   };
 }
