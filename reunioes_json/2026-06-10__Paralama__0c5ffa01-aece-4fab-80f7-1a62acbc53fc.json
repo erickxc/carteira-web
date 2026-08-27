@@ -1,0 +1,27 @@
+{
+  "id": "0c5ffa01-aece-4fab-80f7-1a62acbc53fc",
+  "clientId": "6b9b1fd3-a545-422e-a2f2-09b48682601d",
+  "clientName": "Paralama",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-06-10",
+  "hora": "15:00",
+  "duracao": null,
+  "status": "Cancelado",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "[Cancelado: Cliente pediu o cancelamento]",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T19:43:17.553Z",
+  "exportedAt": "2026-07-22T19:02:12.830Z"
+}

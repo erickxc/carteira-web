@@ -1,0 +1,25 @@
+{
+  "id": "8951c1e8-e99d-497e-9376-b57d7093bd97",
+  "clientId": "6f5bc9b1-d26e-4091-9c60-17eaa2efccb6",
+  "clientName": "1100 MG",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-07-28T03:00:00.000Z",
+  "hora": "11:17",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-28T14:17:20.668Z",
+  "exportedAt": "2026-07-28T14:17:16.843Z"
+}

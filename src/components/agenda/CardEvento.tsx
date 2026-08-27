@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, User } from 'lucide-react';
+import { AlertTriangle, CalendarSync, Check, User } from 'lucide-react';
 import { corTipo, corTipoBg } from '../../utils/tipoCor';
 import { ReagendarButton } from './ReagendarButton';
 import type { EventoAgenda } from '../../types';
@@ -48,6 +48,14 @@ export function CardEvento({ ev, isDragging, hasConflito, onDragStart, onDragEnd
       <div className="kanban-card-top">
         <span className="kanban-card-time">{ev.time || '—'}{ev.duracao ? ` · ${ev.duracao}min` : ''}</span>
         {hasConflito && <AlertTriangle size={12} className="text-[color:var(--danger)]" />}
+        {/* Mesmo indicador da visão Mês (`chip-remarcada`, MonthGrid.tsx) —
+            sem ele, mover um evento aqui (Semana/Kanban) não deixava rastro
+            visível nenhum de que foi remarcado, diferente da visão Mês. */}
+        {(ev.reagendamentos ?? 0) > 0 && (
+          <span className="chip-remarcada" title={`Remarcada ${ev.reagendamentos}x`}>
+            <CalendarSync size={11} /> {ev.reagendamentos}x
+          </span>
+        )}
         <ReagendarButton dataAtual={ev.date} onReagendar={onReagendar} />
         {!/conclu|realiz|cancel|reagend/i.test(ev.status) && (
           <span className="kanban-card-done" onClick={(e) => { e.stopPropagation(); onConcluir(); }} title="Concluir reunião"><Check size={12} /></span>

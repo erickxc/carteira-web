@@ -4,6 +4,8 @@ const crypto = require('crypto');
 const {
   DB_FILE, HEADERS_BY_SHEET,
   CLIENTES_HEADERS, AGENDA_HEADERS, LEMBRETES_HEADERS, CATEGORIAS_HEADERS, ACOES_HEADERS, MODELOS_HEADERS, CADENCIAS_HEADERS,
+  AGENDA_SERIES_HEADERS,
+  AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_SWIMLANES_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS, AGIL_FRENTES_HEADERS,
   CADENCIAS_SEED, MODELOS_SEED, CATEGORIAS_SEED,
 } = require('./config.cjs');
 
@@ -195,6 +197,15 @@ function initDB() {
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: ACOES_HEADERS }), 'Acoes');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(seedComMetadados(MODELOS_SEED), { header: MODELOS_HEADERS }), 'Modelos');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(CADENCIAS_SEED, { header: CADENCIAS_HEADERS }), 'Cadencias');
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGENDA_SERIES_HEADERS }), 'AgendaSeries');
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_WORKSPACES_HEADERS }), 'AgilWorkspaces');
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_BOARDS_HEADERS }), 'AgilBoards');
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_COLUNAS_HEADERS }), 'AgilColunas');
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_TAREFAS_HEADERS }), 'AgilTarefas');
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_SWIMLANES_HEADERS }), 'AgilSwimlanes');
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_FRENTES_HEADERS }), 'AgilFrentes');
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_SUBTAREFAS_HEADERS }), 'AgilSubtarefas');
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_COMENTARIOS_HEADERS }), 'AgilComentarios');
     gravarWorkbook(wb);
   } else {
     // Banco já existe: garante a planilha Categorias e faz seed idempotente dos
@@ -216,6 +227,20 @@ function initDB() {
           mudou = true;
         }
       }
+      // Valor novo dentro de um tipo que já existe: o loop acima só cobre tipo
+      // inteiro ausente (ex.: tipo_lembrete adicionado depois), não um valor a
+      // mais dentro de um tipo já cadastrado — bases já existentes (produção)
+      // não recebem o valor novo do seed nesse caso, precisa de backfill
+      // explícito. Feito valor a valor (não genérico por todo CATEGORIAS_SEED)
+      // pra nunca resurrecionar um valor que o usuário tenha apagado de propósito.
+      if (!categorias.some((c) => c.tipo === 'tipo_evento' && c.valor === 'Precificação')) {
+        // max+1 (não `.length`): a lista real já tem `ordem` com lacunas/
+        // repetições de edições manuais anteriores — usar length colidiria
+        // com uma ordem existente em vez de ir pro fim.
+        const ordem = categorias.filter((c) => c.tipo === 'tipo_evento').reduce((max, c) => Math.max(max, Number(c.ordem) || 0), -1) + 1;
+        categorias.push({ id: crypto.randomUUID(), tipo: 'tipo_evento', valor: 'Precificação', ordem, createdAt: now });
+        mudou = true;
+      }
     }
     if (mudou) {
       wb.Sheets['Categorias'] = xlsx.utils.json_to_sheet(categorias, { header: CATEGORIAS_HEADERS });
@@ -229,6 +254,15 @@ function initDB() {
       { nome: 'Acoes', header: ACOES_HEADERS, rows: [] },
       { nome: 'Modelos', header: MODELOS_HEADERS, rows: seedComMetadados(MODELOS_SEED) },
       { nome: 'Cadencias', header: CADENCIAS_HEADERS, rows: CADENCIAS_SEED },
+      { nome: 'AgendaSeries', header: AGENDA_SERIES_HEADERS, rows: [] },
+      { nome: 'AgilWorkspaces', header: AGIL_WORKSPACES_HEADERS, rows: [] },
+      { nome: 'AgilBoards', header: AGIL_BOARDS_HEADERS, rows: [] },
+      { nome: 'AgilColunas', header: AGIL_COLUNAS_HEADERS, rows: [] },
+      { nome: 'AgilTarefas', header: AGIL_TAREFAS_HEADERS, rows: [] },
+      { nome: 'AgilSwimlanes', header: AGIL_SWIMLANES_HEADERS, rows: [] },
+      { nome: 'AgilFrentes', header: AGIL_FRENTES_HEADERS, rows: [] },
+      { nome: 'AgilSubtarefas', header: AGIL_SUBTAREFAS_HEADERS, rows: [] },
+      { nome: 'AgilComentarios', header: AGIL_COMENTARIOS_HEADERS, rows: [] },
     ];
     let mudou2 = false;
     for (const s of novas) {
@@ -238,6 +272,141 @@ function initDB() {
       }
     }
     if (mudou2) gravarWorkbook(wb);
+
+    // Boards criados antes das swimlanes existirem (v1 do módulo Ágil) não têm
+    // nenhuma linha em AgilSwimlanes — sem uma swimlane "Geral", suas tarefas
+    // não têm onde aparecer na grade colunas×swimlanes. Migração idempotente:
+    // só cria a swimlane para boards que ainda não têm nenhuma.
+    {
+      const wb2 = lerWorkbook();
+      const boards = wb2.SheetNames.includes('AgilBoards') ? xlsx.utils.sheet_to_json(wb2.Sheets['AgilBoards']) : [];
+      let swimlanes = wb2.SheetNames.includes('AgilSwimlanes') ? xlsx.utils.sheet_to_json(wb2.Sheets['AgilSwimlanes']) : [];
+      const comSwimlane = new Set(swimlanes.map((s) => String(s.boardId)));
+      const faltantes = boards.filter((b) => !comSwimlane.has(String(b.id)));
+      let mudouSwimlanes = false;
+      if (faltantes.length > 0) {
+        const now = new Date().toISOString();
+        const novasSwimlanes = faltantes.map((b) => ({ id: crypto.randomUUID(), boardId: b.id, titulo: 'Geral', ordem: 0, createdAt: now }));
+        swimlanes = [...swimlanes, ...novasSwimlanes];
+        wb2.Sheets['AgilSwimlanes'] = xlsx.utils.json_to_sheet(swimlanes, { header: AGIL_SWIMLANES_HEADERS });
+        mudouSwimlanes = true;
+      }
+
+      // Tarefas criadas antes de swimlanes existirem ficam sem `swimlaneId` —
+      // sem preencher, elas somem silenciosamente da grade colunas×swimlanes no
+      // frontend (célula "coluna::undefined" não bate com nenhuma swimlane
+      // real). Preenche com a primeira swimlane (ordem 0) do board da tarefa.
+      const primeiraSwimlanePorBoard = new Map();
+      swimlanes.forEach((s) => {
+        const atual = primeiraSwimlanePorBoard.get(String(s.boardId));
+        if (!atual || s.ordem < atual.ordem) primeiraSwimlanePorBoard.set(String(s.boardId), s);
+      });
+      const tarefas = wb2.SheetNames.includes('AgilTarefas') ? xlsx.utils.sheet_to_json(wb2.Sheets['AgilTarefas']) : [];
+      let mudouTarefas = false;
+      // Numeração sequencial por board para tarefas criadas antes do campo
+      // `numero` existir — mantém o maior número já usado em cada board e
+      // continua dali, para nunca reaproveitar um número.
+      const proximoNumeroPorBoard = new Map();
+      tarefas.forEach((t) => {
+        const board = String(t.boardId);
+        const atual = proximoNumeroPorBoard.get(board) ?? 0;
+        proximoNumeroPorBoard.set(board, Math.max(atual, Number(t.numero) || 0));
+      });
+      const tarefasCorrigidas = tarefas.map((t) => {
+        let corrigida = t;
+        if (!corrigida.swimlaneId) {
+          const swimlane = primeiraSwimlanePorBoard.get(String(corrigida.boardId));
+          if (swimlane) {
+            corrigida = { ...corrigida, swimlaneId: swimlane.id };
+            mudouTarefas = true;
+          }
+        }
+        if (!corrigida.numero) {
+          const board = String(corrigida.boardId);
+          const numero = (proximoNumeroPorBoard.get(board) ?? 0) + 1;
+          proximoNumeroPorBoard.set(board, numero);
+          corrigida = { ...corrigida, numero };
+          mudouTarefas = true;
+        }
+        return corrigida;
+      });
+      if (mudouTarefas) wb2.Sheets['AgilTarefas'] = xlsx.utils.json_to_sheet(tarefasCorrigidas, { header: AGIL_TAREFAS_HEADERS });
+
+      if (mudouSwimlanes || mudouTarefas) {
+        gravarWorkbook(wb2);
+        if (cache) {
+          delete cache.sheets['AgilSwimlanes'];
+          delete cache.sheets['AgilTarefas'];
+        }
+      }
+    }
+
+    // Boards criados antes de Áreas de trabalho existirem não têm
+    // `workspaceId` — sem uma workspace, o board não aparece em nenhum
+    // seletor. Migração idempotente: cria a workspace "Geral" só se faltar
+    // algum board sem workspace, e atribui a ela só esses boards (nunca move
+    // um board que já tem workspace).
+    {
+      const wb3 = lerWorkbook();
+      let boards = wb3.SheetNames.includes('AgilBoards') ? xlsx.utils.sheet_to_json(wb3.Sheets['AgilBoards']) : [];
+      const semWorkspace = boards.filter((b) => !b.workspaceId);
+      if (semWorkspace.length > 0) {
+        let workspaces = wb3.SheetNames.includes('AgilWorkspaces') ? xlsx.utils.sheet_to_json(wb3.Sheets['AgilWorkspaces']) : [];
+        const now = new Date().toISOString();
+        let geral = workspaces.find((w) => w.nome === 'Geral');
+        if (!geral) {
+          geral = { id: crypto.randomUUID(), nome: 'Geral', descricao: '', ordem: workspaces.length, createdAt: now };
+          workspaces = [...workspaces, geral];
+          wb3.Sheets['AgilWorkspaces'] = xlsx.utils.json_to_sheet(workspaces, { header: AGIL_WORKSPACES_HEADERS });
+          if (!wb3.SheetNames.includes('AgilWorkspaces')) wb3.SheetNames.push('AgilWorkspaces');
+        }
+        boards = boards.map((b) => (b.workspaceId ? b : { ...b, workspaceId: geral.id }));
+        wb3.Sheets['AgilBoards'] = xlsx.utils.json_to_sheet(boards, { header: AGIL_BOARDS_HEADERS });
+        gravarWorkbook(wb3);
+        if (cache) {
+          delete cache.sheets['AgilWorkspaces'];
+          delete cache.sheets['AgilBoards'];
+        }
+      }
+    }
+
+    // Iniciativas é workflow PADRÃO de todo board (Kanbanize: "Initiatives
+    // Workflow" vem embutido, não é algo que se vincula manualmente) — boards
+    // criados antes dessa regra existir não têm `iniciativasBoardId`. Migração
+    // idempotente: cria o board companheiro (com colunas padrão coloridas) só
+    // para quem ainda não tem, nunca mexe em quem já tem.
+    {
+      const wb4 = lerWorkbook();
+      let boards = wb4.SheetNames.includes('AgilBoards') ? xlsx.utils.sheet_to_json(wb4.Sheets['AgilBoards']) : [];
+      const faltantes = boards.filter((b) => !b.ehIniciativas && !b.iniciativasBoardId);
+      if (faltantes.length > 0) {
+        const now = new Date().toISOString();
+        const coresPadrao = ['#304373', '#d69a3c', '#4cae7a'];
+        const titulosPadrao = ['A Fazer', 'Em Andamento', 'Concluído'];
+        let colunas = wb4.SheetNames.includes('AgilColunas') ? xlsx.utils.sheet_to_json(wb4.Sheets['AgilColunas']) : [];
+        let swimlanes = wb4.SheetNames.includes('AgilSwimlanes') ? xlsx.utils.sheet_to_json(wb4.Sheets['AgilSwimlanes']) : [];
+
+        for (const b of faltantes) {
+          const iniciativas = { id: crypto.randomUUID(), workspaceId: b.workspaceId, nome: 'Iniciativas', ehIniciativas: true, createdAt: now };
+          boards = [...boards, iniciativas];
+          titulosPadrao.forEach((titulo, ordem) => {
+            colunas.push({ id: crypto.randomUUID(), boardId: iniciativas.id, titulo, ordem, cor: coresPadrao[ordem], createdAt: now });
+          });
+          swimlanes.push({ id: crypto.randomUUID(), boardId: iniciativas.id, titulo: 'Geral', ordem: 0, createdAt: now });
+          boards = boards.map((x) => (x.id === b.id ? { ...x, iniciativasBoardId: iniciativas.id } : x));
+        }
+
+        wb4.Sheets['AgilBoards'] = xlsx.utils.json_to_sheet(boards, { header: AGIL_BOARDS_HEADERS });
+        wb4.Sheets['AgilColunas'] = xlsx.utils.json_to_sheet(colunas, { header: AGIL_COLUNAS_HEADERS });
+        wb4.Sheets['AgilSwimlanes'] = xlsx.utils.json_to_sheet(swimlanes, { header: AGIL_SWIMLANES_HEADERS });
+        gravarWorkbook(wb4);
+        if (cache) {
+          delete cache.sheets['AgilBoards'];
+          delete cache.sheets['AgilColunas'];
+          delete cache.sheets['AgilSwimlanes'];
+        }
+      }
+    }
   }
 }
 

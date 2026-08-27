@@ -23,7 +23,7 @@ import type { Cliente } from '../types';
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function DashboardPage() {
-  const { clientes, agenda, acoes } = useCarteira();
+  const { clientes } = useCarteira();
   const navigate = useNavigate();
   const [programados, setProgramados] = useState<Set<string>>(new Set());
   const [relatorioModal, setRelatorioModal] = useState<Cliente | null>(null);
@@ -134,7 +134,7 @@ export default function DashboardPage() {
           filtroServico={d.filtroServicoVencendo}
           onFiltroServico={d.setFiltroServicoVencendo}
         />
-        <AbrangenciaMapaCard clientes={clientes} />
+        <AbrangenciaMapaCard clientes={d.ativos} />
       </div>
 
       {/* Serviços + próximas agendas */}
@@ -170,8 +170,8 @@ export default function DashboardPage() {
       {/* Atendimento + recuperados lado a lado (metade da tela cada), no mesmo
           grid dos outros pares de cards. Empilham abaixo de 980px. */}
       <div className="dash-two-col">
-        <AtendimentoCard agenda={agenda} clientes={clientes} acoes={acoes} />
-        <RecuperadosCard clientes={clientes} agenda={agenda} />
+        <AtendimentoCard agenda={d.agendaPorMonitor} clientes={d.ativos} acoes={d.acoesPorMonitor} />
+        <RecuperadosCard clientes={d.ativos} agenda={d.agendaPorMonitor} />
       </div>
 
       {/* Tendência mensal (fim da página) */}

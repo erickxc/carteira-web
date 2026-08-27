@@ -1,0 +1,25 @@
+{
+  "id": "1783596337722",
+  "clientId": "4a33139a-3574-440e-ab47-890e2dc7a468",
+  "clientName": "GAP",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-07-09",
+  "hora": "10:00",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-09T11:25:37.722Z",
+  "exportedAt": "2026-07-22T14:29:18.278Z"
+}

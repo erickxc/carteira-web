@@ -1,0 +1,25 @@
+{
+  "id": "65467f93-46f1-47b5-8538-e02bfcc97b53",
+  "clientId": "47e0cbbd-eeac-4a3d-be20-6640dafd5997",
+  "clientName": "MEGA",
+  "tipo": "Relatório",
+  "assunto": "Alvo Mais Atacado",
+  "data": "2026-08-11T03:00:00.000Z",
+  "hora": "08:00",
+  "duracao": 60,
+  "status": "Agendado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Alvo Mais Atacado",
+  "anexos": [],
+  "serie": "02aaca7d-4c26-41d3-82c9-67e8f27da65d",
+  "createdAt": "2026-07-30T13:27:36.162Z",
+  "exportedAt": "2026-07-30T13:27:37.481Z"
+}

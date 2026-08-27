@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { getSheetData, saveSheetData } = require('./db.cjs');
+const { repoPlanilha } = require('./dominio/repo.cjs');
 const { calcularProximaDataRelatorio } = require('./cadenciaRelatorio.cjs');
 const { gravarReuniaoJson } = require('./reunioesJson.cjs');
 
@@ -44,11 +44,17 @@ function criarEventoRelatorio(cliente, data) {
  * e sob demanda logo após salvar um cliente com cadência nova/alterada
  * (`opts.apenasClientId`, pra refletir a mudança na agenda imediatamente).
  * Erros por cliente são isolados (logados, não interrompem os demais).
+ *
+ * Recebe `repo` (padrão `repoPlanilha()`, o motor real) em vez de chamar
+ * `getSheetData`/`saveSheetData` direto — mesma abstração usada por
+ * `dominio/*` e `agendaSeries.cjs`, permite testar com `repoMemoria()` sem
+ * tocar no banco real e mantém o caminho aberto pro overlay do cliente remoto.
  */
-function gerarRelatoriosPendentes(opts) {
-  const apenasClientId = opts && opts.apenasClientId;
-  const clientes = getSheetData('Clientes');
-  const agenda = getSheetData('Agenda');
+function gerarRelatoriosPendentes(opts = {}) {
+  const apenasClientId = opts.apenasClientId;
+  const repo = opts.repo || repoPlanilha();
+  const clientes = repo.get('Clientes');
+  const agenda = repo.get('Agenda');
   const now = new Date();
   let criados = 0;
 
@@ -83,7 +89,7 @@ function gerarRelatoriosPendentes(opts) {
     }
   }
 
-  if (criados > 0) saveSheetData('Agenda', agenda);
+  if (criados > 0) repo.save('Agenda', agenda);
   return criados;
 }
 

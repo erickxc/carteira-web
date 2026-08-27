@@ -1,0 +1,34 @@
+{
+  "id": "3f304c76-7dc4-4313-bbec-f1330424959a",
+  "clientId": "ab12b5dc-b420-4779-9d80-882a0146d437",
+  "clientName": "Ramar Caxias",
+  "tipo": "Reunião",
+  "assunto": "Reunião de monitoria.",
+  "data": "2026-08-05T03:00:00.000Z",
+  "hora": "11:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [
+      {
+        "id": "2b5be589-1c4d-40f1-887b-86e239852283",
+        "cliente": "",
+        "produto": "",
+        "orientacao": ""
+      }
+    ],
+    "clientesGeral": "Marcelo foi orientado a investir na sua carteira de clientes que hoje é baixa e vaga. Ele sofre bastante com questões de concorrência na localidade onde ele está e não tem uma pessoa confiável pra fazer esse trabalho de acompanhamento.",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Ramar Caxias — 05/08/2026 11:00\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-30T20:23:49.692Z",
+  "exportedAt": "2026-08-05T15:23:43.108Z"
+}

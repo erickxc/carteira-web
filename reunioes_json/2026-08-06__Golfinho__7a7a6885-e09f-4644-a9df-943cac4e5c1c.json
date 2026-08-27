@@ -1,0 +1,25 @@
+{
+  "id": "7a7a6885-e09f-4644-a9df-943cac4e5c1c",
+  "clientId": "25af3e24-3992-45f0-a887-14dd7657f2ae",
+  "clientName": "Golfinho",
+  "tipo": "Relatório",
+  "assunto": "",
+  "data": "2026-08-06T03:00:00.000Z",
+  "hora": "14:38",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Relatório de compras ",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-08-06T17:38:32.838Z",
+  "exportedAt": "2026-08-06T17:38:29.053Z"
+}

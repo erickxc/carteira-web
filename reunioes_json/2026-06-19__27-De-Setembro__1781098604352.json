@@ -1,0 +1,25 @@
+{
+  "id": "1781098604352",
+  "clientId": "ce3a8c22-1a16-4c93-a7b8-4bc6cafa5bd2",
+  "clientName": "27 De Setembro",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-06-19",
+  "hora": "10:00",
+  "duracao": null,
+  "status": "Cancelado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "[Cancelado: Cliente cancelou]",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-06-10T13:36:44.352Z",
+  "exportedAt": "2026-07-22T14:29:17.537Z"
+}

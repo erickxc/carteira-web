@@ -1,6 +1,17 @@
 const fs = require('fs');
+const path = require('path');
 const { OAuth2Client } = require('google-auth-library');
-const { CEO_AGENDA_CALENDAR_ID, CEO_AGENDA_OAUTH_CLIENT_PATH, CEO_AGENDA_OAUTH_TOKEN_PATH } = require('./config.cjs');
+const { CEO_AGENDA_CALENDAR_ID, CEO_AGENDA_OAUTH_CLIENT_PATH, CEO_AGENDA_OAUTH_TOKEN_PATH, DATA_DIR } = require('./config.cjs');
+const { isClient } = require('./modo.cjs');
+
+// Cache também persistido em arquivo (dentro do OneDrive, DATA_DIR — pasta
+// compartilhada pelas 4 máquinas) — necessário porque a sincronização em si
+// (`iniciarSincronizacaoPeriodica`) só roda em `APP_MODE=server` (só a
+// Karol-2D tem a credencial OAuth e é ela quem fala com o Google). Sem
+// persistir em arquivo, o `cache` em memória das outras 3 máquinas nunca sai
+// do valor inicial vazio — bug real encontrado em produção: "Agenda do Marco
+// não aparece no outro PC". `getCache()` lê desse arquivo em modo cliente.
+const CACHE_FILE = path.join(DATA_DIR, 'ceo-agenda-cache.json');
 
 // Camada 100% isolada da Agenda da Carteira: não lê nem escreve nas sheets do
 // Excel, não usa db.cjs, não compartilha estado com nenhuma outra rota. Falha
@@ -77,12 +88,33 @@ async function sincronizar() {
       .map(normalizar)
       .filter((e) => e.start);
     cache = { events: eventos, lastSync: new Date().toISOString(), lastError: null };
+    escreverCacheEmArquivo();
   } catch (err) {
     // Mantém o cache anterior (events) — uma falha pontual não deve fazer o
     // toggle "Agenda do CEO" esvaziar uma agenda que estava carregada e válida.
     const msg = err.response?.data?.error?.message || err.message;
     console.warn('Falha ao sincronizar Agenda do CEO (mantendo cache anterior):', msg);
     cache = { ...cache, lastError: msg };
+    escreverCacheEmArquivo();
+  }
+}
+
+/** tmp+rename — mesmo padrão do resto do projeto pra arquivo dentro do OneDrive. */
+function escreverCacheEmArquivo() {
+  try {
+    const tmp = `${CACHE_FILE}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(cache));
+    fs.renameSync(tmp, CACHE_FILE);
+  } catch (err) {
+    console.warn('Falha ao persistir o cache da Agenda do CEO em arquivo:', err.message);
+  }
+}
+
+function lerCacheDeArquivo() {
+  try {
+    return JSON.parse(fs.readFileSync(CACHE_FILE, 'utf-8'));
+  } catch {
+    return { events: [], lastSync: null, lastError: null };
   }
 }
 
@@ -97,7 +129,7 @@ function iniciarSincronizacaoPeriodica() {
 }
 
 function getCache() {
-  return cache;
+  return isClient ? lerCacheDeArquivo() : cache;
 }
 
 module.exports = { iniciarSincronizacaoPeriodica, getCache };

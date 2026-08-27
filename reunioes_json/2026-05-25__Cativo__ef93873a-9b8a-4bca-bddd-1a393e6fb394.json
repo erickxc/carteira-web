@@ -1,0 +1,25 @@
+{
+  "id": "ef93873a-9b8a-4bca-bddd-1a393e6fb394",
+  "clientId": "18bd16f5-26f3-4620-a404-d79cbcd09423",
+  "clientName": "Cativo",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-05-25T17:13:24.618Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Contato de acompanhamento realizado",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T17:13:24.618Z",
+  "exportedAt": "2026-07-22T14:29:16.710Z"
+}

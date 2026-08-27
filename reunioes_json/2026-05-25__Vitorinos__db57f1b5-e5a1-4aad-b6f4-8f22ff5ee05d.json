@@ -1,0 +1,27 @@
+{
+  "id": "db57f1b5-e5a1-4aad-b6f4-8f22ff5ee05d",
+  "clientId": "fb8534f1-ea36-4c81-9be7-1f7d03a68c20",
+  "clientName": "Vitorinos",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-25T15:00",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "GPS",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T12:56:37.777Z",
+  "exportedAt": "2026-07-22T19:02:09.039Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "19a70868-8fbb-47ae-8d3f-b35f3946b1da",
+  "clientId": "75352ace-f230-4516-beab-b8dc18472c98",
+  "clientName": "Pecita - Campo Grande",
+  "tipo": "Reunião",
+  "assunto": "Reunião",
+  "data": "2026-08-04T03:00:00.000Z",
+  "hora": "10:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Pecita - Campo Grande — 03/08/2026 15:00\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-27T17:41:53.883Z",
+  "exportedAt": "2026-08-04T16:01:35.630Z"
+}

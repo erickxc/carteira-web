@@ -1,0 +1,25 @@
+{
+  "id": "1784029212946",
+  "clientId": "5d5c03ca-51e5-472a-8a01-f8dd8cc7622d",
+  "clientName": "Pecita - TOP1000",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-07-16",
+  "hora": "10:00",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-14T11:40:12.946Z",
+  "exportedAt": "2026-07-22T12:45:09.261Z"
+}

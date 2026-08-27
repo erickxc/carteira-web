@@ -1,0 +1,25 @@
+{
+  "id": "b704b7af-076f-4c9f-ace2-cea242ebe502",
+  "clientId": "68767a0c-2bfd-4668-961c-7905a380f1af",
+  "clientName": "Gushcar",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-05-25T17:04:08.714Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Contato de acompanhamento realizado",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T17:04:08.715Z",
+  "exportedAt": "2026-07-22T14:29:16.642Z"
+}

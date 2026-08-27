@@ -1,0 +1,27 @@
+{
+  "id": "5f95a928-45ad-488d-8589-1023be769e14",
+  "clientId": "2ead988f-253e-4565-b7e2-fd4c9a564056",
+  "clientName": "RioJC",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-25T17:16:29.316Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Precificação de acompanhamento realizada",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T17:16:29.316Z",
+  "exportedAt": "2026-07-22T19:02:12.456Z"
+}

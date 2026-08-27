@@ -1,0 +1,25 @@
+{
+  "id": "903f8559-f9b3-4bce-bd84-33f9bea92639",
+  "clientId": "3e99cc07-b48d-4130-bb1a-057f2241de84",
+  "clientName": "Autosul",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-08-06T03:00:00.000Z",
+  "hora": "14:35",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-08-06T17:35:15.761Z",
+  "exportedAt": "2026-08-06T17:35:11.952Z"
+}

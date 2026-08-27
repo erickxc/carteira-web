@@ -1,0 +1,27 @@
+{
+  "id": "e05e483a-7f5b-4eba-a994-a27adcfed347",
+  "clientId": "47e0cbbd-eeac-4a3d-be20-6640dafd5997",
+  "clientName": "MEGA",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-25T12:55:32.527Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Ele precifica",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T12:55:32.527Z",
+  "exportedAt": "2026-07-22T19:02:07.865Z"
+}

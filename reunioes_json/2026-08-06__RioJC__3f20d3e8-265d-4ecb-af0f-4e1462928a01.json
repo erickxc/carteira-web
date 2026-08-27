@@ -1,0 +1,25 @@
+{
+  "id": "3f20d3e8-265d-4ecb-af0f-4e1462928a01",
+  "clientId": "2ead988f-253e-4565-b7e2-fd4c9a564056",
+  "clientName": "RioJC",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-08-06T03:00:00.000Z",
+  "hora": "09:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-08-06T17:42:19.180Z",
+  "exportedAt": "2026-08-06T17:42:15.363Z"
+}

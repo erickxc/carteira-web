@@ -1,0 +1,47 @@
+const express = require('express');
+const { repoPlanilha } = require('../dominio/repo.cjs');
+const { conversar } = require('../ia/provider.cjs');
+const { montarSystemPrompt } = require('../ia/agente.cjs');
+
+const router = express.Router();
+const repo = repoPlanilha();
+
+router.get('/clientes/:id/analise', (req, res) => {
+  const analises = repo.get('AnalisesIA');
+  const analise = analises.find((a) => String(a.clientId) === String(req.params.id));
+  if (!analise) return res.status(404).json({ error: 'Cliente ainda não foi analisado.' });
+  res.json(analise);
+});
+
+router.get('/acoes', (req, res) => {
+  const acoes = repo.get('AcoesIA').slice().sort((a, b) => new Date(b.criadoEm) - new Date(a.criadoEm));
+  res.json(acoes);
+});
+
+// Assistente geral (não fica preso a um único cliente): quando `clientId` vem
+// no corpo, o system prompt já entra com o dossiê daquele cliente (evita uma
+// ida extra à ferramenta `buscar_dossie_cliente` no caso mais comum — usuário
+// perguntando sobre o cliente que está com a página aberta); sem `clientId`,
+// o próprio agente decide se/quando consultar `buscar_clientes`/
+// `buscar_dossie_cliente` pra responder.
+router.post('/chat', async (req, res) => {
+  const { texto, historico, clientId } = req.body ?? {};
+  if (typeof texto !== 'string' || !texto.trim()) {
+    return res.status(400).json({ error: 'Campo "texto" é obrigatório.' });
+  }
+
+  const mensagens = [
+    { role: 'system', content: montarSystemPrompt({ clientId }) },
+    ...(Array.isArray(historico) ? historico : []),
+    { role: 'user', content: texto },
+  ];
+
+  try {
+    const resposta = await conversar({ mensagens, origem: 'chat', repo });
+    res.json({ resposta });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+module.exports = router;

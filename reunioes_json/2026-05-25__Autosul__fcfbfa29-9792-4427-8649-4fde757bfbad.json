@@ -1,0 +1,27 @@
+{
+  "id": "fcfbfa29-9792-4427-8649-4fde757bfbad",
+  "clientId": "3e99cc07-b48d-4130-bb1a-057f2241de84",
+  "clientName": "Autosul",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-25T16:52:27.895Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Precificação de acompanhamento realizada",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T16:52:27.895Z",
+  "exportedAt": "2026-07-22T19:02:11.686Z"
+}

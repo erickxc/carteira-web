@@ -1,0 +1,25 @@
+{
+  "id": "11d12bff-1dcf-44e5-a78a-9a5f6b271d27",
+  "clientId": "306866b8-6b67-488f-95e6-7e1073826447",
+  "clientName": "Ibad",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-07-23T03:00:00.000Z",
+  "hora": "15:20",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-23T18:23:37.624Z",
+  "exportedAt": "2026-07-23T18:23:30.573Z"
+}

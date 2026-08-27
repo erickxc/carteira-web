@@ -1,0 +1,25 @@
+{
+  "id": "2913899d-32d3-47c7-9ec9-279736098023",
+  "clientId": "2590af88-5fae-4c6c-94b3-ac9f508bd8a1",
+  "clientName": "Street",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-07-27T03:00:00.000Z",
+  "hora": "14:20",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Mais uma tentativa de resolver os itens harmonizados errados\n",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-27T17:20:50.377Z",
+  "exportedAt": "2026-07-27T17:20:46.031Z"
+}

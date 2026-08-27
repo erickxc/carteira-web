@@ -1,0 +1,25 @@
+{
+  "id": "9d73b65c-14ae-4875-8766-fe85132e13f9",
+  "clientId": "d1c26517-2a73-4c7c-8034-be94a953dded",
+  "clientName": "Gisalto",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-11T15:00",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T16:57:32.952Z",
+  "exportedAt": "2026-07-22T14:29:16.485Z"
+}

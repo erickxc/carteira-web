@@ -1,0 +1,25 @@
+{
+  "id": "1780064223084",
+  "clientId": "0bc104de-4dae-43df-8c15-df21f03b1b1a",
+  "clientName": "SETE LAGOAS",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-06-02",
+  "hora": "15:00",
+  "duracao": null,
+  "status": "Cancelado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "[Cancelado: Cliente pediu pra cancelar: Caixa de agua rompeu]",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-29T14:17:03.084Z",
+  "exportedAt": "2026-07-22T14:29:17.168Z"
+}

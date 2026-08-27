@@ -1,0 +1,34 @@
+{
+  "id": "02952eb2-03a7-44c1-b65d-21a129b2ed6f",
+  "clientId": "280ebbdc-22b1-4313-977a-46a1c508a24a",
+  "clientName": "Pecita - Itaguaí",
+  "tipo": "Reunião",
+  "assunto": "Reunião",
+  "data": "2026-07-20T03:00:00.000Z",
+  "hora": "",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [
+      {
+        "id": "f1985c30-abc9-49ea-90ad-b52ec7fd06a0",
+        "cliente": "",
+        "produto": "",
+        "orientacao": ""
+      }
+    ],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Pecita - Itaguaí — 20/07/2026\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-17T18:48:16.910Z",
+  "exportedAt": "2026-07-22T12:45:09.653Z"
+}

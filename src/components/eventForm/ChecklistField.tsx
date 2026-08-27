@@ -2,17 +2,30 @@ import { Check, Plus, X } from 'lucide-react';
 import { Button, Chip, Field, Input } from '../../ui';
 import type { useChecklist } from './useChecklist';
 
-// Etiquetas rápidas para itens da pauta/checklist da reunião.
+// Etiquetas rápidas para itens da pauta da reunião.
 const ETIQUETAS = ['#Contato', '#Alvo', '#Price', '#Relatório'];
 
 interface ChecklistFieldProps {
   ck: ReturnType<typeof useChecklist>;
 }
 
-/** Bloco "Checklist / pauta" do formulário de evento. */
+/** Bloco "Pauta" do formulário de evento — os tópicos a tratar, que podem ser
+ *  marcados conforme a reunião acontece. Chamado de "Pauta" em toda a UI e na
+ *  ata gerada (antes o rótulo dizia "Checklist / pauta", dois nomes para a
+ *  mesma coisa, e a ata imprimia só "PAUTA"). */
 export function ChecklistField({ ck }: ChecklistFieldProps) {
   return (
-    <Field as="div" label="Checklist / pauta">
+    <Field
+      as="div"
+      label={
+        <>
+          Pauta{' '}
+          <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>
+            · tópicos a tratar, marque durante a reunião
+          </span>
+        </>
+      }
+    >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 4, marginBottom: 8 }}>
         {ck.checklist.length === 0 && <span className="text-text-muted" style={{ fontSize: 13, textTransform: 'none' }}>Nenhum item.</span>}
         {ck.checklist.map((it) => (

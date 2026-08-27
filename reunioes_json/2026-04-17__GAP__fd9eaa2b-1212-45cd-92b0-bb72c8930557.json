@@ -1,0 +1,25 @@
+{
+  "id": "fd9eaa2b-1212-45cd-92b0-bb72c8930557",
+  "clientId": "4a33139a-3574-440e-ab47-890e2dc7a468",
+  "clientName": "GAP",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-04-17T00:00:00.000Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Importado do Histórico",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T12:55:10.180Z",
+  "exportedAt": "2026-07-22T14:29:14.514Z"
+}

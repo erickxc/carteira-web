@@ -1,0 +1,25 @@
+{
+  "id": "f0ea05bd-51f8-4ef8-b71b-b803d12f8773",
+  "clientId": "1654c4ea-95e7-4791-b025-aec1634ee395",
+  "clientName": "Piloto - Matriz",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-07-31T03:00:00.000Z",
+  "hora": "09:28",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-31T12:28:36.312Z",
+  "exportedAt": "2026-07-31T12:28:33.589Z"
+}

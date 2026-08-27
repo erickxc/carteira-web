@@ -1,0 +1,25 @@
+{
+  "id": "6a55ad65-077a-49ae-9601-bf5e525c1ce4",
+  "clientId": "3e99cc07-b48d-4130-bb1a-057f2241de84",
+  "clientName": "Autosul",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-29",
+  "hora": "10:00",
+  "duracao": null,
+  "status": "Cancelado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Presencial - 2D\r\r\r\n[Cancelado: Cliente pediu para remarcar]",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T16:49:32.961Z",
+  "exportedAt": "2026-07-22T12:45:04.971Z"
+}

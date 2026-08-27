@@ -1,0 +1,27 @@
+{
+  "id": "43a3d30c-0cbc-410a-af8e-9ece451b64a5",
+  "clientId": "68767a0c-2bfd-4668-961c-7905a380f1af",
+  "clientName": "Gushcar",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-04-08T00:00:00.000Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Importado do Histórico",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T12:55:32.527Z",
+  "exportedAt": "2026-07-22T19:02:07.084Z"
+}

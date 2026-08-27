@@ -1,0 +1,27 @@
+{
+  "id": "4636cb6f-987f-4323-80f0-95ea3a783382",
+  "clientId": "1654c4ea-95e7-4791-b025-aec1634ee395",
+  "clientName": "Piloto - Matriz",
+  "tipo": "Reunião",
+  "assunto": "Reunião",
+  "data": "2026-08-06T03:00:00.000Z",
+  "hora": "10:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Piloto - Matriz — 05/08/2026 16:30\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-31T12:46:41.737Z",
+  "exportedAt": "2026-08-06T19:29:00.403Z"
+}

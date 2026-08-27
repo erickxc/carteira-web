@@ -1,0 +1,25 @@
+{
+  "id": "ad5708a7-97cb-4aa9-97ea-f7a7d8618a9b",
+  "clientId": "9612dcc5-a7ba-4683-8555-96c9f4298e93",
+  "clientName": "CG. Braga",
+  "tipo": "Contato",
+  "assunto": "Tentativa de marcação de reunião.",
+  "data": "2026-07-31T03:00:00.000Z",
+  "hora": "14:30",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-31T17:38:49.016Z",
+  "exportedAt": "2026-07-31T17:38:49.348Z"
+}

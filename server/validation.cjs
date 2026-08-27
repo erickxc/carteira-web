@@ -69,9 +69,96 @@ const modeloUpdateSchema = z.object({
   conteudo: textoObrigatorio('conteudo').optional(),
 }).passthrough();
 
+const agendaSerieCreateSchema = z.object({
+  clientId: textoObrigatorio('clientId'),
+  type: textoObrigatorio('type'),
+  inicio: textoObrigatorio('inicio'),
+}).passthrough();
+const agendaSerieUpdateSchema = z.object({
+  clientId: textoObrigatorio('clientId').optional(),
+  type: textoObrigatorio('type').optional(),
+}).passthrough();
+
 const categoriaUpdateSchema = z.object({
   tipo: textoObrigatorio('tipo').optional(),
   valor: textoObrigatorio('valor').optional(),
+}).passthrough();
+
+const CORREGEX = /^#[0-9a-fA-F]{6}$/;
+const corOpcional = () => z.string().regex(CORREGEX, 'cor precisa ser um hex #RRGGBB').optional();
+
+const agilWorkspaceCreateSchema = z.object({ nome: textoObrigatorio('nome') }).passthrough();
+const agilWorkspaceUpdateSchema = z.object({ nome: textoObrigatorio('nome').optional() }).passthrough();
+const agilReorderWorkspaceItemSchema = z.object({ id: textoObrigatorio('id'), ordem: z.number() });
+
+const agilBoardCreateSchema = z.object({
+  nome: textoObrigatorio('nome'),
+  workspaceId: textoObrigatorio('workspaceId'),
+}).passthrough();
+const agilBoardUpdateSchema = z.object({
+  nome: textoObrigatorio('nome').optional(),
+  workspaceId: textoObrigatorio('workspaceId').optional(),
+}).passthrough();
+
+const agilColunaCreateSchema = z.object({
+  boardId: textoObrigatorio('boardId'),
+  titulo: textoObrigatorio('titulo'),
+  cor: corOpcional(),
+}).passthrough();
+const agilColunaUpdateSchema = z.object({
+  boardId: textoObrigatorio('boardId').optional(),
+  titulo: textoObrigatorio('titulo').optional(),
+  cor: corOpcional(),
+}).passthrough();
+const agilReorderColunaItemSchema = z.object({ id: textoObrigatorio('id'), ordem: z.number() });
+
+const agilTarefaCreateSchema = z.object({
+  boardId: textoObrigatorio('boardId'),
+  colunaId: textoObrigatorio('colunaId'),
+  titulo: textoObrigatorio('titulo'),
+}).passthrough();
+const agilTarefaUpdateSchema = z.object({
+  boardId: textoObrigatorio('boardId').optional(),
+  colunaId: textoObrigatorio('colunaId').optional(),
+  titulo: textoObrigatorio('titulo').optional(),
+}).passthrough();
+const agilReorderTarefaItemSchema = z.object({ id: textoObrigatorio('id'), colunaId: textoObrigatorio('colunaId'), swimlaneId: textoObrigatorio('swimlaneId'), ordem: z.number() });
+
+const agilSwimlaneCreateSchema = z.object({
+  boardId: textoObrigatorio('boardId'),
+  titulo: textoObrigatorio('titulo'),
+}).passthrough();
+const agilSwimlaneUpdateSchema = z.object({
+  boardId: textoObrigatorio('boardId').optional(),
+  titulo: textoObrigatorio('titulo').optional(),
+}).passthrough();
+const agilReorderSwimlaneItemSchema = z.object({ id: textoObrigatorio('id'), ordem: z.number() });
+
+const agilFrenteCreateSchema = z.object({
+  boardId: textoObrigatorio('boardId'),
+  titulo: textoObrigatorio('titulo'),
+  cor: corOpcional(),
+}).passthrough();
+const agilFrenteUpdateSchema = z.object({
+  boardId: textoObrigatorio('boardId').optional(),
+  titulo: textoObrigatorio('titulo').optional(),
+  cor: corOpcional(),
+}).passthrough();
+const agilReorderFrenteItemSchema = z.object({ id: textoObrigatorio('id'), ordem: z.number() });
+
+const agilSubtarefaCreateSchema = z.object({
+  tarefaId: textoObrigatorio('tarefaId'),
+  titulo: textoObrigatorio('titulo'),
+}).passthrough();
+const agilSubtarefaUpdateSchema = z.object({
+  tarefaId: textoObrigatorio('tarefaId').optional(),
+  titulo: textoObrigatorio('titulo').optional(),
+}).passthrough();
+
+const agilComentarioCreateSchema = z.object({
+  tarefaId: textoObrigatorio('tarefaId'),
+  autor: textoObrigatorio('autor'),
+  texto: textoObrigatorio('texto'),
 }).passthrough();
 
 // Middleware: valida req.body contra um schema; 400 com mensagem clara se falhar.
@@ -115,4 +202,13 @@ module.exports = {
   acaoCreateSchema, acaoUpdateSchema,
   modeloCreateSchema, modeloUpdateSchema,
   categoriaUpdateSchema,
+  agendaSerieCreateSchema, agendaSerieUpdateSchema,
+  agilWorkspaceCreateSchema, agilWorkspaceUpdateSchema, agilReorderWorkspaceItemSchema,
+  agilBoardCreateSchema, agilBoardUpdateSchema,
+  agilColunaCreateSchema, agilColunaUpdateSchema, agilReorderColunaItemSchema,
+  agilTarefaCreateSchema, agilTarefaUpdateSchema, agilReorderTarefaItemSchema,
+  agilSwimlaneCreateSchema, agilSwimlaneUpdateSchema, agilReorderSwimlaneItemSchema,
+  agilFrenteCreateSchema, agilFrenteUpdateSchema, agilReorderFrenteItemSchema,
+  agilSubtarefaCreateSchema, agilSubtarefaUpdateSchema,
+  agilComentarioCreateSchema,
 };

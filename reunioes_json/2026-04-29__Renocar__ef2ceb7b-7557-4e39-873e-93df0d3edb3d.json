@@ -1,0 +1,25 @@
+{
+  "id": "ef2ceb7b-7557-4e39-873e-93df0d3edb3d",
+  "clientId": "e340b4ad-9c3d-4a0c-9da5-38d5fef0fc9c",
+  "clientName": "Renocar",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-04-29T00:00:00.000Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Importado do Histórico",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T12:55:10.180Z",
+  "exportedAt": "2026-07-22T14:29:14.721Z"
+}

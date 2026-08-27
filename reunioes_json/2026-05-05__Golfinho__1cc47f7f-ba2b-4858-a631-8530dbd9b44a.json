@@ -1,0 +1,27 @@
+{
+  "id": "1cc47f7f-ba2b-4858-a631-8530dbd9b44a",
+  "clientId": "25af3e24-3992-45f0-a887-14dd7657f2ae",
+  "clientName": "Golfinho",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-05T00:00:00.000Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Importado do Histórico",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T12:55:32.527Z",
+  "exportedAt": "2026-07-22T19:02:08.261Z"
+}

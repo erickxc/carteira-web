@@ -93,8 +93,13 @@ export function LineChart({
       {points.map((p, i) => {
         const sel = i === highlightIndex;
         const py = y(p.value);
-        // rótulo de dados: acima do ponto; se muito no topo, joga pra baixo
-        const labelAbove = py - 12 > padT;
+        const temProjecaoAcima = p.projecao != null && p.projecao > p.value;
+        // rótulo de dados: acima do ponto; se muito no topo, joga pra baixo.
+        // Quando há projeção (desenhada acima, com o próprio rótulo), força
+        // pra baixo mesmo tendo espaço em cima — senão os dois números colam
+        // quando o valor é baixo (projeção fica só um pouco mais alta e os
+        // rótulos praticamente se sobrepõem).
+        const labelAbove = py - 12 > padT && !temProjecaoAcima;
         return (
           <g key={i}>
             {sel && <line x1={x(i)} y1={padT} x2={x(i)} y2={padT + plotH} stroke="var(--accent)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" opacity="0.5" />}

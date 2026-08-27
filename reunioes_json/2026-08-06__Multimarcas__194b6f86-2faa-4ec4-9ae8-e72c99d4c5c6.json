@@ -1,0 +1,25 @@
+{
+  "id": "194b6f86-2faa-4ec4-9ae8-e72c99d4c5c6",
+  "clientId": "8d9eadc0-a9b4-4e8e-8a12-a8ed17a5181d",
+  "clientName": "Multimarcas",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-08-06T03:00:00.000Z",
+  "hora": "09:49",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-08-06T12:49:41.231Z",
+  "exportedAt": "2026-08-06T17:26:35.238Z"
+}

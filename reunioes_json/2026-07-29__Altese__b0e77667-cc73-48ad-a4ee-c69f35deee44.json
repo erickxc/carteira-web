@@ -1,0 +1,25 @@
+{
+  "id": "b0e77667-cc73-48ad-a4ee-c69f35deee44",
+  "clientId": "647264b9-e49e-411f-82f8-574232388c39",
+  "clientName": "Altese",
+  "tipo": "Ligação",
+  "assunto": "Ligação para marcar reunião",
+  "data": "2026-07-29T03:00:00.000Z",
+  "hora": "13:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Reunião agendada para 05/08 às 15h.",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-23T20:11:30.877Z",
+  "exportedAt": "2026-07-29T12:16:51.784Z"
+}

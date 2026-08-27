@@ -1,0 +1,25 @@
+{
+  "id": "b6f8419e-c987-45ce-99cf-18e4dd2ddaf5",
+  "clientId": "ab12b5dc-b420-4779-9d80-882a0146d437",
+  "clientName": "Ramar Caxias",
+  "tipo": "Contato",
+  "assunto": "C",
+  "data": "2026-08-06T03:00:00.000Z",
+  "hora": "14:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Ramar Caxias — 06/08/2026 14:00\nTipo: Contato",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-08-05T15:25:14.257Z",
+  "exportedAt": "2026-08-05T20:31:19.755Z"
+}

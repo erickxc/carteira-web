@@ -1,0 +1,25 @@
+{
+  "id": "1781098528122",
+  "clientId": "b0889e37-61f0-437c-96fa-e6e482031a6a",
+  "clientName": "Viannax",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-06-18",
+  "hora": "10:00",
+  "duracao": null,
+  "status": "Cancelado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "[Cancelado: Cliente pediu pra cancelar]",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-06-10T13:35:28.122Z",
+  "exportedAt": "2026-07-22T14:29:17.460Z"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "7378f615-a400-42a1-9596-5f82ea8f9756",
+  "clientId": "c6394423-c0a1-4197-a366-7cd58d565553",
+  "clientName": "Pecita - Seropédica",
+  "tipo": "Reunião",
+  "assunto": "Reunião",
+  "data": "2026-08-06T03:00:00.000Z",
+  "hora": "15:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Pecita - Seropédica — 22/07/2026\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-22T12:47:36.747Z",
+  "exportedAt": "2026-08-06T19:29:01.217Z"
+}

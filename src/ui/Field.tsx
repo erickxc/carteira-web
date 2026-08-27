@@ -13,6 +13,7 @@ export function Field({
   children,
   className,
   as: Tag = 'label',
+  labelSize = 'default',
 }: {
   label: ReactNode;
   children: ReactNode;
@@ -20,6 +21,9 @@ export function Field({
   /** 'div' quando o conteúdo não é um único controle focável (ex.: grupo de
    *  chips/checkboxes) — evita um <label> envolvendo vários controles. */
   as?: 'label' | 'div';
+  /** 'sm' pra campos compactos (ex.: dois por linha) — label não precisa do
+   *  mesmo peso visual de um campo de largura cheia. */
+  labelSize?: 'default' | 'sm';
 }) {
   return (
     <Tag
@@ -28,7 +32,7 @@ export function Field({
         className
       )}
     >
-      {label}
+      <span className={labelSize === 'sm' ? 'text-[0.7rem]' : undefined}>{label}</span>
       {children}
     </Tag>
   );

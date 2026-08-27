@@ -14,7 +14,7 @@ import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
 import { buildFilaCadencia, classificarCadencia, type FilaCadItem } from '../utils/cadenciaServico';
 import { confirmDialog } from '../utils/confirmDialog';
 import { eventoStatusBadge, isAtendidoMarco } from '../utils/badges';
-import { type Item } from '../utils/acoesHelpers';
+import { ordenarPorProximidade, type Item } from '../utils/acoesHelpers';
 import { Badge, Button, Card, Chip, Td, Th, type BadgeVariant } from '../ui';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../types';
 
@@ -25,7 +25,7 @@ export default function AcoesPage() {
   const { clientes, agenda, acoes, cadencias, atualizarAcao, removerAcao } = useCarteira();
   const navigate = useNavigate();
   const [aba, setAba] = usePersistedState<'acompanhamento' | 'acoes'>('filtro:acoes:aba', 'acompanhamento');
-  const [visaoAcompanhamento, setVisaoAcompanhamento] = usePersistedState<'grupos' | 'sugestoes'>('filtro:acoes:visao', 'grupos');
+  const [visaoAcompanhamento, setVisaoAcompanhamento] = usePersistedState<'precisa' | 'emdia'>('filtro:acoes:visao', 'precisa');
   const [modal, setModal] = useState<{ modo: 'nova' | 'agendar'; clienteId?: string; tipo?: AcaoTipo } | null>(null);
   const { value: fCliente, debounced: debouncedFCliente, setValue: setFCliente } = useSearchFilter();
   const [fTipos, setFTipos] = usePersistedState<string[]>('filtro:acoes:tipos', []);
@@ -58,8 +58,13 @@ export default function AcoesPage() {
   }, [agenda, acoes]);
 
   const itensPorCliente = useMemo(() => {
+    const agora = new Date();
     const m = new Map<string, Item[]>();
     itens.forEach((i) => { if (!m.has(i.clientId)) m.set(i.clientId, []); m.get(i.clientId)!.push(i); });
+    // Ordem por proximidade de hoje (não por data decrescente): o card mostra só
+    // os 3 primeiros, e o que interessa ali é o que aconteceu agora / está logo
+    // aí — não o agendamento mais distante no futuro.
+    m.forEach((lista, clientId) => m.set(clientId, ordenarPorProximidade(lista, agora)));
     return m;
   }, [itens]);
 
@@ -80,7 +85,16 @@ export default function AcoesPage() {
   // Cada serviço do cliente tem um "relógio": vencido/vencendo/nunca pede ação;
   // reunião futura marcada (ou relatório, no caso de Price) cobre o relógio.
   // Ordena do mais vencido para o menos. Substitui a antiga "sugestão por recência".
-  const filaCadencia = useMemo(() => buildFilaCadencia(clientes, agenda, acoes, cadencias, new Date()), [clientes, agenda, acoes, cadencias]);
+  // `acProduto` entra AQUI (e não só como filtro de lista): com um serviço
+  // selecionado, a fila é construída olhando apenas o relógio dele — é o que
+  // faz "Precisam de ação" listar quem está ruim NAQUELE serviço, em vez de
+  // quem tem o serviço e está ruim em qualquer outro.
+  const filaCadencia = useMemo(
+    () => buildFilaCadencia(clientes, agenda, acoes, cadencias, new Date(), {
+      servico: acProduto === 'Todos' ? undefined : acProduto,
+    }),
+    [clientes, agenda, acoes, cadencias, acProduto]
+  );
 
   const tipoOpcoes = useMemo(() => [...new Set(itens.map((i) => i.tipoLabel))].sort(), [itens]);
   const statusOpcoes = useMemo(() => [...new Set(itens.map((i) => i.statusLabel))].filter(Boolean).sort(), [itens]);
@@ -152,6 +166,11 @@ export default function AcoesPage() {
     [filaCadencia, debouncedAcCliente, acMonitores, acProduto]
   );
   const nPrecisaAcao = useMemo(() => filaVisivel.filter((f) => f.precisaAcao).length, [filaVisivel]);
+  // Grupos por CADÊNCIA (mesmo motor da fila) — fonte única pros dois botões
+  // (contagem do badge) e pro conteúdo de cada aba, sem duplicar o cálculo.
+  const vencidos = useMemo(() => filaVisivel.filter((f) => classificarCadencia(f) === 'vencido'), [filaVisivel]);
+  const vencendo = useMemo(() => filaVisivel.filter((f) => classificarCadencia(f) === 'vencendo'), [filaVisivel]);
+  const emdia = useMemo(() => filaVisivel.filter((f) => classificarCadencia(f) === 'em_dia'), [filaVisivel]);
   const filtrosAcompanhamentoAtivos = !!debouncedAcCliente.trim() || acMonitores.length > 0;
   function limparFiltrosAcompanhamento() { setAcCliente(''); setAcMonitores([]); }
 
@@ -166,6 +185,20 @@ export default function AcoesPage() {
       return 0;
     });
     return out;
+  }
+
+  /**
+   * Dias até o relógio mais próximo de vencer, olhando só os relógios que
+   * ainda vão vencer de verdade (status 'em_dia') — um relógio 'coberto'
+   * (já tem ação futura marcada) não é urgência nenhuma, então não deve
+   * puxar o cliente pra um bucket "vence logo" só por causa dele. Cliente
+   * com tudo coberto (nenhum relógio 'em_dia') cai no bucket mais distante —
+   * não tem prazo correndo.
+   */
+  function diasAteVencer(f: FilaCadItem): number {
+    const emDia = f.relogios.filter((r) => r.status === 'em_dia');
+    if (emDia.length === 0) return Infinity;
+    return Math.min(...emDia.map((r) => Math.max(0, -r.atraso)));
   }
 
   // Card de um item da fila (com os relógios de cadência).
@@ -246,13 +279,16 @@ export default function AcoesPage() {
             )}
           </Card>
 
-          <div className="flex flex-wrap gap-[0.4rem]" style={{ marginBottom: 18 }}>
-            <Chip active={visaoAcompanhamento === 'grupos'} onClick={() => setVisaoAcompanhamento('grupos')}>Todos os grupos</Chip>
-            <Chip active={visaoAcompanhamento === 'sugestoes'} onClick={() => setVisaoAcompanhamento('sugestoes')}>
-              {/* Badge dentro do próprio Chip ativo (fundo dourado do accent): a
-                  variante "warning" normal (laranja sobre laranja/dourado) ficava
-                  ilegível ali — inverte pro contraste do próprio chip (escuro no
-                  dark theme, claro no light), sempre legível independente do tema. */}
+          <div className="acoes-toggle flex flex-wrap gap-[0.5rem]" style={{ marginBottom: 20 }}>
+            {/* Duas visões, mutuamente exclusivas, cobrindo toda a fila visível
+                (vencidos+vencendo de um lado, em dia do outro) — antes havia um
+                terceiro modo ("Todos os grupos") que misturava as duas coisas
+                na mesma tela; ficou redundante com as duas abas. */}
+            <Chip
+              active={visaoAcompanhamento !== 'emdia'}
+              onClick={() => setVisaoAcompanhamento('precisa')}
+              style={{ padding: '0.5rem 0.9rem', fontSize: '0.85rem' }}
+            >
               Precisam de ação{nPrecisaAcao > 0 && (
                 <Badge
                   variant="plain"
@@ -262,32 +298,57 @@ export default function AcoesPage() {
                 </Badge>
               )}
             </Chip>
+            <Chip
+              active={visaoAcompanhamento === 'emdia'}
+              onClick={() => setVisaoAcompanhamento('emdia')}
+              style={{ padding: '0.5rem 0.9rem', fontSize: '0.85rem' }}
+            >
+              Em dia{emdia.length > 0 && (
+                <Badge
+                  variant="plain"
+                  style={{ marginLeft: 6, background: 'var(--accent-contrast)', color: 'var(--accent)', fontWeight: 700 }}
+                >
+                  {emdia.length}
+                </Badge>
+              )}
+            </Chip>
           </div>
 
-          {visaoAcompanhamento === 'sugestoes' ? (() => {
-            const fila = filaVisivel.filter((f) => f.precisaAcao);
+          {visaoAcompanhamento === 'emdia' ? (() => {
+            // Segmentado por proximidade de vencimento — sem isso, cliente
+            // recém-atendido e cliente prestes a vencer (mas ainda dentro do
+            // prazo) caíam no mesmo grid, sem jeito de ver quem vai precisar
+            // de ação em breve sem abrir card por card.
+            const emdiaPerto = emdia.filter((f) => diasAteVencer(f) <= 7);
+            const emdiaMedio = emdia.filter((f) => { const d = diasAteVencer(f); return d > 7 && d <= 15; });
+            const emdiaFolga = emdia.filter((f) => diasAteVencer(f) > 15);
+            const subSecao = (titulo: string, itens: FilaCadItem[]) => itens.length === 0 ? null : (
+              <div key={titulo} style={{ marginBottom: 16 }}>
+                <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
+                  <span className="text-text-secondary" style={{ fontSize: 13, fontWeight: 600 }}>{titulo}</span>
+                  <span className="text-text-muted" style={{ fontSize: 12 }}>{itens.length}</span>
+                </div>
+                <div className="acao-grid">{itens.map(cardDeFila)}</div>
+              </div>
+            );
             return (
               <div className="section">
-                <p className="text-text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
-                  Fila por <strong>cadência por serviço</strong> (Monitoria {cadencias.monitoria_dias}d · Price {cadencias.price_dias}d): quem está vencido, vencendo ou nunca atendido — e sem próximo compromisso que cubra. Do mais vencido para o menos.
+                <p className="text-text-muted" style={{ fontSize: 13, marginBottom: 16 }}>
+                  Dentro da cadência (Monitoria {cadencias.monitoria_dias}d · Price {cadencias.price_dias}d) — nenhum precisa de ação agora, mas organizado por quem vence primeiro.
                 </p>
-                <div className="section-header">
-                  <h3>Precisam de ação <span className="text-text-muted" style={{ fontWeight: 400, fontSize: 13 }}>· cadência vencida ou vencendo</span></h3>
-                  <span className="text-text-muted" style={{ fontSize: 12 }}>{fila.length}</span>
-                </div>
-                {fila.length === 0 ? (
-                  <Card flat><div className="empty-state">Tudo dentro da cadência. 🎉</div></Card>
+                {emdia.length === 0 ? (
+                  <Card flat><div className="empty-state">Nenhum cliente em dia com o filtro atual.</div></Card>
                 ) : (
-                  <div className="acao-grid">{fila.map(cardDeFila)}</div>
+                  <>
+                    {subSecao('Vence em até 7 dias', emdiaPerto)}
+                    {subSecao('Vence em 8–15 dias', emdiaMedio)}
+                    {subSecao('15+ dias / já coberto', emdiaFolga)}
+                  </>
                 )}
+                <Grupo titulo="Atendidos pelo Marco" sub="fora do modelo de cadência" lista={filtrarOrdenar(marco)} renderCard={renderCard(false)} />
               </div>
             );
           })() : (() => {
-            // Grupos unificados por CADÊNCIA (mesmo motor da fila), não mais por recência.
-            const fila = filaVisivel;
-            const vencidos = fila.filter((f) => classificarCadencia(f) === 'vencido');
-            const vencendo = fila.filter((f) => classificarCadencia(f) === 'vencendo');
-            const emdia = fila.filter((f) => classificarCadencia(f) === 'em_dia');
             const secao = (titulo: string, sub: string, itens: FilaCadItem[]) => (
               <div className="section" key={titulo}>
                 <div className="section-header">
@@ -298,12 +359,19 @@ export default function AcoesPage() {
               </div>
             );
             return (
-              <>
-                {secao('Vencidos', 'cadência estourada ou nunca atendido', vencidos)}
-                {secao('Vencendo', 'perto de vencer', vencendo)}
-                {secao('Em dia', 'dentro da cadência', emdia)}
-                <Grupo titulo="Atendidos pelo Marco" sub="fora do modelo de cadência" lista={filtrarOrdenar(marco)} renderCard={renderCard(false)} />
-              </>
+              <div className="section">
+                <p className="text-text-muted" style={{ fontSize: 13, marginBottom: 16 }}>
+                  Fila por <strong>cadência por serviço</strong> (Monitoria {cadencias.monitoria_dias}d · Price {cadencias.price_dias}d): quem está vencido, vencendo ou nunca atendido — e sem próximo compromisso que cubra. Do mais vencido para o menos.
+                </p>
+                {vencidos.length === 0 && vencendo.length === 0 ? (
+                  <Card flat><div className="empty-state">Tudo dentro da cadência. 🎉</div></Card>
+                ) : (
+                  <>
+                    {secao('Vencidos', 'cadência estourada ou nunca atendido', vencidos)}
+                    {secao('Vencendo', 'perto de vencer', vencendo)}
+                  </>
+                )}
+              </div>
             );
           })()}
         </>

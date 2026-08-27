@@ -1,0 +1,25 @@
+{
+  "id": "1783021143292",
+  "clientId": "68767a0c-2bfd-4668-961c-7905a380f1af",
+  "clientName": "Gushcar",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-07-06",
+  "hora": "15:00",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-02T19:39:03.292Z",
+  "exportedAt": "2026-07-22T14:29:18.201Z"
+}

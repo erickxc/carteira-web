@@ -1,5 +1,5 @@
 // --- Categorias (CRUD editável) ---
-export type CategoriaTipo = 'servico' | 'tipo_evento' | 'status_cliente' | 'status_evento' | 'monitor' | 'tipo_lembrete' | 'sala';
+export type CategoriaTipo = 'servico' | 'tipo_evento' | 'status_cliente' | 'status_evento' | 'monitor' | 'tipo_lembrete' | 'sala' | 'prioridade_tarefa';
 
 export const CATEGORIA_TIPO_LABEL: Record<CategoriaTipo, string> = {
   servico: 'Serviços',
@@ -9,6 +9,7 @@ export const CATEGORIA_TIPO_LABEL: Record<CategoriaTipo, string> = {
   monitor: 'Monitores',
   tipo_lembrete: 'Tipos de lembrete',
   sala: 'Salas de reunião',
+  prioridade_tarefa: 'Prioridades de tarefa (Ágil)',
 };
 
 export interface Categoria {
@@ -137,6 +138,36 @@ export interface ChecklistItem {
   done: boolean;
 }
 
+/**
+ * Linha de registro de produto (serviço Monitoria, dentro de uma Reunião) —
+ * diferente do `OrientacaoItem` legado (que era PREPARAÇÃO, descontinuado por
+ * excesso de detalhe pra uma anotação prévia): isto é REGISTRO do que
+ * aconteceu, vira fato consumido pela análise de IA. `cliente` só existe para
+ * cliente segmentado (`Cliente.tipoAnalise === 'segmentado'`) — cada loja tem
+ * clientes finais próprios; cliente unitário não preenche este campo.
+ */
+export interface ProdutoSituacaoItem {
+  id: string;
+  produto: string;
+  cliente?: string;
+  situacao: string;
+}
+
+export type MargemPrecificacao = 'subiu' | 'desceu' | 'manteve';
+
+export const MARGEM_PRECIFICACAO_LABEL: Record<MargemPrecificacao, string> = {
+  subiu: 'Subiu',
+  desceu: 'Desceu',
+  manteve: 'Manteve',
+};
+
+/** Marcador de produto precificado (tipo de evento "Precificação") + direção da margem. */
+export interface PrecificacaoItem {
+  id: string;
+  produto: string;
+  margem: MargemPrecificacao;
+}
+
 /** Linha da pré-análise: orientação por cliente/produto. */
 export interface OrientacaoItem {
   id: string;
@@ -195,6 +226,10 @@ export interface EventoAgenda {
   servicos: string[];
   /** Checklist de atividades/pauta da reunião. */
   checklist?: ChecklistItem[];
+  /** Registro de produtos e situação (serviço Monitoria). Ver `ProdutoSituacaoItem`. */
+  produtosSituacao?: ProdutoSituacaoItem[];
+  /** Marcadores de produto precificado + direção da margem (type = "Precificação"). */
+  precificacoes?: PrecificacaoItem[];
   /** Pré-análise (preparação) — disponível após criar a reunião. */
   preAnalise?: PreAnalise;
   /** Ata da reunião — gerada automaticamente (editável). */
@@ -234,6 +269,37 @@ export type NovoEvento = Omit<EventoAgenda, 'id' | 'createdAt' | 'attachments' |
   monitores?: string[];
 };
 
+// --- Assistente IA ---
+// Gerada automaticamente pela análise semanal (server/ia/analisesAutomaticas.cjs)
+// a partir das atas do cliente — a IA só sugere; aplicar (ex.: mudar `status`
+// do cliente) é sempre ação manual do usuário.
+export interface AnaliseIA {
+  id: string;
+  clientId: string;
+  nivelRisco: 'baixo' | 'medio' | 'alto';
+  resumo: string;
+  fatores: string[];
+  sugestaoProximaPauta: string;
+  geradoEm: string;
+}
+
+// Log de auditoria de ação executada pelo agente (server/ia/orquestrador.cjs)
+// — toda ferramenta que o agente chama fica registrada aqui, revisável no
+// módulo do Assistente de IA (`/assistente`).
+export interface AcaoIA {
+  id: string;
+  ferramenta: string;
+  clientId: string;
+  argumentos: Record<string, unknown>;
+  resultado: unknown;
+  /** Legenda humana com contexto real (montada no backend, `orquestrador.cjs`
+   *  descreverAcao) — ex.: "Consultando dossiê de Altese - Recreio + Barra...".
+   *  Ausente em ações registradas antes desse campo existir. */
+  descricao?: string;
+  origem: 'chat' | 'analise_semanal';
+  criadoEm: string;
+}
+
 // --- Lembretes ---
 export type Recorrencia = 'none' | 'daily' | 'weekly' | 'monthly';
 export type LembreteStatus = 'ativo' | 'concluido';
@@ -253,6 +319,42 @@ export interface Lembrete {
 }
 
 export type NovoLembrete = Omit<Lembrete, 'id' | 'createdAt' | 'status'> & { status?: LembreteStatus };
+
+// --- Séries recorrentes de agenda ---
+// Antecedência do lembrete automático em relação ao horário do evento — mesmo
+// vocabulário usado no form de evento único (`lembreteAntes`), agora
+// permitindo mais de um por série/evento.
+export type OffsetLembrete = '1h' | '1d' | '2d' | '7d';
+
+/** Regra ABERTA de recorrência (sem "durante N meses" nem "total de
+ *  ocorrências") — o servidor materializa mês a mês conforme ele passa.
+ *  `modo` casa 1:1 com `server/regraRecorrencia.cjs`, fonte única da
+ *  matemática de datas (o frontend nunca recalcula, só consulta o preview). */
+export type RegraRecorrencia =
+  | { modo: 'semanal'; diaSemana: number } // 0=domingo..6=sábado
+  | { modo: 'mensalVezes'; vezesPorMes: number; diaBase: number }
+  | { modo: 'diasMes'; diasDoMes: number[] };
+
+export interface AgendaSerie {
+  id: string;
+  clientId: string;
+  clientName?: string;
+  subject: string;
+  type: string;
+  time?: string;
+  duracao?: number;
+  monitores: string[];
+  servicos: string[];
+  sala?: string;
+  regra: RegraRecorrencia;
+  lembretes: OffsetLembrete[];
+  /** Data (yyyy-MM-dd) a partir da qual a regra passa a valer. */
+  inicio: string;
+  ativo: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+export type NovaAgendaSerie = Omit<AgendaSerie, 'id' | 'ativo' | 'createdAt' | 'updatedAt'> & { ativo?: boolean };
 
 // --- Agenda do CEO (Google Calendar, somente leitura) ---
 export interface EventoCeo {
@@ -365,3 +467,124 @@ export interface SecoesReuniao {
   capitulos: CapituloReuniao[];
   blocoNotas: string;
 }
+
+// --- Ágil (Kanban de tarefas) ---
+
+/** Área de trabalho — agrupa vários boards (pastas). */
+export interface AgilWorkspace {
+  id: string;
+  nome: string;
+  descricao?: string;
+  ordem: number;
+  createdAt: string;
+}
+export type NovaAgilWorkspace = Omit<AgilWorkspace, 'id' | 'ordem' | 'createdAt'>;
+
+export interface AgilBoard {
+  id: string;
+  workspaceId: string;
+  nome: string;
+  descricao?: string;
+  /** Opcional — outro board (da mesma workspace) que funciona como o quadro de
+   *  Iniciativas deste board: renderizado empilhado acima, na mesma tela.
+   *  1 board de Iniciativas ↔ 1 board de Tarefas (ver AgilTarefa.iniciativaId). */
+  iniciativasBoardId?: string;
+  /** true só no board companheiro de Iniciativas, criado automaticamente
+   *  junto de todo board novo — nunca aparece sozinho no seletor de boards,
+   *  só empilhado acima do board de Tarefas que aponta pra ele. */
+  ehIniciativas?: boolean;
+  createdAt: string;
+}
+export type NovoAgilBoard = Omit<AgilBoard, 'id' | 'createdAt' | 'iniciativasBoardId' | 'ehIniciativas'>;
+
+export interface AgilColuna {
+  id: string;
+  boardId: string;
+  /** Vazio = coluna de topo. Preenchido = sub-coluna daquele pai (máx. 2 níveis).
+   *  Só colunas-FOLHA recebem tarefas; uma coluna com sub-colunas é agrupadora. */
+  parentId?: string;
+  titulo: string;
+  ordem: number;
+  /** Limite de tarefas simultâneas na coluna (WIP limit). 0/undefined = sem limite.
+   *  Numa coluna agrupadora, conta a soma das sub-colunas (CONWIP). */
+  wipLimit?: number;
+  /** Hex #RRGGBB opcional — usada só no indicador de Iniciativas (bolinha
+   *  colorida por tarefa vinculada). Sem cor, cinza neutro no indicador. */
+  cor?: string;
+  createdAt: string;
+}
+export type NovaAgilColuna = Omit<AgilColuna, 'id' | 'ordem' | 'createdAt'>;
+
+export interface AgilSwimlane {
+  id: string;
+  boardId: string;
+  titulo: string;
+  ordem: number;
+  createdAt: string;
+}
+export type NovaAgilSwimlane = Omit<AgilSwimlane, 'id' | 'ordem' | 'createdAt'>;
+
+/** Categoria colorida da tarefa (ex.: Bug/Correção/Implementação) — lista
+ *  gerenciada pelo próprio usuário, por board (cada board tem seu conjunto). */
+export interface AgilFrente {
+  id: string;
+  boardId: string;
+  titulo: string;
+  /** Hex #RRGGBB — cor livre escolhida pelo usuário. */
+  cor: string;
+  ordem: number;
+  createdAt: string;
+}
+export type NovaAgilFrente = Omit<AgilFrente, 'id' | 'ordem' | 'createdAt'> & { cor?: string };
+
+export interface AgilTarefa {
+  id: string;
+  /** Id curto sequencial por board (o "#12" exibido no card). */
+  numero?: number;
+  boardId: string;
+  colunaId: string;
+  swimlaneId: string;
+  /** Categoria colorida (Bug/Correção/...), opcional — vem de AgilFrente. */
+  frenteId?: string;
+  /** Opcional — id de uma tarefa do board de Iniciativas vinculado ao board
+   *  desta tarefa (ver AgilBoard.iniciativasBoardId). Essa tarefa é a "Iniciativa". */
+  iniciativaId?: string;
+  titulo: string;
+  descricao?: string;
+  ordem: number;
+  /** Valor livre, editável via CRUD de Categorias (tipo 'prioridade_tarefa'). */
+  prioridade?: string;
+  labels: string[];
+  /** Monitor responsável, vindo do CRUD de monitores (mesma lista de EventoAgenda). */
+  responsavel?: string;
+  /** Data de prazo (yyyy-MM-dd). */
+  dueAt?: string;
+  /** Cliente vinculado (opcional). */
+  clientId?: string;
+  bloqueado?: boolean;
+  /** Motivo do bloqueio — só relevante quando bloqueado = true. */
+  motivoBloqueio?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export type NovaAgilTarefa = Omit<AgilTarefa, 'id' | 'ordem' | 'labels' | 'createdAt' | 'updatedAt'> & { labels?: string[] };
+
+export interface AgilSubtarefa {
+  id: string;
+  tarefaId: string;
+  titulo: string;
+  concluida: boolean;
+  ordem: number;
+  createdAt: string;
+}
+export type NovaAgilSubtarefa = Omit<AgilSubtarefa, 'id' | 'concluida' | 'ordem' | 'createdAt'>;
+
+export interface AgilComentario {
+  id: string;
+  tarefaId: string;
+  /** Monitor autor do comentário (mesma lista de responsável/monitores) — sem login real no app. */
+  autor: string;
+  texto: string;
+  createdAt: string;
+}
+export type NovoAgilComentario = Omit<AgilComentario, 'id' | 'createdAt'>;

@@ -1,0 +1,25 @@
+{
+  "id": "92b3b8c7-f6ff-4cb6-8964-4a6b9a5ccb30",
+  "clientId": "25af3e24-3992-45f0-a887-14dd7657f2ae",
+  "clientName": "Golfinho",
+  "tipo": "Relatório",
+  "assunto": "Alvo Liquidez",
+  "data": "2026-10-01T03:00:00.000Z",
+  "hora": "08:00",
+  "duracao": 60,
+  "status": "Agendado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "b8d507ad-d4d8-4d62-8cf1-00dd8d3390f7",
+  "createdAt": "2026-07-30T13:25:08.255Z",
+  "exportedAt": "2026-07-30T13:25:09.630Z"
+}

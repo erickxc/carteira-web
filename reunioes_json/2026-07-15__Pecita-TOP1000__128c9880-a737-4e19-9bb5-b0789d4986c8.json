@@ -1,0 +1,27 @@
+{
+  "id": "128c9880-a737-4e19-9bb5-b0789d4986c8",
+  "clientId": "5d5c03ca-51e5-472a-8a01-f8dd8cc7622d",
+  "clientName": "Pecita - TOP1000",
+  "tipo": "Reunião",
+  "assunto": "Reunião",
+  "data": "2026-07-15T03:00:00.000Z",
+  "hora": "15:00",
+  "duracao": 60,
+  "status": "Cancelado",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Pecita - TOP1000 — 22/07/2026 15:00\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-21T19:18:14.295Z",
+  "exportedAt": "2026-07-29T13:59:08.364Z"
+}

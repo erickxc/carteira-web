@@ -1,0 +1,25 @@
+{
+  "id": "5e5162c0-a342-4172-b006-96d1fe36a892",
+  "clientId": "25af3e24-3992-45f0-a887-14dd7657f2ae",
+  "clientName": "Golfinho",
+  "tipo": "Relatório",
+  "assunto": "",
+  "data": "2026-08-06T03:00:00.000Z",
+  "hora": "16:43",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-08-06T19:43:39.941Z",
+  "exportedAt": "2026-08-06T19:43:35.553Z"
+}

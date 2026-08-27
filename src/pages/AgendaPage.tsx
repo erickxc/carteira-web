@@ -1,37 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   addDays, addMonths, addWeeks, differenceInCalendarDays, eachDayOfInterval, endOfMonth, endOfWeek,
-  format, isSameDay, isSameMonth, parse, parseISO, startOfMonth, startOfWeek, subDays, subMonths, subWeeks,
+  format, parse, parseISO, startOfMonth, startOfWeek, subDays, subMonths, subWeeks,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { AlertTriangle, CalendarDays, CalendarSync, ChevronLeft, ChevronRight, LayoutGrid, Paperclip, Plus, Printer, User } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, Plus, Printer } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { EventFormModal } from '../components/EventFormModal';
 import { FiltroBotoes } from '../components/FiltroBotoes';
-import { CardEvento } from '../components/agenda/CardEvento';
-import { ReagendarButton } from '../components/agenda/ReagendarButton';
 import { CeoEventoPopover } from '../components/agenda/CeoEventoPopover';
 import { SugestaoAgendaCard } from '../components/agenda/SugestaoAgendaCard';
-import { formatHolidayLabel, getHoliday } from '../utils/holidays';
+import { ProximasReunioesTicker } from '../components/agenda/ProximasReunioesTicker';
+import { MonthGrid } from '../components/agenda/MonthGrid';
+import { WeekKanban } from '../components/agenda/WeekKanban';
+import { turnoDe } from '../utils/turnos';
 import { gerarAta } from '../utils/ata';
 import { corTipo } from '../utils/tipoCor';
 import { usePersistedState } from '../hooks/usePersistedState';
-import { Badge, Button, Card } from '../ui';
+import { Button, Card } from '../ui';
 import type { EventoAgenda, EventoCeo } from '../types';
-
-const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 interface AgendaLocationState { focusDate?: string; openNewEvent?: boolean; initialType?: string; }
 
-function turnoDe(ev: EventoAgenda): 'manha' | 'tarde' {
-  if (!ev.time) return 'manha';
-  return Number(ev.time.slice(0, 2)) >= 12 ? 'tarde' : 'manha';
-}
-function turnoDeCeo(ev: EventoCeo): 'manha' | 'tarde' {
-  if (ev.allDay) return 'manha';
-  return Number(format(parseISO(ev.start), 'HH')) >= 12 ? 'tarde' : 'manha';
-}
 function ordenaPorHora(a: EventoAgenda, b: EventoAgenda) {
   return (a.time || '99:99').localeCompare(b.time || '99:99');
 }
@@ -162,32 +153,6 @@ export default function AgendaPage() {
     [agendaFiltrada]
   );
 
-  // Ticker "Próximas reuniões": sempre anima (rola continuamente, mesmo quando
-  // a lista cabe inteira na largura visível — sinaliza que a tela está "viva").
-  // A duração é calculada pela largura real do conteúdo (px), não pela
-  // quantidade de itens — velocidade de leitura constante (px/s) mesmo com
-  // poucos ou muitos itens, em vez da fórmula antiga que deixava listas curtas
-  // rápidas/com a "costura" do loop muito visível.
-  const tickerRef = useRef<HTMLDivElement>(null);
-  const tickerTrackRef = useRef<HTMLDivElement>(null);
-  const [duracaoTicker, setDuracaoTicker] = useState(35);
-  const PX_POR_SEGUNDO_TICKER = 55;
-
-  useEffect(() => {
-    function medir() {
-      const container = tickerRef.current;
-      const track = tickerTrackRef.current;
-      if (!container || !track) return;
-      // O track sempre contém a lista duplicada (loop sem emenda) — a largura
-      // de uma cópia é metade do scrollWidth total.
-      const largura = track.scrollWidth / 2;
-      setDuracaoTicker(Math.max(18, largura / PX_POR_SEGUNDO_TICKER));
-    }
-    medir();
-    window.addEventListener('resize', medir);
-    return () => window.removeEventListener('resize', medir);
-  }, [proximos]);
-
   const monthDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentMonth));
     const end = endOfWeek(endOfMonth(currentMonth));
@@ -252,52 +217,6 @@ export default function AgendaPage() {
   function irProximo() { if (view === 'mes') setCurrentMonth((m) => addMonths(m, 1)); else setWeekRef((w) => addWeeks(w, 1)); }
   function irHoje() { setCurrentMonth(startOfMonth(hoje)); setWeekRef(hoje); }
 
-  // Uma "célula" de turno (Manhã OU Tarde) de um dia — item de grid PRÓPRIO
-  // (não empilhado dentro de uma coluna por dia), pra o CSS Grid alinhar a
-  // altura de cada linha (Manhã de todos os dias / Tarde de todos os dias)
-  // entre as colunas. Ver comentário no JSX que chama isso.
-  function renderTurno(
-    day: Date, key: string, turno: 'manha' | 'tarde',
-    lista: EventoAgenda[], listaCeo: EventoCeo[], isManha: boolean
-  ) {
-    const dkey = `${key}|${turno}`;
-    return (
-      <div key={`${key}-${turno}`}
-        className={`kanban-turno${isManha ? ' kanban-turno-manha' : ' kanban-turno-tarde'}${dragOverKey === dkey ? ' is-drop-target' : ''}`}
-        onDragOver={(e) => { e.preventDefault(); if (dragOverKey !== dkey) setDragOverKey(dkey); }}
-        onDragLeave={() => setDragOverKey((k) => (k === dkey ? null : k))}
-        onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain') || draggedId; setDragOverKey(null); setDraggedId(null); if (id) moverKanban(id, key, turno); }}>
-        <div className="kanban-turno-label">{isManha ? 'Manhã' : 'Tarde'}</div>
-        {lista.map((ev) => (
-          <CardEvento
-            key={ev.id}
-            ev={ev}
-            isDragging={draggedId === ev.id}
-            hasConflito={conflitos.has(ev.id)}
-            onDragStart={() => setDraggedId(ev.id)}
-            onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
-            onClick={() => setModalState({ editing: ev })}
-            onConcluir={() => concluir(ev)}
-            onReagendar={(novaData) => moverParaDia(ev.id, novaData)}
-          />
-        ))}
-        {listaCeo.map((ev) => (
-          <button key={ev.id}
-            type="button"
-            className="calendar-chip calendar-chip-ceo"
-            onClick={() => setEventoCeoAberto(ev)}
-            title={`${ev.title}${ev.allDay ? '' : ' · ' + format(parseISO(ev.start), 'HH:mm')} — Agendas do Marco (Google, somente leitura)`}>
-            <span className="calendar-chip-title">📅 {ev.allDay ? '' : `${format(parseISO(ev.start), 'HH:mm')} `}{ev.title}</span>
-            <span className="calendar-chip-meta">
-              <span className="calendar-chip-type">Agendas do Marco</span>
-            </span>
-          </button>
-        ))}
-        <button className="kanban-add" onClick={() => setModalState({ defaultDate: day })}><Plus size={13} /> reunião</button>
-      </div>
-    );
-  }
-
   return (
     <div className="page-container">
       <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: 4 }}>
@@ -308,44 +227,11 @@ export default function AgendaPage() {
         <Button variant="primary" onClick={() => setModalState({ defaultDate: new Date() })}><Plus size={16} /> Novo evento</Button>
       </div>
 
-      {/* Faixa de próximas reuniões */}
-      <div className="section agenda-noprint" style={{ marginTop: '1rem' }}>
-        <div className="section-header"><h3>Próximas reuniões</h3><span className="text-text-muted" style={{ fontSize: 12 }}>{proximos.length}</span></div>
-        {proximos.length === 0 ? (
-          <Card flat><div className="empty-state">Nenhuma reunião futura.</div></Card>
-        ) : (
-          <div className="agenda-ticker" ref={tickerRef}>
-            {/* lista sempre duplicada (loop sem emenda), mas só anima quando não cabe na largura visível */}
-            <div
-              className="agenda-ticker-track"
-              ref={tickerTrackRef}
-              style={{ animationDuration: `${duracaoTicker}s` }}
-            >
-              {[...proximos, ...proximos].map((ev, i) => {
-                const d = parseISO(ev.date);
-                return (
-                  <button
-                    key={`${ev.id}-${i}`}
-                    className="agenda-ticker-item"
-                    onClick={() => setModalState({ editing: ev })}
-                    aria-hidden={i >= proximos.length}
-                    tabIndex={i >= proximos.length ? -1 : 0}
-                  >
-                    <span className="agenda-ticker-dot" style={{ background: corTipo(ev.type) }} />
-                    <span className="agenda-ticker-date">{format(d, 'dd/MM')}</span>
-                    <strong className="agenda-ticker-name">{ev.clientName}</strong>
-                    <span className="agenda-ticker-meta">
-                      {ev.time ? `${ev.time}` : ''}{ev.subject || ev.type ? `${ev.time ? ' · ' : ''}${ev.subject || ev.type}` : ''}
-                      {ev.monitores.length > 0 && <span className="chip-monitor"> · <User size={10} /> {ev.monitores.join(', ')}</span>}
-                    </span>
-                    {conflitos.has(ev.id) && <AlertTriangle size={12} className="text-[color:var(--danger)] shrink-0" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+      <ProximasReunioesTicker
+        proximos={proximos}
+        conflitos={conflitos}
+        onSelecionar={(ev) => setModalState({ editing: ev })}
+      />
 
       <SugestaoAgendaCard
         onAgendar={(clienteId, dia, hora) => setModalState({ initialClientId: clienteId, defaultDate: dia, initialTime: hora })}
@@ -412,121 +298,46 @@ export default function AgendaPage() {
         </div>
 
         {view === 'mes' ? (
-          <>
-            <div className="calendar-grid" style={{ marginBottom: 8 }}>
-              {WEEKDAY_LABELS.map((d) => (<div key={d} className="calendar-weekday">{d}</div>))}
-            </div>
-            <div className="calendar-grid calendar-grid-big">
-              {monthDays.map((day) => {
-                const key = format(day, 'yyyy-MM-dd');
-                const dayEvents = eventsByDay.get(key) ?? [];
-                const dayEventsCeo = eventsByDayCeo.get(key) ?? [];
-                const holiday = getHoliday(day);
-                const classes = ['calendar-day', 'calendar-day-big',
-                  !isSameMonth(day, currentMonth) && 'is-outside', isSameDay(day, hoje) && 'is-today',
-                  (day.getDay() === 0 || day.getDay() === 6) && 'is-weekend', holiday && 'is-holiday',
-                  dragOverKey === key && 'is-drop-target'].filter(Boolean).join(' ');
-                return (
-                  <div key={key} className={classes}
-                    onDragOver={(e) => { e.preventDefault(); if (dragOverKey !== key) setDragOverKey(key); }}
-                    onDragLeave={() => setDragOverKey((k) => (k === key ? null : k))}
-                    onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain') || draggedId; setDragOverKey(null); setDraggedId(null); if (id) moverParaDia(id, key); }}
-                    title={holiday ? formatHolidayLabel(holiday) : undefined}>
-                    <div className="flex items-center justify-between">
-                      <span className="calendar-day-number">{format(day, 'd')}</span>
-                      <button className="calendar-add" onClick={() => setModalState({ defaultDate: day })} aria-label="Adicionar"><Plus size={13} /></button>
-                    </div>
-                    <div className="calendar-events-big custom-scrollbar">
-                      {dayEvents.map((ev) => (
-                        <button key={ev.id}
-                          className={`calendar-chip${draggedId === ev.id ? ' is-dragging' : ''}${/conclu|realiz/i.test(ev.status) ? ' is-done' : ''}${/cancel|reagend/i.test(ev.status) ? ' is-cancel' : ''}`}
-                          style={{ ['--chip-color' as string]: corTipo(ev.type) }}
-                          draggable onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); setDraggedId(ev.id); }}
-                          onDragEnd={() => { setDraggedId(null); setDragOverKey(null); }}
-                          onClick={() => setModalState({ editing: ev })}
-                          title={`${ev.clientName} — ${ev.subject || ev.type}${ev.time ? ' ' + ev.time : ''}${ev.servicos.length > 0 ? ' · ' + ev.servicos.join(', ') : ''}${ev.monitores.length > 0 ? ' · Monitor: ' + ev.monitores.join(', ') : ''} · clique para editar/reagendar (ou arraste para outro dia)`}>
-                          <span className="calendar-chip-title">{ev.time ? `${ev.time} ` : ''}{ev.clientName}</span>
-                          <span className="calendar-chip-meta">
-                            {/* Reunião: a cor da barra lateral já indica o tipo — mostrar o
-                                serviço tratado (Monitoria/Precificação) é mais útil que repetir
-                                "Reunião" no texto. Sem serviço tagueado (legado), cai no tipo. */}
-                            <span className="calendar-chip-type">
-                              {/* Com 2+ serviços, "Monitoria, Precificação" não cabe na
-                                  coluna e era cortado no meio da palavra. Mostra o
-                                  primeiro + contador; a lista completa está no title. */}
-                              {/reuni/i.test(ev.type) && ev.servicos.length > 0
-                                ? (ev.servicos.length > 1 ? `${ev.servicos[0]} +${ev.servicos.length - 1}` : ev.servicos[0])
-                                : ev.type}
-                            </span>
-                            {ev.monitores.length > 0 && <span className="chip-monitor"><User size={10} /> {ev.monitores.join(', ')}</span>}
-                            {(ev.reagendamentos ?? 0) > 0 && (
-                              <span
-                                className="chip-remarcada"
-                                title={`Remarcada ${ev.reagendamentos}x`}
-                              >
-                                <CalendarSync size={10} /> {ev.reagendamentos}x
-                              </span>
-                            )}
-                            {conflitos.has(ev.id) && <AlertTriangle size={10} className="text-[color:var(--danger)]" />}
-                            {ev.attachments.length > 0 && <Paperclip size={10} className="calendar-chip-clip" />}
-                            <ReagendarButton className="calendar-chip-reagendar" dataAtual={ev.date} onReagendar={(novaData) => moverParaDia(ev.id, novaData)} />
-                          </span>
-                        </button>
-                      ))}
-                      {dayEventsCeo.map((ev) => (
-                        <button key={ev.id}
-                          type="button"
-                          className="calendar-chip calendar-chip-ceo"
-                          onClick={() => setEventoCeoAberto(ev)}
-                          title={`${ev.title}${ev.allDay ? '' : ' · ' + format(parseISO(ev.start), 'HH:mm')} — Agendas do Marco (Google, somente leitura)`}>
-                          <span className="calendar-chip-title">📅 {ev.allDay ? '' : `${format(parseISO(ev.start), 'HH:mm')} `}{ev.title}</span>
-                          <span className="calendar-chip-meta">
-                            <span className="calendar-chip-type">Agendas do Marco</span>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
+          <MonthGrid
+            monthDays={monthDays}
+            currentMonth={currentMonth}
+            hoje={hoje}
+            eventsByDay={eventsByDay}
+            eventsByDayCeo={eventsByDayCeo}
+            conflitos={conflitos}
+            draggedId={draggedId}
+            dragOverKey={dragOverKey}
+            onDragOverDay={(key) => setDragOverKey((k) => (k === key ? k : key))}
+            onDragLeaveDay={(key) => setDragOverKey((k) => (k === key ? null : k))}
+            onDropDay={(id, key) => { setDragOverKey(null); setDraggedId(null); moverParaDia(id, key); }}
+            onDragStartEvento={setDraggedId}
+            onDragEndEvento={() => { setDraggedId(null); setDragOverKey(null); }}
+            onSelecionarEvento={(ev) => setModalState({ editing: ev })}
+            onSelecionarEventoCeo={setEventoCeoAberto}
+            onNovoEvento={(day) => setModalState({ defaultDate: day })}
+            onReagendar={moverParaDia}
+          />
         ) : (
-          <div className="kanban">
-            {/* 3 "linhas" de grid explícitas (cabeçalho / manhã / tarde) em vez
-                de uma coluna por dia com tudo empilhado dentro — o Grid só
-                alinha a altura entre colunas quando cada bloco é um item de
-                grid PRÓPRIO; empilhado num wrapper por dia, um dia com mais
-                reuniões de manhã empurrava "Tarde" pra baixo só naquela
-                coluna, desalinhando a régua toda (bug real relatado). */}
-            {weekDays.map((day) => {
-              const key = format(day, 'yyyy-MM-dd');
-              const holiday = getHoliday(day);
-              return (
-                <div key={key} className={`kanban-col-header${isSameDay(day, hoje) ? ' is-today' : ''}`}>
-                  <span className="font-bold text-[0.8rem] capitalize">{format(day, 'EEE', { locale: ptBR })}</span>
-                  <span className="text-[0.72rem] text-text-muted">{format(day, 'dd/MM')}</span>
-                  {holiday && <Badge variant="warning" style={{ fontSize: 10 }}>feriado</Badge>}
-                </div>
-              );
-            })}
-            {weekDays.map((day) => {
-              const key = format(day, 'yyyy-MM-dd');
-              const dayEvents = eventsByDay.get(key) ?? [];
-              const manha = dayEvents.filter((e) => turnoDe(e) === 'manha');
-              const dayEventsCeo = eventsByDayCeo.get(key) ?? [];
-              const manhaCeo = dayEventsCeo.filter((e) => turnoDeCeo(e) === 'manha');
-              return renderTurno(day, key, 'manha', manha, manhaCeo, true);
-            })}
-            {weekDays.map((day) => {
-              const key = format(day, 'yyyy-MM-dd');
-              const dayEvents = eventsByDay.get(key) ?? [];
-              const tarde = dayEvents.filter((e) => turnoDe(e) === 'tarde');
-              const dayEventsCeo = eventsByDayCeo.get(key) ?? [];
-              const tardeCeo = dayEventsCeo.filter((e) => turnoDeCeo(e) === 'tarde');
-              return renderTurno(day, key, 'tarde', tarde, tardeCeo, false);
-            })}
-          </div>
+          <WeekKanban
+            weekDays={weekDays}
+            hoje={hoje}
+            eventsByDay={eventsByDay}
+            eventsByDayCeo={eventsByDayCeo}
+            salaOpcoes={opcoesPorTipo('sala')}
+            conflitos={conflitos}
+            draggedId={draggedId}
+            dragOverKey={dragOverKey}
+            onDragOverTurno={(dkey) => setDragOverKey((k) => (k === dkey ? k : dkey))}
+            onDragLeaveTurno={(dkey) => setDragOverKey((k) => (k === dkey ? null : k))}
+            onDropTurno={(id, dayKey, turno) => { setDragOverKey(null); setDraggedId(null); moverKanban(id, dayKey, turno); }}
+            onDragStartEvento={setDraggedId}
+            onDragEndEvento={() => { setDraggedId(null); setDragOverKey(null); }}
+            onSelecionarEvento={(ev) => setModalState({ editing: ev })}
+            onSelecionarEventoCeo={setEventoCeoAberto}
+            onConcluir={concluir}
+            onReagendar={moverParaDia}
+            onNovoEvento={(day) => setModalState({ defaultDate: day })}
+          />
         )}
       </Card>
 

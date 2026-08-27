@@ -1,0 +1,25 @@
+{
+  "id": "1780070115714",
+  "clientId": "75352ace-f230-4516-beab-b8dc18472c98",
+  "clientName": "Pecita - Campo Grande",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-06-01",
+  "hora": "15:00",
+  "duracao": null,
+  "status": "Realizado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-29T15:55:15.714Z",
+  "exportedAt": "2026-07-22T12:45:06.626Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "d58465a3-d4cd-4a38-883b-7b2323317f3e",
+  "clientId": "e62cc8f2-8cae-4890-969c-f982ca4d37e9",
+  "clientName": "Guigo",
+  "tipo": "Reunião",
+  "assunto": "Reunião de Monitoria",
+  "data": "2026-08-06T03:00:00.000Z",
+  "hora": "15:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Guigo — 06/08/2026 10:00\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-29T12:20:58.794Z",
+  "exportedAt": "2026-08-06T19:03:21.811Z"
+}

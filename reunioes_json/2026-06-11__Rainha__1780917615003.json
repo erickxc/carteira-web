@@ -1,0 +1,27 @@
+{
+  "id": "1780917615003",
+  "clientId": "50115590-c1f3-4f2c-8bc1-c080d7dd9640",
+  "clientName": "Rainha",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-06-11",
+  "hora": "15:00",
+  "duracao": null,
+  "status": "Cancelado",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "[Cancelado: Cliente sumiu]",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-06-08T11:20:15.003Z",
+  "exportedAt": "2026-07-22T19:56:42.703Z"
+}

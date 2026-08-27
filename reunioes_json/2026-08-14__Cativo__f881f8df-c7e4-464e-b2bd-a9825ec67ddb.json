@@ -1,0 +1,27 @@
+{
+  "id": "f881f8df-c7e4-464e-b2bd-a9825ec67ddb",
+  "clientId": "18bd16f5-26f3-4620-a404-d79cbcd09423",
+  "clientName": "Cativo",
+  "tipo": "Reunião",
+  "assunto": "Reunião de monitoria",
+  "data": "2026-08-14T03:00:00.000Z",
+  "hora": "15:00",
+  "duracao": 60,
+  "status": "Agendado",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Cativo — 07/08/2026 15:00\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-08-03T15:17:38.386Z",
+  "exportedAt": "2026-08-10T12:01:58.391Z"
+}

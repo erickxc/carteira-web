@@ -1,0 +1,27 @@
+{
+  "id": "bd7265f9-1f3d-4d0a-a1bc-01de772c1d39",
+  "clientId": "5b269281-e351-41df-b432-3a64a0249253",
+  "clientName": "Itatiaia",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-08T00:00:00.000Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Importado do Histórico",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T12:55:32.527Z",
+  "exportedAt": "2026-07-22T19:02:05.975Z"
+}

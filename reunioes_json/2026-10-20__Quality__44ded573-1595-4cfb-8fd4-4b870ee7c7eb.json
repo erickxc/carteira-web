@@ -1,0 +1,25 @@
+{
+  "id": "44ded573-1595-4cfb-8fd4-4b870ee7c7eb",
+  "clientId": "b9bed1f2-c6e5-41d0-a109-0c5921da3985",
+  "clientName": "Quality",
+  "tipo": "Relatório",
+  "assunto": "",
+  "data": "2026-10-20T03:00:00.000Z",
+  "hora": "09:00",
+  "duracao": 60,
+  "status": "Agendado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "4386bdc1-b5e0-4ac1-8de4-d6c18c12f74b",
+  "createdAt": "2026-08-05T19:22:03.473Z",
+  "exportedAt": "2026-08-05T19:22:02.683Z"
+}

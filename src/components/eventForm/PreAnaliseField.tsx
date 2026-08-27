@@ -5,15 +5,17 @@ interface PreAnaliseFieldProps {
   pa: ReturnType<typeof usePreAnalise>;
 }
 
-/** Bloco "Pré-Análise" do formulário de evento — só aparece na edição. */
+/** Bloco "Preparação" (antiga "Pré-Análise") do formulário de evento — só
+ *  aparece na edição, porque é o que se anota depois de marcar a reunião e
+ *  antes de realizá-la. */
 export function PreAnaliseField({ pa }: PreAnaliseFieldProps) {
   return (
     <Field
       label={
         <>
-          Pré-Análise{' '}
+          Preparação{' '}
           <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>
-            · anotação breve de preparação
+            · o que olhar antes da reunião
           </span>
         </>
       }

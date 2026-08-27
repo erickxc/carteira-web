@@ -1,0 +1,25 @@
+{
+  "id": "09ad9ed9-fbd4-45f2-a486-82d77da1ff53",
+  "clientId": "b9bed1f2-c6e5-41d0-a109-0c5921da3985",
+  "clientName": "Quality",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-08-06T03:00:00.000Z",
+  "hora": "14:41",
+  "duracao": 60,
+  "status": "Cancelado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-08-06T17:41:36.983Z",
+  "exportedAt": "2026-08-06T17:41:41.648Z"
+}

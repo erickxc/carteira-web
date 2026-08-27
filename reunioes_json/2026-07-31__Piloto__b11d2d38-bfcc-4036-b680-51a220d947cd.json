@@ -1,0 +1,25 @@
+{
+  "id": "b11d2d38-bfcc-4036-b680-51a220d947cd",
+  "clientId": "8ac32dd8-9d50-4d4e-a066-6cb1ff42f3ea",
+  "clientName": "Piloto",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-07-31T03:00:00.000Z",
+  "hora": "09:26",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-31T12:26:19.449Z",
+  "exportedAt": "2026-07-31T12:26:17.118Z"
+}

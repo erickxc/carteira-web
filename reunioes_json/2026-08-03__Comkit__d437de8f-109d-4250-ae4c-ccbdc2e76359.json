@@ -1,0 +1,27 @@
+{
+  "id": "d437de8f-109d-4250-ae4c-ccbdc2e76359",
+  "clientId": "241709c1-07be-4c86-a7ed-abf00d2ba903",
+  "clientName": "Comkit",
+  "tipo": "Relatório",
+  "assunto": "",
+  "data": "2026-08-03T03:00:00.000Z",
+  "hora": "09:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Comkit — 03/08/2026 09:00\nTipo: Relatório",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "1105a157-8492-4549-819f-98207ed2771c",
+  "createdAt": "2026-07-24T12:51:41.287Z",
+  "exportedAt": "2026-08-05T19:21:11.211Z"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "1782161319809",
+  "clientId": "03ef707e-24c6-4595-b585-8d80cb81ec9f",
+  "clientName": "Aliança de Itaboraí",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-06-22",
+  "hora": "15:00",
+  "duracao": null,
+  "status": "Realizado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Teste de api\r\r\n",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-06-22T20:48:39.809Z",
+  "exportedAt": "2026-07-22T12:45:08.360Z"
+}

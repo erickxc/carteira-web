@@ -1,0 +1,27 @@
+{
+  "id": "dc1fb531-b557-4f83-95b8-959638aa3f87",
+  "clientId": "53c7ee22-b8e7-46cd-a69a-d898951435eb",
+  "clientName": "Frandiesel",
+  "tipo": "Reunião",
+  "assunto": "Reunião",
+  "data": "2026-08-03T03:00:00.000Z",
+  "hora": "10:00",
+  "duracao": 60,
+  "status": "Cancelado",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Frandiesel — 31/07/2026 15:00\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-22T12:47:22.100Z",
+  "exportedAt": "2026-08-03T18:25:27.233Z"
+}

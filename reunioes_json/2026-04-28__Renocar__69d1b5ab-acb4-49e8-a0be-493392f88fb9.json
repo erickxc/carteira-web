@@ -1,0 +1,27 @@
+{
+  "id": "69d1b5ab-acb4-49e8-a0be-493392f88fb9",
+  "clientId": "e340b4ad-9c3d-4a0c-9da5-38d5fef0fc9c",
+  "clientName": "Renocar",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-04-28T15:00",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T16:52:22.246Z",
+  "exportedAt": "2026-07-22T19:02:11.325Z"
+}

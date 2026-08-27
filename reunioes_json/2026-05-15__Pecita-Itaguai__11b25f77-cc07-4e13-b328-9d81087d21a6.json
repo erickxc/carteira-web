@@ -1,0 +1,25 @@
+{
+  "id": "11b25f77-cc07-4e13-b328-9d81087d21a6",
+  "clientId": "280ebbdc-22b1-4313-977a-46a1c508a24a",
+  "clientName": "Pecita - Itaguaí",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-15T00:00:00.000Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Importado do Histórico",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T12:55:10.180Z",
+  "exportedAt": "2026-07-22T12:45:02.314Z"
+}

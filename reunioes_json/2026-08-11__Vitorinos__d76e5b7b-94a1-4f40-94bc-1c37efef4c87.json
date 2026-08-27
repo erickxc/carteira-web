@@ -1,0 +1,27 @@
+{
+  "id": "d76e5b7b-94a1-4f40-94bc-1c37efef4c87",
+  "clientId": "fb8534f1-ea36-4c81-9be7-1f7d03a68c20",
+  "clientName": "Vitorinos",
+  "tipo": "Reunião",
+  "assunto": "Reunião",
+  "data": "2026-08-11T03:00:00.000Z",
+  "hora": "10:00",
+  "duracao": 60,
+  "status": "Agendado",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Vitorinos — 11/08/2026 10:00\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-08-10T13:53:47.077Z",
+  "exportedAt": "2026-08-10T13:53:45.202Z"
+}

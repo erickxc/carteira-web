@@ -1,0 +1,43 @@
+{
+  "id": "f4567a3d-cd96-41bc-979d-10ea927022a5",
+  "clientId": "d3866f30-daf0-44f0-87d7-eaa77001f828",
+  "clientName": "Mineirão",
+  "tipo": "Reunião",
+  "assunto": "Reunião Mensal de Monitoria",
+  "data": "2026-07-28T03:00:00.000Z",
+  "hora": "11:00",
+  "duracao": 60,
+  "status": "Cancelado",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [
+    {
+      "id": "a92c303b-8211-42b4-bb46-b03ec7eb849d",
+      "text": "Marcar reunião",
+      "done": true
+    },
+    {
+      "id": "2afed7e5-ddcb-4d6b-be3d-3d976c4ed745",
+      "text": "Preparar alvo Mais Atacado",
+      "done": true
+    },
+    {
+      "id": "ef09de2e-4f39-4e76-b959-7f8dad910e68",
+      "text": "Fazer reunião",
+      "done": true
+    }
+  ],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Mineirão — 28/07/2026 11:00\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "Reunião não foi realizada. Cliente suspenso.",
+  "anexos": [],
+  "serie": "a0b7d3ab-dc40-4a2d-bfc8-ae427ab76f1b",
+  "createdAt": "2026-07-23T11:36:35.230Z",
+  "exportedAt": "2026-07-29T12:30:33.489Z"
+}

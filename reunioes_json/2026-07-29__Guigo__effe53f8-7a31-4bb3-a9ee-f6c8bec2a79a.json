@@ -1,0 +1,25 @@
+{
+  "id": "effe53f8-7a31-4bb3-a9ee-f6c8bec2a79a",
+  "clientId": "e62cc8f2-8cae-4890-969c-f982ca4d37e9",
+  "clientName": "Guigo",
+  "tipo": "Ligação",
+  "assunto": "Tentativa de marcação de reunião de monitoria.",
+  "data": "2026-07-29T03:00:00.000Z",
+  "hora": "09:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Reunião agendada para quinta-feira, dia 06/08 às 10h",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-23T20:15:30.081Z",
+  "exportedAt": "2026-07-29T12:16:11.994Z"
+}

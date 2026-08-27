@@ -1,0 +1,25 @@
+{
+  "id": "1781795031034",
+  "clientId": "",
+  "clientName": "Evento Avulso",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-06-24",
+  "hora": "14:00",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Apresentação da PRICE - TIGRÃO",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-06-18T15:03:51.034Z",
+  "exportedAt": "2026-07-22T14:29:17.829Z"
+}

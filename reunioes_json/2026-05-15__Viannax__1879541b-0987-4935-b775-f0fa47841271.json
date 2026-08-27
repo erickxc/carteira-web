@@ -1,0 +1,25 @@
+{
+  "id": "1879541b-0987-4935-b775-f0fa47841271",
+  "clientId": "b0889e37-61f0-437c-96fa-e6e482031a6a",
+  "clientName": "Viannax",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-15T00:00:00.000Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Importado do Histórico",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T12:55:10.180Z",
+  "exportedAt": "2026-07-22T14:29:14.983Z"
+}

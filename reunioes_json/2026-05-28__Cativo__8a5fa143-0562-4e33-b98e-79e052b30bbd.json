@@ -1,0 +1,25 @@
+{
+  "id": "8a5fa143-0562-4e33-b98e-79e052b30bbd",
+  "clientId": "18bd16f5-26f3-4620-a404-d79cbcd09423",
+  "clientName": "Cativo",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-28",
+  "hora": "15:00",
+  "duracao": null,
+  "status": "Realizado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T17:47:54.688Z",
+  "exportedAt": "2026-07-22T14:29:16.784Z"
+}

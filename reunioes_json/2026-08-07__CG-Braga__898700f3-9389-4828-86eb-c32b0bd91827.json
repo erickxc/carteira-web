@@ -1,0 +1,27 @@
+{
+  "id": "898700f3-9389-4828-86eb-c32b0bd91827",
+  "clientId": "9612dcc5-a7ba-4683-8555-96c9f4298e93",
+  "clientName": "CG. Braga",
+  "tipo": "Reunião",
+  "assunto": "Reunião de monitoria.",
+  "data": "2026-08-07T03:00:00.000Z",
+  "hora": "10:00",
+  "duracao": 60,
+  "status": "Cancelado",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — CG. Braga — 07/08/2026 10:00\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-31T18:37:46.191Z",
+  "exportedAt": "2026-08-07T11:33:00.374Z"
+}

@@ -59,8 +59,11 @@ function ehToqueMonitoria(a: EventoAgenda): boolean {
   return s.length === 0 || s.some((x) => /monitor/i.test(x));
 }
 
-// Zera o relógio de PRICE (histórico): reunião OU relatório com serviço Price marcado.
+// Zera o relógio de PRICE (histórico): reunião OU relatório com serviço Price
+// marcado, OU um evento tipo Precificação (precificação avulsa entregue fora
+// de reunião — não depende de tag de serviço, o tipo já basta, igual Relatório).
 function ehToquePrice(a: EventoAgenda): boolean {
+  if (/precific/i.test(a.type || '')) return true;
   if (!/reuni|relat/i.test(a.type || '')) return false;
   return (a.servicos ?? []).some((x) => /(price|prec)/i.test(x));
 }
@@ -114,13 +117,25 @@ function calcularRelogio(
   cadencia: number,
   now: Date,
   desde: Date,
-  janelaVencendo: number = JANELA_VENCENDO
+  janelaVencendo: number = JANELA_VENCENDO,
+  /**
+   * Datas extras de "toque" que não vêm de Agenda (hoje: Ações concluídas do
+   * mesmo serviço — ex.: registrar uma Ação tipo Price como Concluída, sem
+   * necessariamente criar uma Reunião/Relatório na Agenda). Contam só pro
+   * histórico ("último"), nunca como cobertura futura — Ação é registro do
+   * que já foi feito, não agendamento.
+   */
+  toquesExtras: Date[] = []
 ): RelogioServico {
   // "Último" = histórico real do serviço (só o que de fato tratou aquele serviço).
   let ultimo: Date | null = null;
   for (const a of eventos) {
     if (!naoCancelado(a) || !ehToque(a)) continue;
     const d = parseISO(a.date);
+    if (isNaN(d.getTime()) || d > now) continue;
+    if (!ultimo || d > ultimo) ultimo = d;
+  }
+  for (const d of toquesExtras) {
     if (isNaN(d.getTime()) || d > now) continue;
     if (!ultimo || d > ultimo) ultimo = d;
   }
@@ -188,7 +203,16 @@ export function buildFilaCadencia(
   agenda: EventoAgenda[],
   acoes: Acao[],
   cadencias: Cadencias,
-  now: Date = new Date()
+  now: Date = new Date(),
+  /**
+   * `servico`: restringe a fila a UM serviço — cada cliente entra só com o
+   * relógio daquele serviço, e severidade/`precisaAcao`/score passam a olhar
+   * apenas para ele. Sem isso, filtrar por "Monitoria" trazia clientes com a
+   * Monitoria EM DIA só porque o Price estava vencido: o filtro da página
+   * checava apenas se o cliente *possui* o serviço, não se aquele serviço
+   * precisa de ação (bug real relatado).
+   */
+  opts: { servico?: ServicoCad } = {}
 ): FilaCadItem[] {
   const monDias = Number(cadencias?.monitoria_dias) || 30;
   const priceDias = Number(cadencias?.price_dias) || 30;
@@ -199,15 +223,47 @@ export function buildFilaCadencia(
     porCliente.get(a.clientId)!.push(a);
   });
 
+  // Ação tipo 'price' concluída conta como toque de Price mesmo sem uma
+  // Reunião/Relatório correspondente na Agenda — ex.: enviar uma precificação
+  // registrado só como Ação.
+  const acoesPricePorCliente = new Map<string, Date[]>();
+  acoes.forEach((a) => {
+    if (a.tipo !== 'price' || a.status !== 'concluido') return;
+    const d = parseISO(a.dueAt || a.updatedAt || a.createdAt);
+    if (!acoesPricePorCliente.has(a.clientId)) acoesPricePorCliente.set(a.clientId, []);
+    acoesPricePorCliente.get(a.clientId)!.push(d);
+  });
+
+  // Ação tipo 'relatorio' concluída TAMBÉM conta como toque de Monitoria —
+  // pedido explícito do usuário (caso real: cliente com relatório enviado 4
+  // dias antes continuava "vencido" em Monitoria porque só reunião contava).
+  // Mesmo tratamento de `acoesPricePorCliente`: só junta o histórico
+  // ("último"), nunca cobre o futuro (ver `toquesExtras` em `calcularRelogio`).
+  const acoesRelatorioPorCliente = new Map<string, Date[]>();
+  acoes.forEach((a) => {
+    if (a.tipo !== 'relatorio' || a.status !== 'concluido') return;
+    const d = parseISO(a.dueAt || a.updatedAt || a.createdAt);
+    if (!acoesRelatorioPorCliente.has(a.clientId)) acoesRelatorioPorCliente.set(a.clientId, []);
+    acoesRelatorioPorCliente.get(a.clientId)!.push(d);
+  });
+
   const out: FilaCadItem[] = [];
   for (const c of clientes) {
     if (!isClienteAtivo(c)) continue;
     const evs = porCliente.get(c.id) ?? [];
     const desde = c.createdAt ? parseISO(c.createdAt) : now;
 
-    const relogios: RelogioServico[] = [];
-    if (temServico(c, /monitor/i, 'monitoria') && !ehIndependente(c, /monitor/i)) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, desde));
-    if (temServico(c, /(price|prec)/i, 'price') && !ehIndependente(c, /(price|prec)/i)) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now, desde));
+    const todosRelogios: RelogioServico[] = [];
+    if (temServico(c, /monitor/i, 'monitoria') && !ehIndependente(c, /monitor/i)) {
+      todosRelogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, desde, JANELA_VENCENDO, acoesRelatorioPorCliente.get(c.id) ?? []));
+    }
+    if (temServico(c, /(price|prec)/i, 'price') && !ehIndependente(c, /(price|prec)/i)) {
+      todosRelogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now, desde, JANELA_VENCENDO, acoesPricePorCliente.get(c.id) ?? []));
+    }
+    // Recorte por serviço ANTES de derivar score/precisaAcao: tudo o que vem
+    // depois (ordenação, agrupamento por severidade, contagem de "precisam de
+    // ação", relógios exibidos no card) passa a falar só do serviço pedido.
+    const relogios = opts.servico ? todosRelogios.filter((r) => r.servico === opts.servico) : todosRelogios;
     if (relogios.length === 0) continue; // sem serviço cadastrado (ou só independentes) → fora do modelo
     const score = Math.max(...relogios.map((r) => r.atraso));
     const precisaAcao = relogios.some((r) => r.status === 'vencido' || r.status === 'vencendo' || r.status === 'nunca');

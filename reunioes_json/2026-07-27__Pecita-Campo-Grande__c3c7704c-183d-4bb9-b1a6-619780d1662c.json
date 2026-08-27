@@ -1,0 +1,25 @@
+{
+  "id": "c3c7704c-183d-4bb9-b1a6-619780d1662c",
+  "clientId": "75352ace-f230-4516-beab-b8dc18472c98",
+  "clientName": "Pecita - Campo Grande",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-07-27T03:00:00.000Z",
+  "hora": "13:54",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-27T16:54:34.474Z",
+  "exportedAt": "2026-07-27T16:54:32.079Z"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "86b537c9-96fc-492e-b1c6-15ab076e5a05",
+  "clientId": "68767a0c-2bfd-4668-961c-7905a380f1af",
+  "clientName": "Gushcar",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-27T15:00",
+  "hora": "",
+  "duracao": null,
+  "status": "Cancelado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "[Cancelado: Cliente pediu adiamento da reunião]",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T16:59:56.025Z",
+  "exportedAt": "2026-07-22T14:29:16.570Z"
+}

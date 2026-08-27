@@ -1,0 +1,25 @@
+{
+  "id": "fc520558-57f5-46d2-9c5c-776aed0e2ef3",
+  "clientId": "9a6bdc72-dd65-4f87-9a66-e7e194496d06",
+  "clientName": "Edumar - CBRAGA",
+  "tipo": "Contato",
+  "assunto": "Tentativa de marcação de reunião.",
+  "data": "2026-07-27T03:00:00.000Z",
+  "hora": "14:20",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-31T13:21:29.457Z",
+  "exportedAt": "2026-07-31T13:21:30.027Z"
+}

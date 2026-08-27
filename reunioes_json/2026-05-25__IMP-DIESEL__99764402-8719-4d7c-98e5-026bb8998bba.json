@@ -1,0 +1,25 @@
+{
+  "id": "99764402-8719-4d7c-98e5-026bb8998bba",
+  "clientId": "e93b3bcb-e8ec-4aa3-a61c-65bbdde6b3b2",
+  "clientName": "IMP. DIESEL",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-05-25T13:06:09.103Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Contato de acompanhamento realizado",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T13:06:09.103Z",
+  "exportedAt": "2026-07-22T12:45:04.188Z"
+}

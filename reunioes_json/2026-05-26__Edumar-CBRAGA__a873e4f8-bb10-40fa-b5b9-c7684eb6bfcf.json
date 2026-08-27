@@ -1,0 +1,25 @@
+{
+  "id": "a873e4f8-bb10-40fa-b5b9-c7684eb6bfcf",
+  "clientId": "9a6bdc72-dd65-4f87-9a66-e7e194496d06",
+  "clientName": "Edumar - CBRAGA",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-05-26T13:39:41.500Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Contato de acompanhamento realizado",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-26T13:39:41.501Z",
+  "exportedAt": "2026-07-22T14:29:16.929Z"
+}

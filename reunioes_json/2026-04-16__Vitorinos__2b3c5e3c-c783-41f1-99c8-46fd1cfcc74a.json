@@ -1,0 +1,27 @@
+{
+  "id": "2b3c5e3c-c783-41f1-99c8-46fd1cfcc74a",
+  "clientId": "fb8534f1-ea36-4c81-9be7-1f7d03a68c20",
+  "clientName": "Vitorinos",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-04-16T00:00:00.000Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Importado do Histórico",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T12:55:32.527Z",
+  "exportedAt": "2026-07-22T19:02:05.286Z"
+}

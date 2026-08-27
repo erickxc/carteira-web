@@ -11,6 +11,7 @@ import { RegistroContatoModal } from './components/RegistroContatoModal';
 import { ImportarResumoModal } from './components/ImportarResumoModal';
 import { ReminderPopup } from './components/ReminderPopup';
 import { BaseSincronizadaCard } from './components/dashboard/BaseSincronizadaCard';
+import { ReunioesHojeCard } from './components/ReunioesHojeCard';
 import { ToastHost } from './components/ToastHost';
 import { ConfirmHost } from './components/ConfirmHost';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -23,8 +24,10 @@ import ClientesPage from './pages/ClientesPage';
 import ClienteDetailPage from './pages/ClienteDetailPage';
 import AgendaPage from './pages/AgendaPage';
 import AcoesPage from './pages/AcoesPage';
+import AgilPage from './pages/AgilPage';
 import ContatosPage from './pages/ContatosPage';
 import RelatoriosPage from './pages/RelatoriosPage';
+import AssistenteIAPage from './pages/AssistenteIAPage';
 import ConfiguracoesPage from './pages/ConfiguracoesPage';
 
 function Layout({ children }: { children: ReactNode }) {
@@ -81,6 +84,7 @@ function Layout({ children }: { children: ReactNode }) {
           </button>
           <div className="ml-auto flex items-center gap-3">
             <BaseSincronizadaCard />
+            <ReunioesHojeCard />
             <Button
               variant={location.pathname === '/agenda' ? 'secondary' : 'primary'}
               onClick={() => navigate('/agenda')}
@@ -129,8 +133,10 @@ function AppRoutes() {
         <Route path="/clientes/:id" element={<ClienteDetailPage />} />
         <Route path="/agenda" element={<AgendaPage />} />
         <Route path="/acoes" element={<AcoesPage />} />
+        <Route path="/agil" element={<AgilPage />} />
         <Route path="/contatos" element={<ContatosPage />} />
         <Route path="/relatorios" element={<RelatoriosPage />} />
+        <Route path="/assistente" element={<AssistenteIAPage />} />
         <Route path="/config" element={<ConfiguracoesPage />} />
       </Routes>
     </Layout>

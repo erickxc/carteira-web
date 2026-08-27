@@ -1,0 +1,27 @@
+{
+  "id": "1782847879923",
+  "clientId": "6b9b1fd3-a545-422e-a2f2-09b48682601d",
+  "clientName": "Paralama",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-07-03T03:00:00.000Z",
+  "hora": "15:00",
+  "duracao": null,
+  "status": "Realizado",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-06-30T19:31:19.923Z",
+  "exportedAt": "2026-07-22T19:02:15.190Z"
+}

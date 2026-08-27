@@ -1,0 +1,27 @@
+{
+  "id": "052f885c-a3be-4819-beed-93548d664dad",
+  "clientId": "e93b3bcb-e8ec-4aa3-a61c-65bbdde6b3b2",
+  "clientName": "IMP. DIESEL",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-25T16:52:31.908Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Precificação de acompanhamento realizada",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T16:52:31.908Z",
+  "exportedAt": "2026-07-22T19:02:12.059Z"
+}

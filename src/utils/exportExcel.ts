@@ -1,14 +1,17 @@
+import * as XLSX from 'xlsx';
+
 /**
  * Exporta linhas (array de objetos {coluna: valor}) para um .xlsx e dispara o
- * download no navegador. O SheetJS (`xlsx`) é pesado, então é carregado sob
- * demanda (dynamic import) — só entra no bundle quando o usuário exporta.
+ * download no navegador. `xlsx` é importado estático aqui: `ClientesPage.tsx`
+ * já o importa estático para a importação de planilha, então o dynamic import
+ * anterior não tirava nada do bundle principal — só gerava o aviso do Vite
+ * (`INEFFECTIVE_DYNAMIC_IMPORT`) sem ganho real de code-splitting.
  */
-export async function exportarExcel(
+export function exportarExcel(
   nomeArquivo: string,
   linhas: Record<string, unknown>[],
   sheetName = 'Dados'
-): Promise<void> {
-  const XLSX = await import('xlsx');
+): void {
   const ws = XLSX.utils.json_to_sheet(linhas);
   // Largura automática básica das colunas pelo conteúdo.
   const cols = linhas.length ? Object.keys(linhas[0]) : [];

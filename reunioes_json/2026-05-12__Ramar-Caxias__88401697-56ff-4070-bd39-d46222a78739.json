@@ -1,0 +1,25 @@
+{
+  "id": "88401697-56ff-4070-bd39-d46222a78739",
+  "clientId": "ab12b5dc-b420-4779-9d80-882a0146d437",
+  "clientName": "Ramar Caxias",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-12T00:00:00.000Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Importado do Histórico",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T12:55:10.180Z",
+  "exportedAt": "2026-07-22T14:29:14.900Z"
+}

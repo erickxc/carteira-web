@@ -1,0 +1,25 @@
+{
+  "id": "d9ab9351-6e63-447c-abe3-63e697caa893",
+  "clientId": "d7010909-b2a0-4d60-a434-3020904d8fcf",
+  "clientName": "Motobrás",
+  "tipo": "Contato",
+  "assunto": "Tentativa para marcação de reunião.",
+  "data": "2026-07-30T03:00:00.000Z",
+  "hora": "15:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-31T13:20:03.086Z",
+  "exportedAt": "2026-07-31T13:20:03.707Z"
+}

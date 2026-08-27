@@ -1,0 +1,25 @@
+{
+  "id": "fa1d6b53-e54d-4c31-afbc-e0fffeff0c1a",
+  "clientId": "f25fa047-aa3a-45f4-a17a-fe7bb3cb4043",
+  "clientName": "Lupi",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-05-25T15:42:49.094Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Contato de acompanhamento realizado",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T15:42:49.094Z",
+  "exportedAt": "2026-07-22T12:45:04.663Z"
+}

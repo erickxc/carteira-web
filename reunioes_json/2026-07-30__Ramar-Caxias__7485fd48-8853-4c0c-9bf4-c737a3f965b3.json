@@ -1,0 +1,25 @@
+{
+  "id": "7485fd48-8853-4c0c-9bf4-c737a3f965b3",
+  "clientId": "ab12b5dc-b420-4779-9d80-882a0146d437",
+  "clientName": "Ramar Caxias",
+  "tipo": "Contato",
+  "assunto": "Tentativa de marcação de reunião.",
+  "data": "2026-07-30T03:00:00.000Z",
+  "hora": "16:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-23T20:12:49.095Z",
+  "exportedAt": "2026-07-30T19:40:55.901Z"
+}

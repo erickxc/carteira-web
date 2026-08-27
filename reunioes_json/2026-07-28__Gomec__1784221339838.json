@@ -1,0 +1,27 @@
+{
+  "id": "1784221339838",
+  "clientId": "ce0fe6ce-1dc1-47cd-948a-7c1fc825d9ee",
+  "clientName": "Gomec",
+  "tipo": "Reunião",
+  "assunto": "Reunião",
+  "data": "2026-07-28T03:00:00.000Z",
+  "hora": "10:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Gomec — 21/07/2026 15:00\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-16T17:02:19.838Z",
+  "exportedAt": "2026-07-29T13:57:52.028Z"
+}

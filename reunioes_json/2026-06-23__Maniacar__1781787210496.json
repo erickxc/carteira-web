@@ -1,0 +1,25 @@
+{
+  "id": "1781787210496",
+  "clientId": "9bd07430-65d9-40b0-8bc3-3ddd3592e965",
+  "clientName": "Maniacar",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-06-23",
+  "hora": "10:00",
+  "duracao": null,
+  "status": "Realizado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-06-18T12:53:30.496Z",
+  "exportedAt": "2026-07-22T12:45:07.937Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "538ea52e-4949-4f0c-81cc-1365aad1fd4e",
+  "clientId": "f25fa047-aa3a-45f4-a17a-fe7bb3cb4043",
+  "clientName": "Lupi",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-25T15:42:49.496Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Precificação de acompanhamento realizada",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T15:42:49.496Z",
+  "exportedAt": "2026-07-22T19:02:10.551Z"
+}

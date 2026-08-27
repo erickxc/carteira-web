@@ -1,0 +1,27 @@
+{
+  "id": "a38b3745-02bd-45dd-86db-ecca9086b942",
+  "clientId": "50115590-c1f3-4f2c-8bc1-c080d7dd9640",
+  "clientName": "Rainha",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-25T14:10:12.948Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Precificação de acompanhamento realizada",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T14:10:12.950Z",
+  "exportedAt": "2026-07-22T19:56:42.604Z"
+}

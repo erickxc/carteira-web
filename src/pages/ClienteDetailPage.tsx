@@ -1,13 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { format, parseISO } from 'date-fns';
+import { parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
-import { AlertTriangle, ArrowLeft, Bell as BellIcon, CalendarPlus, MessageCircle, Paperclip, Pencil, PhoneCall, PhoneIncoming, Save, Trash2, UserPlus, Users2 } from 'lucide-react';
+import { ArrowLeft, Bell as BellIcon, CalendarPlus, Pencil, PhoneIncoming, Save, Trash2 } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
-import { urlAnexo } from '../api/client';
-import { clienteStatusBadge, eventoStatusBadge, isGratuidade } from '../utils/badges';
+import { clienteStatusBadge, isGratuidade } from '../utils/badges';
 import { confirmDialog } from '../utils/confirmDialog';
-import { linkWhatsApp } from '../utils/whatsapp';
 import { contatosVisiveis, servicosSemResponsavel } from '../utils/contatos';
 import { Dropdown } from '../components/Dropdown';
 import { ClientFormModal } from '../components/ClientFormModal';
@@ -15,29 +13,13 @@ import { EventFormModal } from '../components/EventFormModal';
 import { ReminderFormModal } from '../components/ReminderFormModal';
 import { RegistroContatoModal } from '../components/RegistroContatoModal';
 import { WhatsAppMensagemModal } from '../components/WhatsAppMensagemModal';
+import { ContatosCard } from '../components/cliente/ContatosCard';
+import { TimelineCard } from '../components/cliente/TimelineCard';
+import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
+import type { TimelineFiltro, TimelineItem } from '../utils/timelineCliente';
 import { usePersistedState } from '../hooks/usePersistedState';
-import { Badge, Button, Card, Chip, Input, Textarea } from '../ui';
-import { CLIENTE_ESTADO_OPCOES, ORIGEM_LABEL, type Contato, type EventoAgenda, type Lembrete } from '../types';
-
-/** Mesma regra usada em src/components/agenda/CardEvento.tsx: concluído/realizado
- * ou cancelado/reagendado são status finais — fora isso, o evento ainda está
- * em aberto ("agendado") e pode ser editado. */
-const eventoAgendado = (ev: EventoAgenda) => !/conclu|realiz|cancel|reagend/i.test(ev.status || '');
-
-type TimelineFiltro = 'tudo' | 'reunioes' | 'contatos' | 'relatorios' | 'lembretes';
-
-const TIMELINE_FILTROS: { valor: TimelineFiltro; label: string }[] = [
-  { valor: 'tudo', label: 'Tudo' },
-  { valor: 'reunioes', label: 'Reuniões' },
-  { valor: 'contatos', label: 'Contatos' },
-  { valor: 'relatorios', label: 'Relatórios' },
-  { valor: 'lembretes', label: 'Lembretes' },
-];
-
-/** Item da linha do tempo — evento de agenda ou lembrete, unificados. */
-type TimelineItem =
-  | { kind: 'evento'; id: string; quando: Date; evento: EventoAgenda }
-  | { kind: 'lembrete'; id: string; quando: Date; lembrete: Lembrete };
+import { Badge, Button, Card, Textarea } from '../ui';
+import { CLIENTE_ESTADO_OPCOES, type Contato, type EventoAgenda } from '../types';
 
 export default function ClienteDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -252,131 +234,27 @@ export default function ClienteDetailPage() {
         </Button>
       </div>
 
-      <Card flat style={{ marginBottom: 24 }}>
-        <div className="section-header">
-          <h3>Contatos</h3>
-          <span className="text-text-muted" style={{ fontSize: 12 }}>{contatos.length}</span>
-        </div>
-
-        {servicosSemContato.length > 0 && (
-          <div className="flex-row" style={{ gap: 6, alignItems: 'center', marginBottom: 12, fontSize: 13 }}>
-            <AlertTriangle size={14} className="text-[color:var(--warning)] shrink-0" />
-            <span className="text-text-secondary">
-              Sem contato responsável por <strong>{servicosSemContato.join(', ')}</strong> — só há contatos de outros serviços.
-            </span>
-          </div>
-        )}
-
-        {contatos.length === 0 ? (
-          <div className="empty-state" style={{ marginBottom: 12 }}>Nenhum contato cadastrado.</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-            {contatos.map((c) => (
-              <div key={c.id} className="flex-between" style={{ gap: 12, flexWrap: 'wrap', padding: '10px 12px', background: 'var(--card-hover)', borderRadius: 6 }}>
-                <div style={{ minWidth: 0 }}>
-                  <strong style={{ fontSize: 14 }}>{c.nome}</strong>
-                  {c.cargo && <span className="text-text-muted" style={{ fontSize: 13 }}> · {c.cargo}</span>}
-                  {c.telefone && <div className="text-text-muted" style={{ fontSize: 13 }}>{c.telefone}</div>}
-                  <div className="flex-row" style={{ gap: 5, flexWrap: 'wrap', marginTop: 4 }}>
-                    {(c.servicos ?? []).length === 0 ? (
-                      <Badge variant="muted" style={{ fontSize: 10 }}>Geral</Badge>
-                    ) : (
-                      (c.servicos ?? []).map((s) => (<Badge key={s} variant="accent" style={{ fontSize: 10 }}>{s}</Badge>))
-                    )}
-                    {/* Herdado de outra loja do grupo: mostra de onde vem, porque
-                        editar/remover só é possível na loja de origem. */}
-                    {c.doGrupo ? (
-                      <Badge variant="success" style={{ fontSize: 10 }} title={`Cadastrado em ${c.origemEmpresa} e compartilhado com o grupo`}>
-                        <Users2 size={10} /> do grupo · {c.origemEmpresa}
-                      </Badge>
-                    ) : c.escopo === 'grupo' ? (
-                      <Badge variant="success" style={{ fontSize: 10 }} title="Aparece em todas as lojas deste grupo">
-                        <Users2 size={10} /> vale para o grupo
-                      </Badge>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="flex-row" style={{ gap: 6 }}>
-                  <Button
-                    variant="success"
-                    onClick={() => (linkWhatsApp(c.telefone) ? setWaContato(c) : undefined)}
-                    disabled={!linkWhatsApp(c.telefone)}
-                    title={linkWhatsApp(c.telefone) ? 'Enviar mensagem no WhatsApp' : 'Telefone inválido'}
-                  >
-                    <MessageCircle size={15} /> WhatsApp
-                  </Button>
-                  {/* Compartilhar/parar de compartilhar só faz sentido em cliente
-                      de grupo, e só no contato gravado aqui. */}
-                  {!c.doGrupo && cliente.grupo && (
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      onClick={() => alternarEscopo(c.id)}
-                      title={c.escopo === 'grupo'
-                        ? 'Deixar de compartilhar com as outras lojas do grupo'
-                        : 'Compartilhar este contato com todas as lojas do grupo'}
-                    >
-                      <Users2 size={15} />
-                    </Button>
-                  )}
-                  {!c.doGrupo ? (
-                    <Button variant="danger" size="icon" onClick={() => removerContato(c.id)} title="Remover contato">
-                      <Trash2 size={15} />
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      onClick={() => navigate(`/clientes/${c.origemClienteId}`, { state: { from: location.pathname, fromLabel: cliente.empresa } })}
-                      title={`Editar em ${c.origemEmpresa}`}
-                    >
-                      <Pencil size={15} />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-          <div className="flex-row" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-            <div style={{ flex: '1 1 180px' }}>
-              <Input placeholder="Nome" value={contatoNome} onChange={(e) => setContatoNome(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && adicionarContato()} />
-            </div>
-            <div style={{ flex: '1 1 140px' }}>
-              <Input placeholder="Cargo" value={contatoCargo} onChange={(e) => setContatoCargo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && adicionarContato()} />
-            </div>
-            <div style={{ flex: '1 1 140px' }}>
-              <Input placeholder="Telefone (DDD + número)" value={contatoTelefone} onChange={(e) => setContatoTelefone(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && adicionarContato()} />
-            </div>
-          </div>
-          {servicoOpcoes.length > 0 && (
-            <div className="flex-row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
-              <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
-                Atende
-              </span>
-              {servicoOpcoes.map((s) => (
-                <Chip variant="toggle" key={s} active={contatoServicos.includes(s)} onClick={() => toggleContatoServico(s)}>{s}</Chip>
-              ))}
-              <span className="text-text-muted" style={{ fontSize: 12 }}>
-                {contatoServicos.length === 0 ? '(nenhum marcado = contato geral)' : ''}
-              </span>
-            </div>
-          )}
-          {/* Só aparece em cliente de grupo: é o caso em que a mesma pessoa pode
-              atender mais de uma loja. */}
-          {cliente.grupo && (
-            <label className="check-row" style={{ fontSize: 13, marginBottom: 12 }}>
-              <input type="checkbox" checked={contatoDoGrupo} onChange={(e) => setContatoDoGrupo(e.target.checked)} />
-              Este contato atende todas as lojas do grupo <strong>{cliente.grupo}</strong>
-            </label>
-          )}
-          <Button variant="primary" onClick={adicionarContato} disabled={!contatoNome.trim()}>
-            <UserPlus size={15} /> Adicionar contato
-          </Button>
-        </div>
-      </Card>
+      <ContatosCard
+        cliente={cliente}
+        contatos={contatos}
+        servicosSemContato={servicosSemContato}
+        servicoOpcoes={servicoOpcoes}
+        onWhatsApp={setWaContato}
+        onAlternarEscopo={alternarEscopo}
+        onRemover={removerContato}
+        onIrParaOrigem={(clienteId) => navigate(`/clientes/${clienteId}`, { state: { from: location.pathname, fromLabel: cliente.empresa } })}
+        contatoNome={contatoNome}
+        setContatoNome={setContatoNome}
+        contatoCargo={contatoCargo}
+        setContatoCargo={setContatoCargo}
+        contatoTelefone={contatoTelefone}
+        setContatoTelefone={setContatoTelefone}
+        contatoServicos={contatoServicos}
+        onToggleServico={toggleContatoServico}
+        contatoDoGrupo={contatoDoGrupo}
+        setContatoDoGrupo={setContatoDoGrupo}
+        onAdicionar={adicionarContato}
+      />
 
       {cliente.grupo && lojasDoGrupo.length > 1 && (
         <Card flat style={{ marginBottom: 24 }}>
@@ -414,91 +292,15 @@ export default function ClienteDetailPage() {
           </Button>
         </Card>
 
-        <Card flat>
-          <div className="section-header" style={{ flexWrap: 'wrap', gap: 8 }}>
-            <h3>Linha do tempo</h3>
-            <span className="text-text-muted" style={{ fontSize: 12 }}>{timeline.length}</span>
-          </div>
-          <div className="flex-row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-            {TIMELINE_FILTROS.map((f) => (
-              <button
-                key={f.valor}
-                className={`filtro-btn${filtroTimeline === f.valor ? ' is-active' : ''}`}
-                onClick={() => setFiltroTimeline(f.valor)}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-          {timeline.length === 0 ? (
-            <div className="empty-state">Nada registrado para este cliente com esse filtro.</div>
-          ) : (
-            <div>
-              {timeline.map((item) => {
-                if (item.kind === 'lembrete') {
-                  const l = item.lembrete;
-                  return (
-                    <div key={`l-${item.id}`} className="history-item">
-                      <div className="flex-between" style={{ marginBottom: 6 }}>
-                        <strong style={{ fontSize: 14 }}>{l.title}</strong>
-                        <Badge variant="accent">{format(item.quando, 'dd/MM/yyyy')}</Badge>
-                      </div>
-                      <div className="flex-row" style={{ marginBottom: l.description ? 6 : 0 }}>
-                        <Badge variant="muted"><BellIcon size={10} /> Lembrete</Badge>
-                        <Badge variant={l.status === 'concluido' ? 'success' : 'warning'}>
-                          {l.status === 'concluido' ? 'Concluído' : 'Ativo'}
-                        </Badge>
-                      </div>
-                      {l.description && <p className="text-text-muted" style={{ fontSize: 13, margin: 0 }}>{l.description}</p>}
-                    </div>
-                  );
-                }
-
-                const evento = item.evento;
-                const editavel = eventoAgendado(evento);
-                return (
-                <div
-                  key={evento.id}
-                  className={`history-item${editavel ? ' history-item-editavel' : ''}`}
-                  role={editavel ? 'button' : undefined}
-                  tabIndex={editavel ? 0 : undefined}
-                  title={editavel ? 'Clique para editar este evento agendado' : undefined}
-                  onClick={editavel ? () => setEventoEditando(evento) : undefined}
-                  onKeyDown={editavel ? (e) => { if (e.key === 'Enter') setEventoEditando(evento); } : undefined}
-                >
-                  <div className="flex-between" style={{ marginBottom: 6 }}>
-                    <strong style={{ fontSize: 14 }}>{evento.subject || evento.type}</strong>
-                    <Badge variant="accent">{format(parseISO(evento.date), 'dd/MM/yyyy')}</Badge>
-                  </div>
-                  <div className="flex-row" style={{ marginBottom: evento.description ? 6 : 0, flexWrap: 'wrap' }}>
-                    <Badge variant="accent">{evento.type}</Badge>
-                    <Badge variant={eventoStatusBadge(evento.status)}>{evento.status}</Badge>
-                    {/* Só aparece onde faz sentido (Contato/Ligação) e onde foi
-                        informado — eventos antigos não têm origem. */}
-                    {evento.origem && (
-                      <Badge variant={evento.origem === 'cliente' ? 'success' : 'muted'}>
-                        {evento.origem === 'cliente' ? <PhoneIncoming size={10} /> : <PhoneCall size={10} />}
-                        {ORIGEM_LABEL[evento.origem]}
-                      </Badge>
-                    )}
-                  </div>
-                  {evento.description && <p className="text-text-muted" style={{ fontSize: 13, margin: 0 }}>{evento.description}</p>}
-                  {evento.attachments.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                      {evento.attachments.map((anexo) => (
-                        <a key={anexo.id} className="attachment-chip" href={urlAnexo(anexo.filename)} target="_blank" rel="noreferrer">
-                          <Paperclip size={12} /> {anexo.originalName}
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
+        <TimelineCard
+          timeline={timeline}
+          filtro={filtroTimeline}
+          onFiltroChange={setFiltroTimeline}
+          onEditarEvento={setEventoEditando}
+        />
       </div>
+
+      <AnaliseIACard clienteId={cliente.id} />
 
       {editModalOpen && <ClientFormModal initial={cliente} onClose={() => setEditModalOpen(false)} />}
       {eventoEditando && <EventFormModal initial={eventoEditando} onClose={() => setEventoEditando(null)} />}

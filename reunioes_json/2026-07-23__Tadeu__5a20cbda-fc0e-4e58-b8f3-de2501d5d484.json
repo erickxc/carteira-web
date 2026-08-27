@@ -1,0 +1,25 @@
+{
+  "id": "5a20cbda-fc0e-4e58-b8f3-de2501d5d484",
+  "clientId": "e0d4ae1b-ff43-4027-ac8a-d32d2c4c0fd7",
+  "clientName": "Tadeu",
+  "tipo": "Ligação",
+  "assunto": "LIgação para tentativa de reunião.",
+  "data": "2026-07-23T03:00:00.000Z",
+  "hora": "10:00",
+  "duracao": 60,
+  "status": "Cancelado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-23T20:16:13.023Z",
+  "exportedAt": "2026-07-24T11:35:16.936Z"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "7917aa26-b093-465f-b4ea-de0e8d2935c1",
+  "clientId": "53c7ee22-b8e7-46cd-a69a-d898951435eb",
+  "clientName": "Frandiesel",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-07-31T03:00:00.000Z",
+  "hora": "10:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Aguardar contato pois irá trocar a pessoa responsável por acompanhar a monitoria",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-08-06T12:46:37.297Z",
+  "exportedAt": "2026-08-06T12:46:35.340Z"
+}

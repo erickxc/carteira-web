@@ -1,0 +1,25 @@
+{
+  "id": "1784054275057",
+  "clientId": "e340b4ad-9c3d-4a0c-9da5-38d5fef0fc9c",
+  "clientName": "Renocar",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-07-14",
+  "hora": "14:00",
+  "duracao": null,
+  "status": "Realizado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-14T18:37:55.057Z",
+  "exportedAt": "2026-07-22T14:29:18.413Z"
+}

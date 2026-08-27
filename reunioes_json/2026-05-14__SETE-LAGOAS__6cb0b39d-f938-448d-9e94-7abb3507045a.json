@@ -1,0 +1,25 @@
+{
+  "id": "6cb0b39d-f938-448d-9e94-7abb3507045a",
+  "clientId": "0bc104de-4dae-43df-8c15-df21f03b1b1a",
+  "clientName": "SETE LAGOAS",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-14T00:00:00.000Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Importado do Histórico",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T12:55:10.180Z",
+  "exportedAt": "2026-07-22T14:29:15.244Z"
+}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarSync, PhoneCall, PhoneIncoming } from 'lucide-react';
@@ -73,13 +73,16 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
 
   // Monitor(es) do EVENTO quando informado; senão o do cliente (eventos
   // antigos/sem monitor próprio não descartam o registro do gráfico).
-  const combinaMonitor = (monitores: string[] | undefined, clientId: string) =>
-    monitores && monitores.length > 0 ? monitores.includes(monitor) : monitorPorCliente.get(clientId) === monitor;
+  const combinaMonitor = useCallback(
+    (monitores: string[] | undefined, clientId: string) =>
+      monitores && monitores.length > 0 ? monitores.includes(monitor) : monitorPorCliente.get(clientId) === monitor,
+    [monitor, monitorPorCliente]
+  );
 
   const filtrada = useMemo(() => agenda.filter((e) => {
     if (monitor && !combinaMonitor(e.monitores, e.clientId)) return false;
     return dentroDaJanela(e.date, janela);
-  }), [agenda, janela, monitor, monitorPorCliente]);
+  }), [agenda, janela, monitor, combinaMonitor]);
 
   // Ações registradas passam pelo mesmo filtro de período/monitor dos eventos —
   // senão o numerador cobriria um intervalo diferente do denominador.
@@ -118,7 +121,7 @@ export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProp
       full: `${format(p.mes, "MMMM 'de' yyyy", { locale: ptBR })} (${p.totalAcoes} ações ÷ ${p.acoesEntrega} ${p.acoesEntrega === 1 ? 'entrega' : 'entregas'})`,
       value: Number(p.acoesPorEntrega.toFixed(1)),
     }));
-  }, [agenda, acoes, monitor, monitorPorCliente, agora]);
+  }, [agenda, acoes, monitor, monitorPorCliente, agora, combinaMonitor]);
 
   const conf = useMemo(() => calcularConfiabilidade(filtrada, referencia), [filtrada, referencia]);
   const esforco = useMemo(() => calcularEsforcoAgenda(filtrada, acoesFiltradas, referencia), [filtrada, acoesFiltradas, referencia]);

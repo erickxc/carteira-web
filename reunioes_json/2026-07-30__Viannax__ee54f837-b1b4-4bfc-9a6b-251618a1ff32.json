@@ -1,0 +1,43 @@
+{
+  "id": "ee54f837-b1b4-4bfc-9a6b-251618a1ff32",
+  "clientId": "b0889e37-61f0-437c-96fa-e6e482031a6a",
+  "clientName": "Viannax",
+  "tipo": "Reunião",
+  "assunto": "Reunião Mensal de Precificação",
+  "data": "2026-07-30T03:00:00.000Z",
+  "hora": "10:00",
+  "duracao": 120,
+  "status": "Concluído",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [
+    {
+      "id": "565014c8-9d05-4774-a6a4-6dfab5a05e21",
+      "text": "Agendar reunião com o cliente.",
+      "done": true
+    },
+    {
+      "id": "78ed001e-e5af-405d-94e5-50635fd56cbf",
+      "text": "Preparar Price",
+      "done": true
+    },
+    {
+      "id": "e1bfb4d7-b995-4f99-8810-f0ca0d1f6398",
+      "text": "Fazer reunião",
+      "done": true
+    }
+  ],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Viannax — 22/07/2026 10:00\nTipo: Reunião\n\nChecklist:\n[ ] Agendar reunião com o cliente.\n[ ] Preparar Price\n[ ] Fazer reunião",
+  "resumo": "",
+  "descricao": "Reunião não andou. O cliente estava insatisfeito pela troca frequente de monitores.",
+  "anexos": [],
+  "serie": "acfd40a7-87b0-4c67-8302-812c172f2a2f",
+  "createdAt": "2026-07-22T14:24:52.413Z",
+  "exportedAt": "2026-07-30T18:17:08.531Z"
+}

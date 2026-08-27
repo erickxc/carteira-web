@@ -82,6 +82,7 @@
   --danger-pastel-bg: rgba(224, 100, 92, 0.22);
   --warning: #d69a3c;
   --warning-bg: rgba(214, 154, 60, 0.14);
+  --warning-pastel-bg: rgba(214, 154, 60, 0.22);
   /* Status "Gratuidade" — amarelo claro de propósito, distinto do dourado da
      marca (--accent) e do âmbar de --warning, pra ser reconhecível de cara. */
   --gratuidade: #e0c81e;
@@ -276,6 +277,12 @@ textarea:focus-visible {
 
 /* Colapsado (desktop icon-only): esconde textos e centraliza os ícones. */
 @media (min-width: 901px) {
+  /* Rede de segurança: `overflow-y: auto` sozinho já faz `overflow-x`
+     computar pra `auto` (regra do próprio CSS) — qualquer filho que não caiba
+     nos 76px vira scroll horizontal sem barra visível (item some da vista em
+     vez de aparecer cortado). Trava explicitamente pra nunca mais acontecer,
+     mesmo com conteúdo novo que eu não previu aqui. */
+  .sidebar-collapsed { overflow-x: hidden; }
   .sidebar-collapsed .sidebar-label,
   .sidebar-collapsed .sidebar-section-label,
   .sidebar-collapsed .sidebar-brand-text,
@@ -284,7 +291,13 @@ textarea:focus-visible {
   .sidebar-collapsed .sidebar-action { justify-content: center; }
   .sidebar-collapsed .sidebar-link:hover { transform: none; }
   .sidebar-collapsed .sidebar-collapse-btn { margin-left: 0; }
-  .sidebar-collapsed .sidebar-quick-grid { grid-template-columns: 1fr; }
+  .sidebar-collapsed .sidebar-quick-grid,
+  .sidebar-collapsed .sidebar-sistemas-grid { grid-template-columns: 1fr; }
+  /* Ícone da logo + botão de recolher não cabem lado a lado nos 76px do modo
+     ícone-só — ficavam empurrados pra fora da coluna (scroll horizontal
+     invisível, sem barra visível, então o botão simplesmente "sumia"). Empilha
+     verticalmente só quando recolhido; expandido continua lado a lado. */
+  .sidebar-collapsed .sidebar-brand-row { flex-direction: column; align-items: center; gap: 6px; }
 }
 
 /* Mobile: sidebar vira drawer off-canvas. */
@@ -509,7 +522,12 @@ textarea:focus-visible {
   font-size: 0.8rem; color: var(--text-secondary);
 }
 .vencendo-lista li:last-child { border-bottom: none; }
-.vencendo-lista-rotulo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Nome e serviço em linhas separadas: nome nunca trunca no meio por causa do
+   serviço disputando a mesma linha (ex.: "Piloto - Filial · Mo..." cortando
+   sem dar pra saber nem o nome inteiro nem qual serviço estava vencendo). */
+.vencendo-lista-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.vencendo-lista-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--text-primary); }
+.vencendo-lista-servico { font-size: 0.7rem; color: var(--text-muted); }
 .vencendo-lista-data { flex-shrink: 0; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .vencendo-lista-dias { flex-shrink: 0; width: 40px; text-align: right; font-weight: 600; color: var(--warning); font-variant-numeric: tabular-nums; }
 
@@ -1470,19 +1488,12 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 }
 .agenda-ticker:hover .agenda-ticker-track { animation-play-state: paused; }
 @keyframes ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-@media (prefers-reduced-motion: reduce) {
-  .agenda-ticker {
-    overflow-x: auto; padding-bottom: 8px;
-    scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent;
-  }
-  .agenda-ticker::-webkit-scrollbar { height: 4px; }
-  .agenda-ticker::-webkit-scrollbar-track { background: transparent; }
-  .agenda-ticker::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
-  .agenda-ticker-track { animation: none; }
-  /* Sem animação, a cópia duplicada da lista (necessária só pro loop contínuo)
-     viraria repetição visível ao rolar — esconde. */
-  .agenda-ticker-item[aria-hidden="true"] { display: none; }
-}
+/* Sem respeitar `prefers-reduced-motion` de propósito, só aqui — pedido
+   explícito do usuário: em máquinas com "Mostrar animações" desligado no
+   Windows, o ticker caía numa lista estática com scrollbar fixa (parecia
+   quebrado, sem indicação nenhuma de que dava pra rolar manualmente) e isso
+   já gerou confusão real (relatado como "não funciona"). Preferiu manter a
+   animação rodando sempre a lidar com esse fallback. */
 .agenda-ticker-item {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px;
   padding: 0.5rem 0.9rem; border: 1px solid var(--border); border-radius: 999px;
@@ -1537,6 +1548,10 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .kanban-turno-tarde { border-top: 1px dashed var(--border); border-radius: 0 0 var(--radius-sm) var(--radius-sm); margin-bottom: 8px; }
 .kanban-turno.is-drop-target { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
 .kanban-turno-label { font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+/* Sub-grupo de sala dentro de um turno (WeekKanban) — mesma régua de gap dos
+   cards soltos, com um separador tracejado entre um grupo de sala e outro. */
+.kanban-sala-grupo { display: flex; flex-direction: column; gap: 6px; }
+.kanban-sala-grupo-sep { margin-top: 4px; padding-top: 6px; border-top: 1px dashed var(--border); }
 
 .kanban-card {
   display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
@@ -1736,7 +1751,8 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 
 /* Indicador "Base sincronizada" na barra superior. Altura fixa igual à do botão
    Agenda e do seletor de tema (43px) e largura pelo conteúdo — antes tinha o
-   dobro da altura por causa da segunda linha de texto. */
+   dobro da altura por causa da segunda linha de texto. Também usada como base
+   do botão "Reuniões de hoje" (ReunioesHojeCard) — mesma pílula, agora clicável. */
 .base-sync {
   display: inline-flex;
   align-items: center;
@@ -1744,8 +1760,39 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
   height: 43px;
   padding: 0 0.8rem;
   white-space: nowrap;
+  border-radius: var(--radius-sm);
 }
+button.base-sync { cursor: pointer; transition: border-color 0.15s ease; }
+button.base-sync:hover { border-color: var(--border-strong); }
 .base-sync-txt { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
+
+/* Popover "Reuniões de hoje" — lista com hora, cliente e monitor por linha.
+   Reaproveita .filter-pop (mesmo popover de Dropdown/ReagendarButton), só
+   com item próprio (linha com hora fixa à esquerda, não um botão de opção). */
+.reunioes-hoje-pop { padding: 6px; max-height: 340px; }
+.reuniao-hoje-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 0.5rem 0.4rem; border-radius: 6px;
+}
+.reuniao-hoje-item:hover { background: var(--card-hover); }
+/* Cor por status — mesma classificação usada no resto da Agenda (badges.ts):
+   concluída/realizada verde, cancelada vermelho, reagendada amarelo. Hover
+   continua sobrepondo (mistura visualmente, é só destaque de interação). */
+.reuniao-hoje-item.is-concluida { background: var(--success-pastel-bg); }
+.reuniao-hoje-item.is-cancelada { background: var(--danger-pastel-bg); }
+.reuniao-hoje-item.is-reagendada { background: var(--warning-pastel-bg); }
+.reuniao-hoje-hora {
+  flex-shrink: 0; width: 40px; font-size: 0.78rem; font-weight: 700;
+  color: var(--accent); font-variant-numeric: tabular-nums; margin-top: 1px;
+}
+.reuniao-hoje-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.reuniao-hoje-nome { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reuniao-hoje-sub { font-size: 0.74rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reuniao-hoje-marco {
+  flex-shrink: 0; font-size: 0.66rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.03em; color: var(--text-muted); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 999px; padding: 2px 7px; margin-top: 1px;
+}
 
 .atend-serie {
   margin-top: 14px;

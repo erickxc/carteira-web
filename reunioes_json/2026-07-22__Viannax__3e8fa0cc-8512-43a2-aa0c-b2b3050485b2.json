@@ -1,0 +1,25 @@
+{
+  "id": "3e8fa0cc-8512-43a2-aa0c-b2b3050485b2",
+  "clientId": "b0889e37-61f0-437c-96fa-e6e482031a6a",
+  "clientName": "Viannax",
+  "tipo": "Contato",
+  "assunto": "Contato para marcação de reunião.",
+  "data": "2026-07-22T03:00:00.000Z",
+  "hora": "11:21",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-22T14:21:17.052Z",
+  "exportedAt": "2026-07-22T14:21:17.443Z"
+}

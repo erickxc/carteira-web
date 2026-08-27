@@ -1,0 +1,27 @@
+{
+  "id": "291a9ad0-49cc-4c42-8f11-09609ed8d57b",
+  "clientId": "98fa9165-9c33-40d6-b3e3-7867532f3b8a",
+  "clientName": "Aliança - Cabo Frio",
+  "tipo": "Reunião",
+  "assunto": "Reunião",
+  "data": "2026-08-04T03:00:00.000Z",
+  "hora": "15:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Aliança de Itaboraí — 04/08/2026 15:00\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-27T18:23:51.407Z",
+  "exportedAt": "2026-08-07T12:47:37.582Z"
+}

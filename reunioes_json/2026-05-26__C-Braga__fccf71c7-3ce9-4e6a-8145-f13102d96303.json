@@ -1,0 +1,25 @@
+{
+  "id": "fccf71c7-3ce9-4e6a-8145-f13102d96303",
+  "clientId": "913d5dc5-3bc2-4b11-94e8-f903a006cfea",
+  "clientName": "C. Braga",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-05-26T13:41:19.742Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Contato de acompanhamento realizado",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-26T13:41:19.742Z",
+  "exportedAt": "2026-07-22T14:29:17.011Z"
+}

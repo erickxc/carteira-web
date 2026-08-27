@@ -1,0 +1,25 @@
+{
+  "id": "52e2df41-911f-46c7-9e12-b3f235ea5432",
+  "clientId": "6b9b1fd3-a545-422e-a2f2-09b48682601d",
+  "clientName": "Paralama",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-03-26T00:00:00.000Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Importado do Histórico",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T12:55:10.180Z",
+  "exportedAt": "2026-07-22T14:29:14.631Z"
+}

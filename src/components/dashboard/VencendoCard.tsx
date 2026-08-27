@@ -9,7 +9,8 @@ const SERVICO_LABEL: Record<FiltroServico, string> = {
 };
 
 interface ItemVencendo {
-  rotulo: string;
+  nome: string;
+  servico: string;
   data: Date;
   dias: number;
 }
@@ -51,8 +52,11 @@ export function VencendoCard({ total, itens, filtroServico, onFiltroServico }: V
           </div>
           <ul className="vencendo-lista">
             {itens.map((i) => (
-              <li key={i.rotulo}>
-                <span className="vencendo-lista-rotulo" title={i.rotulo}>{i.rotulo}</span>
+              <li key={`${i.nome}·${i.servico}`}>
+                <span className="vencendo-lista-info">
+                  <span className="vencendo-lista-nome" title={i.nome}>{i.nome}</span>
+                  <span className="vencendo-lista-servico">{i.servico}</span>
+                </span>
                 <span className="vencendo-lista-data">{format(i.data, 'dd/MM')}</span>
                 <span className="vencendo-lista-dias">{i.dias === 0 ? 'hoje' : `${i.dias}d`}</span>
               </li>

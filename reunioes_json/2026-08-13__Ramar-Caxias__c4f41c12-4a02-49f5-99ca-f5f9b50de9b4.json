@@ -1,0 +1,27 @@
+{
+  "id": "c4f41c12-4a02-49f5-99ca-f5f9b50de9b4",
+  "clientId": "ab12b5dc-b420-4779-9d80-882a0146d437",
+  "clientName": "Ramar Caxias",
+  "tipo": "Reunião",
+  "assunto": "2º rodada de monitoria com a Pamela",
+  "data": "2026-08-13T03:00:00.000Z",
+  "hora": "15:00",
+  "duracao": 60,
+  "status": "Agendado",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Ramar Caxias — 13/08/2026 15:00\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-08-05T20:32:28.313Z",
+  "exportedAt": "2026-08-05T20:32:28.780Z"
+}

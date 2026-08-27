@@ -1,0 +1,27 @@
+{
+  "id": "1c85db16-c598-4900-8cfa-84cfbe9c95eb",
+  "clientId": "4a33139a-3574-440e-ab47-890e2dc7a468",
+  "clientName": "GAP",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-25T15:42:45.309Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Precificação de acompanhamento realizada",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T15:42:45.309Z",
+  "exportedAt": "2026-07-22T19:02:10.178Z"
+}

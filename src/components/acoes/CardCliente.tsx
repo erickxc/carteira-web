@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { differenceInCalendarDays } from 'date-fns';
 import { CalendarPlus, Plus } from 'lucide-react';
-import { rotuloData, sugestoes, type Item } from '../../utils/acoesHelpers';
+import { rotuloDataCurto, sugestoes, type Item } from '../../utils/acoesHelpers';
 import { contatoRecenteNaoRefletido, rotuloRelogio, type CadStatus, type ClassificacaoCadencia, type RelogioServico } from '../../utils/cadenciaServico';
 import { isAtendidoMarco, isGratuidade } from '../../utils/badges';
 import { Badge, Button, Card, Chip } from '../../ui';
@@ -12,7 +13,7 @@ interface CardClienteProps {
   comHistorico?: boolean;
   ultimoContato: Date | null;
   totalReunioes: number;
-  /** Últimos itens do histórico (já limitado, ex.: 3 mais recentes). */
+  /** Últimos itens do histórico (já limitado e ordenado por proximidade de hoje). */
   historico: Item[];
   produtos: string[];
   /** Relógios de cadência por serviço (fila de priorização). Quando presente,
@@ -35,11 +36,22 @@ const COR_SEVERIDADE: Record<ClassificacaoCadencia, string | undefined> = {
   vencido: 'var(--danger)', vencendo: 'var(--warning)', em_dia: undefined,
 };
 
+/** Relógio que cobra ação (vs. os que estão resolvidos/cobertos). */
+const pedeAcao = (r: RelogioServico) => r.status === 'vencido' || r.status === 'nunca' || r.status === 'vencendo';
+
 /** Card de cliente usado em todos os grupos de Acompanhamento (Recorrentes,
- * Sem contato, Marco, Sugestão da semana) — extraído de AcoesPage para não
- * ser redefinido a cada render e poder ser reutilizado/testado isoladamente. */
+ * Sem contato, Marco, Sugestão da semana).
+ *
+ * Hierarquia "foco no problema": o que cobra ação aparece em destaque; o que
+ * está em dia é rebaixado para uma linha discreta, e o histórico usa datas
+ * relativas ("hoje", "há 12d", "em 5d") para deixar óbvio o que já aconteceu e
+ * o que só está agendado. Antes tudo tinha o mesmo peso, dentro de duas caixas
+ * cinza aninhadas — muita tinta para pouca informação. */
 export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, historico, produtos, relogios, severidade, onRegistrar, onAgendar }: CardClienteProps) {
   const navigate = useNavigate();
+  // Capturado uma vez no mount, não a cada render — chamar Date.now() direto no
+  // corpo do componente é impuro (react-hooks/purity acusa em build).
+  const [agora] = useState(() => new Date());
 
   // Puramente visual aqui (não muda severidade) — mesma regra usada em
   // buildFilaCadencia pra empurrar o cliente pro fim da própria seção.
@@ -47,6 +59,20 @@ export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, his
 
   const corSeveridade = severidade ? COR_SEVERIDADE[severidade] : undefined;
   const gratuidade = isGratuidade(c.status);
+
+  const semRelogios = !relogios || relogios.length === 0;
+  const problemas = (relogios ?? []).filter(pedeAcao);
+  const resolvidos = (relogios ?? []).filter((r) => !pedeAcao(r));
+  // Sem nenhum problema, os relógios "ok" assumem o destaque — senão o card do
+  // grupo "Em dia" ficaria sem nenhuma informação legível.
+  const emDestaque = problemas.length > 0 ? problemas : resolvidos;
+  const rebaixados = problemas.length > 0 ? resolvidos : [];
+
+  const dias = ultimoContato ? differenceInCalendarDays(agora, ultimoContato) : null;
+  const textoContato = dias === null
+    ? 'sem contato registrado'
+    : dias === 0 ? 'contato hoje' : dias === 1 ? 'contato ontem' : `contato há ${dias}d`;
+  const linhaSecundaria = [...rebaixados.map(rotuloRelogio), textoContato].join(' · ');
 
   return (
     <Card
@@ -59,67 +85,101 @@ export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, his
     >
       <div className="acao-card-head">
         <div style={{ minWidth: 0 }}>
-          <button className="link-button" style={{ fontWeight: 600, fontSize: '1rem' }} onClick={() => navigate(`/clientes/${c.id}`, { state: { from: '/acoes', fromLabel: 'Ações' } })}>{c.empresa}</button>
-          <div className="acao-card-badges">
-            {gratuidade && <Badge variant="gratuidade">Gratuidade</Badge>}
-            {isAtendidoMarco(c.status) && <Badge variant="accent">Marco</Badge>}
-            {produtos.map((p) => <Badge key={p} variant="accent">{p}</Badge>)}
-          </div>
+          <button
+            className="link-button"
+            style={{ fontWeight: 600, fontSize: '1rem' }}
+            onClick={() => navigate(`/clientes/${c.id}`, { state: { from: '/acoes', fromLabel: 'Ações' } })}
+          >
+            {c.empresa}
+          </button>
+          {(gratuidade || isAtendidoMarco(c.status) || semRelogios) && (
+            <div className="acao-card-badges">
+              {gratuidade && <Badge variant="gratuidade">Gratuidade</Badge>}
+              {isAtendidoMarco(c.status) && <Badge variant="accent">Marco</Badge>}
+              {/* Só quando não há relógios: com eles, as linhas de situação já
+                  dizem "Monitoria ..."/"Price ...", e repetir viraria ruído. */}
+              {semRelogios && produtos.map((p) => <Badge key={p} variant="muted">{p}</Badge>)}
+            </div>
+          )}
         </div>
         {c.monitor
-          ? <Badge variant="accent" style={{ fontSize: '0.78rem', fontWeight: 700, flexShrink: 0 }}>👤 {c.monitor}</Badge>
+          ? <Badge variant="muted" style={{ flexShrink: 0 }}>{c.monitor}</Badge>
           : <span className="acao-tipo">sem monitor</span>}
       </div>
 
+      {/* Situação: o que cobra ação em destaque, o resto rebaixado numa linha. */}
       {relogios && relogios.length > 0 ? (
         <div
-          className="acao-card-info is-stack"
-          style={temContatoRecente ? { border: '1px solid var(--accent)', borderRadius: 8, padding: '0.5rem 0.6rem' } : undefined}
-          title={temContatoRecente ? `Contato mais recente: ${rotuloData(ultimoContato!)}` : undefined}
+          className="flex flex-col gap-1.5"
+          style={temContatoRecente ? { borderLeft: '2px solid var(--accent)', paddingLeft: '0.6rem' } : undefined}
+          title={temContatoRecente ? `Já houve contato depois do último toque de cadência: ${rotuloDataCurto(ultimoContato!, agora)}` : undefined}
         >
-          {relogios.map((r) => (
-            <span key={r.servico} className="acao-clock">
+          {emDestaque.map((r) => (
+            <span key={r.servico} className="flex items-center gap-2">
               <span className={`acao-dot ${CLASSE_DOT[r.status]}`} />
-              <span style={{ color: COR_TEXTO[r.status], fontWeight: r.status === 'vencido' || r.status === 'nunca' ? 600 : 400 }}>{rotuloRelogio(r)}</span>
+              <span
+                className="text-[0.88rem]"
+                style={{ color: COR_TEXTO[r.status], fontWeight: pedeAcao(r) ? 600 : 400 }}
+              >
+                {rotuloRelogio(r)}
+              </span>
             </span>
           ))}
-          {/* Relógio por serviço já mostra o atraso da CADÊNCIA (reunião/relatório),
-              mas não necessariamente a última interação de verdade (ex.: um Contato
-              leve não zera o relógio) — esta linha mostra isso à parte. */}
-          <span className="text-text-muted" style={{ fontSize: 11.5 }}>
-            {ultimoContato ? `Últ. contato há ${Math.max(0, Math.floor((Date.now() - ultimoContato.getTime()) / 86400000))} dias` : 'Sem registro de contato'}
+          {/* Relógio por serviço mostra o atraso da CADÊNCIA; esta linha traz o
+              que está resolvido + a última interação real (um Contato leve não
+              zera o relógio, mas já foi feito). */}
+          <span className="text-[0.76rem] text-text-muted" style={{ paddingLeft: 17 }}>
+            {linhaSecundaria}
           </span>
         </div>
       ) : (
-        <div className="acao-card-info">
+        <div className="flex items-center gap-2 text-[0.82rem] text-text-secondary">
           <span className="acao-dot is-ok" />
-          {ultimoContato ? <>Último contato · {rotuloData(ultimoContato)}{totalReunioes ? ` · ${totalReunioes} reuniões` : ''}</> : 'Sem registro de contato'}
+          {ultimoContato
+            ? <>Último contato {rotuloDataCurto(ultimoContato, agora)}{totalReunioes ? ` · ${totalReunioes} reuniões` : ''}</>
+            : 'Sem registro de contato'}
         </div>
       )}
 
+      {/* Histórico — uma linha por item, data relativa, sem caixa nem rótulo. */}
       {comHistorico && (
-        <div className="acao-hist">
-          <span className="acao-hist-label">Últimas ações</span>
-          {historico.length === 0 ? <span className="text-text-muted" style={{ fontSize: 12 }}>Nenhuma ação.</span> :
-            historico.map((i) => (
-              <div key={i.key} className="acao-hist-item">
-                <span>{i.tipoLabel}</span>
-                <span className="text-text-muted">{format(i.date, 'dd/MM/yy')}</span>
+        historico.length === 0 ? (
+          <span className="text-[0.78rem] text-text-muted">Nenhuma ação registrada.</span>
+        ) : (
+          <div className="flex flex-col">
+            {historico.map((i) => (
+              <div
+                key={i.key}
+                className="grid grid-cols-[1fr_auto_auto] items-center gap-2 py-1 text-[0.8rem] border-b border-border last:border-b-0"
+              >
+                <span className="text-text-secondary truncate" title={i.obs || i.tipoLabel}>{i.tipoLabel}</span>
+                <span className="text-text-muted tabular-nums">{rotuloDataCurto(i.date, agora)}</span>
                 <Badge variant={i.statusBadge}>{i.statusLabel}</Badge>
               </div>
             ))}
-          <div className="acao-sug">
-            <span className="acao-hist-label">Sugestões</span>
-            {sugestoes(ultimoContato).map((t) => (
-              <Chip variant="toggle" key={t} className="px-[0.6rem] py-[0.25rem] text-[0.75rem]" onClick={() => onRegistrar(c.id, t)}>+ {ACAO_TIPO_LABEL[t]}</Chip>
-            ))}
           </div>
-        </div>
+        )
       )}
 
+      {/* Ações — sugestões junto dos botões, em vez de uma seção própria. */}
       <div className="acao-card-actions">
-        <Button variant="primary" style={{ padding: '0.4rem 0.7rem', fontSize: 13 }} onClick={() => onRegistrar(c.id)}><Plus size={14} /> Registrar</Button>
-        <Button variant="secondary" style={{ padding: '0.4rem 0.7rem', fontSize: 13 }} onClick={() => onAgendar(c.id)}><CalendarPlus size={14} /> Agendar</Button>
+        <Button variant="primary" style={{ padding: '0.4rem 0.7rem', fontSize: 13 }} onClick={() => onRegistrar(c.id)}>
+          <Plus size={14} /> Registrar
+        </Button>
+        <Button variant="secondary" style={{ padding: '0.4rem 0.7rem', fontSize: 13 }} onClick={() => onAgendar(c.id)}>
+          <CalendarPlus size={14} /> Agendar
+        </Button>
+        {comHistorico && sugestoes(ultimoContato).map((t) => (
+          <Chip
+            variant="toggle"
+            key={t}
+            className="px-[0.6rem] py-[0.25rem] text-[0.75rem]"
+            style={{ flex: '0 0 auto' }}
+            onClick={() => onRegistrar(c.id, t)}
+          >
+            + {ACAO_TIPO_LABEL[t]}
+          </Chip>
+        ))}
       </div>
     </Card>
   );

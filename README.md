@@ -28,13 +28,13 @@ npm install
 npm start
 ```
 
-Sobe backend + frontend juntos. Acesse **http://localhost:5173** (a API fica em `http://127.0.0.1:3001`).
+Sobe backend + frontend juntos. Acesse **http://localhost:5173** (a API fica em `http://127.0.0.1:3011`).
 
 Comandos individuais:
 
 | Comando | O que faz |
 |---|---|
-| `npm start` | Backend (`server.cjs`, porta 3001) + Vite (porta 5173) via `concurrently` |
+| `npm start` | Backend (`server.cjs`, porta 3011) + Vite (porta 5173) via `concurrently` |
 | `npm run dev` | Só o Vite (frontend) |
 | `node server.cjs` | Só o backend (precisa do OneDrive disponível) |
 | `npm run build` | `tsc -b` + build de produção do Vite (falha se houver erro de tipo) |

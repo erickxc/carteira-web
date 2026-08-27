@@ -1,0 +1,27 @@
+{
+  "id": "4618613d-3dc4-450f-b0ab-815f6228c8e2",
+  "clientId": "d7010909-b2a0-4d60-a434-3020904d8fcf",
+  "clientName": "Motobrás",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-25T15:42:51.853Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Precificação de acompanhamento realizada",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T15:42:51.853Z",
+  "exportedAt": "2026-07-22T19:02:10.924Z"
+}

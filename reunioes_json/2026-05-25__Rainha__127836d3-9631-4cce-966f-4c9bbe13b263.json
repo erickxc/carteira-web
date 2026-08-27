@@ -1,0 +1,25 @@
+{
+  "id": "127836d3-9631-4cce-966f-4c9bbe13b263",
+  "clientId": "50115590-c1f3-4f2c-8bc1-c080d7dd9640",
+  "clientName": "Rainha",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-05-25T13:05:30.270Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Contato de acompanhamento realizado",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T13:05:30.270Z",
+  "exportedAt": "2026-07-22T14:29:15.694Z"
+}

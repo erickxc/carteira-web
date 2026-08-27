@@ -54,6 +54,18 @@ export function useDashboardData() {
     () => agenda.filter((a) => ativosIds.has(a.clientId) && (filtroTipoEvento === 'Todos' || a.type === filtroTipoEvento)),
     [agenda, ativosIds, filtroTipoEvento]
   );
+  // Variantes só com o filtro de Monitor (sem o de Tipo de evento) — pros
+  // cards que precisam de todos os tipos de evento/ação de um monitor
+  // (AtendimentoCard, RecuperadosCard), não só do subconjunto que
+  // `agendaAtiva` respeita quando o filtro de Tipo de evento também está ativo.
+  const agendaPorMonitor = useMemo(
+    () => agenda.filter((a) => ativosIds.has(a.clientId)),
+    [agenda, ativosIds]
+  );
+  const acoesPorMonitor = useMemo(
+    () => acoes.filter((a) => ativosIds.has(a.clientId)),
+    [acoes, ativosIds]
+  );
 
   // Última interação por cliente ativo = reuniões passadas + AÇÕES concluídas.
   // É isto que "acompanhamento" considera — registrar uma ação (Contato/Relatório/
@@ -93,12 +105,17 @@ export function useDashboardData() {
   // dois significam "feito"). O dashboard conta SÓ concluídas; agendadas entram
   // como projeção à parte.
   const concluida = (a: EventoAgenda) => /conclu|realiz/i.test(a.status || '');
-  // `^agend` (ancorado) e não `/agend/`: "Reagendado" TAMBÉM contém "agend", e o
-  // regex solto fazia reunião reagendada ser contada como agendada — inflando o
-  // card "Agendadas" e aparecendo em dois cards ao mesmo tempo (o de
-  // Reagendamentos usa /reagend/). Não afetava os dados atuais só porque agosto
-  // não tem nenhum reagendado; era um erro esperando dado para aparecer.
-  const agendada = (a: EventoAgenda) => /^agend/i.test((a.status || '').trim());
+  // "Agendadas no mês" = toda reunião do mês que não foi cancelada/reagendada
+  // (Agendado, Pendente, qualquer status novo que apareça — E também as já
+  // Concluídas, a pedido: esse card mostra o total de reuniões do mês que
+  // "aconteceram ou vão acontecer", não só a projeção do que falta). Antes
+  // era só `/^agend/` (status literal "Agendado"), o que deixava de fora tanto
+  // "Pendente" (status novo) quanto as já concluídas.
+  const agendada = (a: EventoAgenda) => !/cancel|reagend/i.test(a.status || '');
+  // Versão EXCLUSIVA (sem concluída) — usada só na projeção do gráfico, que
+  // soma `concluídas + isso`. Usar `agendada` ali contaria a concluída 2x
+  // (bug real: card certo em 28, gráfico mostrando 42 no mesmo mês).
+  const planejadaNaoConcluida = (a: EventoAgenda) => agendada(a) && !concluida(a);
 
   // --- KPIs (escopo do período, base de ativos) ---
   const reunioesConcluidasMes = reunioesAtivas.filter((a) => concluida(a) && isSameMonth(parseISO(a.date), periodo)).length;
@@ -138,7 +155,7 @@ export function useDashboardData() {
     const pts = meses.map((m, i) => {
       const doMes = reunioesAtivas.filter((a) => isSameMonth(parseISO(a.date), m));
       const concl = doMes.filter(concluida).length;
-      const proj = concl + doMes.filter(agendada).length; // realizado + planejado
+      const proj = concl + doMes.filter(planejadaNaoConcluida).length; // realizado + planejado
       return {
         label: m.getMonth() === 0 || i === 0 ? format(m, 'MMM/yy', { locale: ptBR }).replace('.', '') : format(m, 'MMM', { locale: ptBR }).replace('.', ''),
         full: format(m, "MMMM 'de' yyyy", { locale: ptBR }),
@@ -343,30 +360,44 @@ export function useDashboardData() {
   const vencendo = useMemo(() => {
     const fila = buildVencendoDashboard(ativos, agenda, cadencias, hoje, 5);
 
-    type ItemVencendo = { rotulo: string; data: Date; dias: number };
+    // `nome`/`servico` separados (não uma string única "Cliente · Serviço") —
+    // combinados, o truncamento por ellipsis cortava no meio do nome OU do
+    // serviço dependendo de qual overflowasse primeiro (ex.: "Piloto - Filial
+    // · Mo..."), o que não dava pra entender qual serviço estava vencendo nem
+    // sempre mostrava o nome inteiro. Serviço é sempre curto — não precisa de
+    // truncamento, então fica de fora da parte que trunca.
+    type ItemVencendo = { nome: string; servico: string; data: Date; dias: number };
     const itens: ItemVencendo[] = [];
     for (const f of fila) {
       for (const r of f.relogios) {
         if (filtroServicoVencendo !== 'Todos' && r.servico !== filtroServicoVencendo) continue;
         if (r.status !== 'vencendo') continue;
         const dias = Math.max(0, -r.atraso);
-        itens.push({ rotulo: `${f.cliente.empresa} · ${r.servico}`, data: addDays(hoje, dias), dias });
+        itens.push({ nome: f.cliente.empresa, servico: r.servico, data: addDays(hoje, dias), dias });
       }
     }
-    itens.sort((a, b) => a.dias - b.dias || a.rotulo.localeCompare(b.rotulo)); // mais urgente primeiro
+    itens.sort((a, b) => a.dias - b.dias || a.nome.localeCompare(b.nome)); // mais urgente primeiro
     return { total: itens.length, itens };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativos, agenda, cadencias, filtroServicoVencendo]);
 
   // --- Próximas agendas (forward-looking) ---
   const tiposDisponiveis = useMemo(() => ['Todos', ...new Set(agendaAtiva.map((a) => a.type).filter(Boolean))], [agendaAtiva]);
+  // Chave de ordenação "yyyy-MM-dd HH:MM" (dia + hora), não `date.getTime()`
+  // direto: o campo `time` (HH:MM) é separado de `date` e NÃO entra no
+  // timestamp — dois eventos do mesmo dia empatavam em `date.getTime()` e
+  // caíam na ordem de chegada da planilha, não na ordem real do dia (bug
+  // real relatado: evento criado às 11h aparecia depois de outros do mesmo
+  // dia sem horário mais cedo). Sem horário marcado, ordena como '00:00'
+  // (início do dia) — mesmo critério já usado pro resto da Agenda.
+  const chaveOrdem = (a: EventoAgenda) => `${format(parseISO(a.date), 'yyyy-MM-dd')} ${a.time || '00:00'}`;
   const proximos = useMemo(() =>
     agendaAtiva
       // Concluído/Realizado não é "próxima"; Cancelado/Reagendado não vai acontecer.
       .filter((a) => !/conclu|realiz|cancel|reagend/i.test(a.status || ''))
       .filter((a) => differenceInCalendarDays(parseISO(a.date), hoje) >= 0)
       .filter((a) => filtroTipo === 'Todos' || a.type === filtroTipo)
-      .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
+      .sort((a, b) => chaveOrdem(a).localeCompare(chaveOrdem(b)))
       .slice(0, 5),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [agendaAtiva, filtroTipo]);
@@ -394,7 +425,7 @@ export function useDashboardData() {
     mes, setMes, ano, setAno, periodo,
     monitoresDisponiveis, tiposEventoDisponiveis, anosDisponiveis, mesesDisponiveis,
     // base
-    ativos,
+    ativos, agendaPorMonitor, acoesPorMonitor,
     // KPIs
     reunioesConcluidasMes, variacao, diaCorte, reunioesAgendadasMes, reagendamentosMes,
     // gráfico

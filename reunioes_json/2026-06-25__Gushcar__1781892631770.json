@@ -1,0 +1,25 @@
+{
+  "id": "1781892631770",
+  "clientId": "68767a0c-2bfd-4668-961c-7905a380f1af",
+  "clientName": "Gushcar",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-06-25",
+  "hora": "15:00",
+  "duracao": null,
+  "status": "Cancelado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "[Cancelado: Cliente pediu pra remarcar]",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-06-19T18:10:31.770Z",
+  "exportedAt": "2026-07-22T14:29:17.901Z"
+}

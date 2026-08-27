@@ -1,0 +1,25 @@
+{
+  "id": "f029471c-45a7-4a74-abdd-dbe93fadb2d2",
+  "clientId": "25af3e24-3992-45f0-a887-14dd7657f2ae",
+  "clientName": "Golfinho",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-05-26T13:43:02.974Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Contato de acompanhamento realizado",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-26T13:43:02.974Z",
+  "exportedAt": "2026-07-22T12:45:06.328Z"
+}

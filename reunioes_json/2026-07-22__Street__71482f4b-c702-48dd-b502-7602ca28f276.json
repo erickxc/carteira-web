@@ -1,0 +1,25 @@
+{
+  "id": "71482f4b-c702-48dd-b502-7602ca28f276",
+  "clientId": "2590af88-5fae-4c6c-94b3-ac9f508bd8a1",
+  "clientName": "Street",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-07-22T03:00:00.000Z",
+  "hora": "10:38",
+  "duracao": 60,
+  "status": "Agendado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Explicação da aprovação do Marco na nova harmonização dele\n",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-22T13:38:47.123Z",
+  "exportedAt": "2026-07-22T13:38:43.805Z"
+}

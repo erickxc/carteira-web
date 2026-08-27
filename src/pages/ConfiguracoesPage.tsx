@@ -1,9 +1,15 @@
-import { useState } from 'react';
-import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Check, Download, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
-import { toastError } from '../utils/toast';
+import { toastError, toastInfo } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
+import {
+  verificarStatusAtualizacao, aplicarAtualizacao, verificarStatusBase, type StatusAtualizacao,
+  verificarIniciarComWindows, definirIniciarComWindows, type StatusIniciarComWindows,
+} from '../api/client';
 import { Badge, Button, Card, Field, Input, Select, Textarea } from '../ui';
+import ProvedorIACard from '../components/config/ProvedorIACard';
+import McpClaudeCard from '../components/config/McpClaudeCard';
 import { CATEGORIA_TIPO_LABEL, SEGMENTO_LABEL, type Cadencias, type CategoriaTipo, type Modelo, type Segmento } from '../types';
 
 const TIPOS: CategoriaTipo[] = ['servico', 'tipo_evento', 'status_cliente', 'status_evento', 'monitor', 'tipo_lembrete', 'sala'];
@@ -276,28 +282,249 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
   );
 }
 
+/**
+ * Checagem automática JÁ existe (o launcher se atualiza sozinho a cada
+ * abertura, lendo `releases/latest.json` — ver `launcher/atualizar.cjs`).
+ * Este card torna isso visível e dá o "atualizar agora" sem esperar a próxima
+ * abertura: o servidor fecha e o `.exe` reabre sozinho (quem troca os
+ * arquivos continua sendo o launcher — ver `server/routes/atualizacao.cjs`).
+ * Enquanto isso a API fica fora do ar, então a tela espera o app voltar e
+ * recarrega — o front carregado na memória ainda é o da versão antiga.
+ */
+function AtualizacaoCard() {
+  const [status, setStatus] = useState<StatusAtualizacao | null>(null);
+  const [verificando, setVerificando] = useState(false);
+  const [reiniciando, setReiniciando] = useState(false);
+  const timerRef = useRef<number | null>(null);
+
+  useEffect(() => () => { if (timerRef.current) window.clearTimeout(timerRef.current); }, []);
+
+  function buscar() {
+    return verificarStatusAtualizacao()
+      .then(setStatus)
+      .catch(() => toastError('Não foi possível verificar atualizações agora.'));
+  }
+
+  useEffect(() => { buscar(); }, []);
+
+  function verificar() {
+    setVerificando(true);
+    buscar().finally(() => setVerificando(false));
+  }
+
+  /** Espera a API voltar depois do reinício e recarrega. Só começa depois de
+   * alguns segundos: o servidor antigo ainda responde por um instante após a
+   * resposta do /aplicar, e recarregar nele traria a versão velha de volta. */
+  function esperarVoltar(inicio = Date.now()) {
+    timerRef.current = window.setTimeout(() => {
+      if (Date.now() - inicio > 3 * 60_000) {
+        setReiniciando(false);
+        toastError('O sistema demorou pra voltar. Abra de novo pelo atalho do Carteira.');
+        return;
+      }
+      verificarStatusBase()
+        .then(() => window.location.reload())
+        .catch(() => esperarVoltar(inicio));
+    }, 6000);
+  }
+
+  async function aplicar() {
+    const ok = await confirmDialog(
+      `Atualizar para a versão ${status?.disponivel}? O sistema fecha e abre de novo — quem estiver usando pela rede fica alguns segundos sem acesso.`,
+      { confirmLabel: 'Atualizar agora' },
+    );
+    if (!ok) return;
+    setReiniciando(true);
+    try {
+      await aplicarAtualizacao();
+      toastInfo('Baixando a atualização... o sistema reinicia sozinho.');
+      esperarVoltar();
+    } catch (err) {
+      setReiniciando(false);
+      toastError(err instanceof Error ? err.message : 'Não foi possível atualizar agora.');
+    }
+  }
+
+  const temNova = Boolean(status && !status.atualizada && status.disponivel);
+  const publicadoEm = status?.publicadoEm ? new Date(status.publicadoEm).toLocaleString('pt-BR') : null;
+
+  return (
+    <Card flat>
+      <div className="section-header">
+        <h3>Versão e atualizações</h3>
+        {status && (
+          <Badge variant={temNova ? 'warning' : 'success'}>
+            {temNova ? 'Atualização disponível' : 'Em dia'}
+          </Badge>
+        )}
+      </div>
+
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4 mb-4">
+        <div>
+          <span className="block text-[0.72rem] uppercase tracking-wide text-text-muted">Versão em uso</span>
+          <strong className="block text-[1.35rem] font-semibold leading-tight">{status ? status.instalada : '—'}</strong>
+        </div>
+        <div>
+          <span className="block text-[0.72rem] uppercase tracking-wide text-text-muted">Última publicada</span>
+          <strong className="block text-[1.35rem] font-semibold leading-tight">{status?.disponivel ?? '—'}</strong>
+          {publicadoEm && <span className="block text-[0.72rem] text-text-muted">em {publicadoEm}</span>}
+        </div>
+      </div>
+
+      <p className="text-text-secondary" style={{ fontSize: '0.85rem', margin: '0 0 12px' }}>
+        {!status && 'Consultando...'}
+        {status && !temNova && 'O sistema já está na versão mais recente.'}
+        {temNova && status?.podeAplicar && 'Ao atualizar, o sistema fecha e abre sozinho — leva poucos segundos.'}
+        {temNova && !status?.podeAplicar && (
+          <>
+            Esta tela foi aberta pela rede (ou em desenvolvimento), então a atualização não pode ser aplicada daqui.
+            Atualize na máquina onde o sistema está instalado — basta fechar e abrir o <code>2D_Carteira.exe</code>.
+          </>
+        )}
+      </p>
+
+      {reiniciando && (
+        <p className="text-text-secondary" style={{ fontSize: '0.85rem', marginBottom: 12 }}>
+          Atualizando e reiniciando — a página recarrega sozinha quando o sistema voltar.
+        </p>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <Button variant="secondary" onClick={verificar} disabled={verificando || reiniciando}>
+          <RefreshCw size={15} /> {verificando ? 'Verificando...' : 'Verificar agora'}
+        </Button>
+        {temNova && status?.podeAplicar && (
+          <Button variant="primary" onClick={aplicar} disabled={reiniciando}>
+            <Download size={15} /> {reiniciando ? 'Atualizando...' : `Atualizar para ${status.disponivel}`}
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Configuração LOCAL desta máquina (não é dado da carteira — nunca vai pro
+ * SQLite/fila). Só aparece de fato quando o app foi aberto pelo `.exe` local
+ * (`suportado`): via navegador na LAN (Apache), a máquina que abriu o
+ * navegador pode não ser a que deveria iniciar o app sozinha — nesse caso o
+ * card mostra a explicação em vez do toggle.
+ */
+function IniciarComWindowsCard() {
+  const [status, setStatus] = useState<StatusIniciarComWindows | null>(null);
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    verificarIniciarComWindows().then(setStatus).catch(() => setStatus({ suportado: false, ativo: false }));
+  }, []);
+
+  function alternar() {
+    if (!status) return;
+    setSalvando(true);
+    definirIniciarComWindows(!status.ativo)
+      .then(setStatus)
+      .catch(() => toastError('Não foi possível salvar essa configuração.'))
+      .finally(() => setSalvando(false));
+  }
+
+  if (!status) return null;
+
+  return (
+    <Card flat>
+      <div className="section-header">
+        <h3>Iniciar com o Windows</h3>
+      </div>
+      {status.suportado ? (
+        <label className="check-row" style={{ fontSize: '0.85rem' }}>
+          <input type="checkbox" checked={status.ativo} disabled={salvando} onChange={alternar} />
+          Abrir a CARTEIRA 2D automaticamente quando o Windows iniciar (nesta máquina)
+        </label>
+      ) : (
+        <p className="text-text-secondary" style={{ fontSize: '0.85rem' }}>
+          Disponível só abrindo o sistema pelo <code>2D_Carteira.exe</code> local — acessando pelo navegador/rede
+          não é possível saber qual máquina deveria iniciar o app sozinha.
+        </p>
+      )}
+    </Card>
+  );
+}
+
+type AbaConfig = 'sistema' | 'cadencias' | 'modelos' | 'categorias';
+
+const ABAS: { chave: AbaConfig; label: string }[] = [
+  { chave: 'sistema', label: 'Sistema' },
+  { chave: 'cadencias', label: 'Cadências' },
+  { chave: 'modelos', label: 'Modelos' },
+  { chave: 'categorias', label: 'Categorias' },
+];
+
+const SUBTITULO: Record<AbaConfig, string> = {
+  sistema: 'Versão instalada, atualizações, provedor de IA e comportamento desta máquina.',
+  cadencias: 'Intervalos-alvo que definem a fila de acompanhamento.',
+  modelos: 'Modelos de material por segmento.',
+  categorias: 'Valores editáveis usados nos formulários (serviços, status, monitores...).',
+};
+
+/**
+ * Aba "Sistema" é a parte dedicada a versão/atualização — separada das
+ * configurações de negócio (cadências/modelos/categorias) de propósito: é a
+ * única parte da tela que fala do software em si, e é pra onde o rodapé
+ * (versão, em `Sidebar.tsx`) manda quem clica.
+ */
 export default function ConfiguracoesPage() {
+  const [aba, setAba] = useState<AbaConfig>('sistema');
+
   return (
     <div className="page-container">
       <h1 className="page-title">Configurações</h1>
-      <p className="page-subtitle">Cadências de acompanhamento, modelos de material e categorias editáveis.</p>
+      <p className="page-subtitle">{SUBTITULO[aba]}</p>
 
-      <div className="section">
-        <CadenciasCard />
+      <div className="tabs" style={{ margin: '1.25rem 0 2rem' }}>
+        {ABAS.map(({ chave, label }) => (
+          <button key={chave} className={`tab${aba === chave ? ' is-active' : ''}`} onClick={() => setAba(chave)}>
+            {label}
+          </button>
+        ))}
       </div>
 
-      <div className="section">
-        <ModelosCard />
-      </div>
+      {aba === 'sistema' && (
+        <>
+          <div className="section">
+            <AtualizacaoCard />
+          </div>
+          <div className="section">
+            <IniciarComWindowsCard />
+          </div>
+          <div className="section">
+            <ProvedorIACard />
+          </div>
+          <div className="section">
+            <McpClaudeCard />
+          </div>
+        </>
+      )}
 
-      <div className="section">
-        <div className="section-header"><h3>Categorias</h3></div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
-          {TIPOS.map((tipo) => (
-            <CategoriaCard key={tipo} tipo={tipo} />
-          ))}
+      {aba === 'cadencias' && (
+        <div className="section">
+          <CadenciasCard />
         </div>
-      </div>
+      )}
+
+      {aba === 'modelos' && (
+        <div className="section">
+          <ModelosCard />
+        </div>
+      )}
+
+      {aba === 'categorias' && (
+        <div className="section">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+            {TIPOS.map((tipo) => (
+              <CategoriaCard key={tipo} tipo={tipo} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

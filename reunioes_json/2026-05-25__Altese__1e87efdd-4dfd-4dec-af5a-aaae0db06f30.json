@@ -1,0 +1,25 @@
+{
+  "id": "1e87efdd-4dfd-4dec-af5a-aaae0db06f30",
+  "clientId": "647264b9-e49e-411f-82f8-574232388c39",
+  "clientName": "Altese",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-05-25T15:11:27.738Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Contato de acompanhamento realizado",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T15:11:27.738Z",
+  "exportedAt": "2026-07-22T14:29:15.979Z"
+}

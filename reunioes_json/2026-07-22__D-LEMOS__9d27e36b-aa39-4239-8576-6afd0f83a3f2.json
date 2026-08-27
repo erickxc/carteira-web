@@ -1,0 +1,25 @@
+{
+  "id": "9d27e36b-aa39-4239-8576-6afd0f83a3f2",
+  "clientId": "f03d0346-58ca-48b4-b3a0-c19688a3f655",
+  "clientName": "D'LEMOS",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-07-22T03:00:00.000Z",
+  "hora": "13:48",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-22T16:48:30.517Z",
+  "exportedAt": "2026-07-22T16:48:56.235Z"
+}

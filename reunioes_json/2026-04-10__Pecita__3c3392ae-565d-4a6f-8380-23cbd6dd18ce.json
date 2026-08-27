@@ -1,0 +1,25 @@
+{
+  "id": "3c3392ae-565d-4a6f-8380-23cbd6dd18ce",
+  "clientId": "436da252-f54f-4aa9-8f54-9509fff711e7",
+  "clientName": "Pecita",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-04-10T00:00:00.000Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Importado do Histórico",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T12:55:10.180Z",
+  "exportedAt": "2026-07-22T12:45:01.518Z"
+}

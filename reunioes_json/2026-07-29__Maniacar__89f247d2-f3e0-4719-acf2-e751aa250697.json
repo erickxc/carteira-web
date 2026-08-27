@@ -1,0 +1,25 @@
+{
+  "id": "89f247d2-f3e0-4719-acf2-e751aa250697",
+  "clientId": "9bd07430-65d9-40b0-8bc3-3ddd3592e965",
+  "clientName": "Maniacar",
+  "tipo": "Reunião",
+  "assunto": "Reunião",
+  "data": "2026-07-29T03:00:00.000Z",
+  "hora": "15:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Maniacar — 29/07/2026 15:00\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-27T18:12:03.266Z",
+  "exportedAt": "2026-07-30T11:21:52.605Z"
+}

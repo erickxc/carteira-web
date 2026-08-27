@@ -1,0 +1,27 @@
+{
+  "id": "cbe5055f-da4e-4a8b-856d-6ee86c1884a9",
+  "clientId": "4a33139a-3574-440e-ab47-890e2dc7a468",
+  "clientName": "GAP",
+  "tipo": "Reunião",
+  "assunto": "Precificação e Plataforma 2D",
+  "data": "2026-08-11T03:00:00.000Z",
+  "hora": "15:00",
+  "duracao": 60,
+  "status": "Agendado",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — GAP — 13/08/2026 15:00\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-08-05T20:30:41.811Z",
+  "exportedAt": "2026-08-05T20:31:31.901Z"
+}

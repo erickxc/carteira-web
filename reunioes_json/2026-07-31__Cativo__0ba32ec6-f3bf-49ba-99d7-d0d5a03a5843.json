@@ -1,0 +1,25 @@
+{
+  "id": "0ba32ec6-f3bf-49ba-99d7-d0d5a03a5843",
+  "clientId": "18bd16f5-26f3-4620-a404-d79cbcd09423",
+  "clientName": "Cativo",
+  "tipo": "Contato",
+  "assunto": "Tentativa de contato de marcação de reunião.",
+  "data": "2026-07-31T03:00:00.000Z",
+  "hora": "15:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-31T17:56:12.935Z",
+  "exportedAt": "2026-07-31T17:56:13.231Z"
+}

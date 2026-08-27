@@ -1,0 +1,65 @@
+{
+  "id": "e0429ec5-8fd6-4969-ad51-700cafaaf886",
+  "clientId": "647264b9-e49e-411f-82f8-574232388c39",
+  "clientName": "Altese",
+  "tipo": "Reunião",
+  "assunto": "Reunião de Monitoria",
+  "data": "2026-08-05T03:00:00.000Z",
+  "hora": "15:00",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [
+    "Monitoria"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [
+      {
+        "id": "d087465d-4a8a-4ce0-bab9-0530377b586c",
+        "cliente": "Widmen",
+        "produto": "Lubrificante",
+        "orientacao": "Cliente teve venda de lubrificante zerada em Julho."
+      },
+      {
+        "id": "6bae637c-ff3e-4cec-9dd1-a3c6aeec2dc2",
+        "cliente": "Widmen",
+        "produto": "Bico Injetor",
+        "orientacao": "Vendas zeradas de Bico Injetor."
+      },
+      {
+        "id": "d6d9827e-d3d2-4282-9b16-6d2613d3a082",
+        "cliente": "Paulo Salles",
+        "produto": "Vela Ignição",
+        "orientacao": "Queda drástica de vela de ignição em junho e julho."
+      },
+      {
+        "id": "b0d2d159-79ef-4528-b5a3-9bf7e2212369",
+        "cliente": "ABC Pneus",
+        "produto": "Lubrificante",
+        "orientacao": "Queda"
+      },
+      {
+        "id": "8b376dec-39fa-4fc5-ac64-35a33df3b619",
+        "cliente": "ABC Pneus",
+        "produto": "Vela Ignição",
+        "orientacao": "Queda"
+      }
+    ],
+    "clientesGeral": "Nilvan, Helberton, Paris Veículos em crescente, clientes em bom potencial.\nSapo Saneamento não comprou nenhuma unidade em Julho.",
+    "produtosGeral": "Lubrificante afetado pela crise do petróleo."
+  },
+  "ata": "Ata — Altese — 05/08/2026 15:00\nTipo: Reunião\n\nOrientações:\n- Widmen / Lubrificante: Cliente teve venda de lubrificante zerada em Julho.\n- Widmen / Bico Injetor: Vendas zeradas de Bico Injetor.\n- Paulo Salles / Vela Ignição: Queda drástica de vela de ignição em junho e julho.\n- ABC Pneus / Lubrificante: Queda\n- ABC Pneus / Vela Ignição: Queda\n\nClientes em geral: Nilvan, Helberton, Paris Veículos em crescente, clientes em bom potencial.\nSapo Saneamento não comprou nenhuma unidade em Julho.\n\nProdutos em geral: Lubrificante afetado pela crise do petróleo.",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [
+    {
+      "id": "899db02e-5605-4783-8ed4-ba41eebec28c-Desempenho lojas e carteira Resumo.txt",
+      "filename": "899db02e-5605-4783-8ed4-ba41eebec28c-Desempenho lojas e carteira Resumo.txt",
+      "originalName": "Desempenho lojas e carteira Resumo.txt",
+      "uploadedAt": "2026-08-05T19:10:39.309Z"
+    }
+  ],
+  "serie": "",
+  "createdAt": "2026-07-29T12:17:21.267Z",
+  "exportedAt": "2026-08-05T19:13:56.204Z"
+}

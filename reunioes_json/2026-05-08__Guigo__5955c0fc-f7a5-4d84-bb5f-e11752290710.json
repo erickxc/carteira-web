@@ -1,0 +1,25 @@
+{
+  "id": "5955c0fc-f7a5-4d84-bb5f-e11752290710",
+  "clientId": "e62cc8f2-8cae-4890-969c-f982ca4d37e9",
+  "clientName": "Guigo",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-08T00:00:00.000Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Importado do Histórico",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T12:55:10.180Z",
+  "exportedAt": "2026-07-22T14:29:15.060Z"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "0e6b31a4-b58d-4c66-ae94-8b376b6d6bec",
+  "clientId": "e0d4ae1b-ff43-4027-ac8a-d32d2c4c0fd7",
+  "clientName": "Tadeu",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-08-06T03:00:00.000Z",
+  "hora": "09:44",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-08-06T12:45:07.321Z",
+  "exportedAt": "2026-08-06T12:45:05.573Z"
+}

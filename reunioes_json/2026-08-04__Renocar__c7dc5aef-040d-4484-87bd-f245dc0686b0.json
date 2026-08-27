@@ -1,0 +1,27 @@
+{
+  "id": "c7dc5aef-040d-4484-87bd-f245dc0686b0",
+  "clientId": "e340b4ad-9c3d-4a0c-9da5-38d5fef0fc9c",
+  "clientName": "Renocar",
+  "tipo": "Reunião",
+  "assunto": "Reunião de Precificação",
+  "data": "2026-08-04T03:00:00.000Z",
+  "hora": "13:30",
+  "duracao": 60,
+  "status": "Concluído",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "Ata — Renocar — 04/08/2026 10:00\nTipo: Reunião",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-07-30T16:45:05.092Z",
+  "exportedAt": "2026-08-04T19:53:28.733Z"
+}

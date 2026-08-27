@@ -17,6 +17,9 @@ import type { Acao, EventoAgenda } from '../types';
 const ehReuniao = (e: EventoAgenda) => /reuni/i.test(e.type || '');
 const ehRelatorio = (e: EventoAgenda) => /relat/i.test(e.type || '');
 const ehContato = (e: EventoAgenda) => /contato|liga[çc]/i.test(e.type || '');
+// Precificação avulsa entregue fora de reunião — mesmo balde `price` que já
+// existia pra Ação tipo 'price' (ver `calcularEsforcoAgenda` abaixo).
+const ehPrecificacao = (e: EventoAgenda) => /precific/i.test(e.type || '');
 
 const foiCancelado = (e: EventoAgenda) => /cancel/i.test(e.status || '');
 const foiReagendado = (e: EventoAgenda) => /reagend/i.test(e.status || '');
@@ -141,6 +144,7 @@ export function calcularEsforcoAgenda(
       porTipo.contato++;
       if (e.origem === 'cliente') contatosDoCliente++;
     } else if (ehRelatorio(e)) porTipo.relatorio++;
+    else if (ehPrecificacao(e)) porTipo.price++;
     else porTipo.outros++;
   }
 

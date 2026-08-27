@@ -1,0 +1,25 @@
+{
+  "id": "56f51dfc-dfe3-4ea3-9274-de9bc13260a5",
+  "clientId": "d7010909-b2a0-4d60-a434-3020904d8fcf",
+  "clientName": "Motobrás",
+  "tipo": "Contato",
+  "assunto": "",
+  "data": "2026-05-25T15:42:52.456Z",
+  "hora": "",
+  "duracao": null,
+  "status": "Concluído",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "Contato de acompanhamento realizado",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-25T15:42:52.456Z",
+  "exportedAt": "2026-07-22T14:29:16.272Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "1779906858558",
+  "clientId": "b0889e37-61f0-437c-96fa-e6e482031a6a",
+  "clientName": "Viannax",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-05-27",
+  "hora": "16:00",
+  "duracao": null,
+  "status": "Realizado",
+  "servicos": [
+    "Precificação"
+  ],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-05-27T18:34:18.558Z",
+  "exportedAt": "2026-07-22T19:02:13.251Z"
+}

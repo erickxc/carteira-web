@@ -1,0 +1,25 @@
+{
+  "id": "1781639406970",
+  "clientId": "ab12b5dc-b420-4779-9d80-882a0146d437",
+  "clientName": "Ramar Caxias",
+  "tipo": "Reunião",
+  "assunto": "",
+  "data": "2026-06-17",
+  "hora": "10:00",
+  "duracao": null,
+  "status": "Cancelado",
+  "servicos": [],
+  "checklist": [],
+  "preAnalise": {
+    "orientacoes": [],
+    "clientesGeral": "",
+    "produtosGeral": ""
+  },
+  "ata": "",
+  "resumo": "",
+  "descricao": "[Cancelado: Cliente pediu pra cancelar: Problemas pessoais]",
+  "anexos": [],
+  "serie": "",
+  "createdAt": "2026-06-16T19:50:06.970Z",
+  "exportedAt": "2026-07-22T14:29:17.684Z"
+}
