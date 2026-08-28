@@ -138,6 +138,17 @@ O que o modelo pode fazer é exatamente o que o `parameters` de cada ferramenta 
 
 Os modelos devolvem `**negrito**`, bullets e títulos. O chat imprimia `{m.content}` cru e o usuário via linhas de asterisco. `src/components/ia/RespostaIA.tsx` (+ `blocosMarkdown.ts`, testado) renderiza o subconjunto que os modelos realmente emitem, montando **elementos React** — nunca `dangerouslySetInnerHTML`: o texto vem de um LLM, então nada aqui pode virar HTML. A fala do usuário segue texto puro de propósito.
 
+### Alertas de profundidade — não só atraso/vencimento
+
+Além dos quatro alertas de cadência, `server/ia/alertas.cjs` tem dois que leem o **texto** do dossiê (`### Pontos de Atenção`), não só data:
+
+- **Contradição dossiê × risco**: 2+ sinais negativos (cancelamento, não comparecimento, sem retorno — vocabulário observado nos dossiês reais) registrados, mas a classificação de risco continua "baixo". Ninguém enxerga isso olhando cliente por cliente, porque o dossiê é lido em prosa — ninguém CONTA quantos sinais se acumularam.
+- **Pauta recomendada que morreu**: a última análise sugeriu uma próxima pauta e não há reunião futura marcada nem reunião com ata desde então. Mede se a recomendação da IA vira ação ou só relatório.
+
+E `GET /api/ia/padroes` (rota separada, `gerarPadroesCarteira`) é **padrão de processo**, não de cliente: tema recorrente nos Pontos de Atenção de 5+ clientes (hoje: cancelamento e "sem ata") vira um card só, sem `clientId`. Motivo de ser rota/função separada: um card sem cliente não se encaixa no mesmo agrupamento/dedup por-cliente dos outros alertas — forçar os dois juntos acoplaria duas formas de alerta bem diferentes.
+
+**Cuidado ao testar isto**: os dois alertas de dossiê chamam `lerDossieCliente`, que lê arquivo em `DOSSIES_DIR` — **não tem override próprio**, deriva de `ONEDRIVE_ROOT` (`DATA_DIR = ONEDRIVE_ROOT + 'Carteira Web'`, `DOSSIES_DIR = DATA_DIR + 'dossies'`). Testar sem isolar `ONEDRIVE_ROOT` (e `require` fresco dos módulos, mesmo padrão de `dbSqlite.test.ts`) escreve no dossiê REAL da máquina — aconteceu durante o desenvolvimento disto, com um id de teste que por sorte não colidia com cliente real, mas o arquivo ficou órfão na pasta de produção até ser notado e apagado manualmente.
+
 ### Criar evento/lembrete: valor é validado contra o cadastro, nunca gravado cru
 
 Bug de produção: o agente criou uma reunião com `monitores: ["Erick"]` — a opção cadastrada é "Erick Cardoso" (`Categorias`, tipo `monitor`). O valor foi gravado como veio, não casou com nenhuma opção do `<select>` na tela de edição, e o campo apareceu **vazio** pro usuário. Sem erro, sem log — pareceu que tinha dado certo.

@@ -505,7 +505,7 @@ export type SeveridadeAlerta = 'alta' | 'media' | 'baixa';
 
 export interface AlertaIA {
   id: string;
-  tipo: 'risco_sem_pauta' | 'sem_contato' | 'vencendo' | 'sem_analise';
+  tipo: 'risco_sem_pauta' | 'sem_contato' | 'vencendo' | 'sem_analise' | 'contradicao_dossie' | 'pauta_parada';
   severidade: SeveridadeAlerta;
   titulo: string;
   detalhe: string;
@@ -516,3 +516,18 @@ export interface AlertaIA {
 }
 
 export const buscarAlertasIA = () => request<AlertaIA[]>('/ia/alertas');
+
+// --- Padrões da carteira (não são de um cliente específico) ---
+
+export interface PadraoCarteira {
+  id: string;
+  tipo: 'padrao_carteira';
+  severidade: SeveridadeAlerta;
+  titulo: string;
+  detalhe: string;
+  clientId: '';
+  cliente: '';
+  pergunta: string;
+}
+
+export const buscarPadroesCarteira = () => request<PadraoCarteira[]>('/ia/padroes');

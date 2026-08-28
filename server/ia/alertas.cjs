@@ -1,5 +1,6 @@
 const { buscarVencendo, buscarAlertasSemAcompanhamento, isClienteAtivo } = require('../dominio/cadenciaServico.cjs');
 const { lerCadencias } = require('./tools.cjs');
+const { lerDossieCliente } = require('./analisesAutomaticas.cjs');
 
 /**
  * Alertas conversáveis do monitorIA.
@@ -21,6 +22,21 @@ const { lerCadencias } = require('./tools.cjs');
  */
 
 const SEVERIDADE = { alta: 3, media: 2, baixa: 1 };
+
+/**
+ * Sinais de deterioração que aparecem em texto livre — bullets de "Pontos de
+ * Atenção" no dossiê, ou o resumo da análise. Vocabulário observado nos
+ * dossiês reais da carteira (cancelamento, não-comparecimento, silêncio do
+ * cliente), não uma lista teórica de "palavras de risco".
+ */
+const RE_SINAL_NEGATIVO = /cancel|reagend|não compareceu|nao compareceu|sem retorno|sem resposta|não respondeu|nao respondeu|adiou|insatisf|atraso|queda|caiu|zerou|perda|afastamento/i;
+
+/** Bullets da seção "### Pontos de Atenção" de um dossiê em markdown. */
+function pontosDeAtencao(dossie) {
+  const bloco = dossie.match(/###\s*Pontos de Atenção([\s\S]*?)(?:\n###|$)/i);
+  if (!bloco) return [];
+  return bloco[1].split('\n').map((l) => l.trim()).filter((l) => l.startsWith('-'));
+}
 
 /** Eventos futuros por cliente — "tem alguma reunião marcada daqui pra frente?" */
 function clientesComEventoFuturo(agenda, agora) {
@@ -119,6 +135,50 @@ function gerarAlertas(repo, { agora = new Date(), max = 8 } = {}) {
     });
   }
 
+  // 5. Dossiê contradiz a classificação de risco: 2+ sinais negativos nos
+  // Pontos de Atenção, mas nível de risco continua baixo. Ninguém vê isso
+  // olhando cliente por cliente — o dossiê é lido em prosa, ninguém CONTA
+  // quantos "cancelou"/"não compareceu" ele acumulou.
+  for (const c of ativos) {
+    const analise = analisePorCliente.get(String(c.id));
+    if (!analise || analise.nivelRisco !== 'baixo') continue;
+    const negativos = pontosDeAtencao(lerDossieCliente(c.id)).filter((l) => RE_SINAL_NEGATIVO.test(l));
+    if (negativos.length < 2) continue;
+    alertas.push({
+      id: `contradicao:${c.id}`,
+      tipo: 'contradicao_dossie',
+      severidade: 'media',
+      titulo: `${c.empresa}: dossiê acumula ${negativos.length} sinais negativos, mas risco está "baixo"`,
+      detalhe: negativos[negativos.length - 1].replace(/^-\s*/, ''),
+      clientId: c.id,
+      cliente: c.empresa,
+      pergunta: `O dossiê da ${c.empresa} tem ${negativos.length} pontos de atenção negativos, mas o risco está classificado como baixo. Analisa esses pontos comigo e me diz se a classificação ainda faz sentido.`,
+    });
+  }
+
+  // 6. Pauta recomendada que não virou ação: a última análise sugeriu uma
+  // próxima pauta e não há reunião futura marcada nem reunião mais nova com
+  // ata desde então. Mede se a recomendação da IA é só relatório sem leitor.
+  for (const c of ativos) {
+    const analise = analisePorCliente.get(String(c.id));
+    const pauta = String(analise?.sugestaoProximaPauta ?? '').trim();
+    if (!pauta || comFuturo.has(String(c.id))) continue;
+    const eventosDepois = agenda.filter((e) => String(e.clientId) === String(c.id)
+      && e.date && analise.geradoEm && String(e.date) > String(analise.geradoEm).slice(0, 10)
+      && String(e.ata ?? '').trim());
+    if (eventosDepois.length > 0) continue;
+    alertas.push({
+      id: `pauta-parada:${c.id}`,
+      tipo: 'pauta_parada',
+      severidade: 'baixa',
+      titulo: `${c.empresa}: pauta recomendada segue sem reunião marcada`,
+      detalhe: pauta,
+      clientId: c.id,
+      cliente: c.empresa,
+      pergunta: `A última análise da ${c.empresa} recomendou esta pauta: "${pauta}". Ainda faz sentido? Me ajuda a marcar isso.`,
+    });
+  }
+
   // Um cliente pode disparar mais de um alerta (risco alto E sem contato). Fica
   // só o mais grave: dois cartões do mesmo cliente competindo pela atenção
   // fazem a lista parecer maior do que o problema é.
@@ -133,4 +193,44 @@ function gerarAlertas(repo, { agora = new Date(), max = 8 } = {}) {
     .slice(0, max);
 }
 
-module.exports = { gerarAlertas };
+/**
+ * Padrões da CARTEIRA — não de um cliente. Conta tema recorrente nos "Pontos
+ * de Atenção" de todos os dossiês; N+ ocorrências vira um card só, sobre
+ * processo. Separado de `gerarAlertas` (que é por-cliente) porque a pergunta,
+ * o agrupamento e o "clientId" não fazem sentido do mesmo jeito aqui — forçar
+ * os dois na mesma função ia acoplar duas formas de alerta bem diferentes.
+ */
+const TEMAS_PROCESSO = [
+  { chave: 'sem_ata', regex: /sem ata/i, rotulo: 'reunião sem ata de pauta' },
+  { chave: 'cancelamento', regex: /cancel/i, rotulo: 'cancelamento de reunião' },
+  { chave: 'reagendamento', regex: /reagend/i, rotulo: 'reagendamento' },
+];
+const MIN_OCORRENCIAS_PADRAO = 5;
+
+function gerarPadroesCarteira(repo, { max = 3 } = {}) {
+  const clientes = repo.get('Clientes').filter(isClienteAtivo);
+  const contagem = TEMAS_PROCESSO.map((t) => ({ ...t, clientes: new Set() }));
+
+  for (const c of clientes) {
+    for (const linha of pontosDeAtencao(lerDossieCliente(c.id))) {
+      for (const tema of contagem) if (tema.regex.test(linha)) tema.clientes.add(c.empresa);
+    }
+  }
+
+  return contagem
+    .filter((t) => t.clientes.size >= MIN_OCORRENCIAS_PADRAO)
+    .sort((a, b) => b.clientes.size - a.clientes.size)
+    .slice(0, max)
+    .map((t) => ({
+      id: `padrao:${t.chave}`,
+      tipo: 'padrao_carteira',
+      severidade: t.clientes.size >= MIN_OCORRENCIAS_PADRAO * 2 ? 'media' : 'baixa',
+      titulo: `${t.rotulo}: ${t.clientes.size} clientes com esse registro`,
+      detalhe: `Aparece nos dossiês de: ${[...t.clientes].slice(0, 5).join(', ')}${t.clientes.size > 5 ? '...' : ''}.`,
+      clientId: '',
+      cliente: '',
+      pergunta: `${t.clientes.size} clientes têm "${t.rotulo}" registrado no dossiê. Isso é padrão de cliente ou sintoma de processo (ex.: forma como a reunião é conduzida)? Analisa comigo.`,
+    }));
+}
+
+module.exports = { gerarAlertas, gerarPadroesCarteira };

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, CalendarClock, HelpCircle, MessageSquare, PhoneOff, RefreshCw } from 'lucide-react';
-import { buscarAlertasIA, type AlertaIA, type SeveridadeAlerta } from '../../api/client';
+import { AlertTriangle, CalendarClock, HelpCircle, MessageSquare, PhoneOff, RefreshCw, Repeat } from 'lucide-react';
+import { buscarAlertasIA, buscarPadroesCarteira, type AlertaIA, type PadraoCarteira, type SeveridadeAlerta } from '../../api/client';
 import { Badge, Button } from '../../ui';
 
 /**
@@ -21,6 +21,8 @@ const ICONE: Record<AlertaIA['tipo'], typeof AlertTriangle> = {
   sem_contato: PhoneOff,
   vencendo: CalendarClock,
   sem_analise: HelpCircle,
+  contradicao_dossie: AlertTriangle,
+  pauta_parada: CalendarClock,
 };
 
 const VARIANTE: Record<SeveridadeAlerta, 'danger' | 'warning' | 'muted'> = {
@@ -31,17 +33,19 @@ const VARIANTE: Record<SeveridadeAlerta, 'danger' | 'warning' | 'muted'> = {
 
 const ROTULO: Record<SeveridadeAlerta, string> = { alta: 'crítico', media: 'atenção', baixa: 'a ver' };
 
-export default function AlertasIA({ onConversar }: { onConversar: (alerta: AlertaIA) => void }) {
+export default function AlertasIA({ onConversar }: { onConversar: (alerta: AlertaIA | PadraoCarteira) => void }) {
   const [alertas, setAlertas] = useState<AlertaIA[] | null>(null);
+  const [padroes, setPadroes] = useState<PadraoCarteira[] | null>(null);
   const [recarregando, setRecarregando] = useState(false);
 
   // `buscar` não mexe em estado de forma síncrona — é o que o efeito chama.
   // Falha vira "sem alertas", não erro na cara do usuário: é painel auxiliar,
-  // não pode impedir o uso do chat.
-  const buscar = useCallback(
-    () => buscarAlertasIA().then(setAlertas).catch(() => setAlertas([])),
-    [],
-  );
+  // não pode impedir o uso do chat. As duas listas são independentes (uma é
+  // por-cliente, outra é padrão de processo) — uma falhar não derruba a outra.
+  const buscar = useCallback(() => Promise.all([
+    buscarAlertasIA().then(setAlertas).catch(() => setAlertas([])),
+    buscarPadroesCarteira().then(setPadroes).catch(() => setPadroes([])),
+  ]), []);
 
   useEffect(() => { buscar(); }, [buscar]);
 
@@ -55,9 +59,9 @@ export default function AlertasIA({ onConversar }: { onConversar: (alerta: Alert
   // `null` = ainda carregando; `[]` = carteira sem pendência. Os dois não
   // podem parecer a mesma coisa: "nada aqui" logo ao abrir a tela seria lido
   // como "está tudo bem" antes de o servidor ter respondido.
-  if (alertas === null) return null;
+  if (alertas === null || padroes === null) return null;
 
-  if (alertas.length === 0) {
+  if (alertas.length === 0 && padroes.length === 0) {
     return (
       <p className="text-[0.82rem] text-text-muted">
         Nenhum alerta crítico agora — nenhum cliente em risco alto sem reunião, sem contato prolongado ou com cadência vencendo.
@@ -103,6 +107,34 @@ export default function AlertasIA({ onConversar }: { onConversar: (alerta: Alert
           );
         })}
       </div>
+
+      {padroes.length > 0 && (
+        <>
+          {/* Padrão de PROCESSO, não de cliente — visualmente separado dos
+              cartões acima (borda tracejada) pra não parecer "mais um cliente
+              com problema". */}
+          <span className="text-[0.8rem] font-semibold text-text-primary mt-2">Padrões da carteira</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+            {padroes.map((p) => (
+              <div key={p.id} className="p-2.5 rounded-sm bg-bg flex flex-col gap-1.5" style={{ border: '1px dashed var(--border-strong)' }}>
+                <div className="flex items-start gap-2">
+                  <Repeat size={15} className="shrink-0 mt-0.5" />
+                  <span className="text-[0.8rem] font-semibold text-text-primary">{p.titulo}</span>
+                  <Badge variant={VARIANTE[p.severidade]} className="ml-auto shrink-0">{ROTULO[p.severidade]}</Badge>
+                </div>
+                <p className="text-[0.75rem] text-text-muted m-0">{p.detalhe}</p>
+                <Button
+                  variant="secondary"
+                  onClick={() => onConversar(p)}
+                  style={{ alignSelf: 'flex-start', padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                >
+                  <MessageSquare size={13} /> Conversar sobre isso
+                </Button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@ const express = require('express');
 const { repoPlanilha } = require('../dominio/repo.cjs');
 const { conversar } = require('../ia/provider.cjs');
 const { montarSystemPrompt } = require('../ia/agente.cjs');
-const { gerarAlertas } = require('../ia/alertas.cjs');
+const { gerarAlertas, gerarPadroesCarteira } = require('../ia/alertas.cjs');
 
 const router = express.Router();
 const repo = repoPlanilha();
@@ -21,6 +21,15 @@ router.get('/clientes/:id/analise', (req, res) => {
  */
 router.get('/alertas', (_req, res) => {
   res.json(gerarAlertas(repo));
+});
+
+/**
+ * Padrões da CARTEIRA — separado de `/alertas` (por-cliente) de propósito:
+ * um card de padrão não tem `clientId` nem faz sentido misturado na mesma
+ * lista que "cliente X está sem contato". Ver `gerarPadroesCarteira`.
+ */
+router.get('/padroes', (_req, res) => {
+  res.json(gerarPadroesCarteira(repo));
 });
 
 router.get('/acoes', (req, res) => {

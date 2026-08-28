@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Bot, Check, ChevronRight, History, Loader2, Plus, Send } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
-import { buscarAcoesIA, enviarMensagemChatIA, type AlertaIA, type MensagemChatIA } from '../api/client';
+import { buscarAcoesIA, enviarMensagemChatIA, type AlertaIA, type MensagemChatIA, type PadraoCarteira } from '../api/client';
 import { toastError } from '../utils/toast';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { Badge, Button, Card, Select, Textarea } from '../ui';
@@ -146,8 +146,11 @@ export default function AssistenteIAPage() {
    * pergunta pronta — só preencher o campo deixaria um clique a mais no
    * caminho, que é justamente o que o cartão existe pra tirar.
    */
-  function conversarSobreAlerta(alerta: AlertaIA) {
-    setClienteId(alerta.clientId);
+  function conversarSobreAlerta(alerta: AlertaIA | PadraoCarteira) {
+    // Padrão de carteira não tem cliente — não mexe no foco, senão a
+    // conversa herdaria um clientId vazio e o seletor voltaria pra "Sem
+    // cliente em foco" sem o usuário ter pedido.
+    if (alerta.clientId) setClienteId(alerta.clientId);
     enviarPergunta(alerta.pergunta);
   }
 
