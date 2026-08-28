@@ -192,6 +192,13 @@ export default function AssistenteIAPage() {
         Converse sobre qualquer cliente ou produto da carteira. O agente pode consultar dossiês/análises, corrigir o dossiê de um cliente quando você apontar um erro, e criar evento/lembrete — nunca edita ou exclui Cliente, Agenda ou Lembrete.
       </p>
 
+      {/* Fora do card da conversa, de propósito: um alerta não pode sumir só
+          porque o usuário mandou uma mensagem — ele continua precisando de
+          atenção até ser resolvido, não até a tela rolar. */}
+      <div style={{ marginBottom: 18 }}>
+        <AlertasIA onConversar={conversarSobreAlerta} />
+      </div>
+
       <div className="flex-row" style={{ alignItems: 'flex-start', gap: 16 }}>
         <Card flat style={{ flex: 1, minWidth: 0 }}>
           <div className="section-header">
@@ -246,13 +253,8 @@ export default function AssistenteIAPage() {
             {mensagens.length === 0 ? (
               <div className="flex flex-col items-center gap-4 py-2">
                 <Bot size={44} style={{ color: 'var(--text-muted)', opacity: 0.35 }} />
-                {/* Alertas vêm ANTES das sugestões genéricas: são a carteira
-                    de hoje, não exemplos do que dá pra perguntar. */}
-                <div className="w-full" style={{ maxWidth: '44rem' }}>
-                  <AlertasIA onConversar={conversarSobreAlerta} />
-                </div>
                 <p className="text-[0.86rem] text-text-secondary text-center" style={{ maxWidth: '30rem' }}>
-                  Ou pergunte sobre qualquer cliente, produto ou métrica da carteira:
+                  Pergunte sobre qualquer cliente, produto ou métrica da carteira:
                 </p>
                 <div className="w-full grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(15rem, 1fr))', maxWidth: '44rem' }}>
                   {SUGESTOES.map((s) => (

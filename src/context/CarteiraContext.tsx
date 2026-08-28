@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { v4 as uuidv4 } from 'uuid';
 import * as api from '../api/client';
 import { resolverNomesClientes } from '../utils/agendaNomes';
+import { isClienteAtivo } from '../utils/formatters';
 import type {
   Acao,
   AgendaSerie,
@@ -51,6 +52,20 @@ const CADENCIAS_PADRAO: Cadencias = {
 
 interface CarteiraContextValue {
   clientes: Cliente[];
+  /**
+   * Filtro GLOBAL de monitor — "quem sou eu nesta máquina". Existe porque o
+   * app não tem autenticação (LAN, qualquer um usa o mesmo navegador/máquina)
+   * e mesmo assim cada monitor só deveria ver o que é dele: seus clientes na
+   * Visão Geral, seus alertas no monitorIA. Fica AQUI (Context), e não
+   * duplicado em `usePersistedState` por página, porque duas instâncias
+   * independentes de `usePersistedState` não se sincronizam entre si — mudar
+   * numa tela não atualizaria a outra já montada. Persistido em localStorage
+   * (por navegador/máquina), único ponto de leitura e escrita.
+   */
+  filtroMonitor: string;
+  setFiltroMonitor: (monitor: string) => void;
+  /** ['Todos', ...monitores com cliente ativo] — mesma derivação usada pelo filtro da Visão Geral. */
+  monitoresDisponiveis: string[];
   agenda: EventoAgenda[];
   agendaSeries: AgendaSerie[];
   lembretes: Lembrete[];
@@ -156,6 +171,18 @@ const CarteiraContext = createContext<CarteiraContextValue | null>(null);
 
 export function CarteiraProvider({ children }: { children: ReactNode }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  // Filtro global de monitor — ver o comentário na interface acima.
+  const [filtroMonitor, setFiltroMonitor] = useState<string>(() => {
+    try { return window.localStorage.getItem('filtro:global:monitor') ?? 'Todos'; } catch { return 'Todos'; }
+  });
+  const definirFiltroMonitor = useCallback((monitor: string) => {
+    setFiltroMonitor(monitor);
+    try { window.localStorage.setItem('filtro:global:monitor', monitor); } catch { /* localStorage indisponível — filtro só não persiste */ }
+  }, []);
+  const monitoresDisponiveis = useMemo(
+    () => ['Todos', ...[...new Set(clientes.filter(isClienteAtivo).map((c) => c.monitor).filter(Boolean))].sort()],
+    [clientes],
+  );
   const [agendaBruta, setAgenda] = useState<EventoAgenda[]>([]);
   const [agendaSeries, setAgendaSeries] = useState<AgendaSerie[]>([]);
   const [lembretes, setLembretes] = useState<Lembrete[]>([]);
@@ -711,6 +738,9 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
   const value = useMemo<CarteiraContextValue>(
     () => ({
       clientes,
+      filtroMonitor,
+      setFiltroMonitor: definirFiltroMonitor,
+      monitoresDisponiveis,
       agenda,
       agendaSeries,
       lembretes,
@@ -786,7 +816,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       removerAgilComentario: removerAgilComentarioFn,
     }),
     [
-      clientes, agenda, agendaSeries, lembretes, categorias, acoes, modelos, cadencias,
+      clientes, filtroMonitor, definirFiltroMonitor, monitoresDisponiveis, agenda, agendaSeries, lembretes, categorias, acoes, modelos, cadencias,
       agilWorkspaces, agilBoards, agilColunas, agilSwimlanes, agilFrentes, agilTarefas, agilSubtarefas, agilComentarios,
       loading, error, recarregar, ceoAgenda, opcoesPorTipo,
       criarCliente, criarClientesEmLote, atualizarClienteFn, removerClienteFn,

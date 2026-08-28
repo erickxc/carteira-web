@@ -20,9 +20,10 @@ const FOLLOW_UP_THRESHOLD_DAYS = 30;
  * DashboardPage.tsx pra não misturar "o que calcular" com "como desenhar".
  */
 export function useDashboardData() {
-  const { clientes, agenda, acoes, lembretes, cadencias } = useCarteira();
+  // `filtroMonitor` vem do Context — é o filtro GLOBAL ("quem sou eu"),
+  // compartilhado com o header e com o monitorIA, não mais local desta tela.
+  const { clientes, agenda, acoes, lembretes, cadencias, filtroMonitor, setFiltroMonitor, monitoresDisponiveis } = useCarteira();
   const [filtroTipo, setFiltroTipo] = usePersistedState<string>('filtro:dash:tipo', 'Todos');
-  const [filtroMonitor, setFiltroMonitor] = usePersistedState<string>('filtro:dash:monitor', 'Todos');
   const [filtroTipoEvento, setFiltroTipoEvento] = usePersistedState<string>('filtro:dash:tipoEvento', 'Todos');
   const [filtroServicoAderencia, setFiltroServicoAderencia] = usePersistedState<ServicoCad | 'Todos'>('filtro:dash:servicoAderencia', 'Todos');
   const [filtroServicoVencendo, setFiltroServicoVencendo] = usePersistedState<ServicoCad | 'Todos'>('filtro:dash:servicoVencendo', 'Todos');
@@ -34,10 +35,6 @@ export function useDashboardData() {
   const periodoAnterior = subMonths(periodo, 1);
 
   // Opções de filtro derivadas da base (não mostra opção que não existe nos dados).
-  const monitoresDisponiveis = useMemo(
-    () => ['Todos', ...[...new Set(clientes.filter(isClienteAtivo).map((c) => c.monitor).filter(Boolean))].sort()],
-    [clientes]
-  );
   const tiposEventoDisponiveis = useMemo(
     () => ['Todos', ...[...new Set(agenda.map((a) => a.type).filter(Boolean))].sort()],
     [agenda]

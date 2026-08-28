@@ -78,6 +78,7 @@ function gerarAlertas(repo, { agora = new Date(), max = 8 } = {}) {
       detalhe: analise.resumo || 'Análise de risco classificou como alto.',
       clientId: c.id,
       cliente: c.empresa,
+      monitor: c.monitor || null,
       pergunta: `A ${c.empresa} está em risco alto e sem reunião marcada. Me explica o que levou a esse risco e sugere uma pauta e uma data.`,
     });
   }
@@ -98,6 +99,7 @@ function gerarAlertas(repo, { agora = new Date(), max = 8 } = {}) {
       detalhe: a.ultimoContato ? `Último contato em ${String(a.ultimoContato).slice(0, 10)}.` : 'Nenhuma interação registrada desde a entrada na carteira.',
       clientId: a.id,
       cliente: a.empresa,
+      monitor: c.monitor || null,
       pergunta: `A ${a.empresa} ${quanto}. O que aconteceu com esse cliente e como eu retomo?`,
     });
   }
@@ -114,6 +116,7 @@ function gerarAlertas(repo, { agora = new Date(), max = 8 } = {}) {
       detalhe: `Cadência de ${item.servico} chega ao limite em ${item.diasParaVencer} dia(s).`,
       clientId: item.id,
       cliente: item.empresa,
+      monitor: porId.get(String(item.id))?.monitor || null,
       pergunta: `A cadência de ${item.servico} da ${item.empresa} vence em ${item.diasParaVencer} dia(s). Me sugere quando encaixar e qual pauta levar.`,
     });
   }
@@ -131,6 +134,7 @@ function gerarAlertas(repo, { agora = new Date(), max = 8 } = {}) {
       detalhe: 'Nenhuma reunião com ata foi analisada ainda — o dossiê está vazio.',
       clientId: c.id,
       cliente: c.empresa,
+      monitor: c.monitor || null,
       pergunta: `A ${c.empresa} ainda não tem análise de risco. Me mostra o histórico dela e o que dá pra concluir.`,
     });
   }
@@ -152,6 +156,7 @@ function gerarAlertas(repo, { agora = new Date(), max = 8 } = {}) {
       detalhe: negativos[negativos.length - 1].replace(/^-\s*/, ''),
       clientId: c.id,
       cliente: c.empresa,
+      monitor: c.monitor || null,
       pergunta: `O dossiê da ${c.empresa} tem ${negativos.length} pontos de atenção negativos, mas o risco está classificado como baixo. Analisa esses pontos comigo e me diz se a classificação ainda faz sentido.`,
     });
   }
@@ -175,6 +180,7 @@ function gerarAlertas(repo, { agora = new Date(), max = 8 } = {}) {
       detalhe: pauta,
       clientId: c.id,
       cliente: c.empresa,
+      monitor: c.monitor || null,
       pergunta: `A última análise da ${c.empresa} recomendou esta pauta: "${pauta}". Ainda faz sentido? Me ajuda a marcar isso.`,
     });
   }
@@ -229,6 +235,7 @@ function gerarPadroesCarteira(repo, { max = 3 } = {}) {
       detalhe: `Aparece nos dossiês de: ${[...t.clientes].slice(0, 5).join(', ')}${t.clientes.size > 5 ? '...' : ''}.`,
       clientId: '',
       cliente: '',
+      monitor: null,
       pergunta: `${t.clientes.size} clientes têm "${t.rotulo}" registrado no dossiê. Isso é padrão de cliente ou sintoma de processo (ex.: forma como a reunião é conduzida)? Analisa comigo.`,
     }));
 }

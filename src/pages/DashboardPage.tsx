@@ -44,15 +44,7 @@ export default function DashboardPage() {
           <p className="page-subtitle" style={{ margin: 0 }}>Carteira de monitoria — 2D Consultores.</p>
         </div>
         <div className="flex-row" style={{ gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <div style={{ minWidth: 160 }}>
-            <Dropdown
-              label="Todos os monitores"
-              defaultValue="Todos"
-              options={d.monitoresDisponiveis.map((m) => ({ value: m, label: m === 'Todos' ? 'Todos os monitores' : m }))}
-              value={d.filtroMonitor}
-              onChange={(v) => d.setFiltroMonitor(v as string)}
-            />
-          </div>
+          {/* Filtro de monitor: agora é GLOBAL, no header (src/App.tsx) — ver CarteiraContext.filtroMonitor. */}
           <div style={{ minWidth: 150 }}>
             <Dropdown
               label="Todos os tipos"

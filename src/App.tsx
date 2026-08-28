@@ -16,6 +16,7 @@ import { ToastHost } from './components/ToastHost';
 import { ConfirmHost } from './components/ConfirmHost';
 import { LoadingScreen } from './components/LoadingScreen';
 import { useCarteira } from './context/CarteiraContext';
+import { Dropdown } from './components/Dropdown';
 // Imports estáticos (sem lazy): num app de LAN que é rebuildado com frequência,
 // o code-splitting causava tela branca quando a aba tinha um index.html antigo
 // apontando pra chunks que já não existiam. Bundle único é robusto e rápido na LAN.
@@ -33,6 +34,7 @@ import ConfiguracoesPage from './pages/ConfiguracoesPage';
 function Layout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { filtroMonitor, setFiltroMonitor, monitoresDisponiveis } = useCarteira();
   const [searchOpen, setSearchOpen] = useState(false);
   const [reminderModalOpen, setReminderModalOpen] = useState(false);
   const [importarResumoOpen, setImportarResumoOpen] = useState(false);
@@ -94,6 +96,22 @@ function Layout({ children }: { children: ReactNode }) {
             >
               <CalendarDays size={19} /> Agenda
             </Button>
+            {/* Filtro GLOBAL de monitor: "quem sou eu nesta máquina". Fica no
+                header, visível em toda página, e não em cada tela — mudar aqui
+                afeta Visão Geral, monitorIA e o que mais vier a usar. Só
+                aparece quando há mais de um monitor cadastrado com cliente
+                ativo (com um só, o filtro não decide nada). */}
+            {monitoresDisponiveis.length > 2 && (
+              <div style={{ minWidth: 170 }}>
+                <Dropdown
+                  label="Todos os monitores"
+                  defaultValue="Todos"
+                  options={monitoresDisponiveis.map((m) => ({ value: m, label: m === 'Todos' ? 'Todos os monitores' : m }))}
+                  value={filtroMonitor}
+                  onChange={(v) => setFiltroMonitor(v as string)}
+                />
+              </div>
+            )}
             <ThemeToggle />
           </div>
         </div>

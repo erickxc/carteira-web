@@ -511,6 +511,8 @@ export interface AlertaIA {
   detalhe: string;
   clientId: string;
   cliente: string;
+  /** Monitor responsável pelo cliente do alerta — null em alertas sem cliente (padrão de carteira). */
+  monitor: string | null;
   /** Frase literal que vai pro chat ao clicar em "Conversar" — não é rótulo. */
   pergunta: string;
 }
@@ -527,6 +529,7 @@ export interface PadraoCarteira {
   detalhe: string;
   clientId: '';
   cliente: '';
+  monitor: null;
   pergunta: string;
 }
 

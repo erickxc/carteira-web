@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCarteira } from '../../context/CarteiraContext';
 import { AlertTriangle, CalendarClock, HelpCircle, MessageSquare, PhoneOff, RefreshCw, Repeat } from 'lucide-react';
 import { buscarAlertasIA, buscarPadroesCarteira, type AlertaIA, type PadraoCarteira, type SeveridadeAlerta } from '../../api/client';
 import { Badge, Button } from '../../ui';
@@ -34,9 +35,17 @@ const VARIANTE: Record<SeveridadeAlerta, 'danger' | 'warning' | 'muted'> = {
 const ROTULO: Record<SeveridadeAlerta, string> = { alta: 'crítico', media: 'atenção', baixa: 'a ver' };
 
 export default function AlertasIA({ onConversar }: { onConversar: (alerta: AlertaIA | PadraoCarteira) => void }) {
-  const [alertas, setAlertas] = useState<AlertaIA[] | null>(null);
+  const [alertasBrutos, setAlertas] = useState<AlertaIA[] | null>(null);
   const [padroes, setPadroes] = useState<PadraoCarteira[] | null>(null);
   const [recarregando, setRecarregando] = useState(false);
+  // Filtro GLOBAL de monitor (header) — "não tem porque outro monitor ver
+  // alertas que são pra mim". Padrões de carteira (sem clientId) não são de
+  // ninguém em especial, então continuam aparecendo pra todos.
+  const { filtroMonitor } = useCarteira();
+  const alertas = useMemo(
+    () => (alertasBrutos ?? []).filter((a) => filtroMonitor === 'Todos' || a.monitor === filtroMonitor),
+    [alertasBrutos, filtroMonitor],
+  );
 
   // `buscar` não mexe em estado de forma síncrona — é o que o efeito chama.
   // Falha vira "sem alertas", não erro na cara do usuário: é painel auxiliar,
@@ -59,7 +68,7 @@ export default function AlertasIA({ onConversar }: { onConversar: (alerta: Alert
   // `null` = ainda carregando; `[]` = carteira sem pendência. Os dois não
   // podem parecer a mesma coisa: "nada aqui" logo ao abrir a tela seria lido
   // como "está tudo bem" antes de o servidor ter respondido.
-  if (alertas === null || padroes === null) return null;
+  if (alertasBrutos === null || padroes === null) return null;
 
   if (alertas.length === 0 && padroes.length === 0) {
     return (
