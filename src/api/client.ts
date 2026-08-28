@@ -581,3 +581,23 @@ export interface UsoIAResposta {
 }
 
 export const buscarUsoIA = (dias = 7) => request<UsoIAResposta>(`/ia/uso?dias=${dias}`);
+
+// --- Cota da assinatura Claude (janela 5h / limite 7d) ---
+
+export interface JanelaCota {
+  /** 0..1 — fração já usada da janela. */
+  utilizacao: number;
+  status: string | null;
+  /** ISO 8601, ou null se o header não veio. */
+  resetaEm: string | null;
+}
+
+export interface LimiteContaClaude {
+  ok: boolean;
+  motivo?: string;
+  cincoHoras?: JanelaCota | null;
+  seteDias?: JanelaCota | null;
+  consultadoEm?: string;
+}
+
+export const buscarLimiteContaClaude = () => request<LimiteContaClaude>('/ia/claude/limite');

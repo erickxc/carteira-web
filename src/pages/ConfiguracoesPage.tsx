@@ -9,6 +9,7 @@ import {
 } from '../api/client';
 import { Badge, Button, Card, Field, Input, Select, Textarea } from '../ui';
 import ProvedorIACard from '../components/config/ProvedorIACard';
+import LimiteContaCard from '../components/config/LimiteContaCard';
 import McpClaudeCard from '../components/config/McpClaudeCard';
 import UsoIACard from '../components/config/UsoIACard';
 import { CATEGORIA_TIPO_LABEL, SEGMENTO_LABEL, type Cadencias, type CategoriaTipo, type Modelo, type Segmento } from '../types';
@@ -498,6 +499,9 @@ export default function ConfiguracoesPage() {
           </div>
           <div className="section">
             <ProvedorIACard />
+          </div>
+          <div className="section">
+            <LimiteContaCard />
           </div>
           <div className="section">
             <McpClaudeCard />

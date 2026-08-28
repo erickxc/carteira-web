@@ -220,6 +220,16 @@ router.post('/interno/ferramenta', apenasMcp, (req, res) => {
  * existe "quanto falta pra resetar a cota" aqui (ver server/ia/uso.cjs pro
  * porquê); o que dá é gasto acumulado e por-pergunta.
  */
+/**
+ * Janela de 5h / limite de 7 dias da assinatura Claude. O Claude Code CLI não
+ * expõe isso (ver `limiteConta.cjs`) — esta rota bate direto na API com a
+ * mesma credencial, só pra ler os headers de rate-limit. É uma chamada REAL e
+ * paga (mínima), por isso cacheada com TTL — não chame em loop.
+ */
+router.get('/claude/limite', async (_req, res) => {
+  res.json(await consultarLimiteConta({ repo }));
+});
+
 router.get('/uso', (req, res) => {
   const dias = Math.min(Math.max(Number(req.query.dias) || 7, 1), 90);
   const desde = new Date(Date.now() - dias * 86400e3).toISOString();
