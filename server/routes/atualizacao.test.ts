@@ -60,7 +60,7 @@ describe('GET /api/atualizacao/status', () => {
     try {
       const res = await fetch(`${url}/status`);
       const body = await res.json();
-      expect(body).toEqual({
+      expect(body).toMatchObject({
         instalada: versaoInstaladaReal(), disponivel: null, atualizada: true, publicadoEm: null, podeAplicar: false,
       });
     } finally {
@@ -80,7 +80,7 @@ describe('GET /api/atualizacao/status', () => {
     try {
       const res = await fetch(`${url}/status`);
       const body = await res.json();
-      expect(body).toEqual({
+      expect(body).toMatchObject({
         instalada, disponivel: versaoMaior, atualizada: false, publicadoEm: '2026-01-01T00:00:00.000Z', podeAplicar: false,
       });
     } finally {

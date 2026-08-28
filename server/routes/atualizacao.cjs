@@ -18,6 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
+const { novidadesDaVersao } = require('../novidades.cjs');
 const { BACKUP_ONEDRIVE_DIR } = require('../config.cjs');
 
 const RELEASES_DIR = path.join(BACKUP_ONEDRIVE_DIR, 'releases');
@@ -100,6 +101,13 @@ router.get('/status', (req, res) => {
     atualizada: !disponivel || !versaoMaiorQue(disponivel, instalada),
     publicadoEm: release?.publicadoEm ?? null,
     podeAplicar: Boolean(exeDoLauncher()),
+    // O que muda na versão DISPONÍVEL vem do manifesto (publicado junto do
+    // .zip): o `NOVIDADES.md` local é o da versão INSTALADA e ainda não
+    // conhece a nova. Já `novidadesInstalada` sai do arquivo local — é o que
+    // permite ver o que mudou depois de atualizar, quando não há mais
+    // "disponível".
+    novidades: release?.novidades ?? [],
+    novidadesInstalada: novidadesDaVersao(instalada),
   });
 });
 

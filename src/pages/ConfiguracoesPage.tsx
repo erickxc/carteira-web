@@ -385,6 +385,28 @@ function AtualizacaoCard() {
         )}
       </p>
 
+      {/* Novidades: da versão DISPONÍVEL quando há atualização (ajuda a decidir
+          se vale atualizar agora), da INSTALADA quando já está em dia (mostra o
+          que mudou depois de atualizar). Some quando a versão não tem seção no
+          NOVIDADES.md — release sem mudança visível não merece um bloco vazio. */}
+      {(() => {
+        const itens = temNova ? (status?.novidades ?? []) : (status?.novidadesInstalada ?? []);
+        if (!itens.length) return null;
+        return (
+          <div
+            className="rounded-sm"
+            style={{ background: 'var(--card-hover)', border: '1px solid var(--border)', padding: '10px 12px', marginBottom: 12 }}
+          >
+            <span className="block text-[0.72rem] uppercase tracking-wide text-text-muted" style={{ marginBottom: 6 }}>
+              {temNova ? `O que vem na ${status?.disponivel}` : `Novidades da ${status?.instalada}`}
+            </span>
+            <ul className="m-0 pl-[1.1rem] flex flex-col gap-1 list-disc text-[0.82rem] text-text-secondary">
+              {itens.map((n, i) => <li key={i}>{n}</li>)}
+            </ul>
+          </div>
+        );
+      })()}
+
       {reiniciando && (
         <p className="text-text-secondary" style={{ fontSize: '0.85rem', marginBottom: 12 }}>
           Atualizando e reiniciando — a página recarrega sozinha quando o sistema voltar.

@@ -11,6 +11,7 @@ const { execFileSync } = require('child_process');
 // nada pra injetar.
 const NPM_BIN = 'npm';
 const AdmZip = require('adm-zip');
+const { novidadesDaVersao } = require('../novidades.cjs');
 const { BACKUP_ONEDRIVE_DIR } = require('../config.cjs');
 
 const RAIZ = path.join(__dirname, '..', '..'); // raiz do projeto
@@ -31,13 +32,93 @@ function lerVersaoPackageJson(raiz = RAIZ) {
  * que quebrou na primeira tentativa real deste script). `npm prune` só
  * remove pastas, não recompila nada.
  */
+/**
+ * Pacotes que o SERVIDOR realmente exige em runtime. Tudo que é só de
+ * frontend (React, lucide, jspdf, dnd-kit...) já está COMPILADO dentro de
+ * `dist/` — mandar o pacote-fonte junto é peso puro.
+ *
+ * Era o caso até a v1.2.34: a release levava os 194 pacotes de
+ * `dependencies`, 20.668 arquivos, ~183 MB só de `node_modules` (jspdf 28,8 MB
+ * + lucide-react 28,8 MB + cache `.vite` 16,5 MB, nada disso usado pelo
+ * `server.cjs`). Resultado: 85 MB de download e 274 MB / 20.820 arquivos pra
+ * descompactar a cada atualização, numa pasta sincronizada pelo OneDrive —
+ * daí a lentidão.
+ *
+ * Lista explícita, e não heurística, de propósito: um `require` novo no
+ * servidor tem que aparecer aqui conscientemente. `verificarDepsDoServidor`
+ * abaixo falha o build se alguém esquecer.
+ */
+const DEPS_SERVIDOR = [
+  'adm-zip', 'better-sqlite3', 'cors', 'date-fns', 'express',
+  'google-auth-library', 'multer', 'node-cron', 'xlsx', 'zod',
+];
+
+/**
+ * Varre os `.cjs` do servidor e confere que todo pacote `require`ado está em
+ * `DEPS_SERVIDOR`. Sem isso, adicionar um `require` novo geraria uma release
+ * que quebra só na máquina de destino ("Cannot find module"), longe de quem
+ * publicou.
+ */
+function verificarDepsDoServidor(raiz = RAIZ) {
+  const todasDeps = Object.keys(JSON.parse(fs.readFileSync(path.join(raiz, 'package.json'), 'utf8')).dependencies);
+  const arquivos = [];
+  (function varrer(dir) {
+    for (const nome of fs.readdirSync(dir)) {
+      const completo = path.join(dir, nome);
+      if (fs.statSync(completo).isDirectory()) {
+        if (!/^(node_modules|dist)$/.test(nome)) varrer(completo);
+      } else if (nome.endsWith('.cjs')) {
+        arquivos.push(completo);
+      }
+    }
+  })(path.join(raiz, 'server'));
+  arquivos.push(path.join(raiz, 'server.cjs'), path.join(raiz, 'inicio.cjs'));
+
+  const faltando = new Set();
+  for (const arquivo of arquivos) {
+    const src = fs.readFileSync(arquivo, 'utf8');
+    for (const dep of todasDeps) {
+      if (DEPS_SERVIDOR.includes(dep)) continue;
+      if (src.includes(`require('${dep}')`) || src.includes(`require('${dep}/`)) faltando.add(dep);
+    }
+  }
+  if (faltando.size) {
+    throw new Error(
+      `publicarRelease: o servidor usa pacote(s) fora de DEPS_SERVIDOR: ${[...faltando].join(', ')}. `
+      + 'Inclua na lista (server/scripts/publicarRelease.cjs) — senão a release quebra na máquina de destino.',
+    );
+  }
+}
+
+/**
+ * Instala em `stagingDir` SÓ as dependências do servidor, do zero — em vez de
+ * copiar o `node_modules` inteiro (com devDependencies e pacotes de frontend)
+ * e podar depois. `npm prune` não removia o que estava em `dependencies`, que
+ * é justamente onde os pacotes de frontend vivem (eles são necessários pro
+ * `npm run build`, então não dá simplesmente pra movê-los pra devDependencies
+ * sem quebrar o build de quem clona o repo).
+ */
 function prepararStagingComDepsDeProducao(stagingDir, raiz = RAIZ) {
+  verificarDepsDoServidor(raiz);
   fs.mkdirSync(stagingDir, { recursive: true });
-  fs.copyFileSync(path.join(raiz, 'package.json'), path.join(stagingDir, 'package.json'));
-  const lockPath = path.join(raiz, 'package-lock.json');
-  if (fs.existsSync(lockPath)) fs.copyFileSync(lockPath, path.join(stagingDir, 'package-lock.json'));
-  fs.cpSync(path.join(raiz, 'node_modules'), path.join(stagingDir, 'node_modules'), { recursive: true });
-  execFileSync(NPM_BIN, ['prune', '--omit=dev'], { cwd: stagingDir, stdio: 'inherit', shell: true });
+
+  const pkgOriginal = JSON.parse(fs.readFileSync(path.join(raiz, 'package.json'), 'utf8'));
+  const deps = {};
+  for (const dep of DEPS_SERVIDOR) {
+    if (!pkgOriginal.dependencies[dep]) throw new Error(`publicarRelease: "${dep}" está em DEPS_SERVIDOR mas não em dependencies.`);
+    deps[dep] = pkgOriginal.dependencies[dep];
+  }
+  // `package.json` enxuto no destino: o app instalado nunca roda build, só
+  // `node inicio.cjs` — scripts e devDependencies não têm função lá.
+  fs.writeFileSync(path.join(stagingDir, 'package.json'), `${JSON.stringify({
+    name: pkgOriginal.name,
+    version: pkgOriginal.version,
+    private: true,
+    type: pkgOriginal.type,
+    dependencies: deps,
+  }, null, 2)}\n`);
+
+  execFileSync(NPM_BIN, ['install', '--omit=dev', '--no-audit', '--no-fund'], { cwd: stagingDir, stdio: 'inherit', shell: true });
 }
 
 /** Node portátil (build oficial `node-vX.Y.Z-win-x64`, só o `.exe`) —
@@ -66,11 +147,13 @@ function empacotarPasta(pastaOrigem, destinoZip) {
 }
 
 /** Grava/atualiza `releases/latest.json`, também com escrita atômica. */
-function escreverManifesto(releasesDir, { versao, arquivo }) {
+function escreverManifesto(releasesDir, { versao, arquivo, novidades = [] }) {
   if (!fs.existsSync(releasesDir)) fs.mkdirSync(releasesDir, { recursive: true });
   const destino = path.join(releasesDir, 'latest.json');
   const tmp = `${destino}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify({ versao, arquivo, publicadoEm: new Date().toISOString() }, null, 2));
+  // `novidades` vai NO MANIFESTO (não só no .zip): a máquina que ainda não
+  // atualizou precisa poder mostrar o que vem na versão nova ANTES de baixar.
+  fs.writeFileSync(tmp, JSON.stringify({ versao, arquivo, publicadoEm: new Date().toISOString(), novidades }, null, 2));
   fs.renameSync(tmp, destino);
   return destino;
 }
@@ -116,6 +199,10 @@ function publicarRelease() {
     // release em vez de redistribuir o binário pra cada máquina.
     fs.copyFileSync(path.join(RAIZ, 'inicio.cjs'), path.join(tmpDir, 'inicio.cjs'));
     fs.copyFileSync(path.join(RAIZ, 'launcher', 'icone.ico'), path.join(tmpDir, 'icone.ico'));
+    // Viaja na release pra o app instalado mostrar as novidades da versão que
+    // ELE roda, depois de atualizar (quando não há mais "disponível").
+    const novidadesPath = path.join(RAIZ, 'NOVIDADES.md');
+    if (fs.existsSync(novidadesPath)) fs.copyFileSync(novidadesPath, path.join(tmpDir, 'NOVIDADES.md'));
 
     console.log('Instalando dependências de produção (staging isolado)...');
     prepararStagingComDepsDeProducao(tmpDir);
@@ -132,7 +219,7 @@ function publicarRelease() {
     if (!fs.existsSync(RELEASES_DIR)) fs.mkdirSync(RELEASES_DIR, { recursive: true });
     const destinoZip = path.join(RELEASES_DIR, nomeArquivo);
     empacotarPasta(tmpDir, destinoZip);
-    const manifesto = escreverManifesto(RELEASES_DIR, { versao, arquivo: nomeArquivo });
+    const manifesto = escreverManifesto(RELEASES_DIR, { versao, arquivo: nomeArquivo, novidades: novidadesDaVersao(versao, RAIZ) });
     limparReleasesAntigas(RELEASES_DIR, nomeArquivo);
 
     console.log(`Release publicada: ${destinoZip}`);
@@ -145,4 +232,7 @@ function publicarRelease() {
 
 if (require.main === module) publicarRelease();
 
-module.exports = { publicarRelease, lerVersaoPackageJson, empacotarPasta, escreverManifesto, limparReleasesAntigas };
+module.exports = {
+  publicarRelease, lerVersaoPackageJson, empacotarPasta, escreverManifesto, limparReleasesAntigas,
+  verificarDepsDoServidor, DEPS_SERVIDOR,
+};

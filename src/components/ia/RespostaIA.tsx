@@ -30,7 +30,7 @@ function formatarInline(texto: string, chaveBase: string): ReactNode[] {
       return <strong key={chave}>{parte.slice(2, -2)}</strong>;
     }
     if (/^`[^`]+`$/.test(parte)) {
-      return <code key={chave} className="px-1 rounded-sm text-[0.95em]" style={{ background: 'var(--bg-elevated, rgba(127,127,127,0.15))' }}>{parte.slice(1, -1)}</code>;
+      return <code key={chave} className="px-1 rounded-sm text-[0.95em]" style={{ background: 'var(--card-hover)' }}>{parte.slice(1, -1)}</code>;
     }
     if (/^\*[^*]+\*$/.test(parte)) {
       return <em key={chave}>{parte.slice(1, -1)}</em>;

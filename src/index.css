@@ -33,7 +33,12 @@
 
   --text-primary: #f4f4f2;
   --text-secondary: #a6a6ad;
-  --text-muted: #6d6d76;
+  /* Clareado de #6d6d76 para passar AA (4.5:1) como texto pequeno: no valor
+     antigo dava 3.39:1 sobre --card-hover, 3.62:1 sobre --card — abaixo do
+     mínimo, e é a cor de MUITO texto de apoio (legendas, datas, detalhes dos
+     cards de alerta e do painel de consumo). Medido, não escolhido a olho:
+     agora 4.51:1 no pior fundo (card-hover) e até 5.21:1 na sidebar. */
+  --text-muted: #81818c;
 
   --accent: #dabb6c;
   --accent-hover: #e8cc86;
@@ -123,7 +128,9 @@
 
   --text-primary: #1b1b1f;
   --text-secondary: #47474e;
-  --text-muted: #71717a;
+  /* Mesmo ajuste do tema escuro, na direção oposta (escurecer): #71717a dava
+     3.05:1 sobre a sidebar. Agora 4.53:1 no pior fundo, 6.07:1 sobre card. */
+  --text-muted: #57575e;
 
   /* Dourado da marca escurecido para virar bronze legível como texto e como
      fundo de botão (com texto branco).
@@ -169,7 +176,9 @@
      cor. */
   --success-fg: #1b5e3c;
   --danger-fg: #932c26;
-  --warning-fg: #7d560e;
+  /* Escurecido de #7d560e: dava 4.13:1 sobre a sidebar (abaixo de AA). Ajuste
+     mínimo — 4.51:1 sobre sidebar, 6.05:1 sobre card, 5.79:1 no badge. */
+  --warning-fg: #745010;
   --gratuidade-fg: #6b5e09;
   /* Texto do badge accent. Um pouco mais escuro que --accent porque o badge
      costuma ficar sobre --card-hover (linhas de lista), onde o fundo

@@ -51,6 +51,10 @@ export interface StatusAtualizacao {
   /** Só true quando o app foi aberto pelo .exe local — é ele que sabe aplicar
    * a atualização. Acessando pela LAN (Apache) ou em dev, o botão não aparece. */
   podeAplicar: boolean;
+  /** O que muda na versão DISPONÍVEL (vem do manifesto publicado). */
+  novidades: string[];
+  /** O que mudou na versão INSTALADA (arquivo local) — é o que sobra pra ver depois de atualizar. */
+  novidadesInstalada: string[];
 }
 
 export const verificarStatusAtualizacao = () => request<StatusAtualizacao>('/atualizacao/status');

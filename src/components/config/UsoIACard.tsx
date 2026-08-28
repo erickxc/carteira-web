@@ -161,7 +161,7 @@ export default function UsoIACard() {
                     {t.ferramentas.length > 0 && (
                       <div className="flex flex-col gap-1.5">
                         {t.ferramentas.map((f, i) => (
-                          <details key={i} className="rounded-sm" style={{ background: 'var(--bg-elevated, rgba(127,127,127,0.08))', padding: '6px 8px' }}>
+                          <details key={i} className="rounded-sm" style={{ background: 'var(--card-hover)', padding: '6px 8px' }}>
                             <summary style={{ cursor: 'pointer', display: 'flex', gap: 6, alignItems: 'center' }}>
                               <Wrench size={11} /> <code>{f.ferramenta}</code>
                               <span className="text-text-muted" style={{ fontWeight: 400 }}>{f.descricao}</span>
