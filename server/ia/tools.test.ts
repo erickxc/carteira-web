@@ -93,8 +93,8 @@ function escreverDossie(clientId: string, slug: string, corpo: string) {
 // 1-8: catálogo e contrato geral das ferramentas
 // ---------------------------------------------------------------------------
 describe('catálogo de ferramentas', () => {
-  it('1. expõe exatamente as 25 ferramentas esperadas', () => {
-    expect(FERRAMENTAS).toHaveLength(25);
+  it('1. expõe exatamente as 26 ferramentas esperadas', () => {
+    expect(FERRAMENTAS).toHaveLength(26);
   });
 
   it('2. nenhum nome de ferramenta duplicado', () => {

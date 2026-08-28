@@ -138,6 +138,12 @@ O que o modelo pode fazer é exatamente o que o `parameters` de cada ferramenta 
 
 Os modelos devolvem `**negrito**`, bullets e títulos. O chat imprimia `{m.content}` cru e o usuário via linhas de asterisco. `src/components/ia/RespostaIA.tsx` (+ `blocosMarkdown.ts`, testado) renderiza o subconjunto que os modelos realmente emitem, montando **elementos React** — nunca `dangerouslySetInnerHTML`: o texto vem de um LLM, então nada aqui pode virar HTML. A fala do usuário segue texto puro de propósito.
 
+### Criar evento/lembrete: valor é validado contra o cadastro, nunca gravado cru
+
+Bug de produção: o agente criou uma reunião com `monitores: ["Erick"]` — a opção cadastrada é "Erick Cardoso" (`Categorias`, tipo `monitor`). O valor foi gravado como veio, não casou com nenhuma opção do `<select>` na tela de edição, e o campo apareceu **vazio** pro usuário. Sem erro, sem log — pareceu que tinha dado certo.
+
+`server/ia/tools.cjs` (`resolverOpcao`) resolve `monitores`/`servicos`/`sala` (evento) e `type` (evento e lembrete) contra `Categorias` ANTES de gravar: match exato por texto normalizado vence; senão aceita prefixo/trecho ÚNICO ("Erick" → "Erick Cardoso"); ambíguo ou inexistente é **erro com a lista de opções válidas**, que volta pro modelo corrigir — nunca escolhe por conta própria nem grava o valor cru. Ferramenta nova, `buscar_opcoes_evento`, devolve os cinco tipos de categoria usados aqui; o agente consulta sozinho quando não tem certeza do nome exato.
+
 ### Memória do agente: dois níveis, e nenhum é o outro
 
 - **Dossiê** (`corrigir_dossie_cliente`, arquivos em `DOSSIES_DIR`) — memória **de um cliente**.

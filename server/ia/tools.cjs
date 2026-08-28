@@ -8,6 +8,48 @@ const { sugerirAgenda } = require('../dominio/sugestaoAgenda.cjs');
 const { getCache: getCacheCeoAgenda } = require('../ceoAgenda.cjs');
 const { CADENCIAS_SEED } = require('../config.cjs');
 
+/**
+ * Valores configuráveis por tipo (`Categorias`): monitor, serviço, sala,
+ * tipo de evento, tipo de lembrete. São DADOS editáveis em Configurações, não
+ * enums no código — por isso a validação lê do repositório a cada chamada.
+ */
+function opcoesDe(repo, tipo) {
+  return repo.get('Categorias').filter((c) => c.tipo === tipo).map((c) => c.valor).filter(Boolean);
+}
+
+const semAcento = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+/**
+ * Casa o valor que o modelo mandou com uma opção real do cadastro.
+ *
+ * Existe por um bug de produção: o agente criou uma reunião com
+ * `monitores: ["Erick"]`, mas a opção cadastrada é "Erick Cardoso". O valor foi
+ * gravado como veio, não casou com nenhuma opção da tela, e o campo apareceu
+ * VAZIO pro usuário — dado corrompido em silêncio, que é pior que erro.
+ *
+ * Regra: match exato (ignorando acento/maiúscula) vence; senão, aceita
+ * prefixo/trecho ÚNICO ("Erick" -> "Erick Cardoso"). Ambíguo ou sem match =
+ * erro com a lista de opções, que volta pro modelo e ele corrige sozinho —
+ * melhor do que escolher por ele e errar de monitor.
+ */
+function resolverOpcao(repo, tipo, valor, campo) {
+  const opcoes = opcoesDe(repo, tipo);
+  if (!opcoes.length) return valor; // categoria não cadastrada: não inventa regra
+  const alvo = semAcento(valor);
+
+  const exato = opcoes.find((o) => semAcento(o) === alvo);
+  if (exato) return exato;
+
+  const parciais = opcoes.filter((o) => semAcento(o).startsWith(alvo) || semAcento(o).includes(alvo));
+  if (parciais.length === 1) return parciais[0];
+  if (parciais.length > 1) {
+    throw new Error(`${campo}: "${valor}" é ambíguo — pode ser ${parciais.join(' ou ')}. Use o nome completo.`);
+  }
+  throw new Error(`${campo}: "${valor}" não existe. Valores válidos: ${opcoes.join(', ')}.`);
+}
+
+const resolverLista = (repo, tipo, valores, campo) => (valores ?? []).map((v) => resolverOpcao(repo, tipo, v, campo));
+
 /** Mesma conversão de `server/routes/cadencias.cjs` (chave/valor -> objeto). */
 function lerCadencias(repo) {
   const obj = {};
@@ -123,6 +165,16 @@ function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo
  * id, não pra ele "lembrar" (memória que só existe atrás de uma chamada de
  * ferramenta é memória que o modelo esquece de consultar).
  */
+function buscarOpcoesEvento(repo) {
+  return {
+    monitor: opcoesDe(repo, 'monitor'),
+    servico: opcoesDe(repo, 'servico'),
+    sala: opcoesDe(repo, 'sala'),
+    tipo_evento: opcoesDe(repo, 'tipo_evento'),
+    tipo_lembrete: opcoesDe(repo, 'tipo_lembrete'),
+  };
+}
+
 function buscarMemoria(repo) {
   return repo.get('MemoriaIA')
     .slice()
@@ -250,10 +302,17 @@ function conflitoAgenda(repo, { type, date, time, monitores, sala, excluirId }) 
 }
 
 function criarEvento(repo, args) {
-  const { clientId, type, date, time, subject, description, servicos, monitores, sala } = args;
-  if (!clientId || !type || !date) throw new Error('criar_evento: "clientId", "type" e "date" são obrigatórios.');
+  const { clientId, date, time, subject, description } = args;
+  if (!clientId || !args.type || !date) throw new Error('criar_evento: "clientId", "type" e "date" são obrigatórios.');
   const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
   if (!cliente) throw new Error(`criar_evento: cliente "${clientId}" não encontrado.`);
+
+  // Tudo que é opção de cadastro passa por `resolverOpcao` ANTES de gravar —
+  // ver o comentário lá sobre o "Erick" que virou campo vazio na tela.
+  const type = resolverOpcao(repo, 'tipo_evento', args.type, 'criar_evento: type');
+  const servicos = resolverLista(repo, 'servico', args.servicos, 'criar_evento: servicos');
+  const monitores = resolverLista(repo, 'monitor', args.monitores, 'criar_evento: monitores');
+  const sala = args.sala ? resolverOpcao(repo, 'sala', args.sala, 'criar_evento: sala') : args.sala;
 
   // `date` só carrega o DIA (meia-noite UTC, placeholder) — a hora real é o
   // campo `time` (HH:mm), sempre separado, mesma convenção do resto do app
@@ -274,7 +333,8 @@ function criarEvento(repo, args) {
 }
 
 function criarLembrete(repo, args) {
-  const { clientId, title, datetime, description, type } = args;
+  const { clientId, title, datetime, description } = args;
+  const type = args.type ? resolverOpcao(repo, 'tipo_lembrete', args.type, 'criar_lembrete: type') : args.type;
   if (!title || !datetime) throw new Error('criar_lembrete: "title" e "datetime" são obrigatórios.');
   return executarMutacao('lembretes', 'create', {
     payload: {
@@ -567,6 +627,12 @@ const FERRAMENTAS = [
     executar: buscarClientes,
   },
   {
+    name: 'buscar_opcoes_evento',
+    description: 'Devolve os valores VÁLIDOS de monitor, serviço, sala, tipo de evento e tipo de lembrete, como estão cadastrados em Configurações. Use antes de criar evento/lembrete quando não tiver certeza do nome exato — o cadastro é editável, então não confie em memória.',
+    parameters: { type: 'object', properties: {} },
+    executar: buscarOpcoesEvento,
+  },
+  {
     name: 'buscar_memoria',
     description: 'Lista as regras gerais do processo que o usuário mandou você guardar (memória do sistema, não de um cliente). Essas regras já chegam no seu contexto automaticamente — use esta ferramenta só quando precisar do id de uma regra (pra remover) ou quando o usuário perguntar o que você tem guardado.',
     parameters: { type: 'object', properties: {} },
@@ -741,7 +807,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'criar_evento',
-    description: 'Cria um evento na agenda de um cliente (reunião, contato, relatório ou ligação).',
+    description: 'Cria um evento na agenda de um cliente (reunião, contato, relatório ou ligação). PREENCHA servicos, monitores e sala com o que o usuário disse — deixar em branco vira reunião sem dono e sem serviço na tela dele. Os valores válidos são os do cadastro (chegam no seu contexto e também em buscar_opcoes_evento); usar um nome parcial ou inventado devolve erro com a lista, não grava errado.',
     parameters: {
       type: 'object',
       properties: {
@@ -751,9 +817,9 @@ const FERRAMENTAS = [
         time: { type: 'string', description: 'Hora local HH:mm (ex.: "14:30"). Sem isso, uma Reunião é criada sem checagem de conflito de horário.' },
         subject: { type: 'string' },
         description: { type: 'string' },
-        servicos: { type: 'array', items: { type: 'string' } },
-        monitores: { type: 'array', items: { type: 'string' } },
-        sala: { type: 'string' },
+        servicos: { type: 'array', items: { type: 'string' }, description: 'Serviços tratados no evento, exatamente como cadastrados (ex.: "Monitoria").' },
+        monitores: { type: 'array', items: { type: 'string' }, description: 'Nome COMPLETO do monitor, como cadastrado (ex.: "Erick Cardoso", não "Erick").' },
+        sala: { type: 'string', description: 'Sala, como cadastrada.' },
       },
       required: ['clientId', 'type', 'date'],
     },
@@ -769,7 +835,7 @@ const FERRAMENTAS = [
         title: { type: 'string' },
         datetime: { type: 'string', description: 'Data/hora ISO 8601.' },
         description: { type: 'string' },
-        type: { type: 'string' },
+        type: { type: 'string', description: 'Tipo do lembrete, como cadastrado (ex.: "Reunião", "Contato"). Veja buscar_opcoes_evento se não tiver certeza.' },
       },
       required: ['title', 'datetime'],
     },
@@ -786,4 +852,4 @@ const FERRAMENTAS = [
 // `lerCadencias` exportado pra `alertas.cjs` usar a MESMA leitura de cadência
 // (seed + overrides) — duas versões disso na base seriam duas verdades sobre
 // quando um cliente vence.
-module.exports = { FERRAMENTAS, lerCadencias };
+module.exports = { FERRAMENTAS, lerCadencias, opcoesDe, resolverOpcao };
