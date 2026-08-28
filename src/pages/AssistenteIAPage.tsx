@@ -394,8 +394,25 @@ export default function AssistenteIAPage() {
             </button>
           </div>
 
+          {/* A separação por pessoa depende de a pessoa TER escolhido a
+              identidade dela no filtro global (o app não tem login). Com
+              "Todos", tudo aparece — sem este aviso a pessoa acha que a
+              privacidade não funciona, quando na verdade ela nunca foi
+              ativada. Queixa real: "ainda está aparecendo pra outra máquina o
+              histórico". */}
+          {filtroMonitor === 'Todos' && acoesBrutas.length > 0 && (
+            <p className="text-[0.75rem] text-text-muted" style={{ marginBottom: 10, lineHeight: 1.45 }}>
+              Mostrando as ações de <strong>todos os monitores</strong>. Para ver só as suas, escolha seu nome no
+              filtro de monitor no topo da tela — as próximas perguntas passam a ficar identificadas como suas.
+            </p>
+          )}
+
           {acoes.length === 0 ? (
-            <p className="text-[0.82rem] text-text-muted">Nenhuma ação executada ainda.</p>
+            <p className="text-[0.82rem] text-text-muted">
+              {filtroMonitor === 'Todos'
+                ? 'Nenhuma ação executada ainda.'
+                : `Nenhuma ação registrada como sua (${filtroMonitor}). Ações anteriores à escolha do seu nome no filtro ficaram sem identificação.`}
+            </p>
           ) : (
             <div className="flex flex-col gap-2" style={{ maxHeight: 'calc(100vh - 320px)', overflowY: 'auto' }}>
               {agruparRepetidas(acoes).map(({ acao: a, repeticoes }) => {
