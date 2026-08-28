@@ -98,7 +98,7 @@ export default function AlertasIA({ onConversar }: { onConversar: (alerta: Alert
         {alertas.map((a) => {
           const Icone = ICONE[a.tipo] ?? AlertTriangle;
           return (
-            <div key={a.id} className="p-2.5 rounded-sm bg-bg border border-border flex flex-col gap-1.5">
+            <div key={a.id} className="p-2.5 rounded-sm bg-card border border-border-strong flex flex-col gap-1.5" style={{ boxShadow: 'var(--shadow-sm)' }}>
               <div className="flex items-start gap-2">
                 <Icone size={15} className="shrink-0 mt-0.5" />
                 <span className="text-[0.8rem] font-semibold text-text-primary">{a.titulo}</span>
@@ -125,7 +125,7 @@ export default function AlertasIA({ onConversar }: { onConversar: (alerta: Alert
           <span className="text-[0.8rem] font-semibold text-text-primary mt-2">Padrões da carteira</span>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
             {padroes.map((p) => (
-              <div key={p.id} className="p-2.5 rounded-sm bg-bg flex flex-col gap-1.5" style={{ border: '1px dashed var(--border-strong)' }}>
+              <div key={p.id} className="p-2.5 rounded-sm bg-card flex flex-col gap-1.5" style={{ border: '1px dashed var(--border-strong)', boxShadow: 'var(--shadow-sm)' }}>
                 <div className="flex items-start gap-2">
                   <Repeat size={15} className="shrink-0 mt-0.5" />
                   <span className="text-[0.8rem] font-semibold text-text-primary">{p.titulo}</span>

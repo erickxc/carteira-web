@@ -565,9 +565,12 @@ function buscarConfigCadencias(repo) {
 }
 
 /** Mesmo cálculo do card "Vencendo" da Visão Geral (janela de 5 dias). */
-function buscarVencendoTool(repo) {
+function buscarVencendoTool(repo, { dias } = {}) {
   const cadencias = lerCadencias(repo);
-  return buscarVencendo(repo.get('Clientes'), repo.get('Agenda'), cadencias);
+  // Teto de 60 dias: mesmo limite de `buscar_agenda_ceo`, evita o modelo pedir
+  // "o ano inteiro" e a resposta virar uma lista enorme sem filtro nenhum.
+  const janela = Math.min(Math.max(Number(dias) || 5, 1), 60);
+  return buscarVencendo(repo.get('Clientes'), repo.get('Agenda'), cadencias, new Date(), janela);
 }
 
 /** Mesmo cálculo do card "Cobertura" da Visão Geral (últimos 2 meses). */
@@ -693,8 +696,13 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_vencendo',
-    description: 'Mesmo cálculo do card "Vencendo" da Visão Geral — clientes com cadência de Monitoria/Price/Relatório vencendo nos próximos 5 dias (ainda dentro do prazo, mas perto). Diferente de buscar_fila_priorizacao: aqui todo cliente ativo ganha um relógio de Relatório também, e a lista é por SERVIÇO (um cliente com 2 serviços vencendo aparece 2x).',
-    parameters: { type: 'object', properties: {} },
+    description: 'Mesmo cálculo do card "Vencendo" da Visão Geral — clientes com cadência de Monitoria/Price/Relatório vencendo dentro de "dias" (padrão 5, pode pedir qualquer janela até 60 — "semana que vem" é uns 12-14 dias a partir de hoje, calcule pelo dia da semana atual). Diferente de buscar_fila_priorizacao: aqui todo cliente ativo ganha um relógio de Relatório também, e a lista é por SERVIÇO (um cliente com 2 serviços vencendo aparece 2x).',
+    parameters: {
+      type: 'object',
+      properties: {
+        dias: { type: 'number', description: 'Janela em dias a partir de hoje (padrão 5, máximo 60). Pra "semana que vem" calcule quantos dias faltam até o fim daquela semana.' },
+      },
+    },
     executar: buscarVencendoTool,
   },
   {
