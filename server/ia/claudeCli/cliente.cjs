@@ -310,6 +310,8 @@ function extrairUsoCli(dados) {
 
 async function conversar({ mensagens, origem = 'chat', repo, monitor }) {
   const { sistema, prompt } = montarPromptConversa(mensagens);
+  // Última fala do usuário — o que ele de fato perguntou neste turno.
+  const perguntaUsuario = [...mensagens].reverse().find((m) => m.role === 'user')?.content ?? '';
   const turnId = crypto.randomUUID();
   const t0 = Date.now();
 
@@ -319,7 +321,7 @@ async function conversar({ mensagens, origem = 'chat', repo, monitor }) {
   } catch (err) {
     if (repo) {
       const numFerramentas = repo.get('AcoesIA').filter((a) => a.turnId === turnId).length;
-      registrarUso(repo, { origem, provedor: 'claude-cli', turnId, duracaoMs: Date.now() - t0, numFerramentas, erro: true });
+      registrarUso(repo, { origem, provedor: 'claude-cli', turnId, duracaoMs: Date.now() - t0, numFerramentas, erro: true, pergunta: perguntaUsuario });
     }
     throw err;
   }
@@ -330,7 +332,7 @@ async function conversar({ mensagens, origem = 'chat', repo, monitor }) {
     // interna (o MCP chama enquanto o CLI ainda está rodando) — conta quantas
     // têm este turnId pra saber "quantas chamadas de função esta pergunta fez".
     const numFerramentas = repo.get('AcoesIA').filter((a) => a.turnId === turnId).length;
-    registrarUso(repo, { origem, provedor: 'claude-cli', turnId, duracaoMs: Date.now() - t0, numFerramentas, ...uso });
+    registrarUso(repo, { origem, provedor: 'claude-cli', turnId, duracaoMs: Date.now() - t0, numFerramentas, ...uso, pergunta: perguntaUsuario, resposta: String(dados.result ?? '') });
   }
 
   return String(dados.result ?? '');

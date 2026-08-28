@@ -339,10 +339,15 @@ const ACOES_IA_HEADERS = ['id', 'ferramenta', 'clientId', 'argumentos', 'resulta
  * o que sustenta um painel de gasto acumulado (hoje, 7 dias, por origem) —
  * não um contador de cota do plano.
  */
+// `pergunta`/`resposta`: texto truncado do turno. Sem isso o painel de uso
+// mostrava QUAIS ferramentas rodaram mas não O QUE foi perguntado — e uma
+// queixa real ("ele respondeu coisa que não devia") ficava impossível de
+// diagnosticar, porque justamente os turnos problemáticos são os que NÃO
+// chamam ferramenta nenhuma e por isso não deixavam rastro algum.
 const USO_IA_HEADERS = [
   'id', 'criadoEm', 'origem', 'provedor', 'modelo', 'turnId',
   'inputTokens', 'outputTokens', 'cacheCreationTokens', 'cacheReadTokens',
-  'custoUsd', 'duracaoMs', 'numFerramentas', 'erro',
+  'custoUsd', 'duracaoMs', 'numFerramentas', 'erro', 'pergunta', 'resposta',
 ];
 
 // Headers explícitos por planilha — evita que o SheetJS derive as colunas

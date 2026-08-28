@@ -417,7 +417,12 @@ export default function AssistenteIAPage() {
                       {repeticoes > 1 && <Badge variant="muted">{repeticoes}x</Badge>}
                       {a.clientId && (
                         <span className="text-[0.75rem] text-text-muted">
-                          {clientes.find((c) => c.id === a.clientId)?.empresa ?? a.clientId}
+                          {/* Nunca cai pro id cru: quando o cliente não é
+                              encontrado (excluído depois, ou id que o modelo
+                              inventou — visto no log: clientId "Altese"), o
+                              painel mostrava um UUID solto, que não diz nada
+                              pra quem lê. */}
+                          {clientes.find((c) => c.id === a.clientId)?.empresa ?? 'cliente não identificado'}
                         </span>
                       )}
                     </div>

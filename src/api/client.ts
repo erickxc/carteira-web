@@ -560,6 +560,9 @@ export interface TurnoUsoIA {
   duracaoMs: number;
   numFerramentas: number;
   erro: boolean;
+  /** Texto truncado do que foi perguntado/respondido — para diagnóstico. */
+  pergunta?: string;
+  resposta?: string;
   /** Chamadas de ferramenta que aconteceram NESTA pergunta — mesmo turnId. */
   ferramentas: FerramentaDoTurno[];
 }

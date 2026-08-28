@@ -21,7 +21,7 @@ const { isClient } = require('../modo.cjs');
 function registrarUso(repo, {
   origem, provedor, modelo, turnId,
   inputTokens = 0, outputTokens = 0, cacheCreationTokens = 0, cacheReadTokens = 0,
-  custoUsd = null, duracaoMs, numFerramentas = 0, erro = false,
+  custoUsd = null, duracaoMs, numFerramentas = 0, erro = false, pergunta = '', resposta = '',
 }) {
   if (isClient) return null;
   const usos = repo.get('UsoIA');
@@ -31,6 +31,11 @@ function registrarUso(repo, {
     origem, provedor, modelo: modelo || null, turnId,
     inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens,
     custoUsd, duracaoMs, numFerramentas, erro,
+    // Truncado: é pra diagnóstico ("o que ele respondeu aqui?"), não
+    // arquivo da conversa — o histórico do chat vive no navegador de quem
+    // conversou (localStorage), de propósito (ver privacidade).
+    pergunta: String(pergunta).slice(0, 500),
+    resposta: String(resposta).slice(0, 1000),
   };
   repo.save('UsoIA', [...usos, novo]);
   return novo;

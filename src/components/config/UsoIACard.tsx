@@ -127,6 +127,11 @@ export default function UsoIACard() {
                       <Wrench size={11} /> {t.numFerramentas}
                     </span>
                   )}
+                  {t.pergunta && (
+                    <span className="text-[0.75rem] text-text-secondary truncate" style={{ maxWidth: '38%' }} title={t.pergunta}>
+                      “{t.pergunta}”
+                    </span>
+                  )}
                   <span className="ml-auto text-[0.78rem] text-text-muted shrink-0">
                     {formatarTokens(t.inputTokens + t.outputTokens + t.cacheCreationTokens + t.cacheReadTokens)} tok
                     {t.custoUsd !== null && ` · ${formatarUsd(t.custoUsd)}`}
@@ -143,6 +148,16 @@ export default function UsoIACard() {
                       {t.cacheReadTokens > 0 && ` · cache lido ${formatarTokens(t.cacheReadTokens)}`}
                       {' · '}{(t.duracaoMs / 1000).toFixed(1)}s
                     </div>
+                    {/* Pergunta e resposta na íntegra (truncadas no backend):
+                        turno SEM ferramenta nenhuma não deixava rastro algum,
+                        e é justamente onde mora a queixa de "respondeu o que
+                        não devia". */}
+                    {t.pergunta && (
+                      <div><strong className="text-text-secondary">perguntou:</strong> {t.pergunta}</div>
+                    )}
+                    {t.resposta && (
+                      <div><strong className="text-text-secondary">respondeu:</strong> {t.resposta}</div>
+                    )}
                     {t.ferramentas.length > 0 && (
                       <div className="flex flex-col gap-1.5">
                         {t.ferramentas.map((f, i) => (

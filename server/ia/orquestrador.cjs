@@ -157,6 +157,7 @@ function registrarAcao(repo, { ferramenta, clientId, argumentos, resultado, orig
  */
 async function conversar({ mensagens, origem = 'chat', repo = repoPlanilha(), ollama = ollamaClient, monitor }) {
   const historico = [...mensagens];
+  const perguntaUsuario = [...mensagens].reverse().find((m) => m.role === 'user')?.content ?? '';
   const turnId = crypto.randomUUID();
   const uso = { modelo: null, inputTokens: 0, outputTokens: 0 };
   const t0 = Date.now();
@@ -166,7 +167,7 @@ async function conversar({ mensagens, origem = 'chat', repo = repoPlanilha(), ol
     origem, provedor: 'ollama', modelo: uso.modelo, turnId,
     inputTokens: uso.inputTokens, outputTokens: uso.outputTokens,
     custoUsd: 0, // Ollama é local/gratuito — sem custo por token, diferente do Claude CLI.
-    duracaoMs: Date.now() - t0, numFerramentas, ...extra,
+    duracaoMs: Date.now() - t0, numFerramentas, pergunta: perguntaUsuario, ...extra,
   });
 
   try {
@@ -176,7 +177,7 @@ async function conversar({ mensagens, origem = 'chat', repo = repoPlanilha(), ol
       const toolCalls = resposta.tool_calls?.length ? resposta.tool_calls : (pseudo ? [pseudo] : null);
 
       if (!toolCalls) {
-        finalizarUso();
+        finalizarUso({ resposta: resposta.content ?? '' });
         return resposta.content ?? '';
       }
 
