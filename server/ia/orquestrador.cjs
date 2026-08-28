@@ -115,7 +115,7 @@ function descreverAcao(ferramenta, argumentos, resultado) {
   }
 }
 
-function registrarAcao(repo, { ferramenta, clientId, argumentos, resultado, origem, turnId }) {
+function registrarAcao(repo, { ferramenta, clientId, argumentos, resultado, origem, turnId, monitor }) {
   const acoes = repo.get('AcoesIA');
   acoes.push({
     id: crypto.randomUUID(),
@@ -129,6 +129,7 @@ function registrarAcao(repo, { ferramenta, clientId, argumentos, resultado, orig
     // Correlaciona com a pergunta que disparou a chamada (server/ia/uso.cjs)
     // — vazio em contexto sem turno (chamada avulsa, MCP externo sem token).
     turnId: turnId || '',
+    monitor: monitor || '',
   });
   repo.save('AcoesIA', acoes);
 }
@@ -141,7 +142,7 @@ function registrarAcao(repo, { ferramenta, clientId, argumentos, resultado, orig
  * o resultado como mensagem `role: 'tool'` pro modelo continuar. Repete até
  * o modelo responder só texto ou até `MAX_ITERACOES`.
  */
-async function conversar({ mensagens, origem = 'chat', repo = repoPlanilha(), ollama = ollamaClient }) {
+async function conversar({ mensagens, origem = 'chat', repo = repoPlanilha(), ollama = ollamaClient, monitor }) {
   const historico = [...mensagens];
   const turnId = crypto.randomUUID();
   const uso = { modelo: null, inputTokens: 0, outputTokens: 0 };
@@ -183,7 +184,7 @@ async function conversar({ mensagens, origem = 'chat', repo = repoPlanilha(), ol
         }
 
         if (ferramenta) {
-          registrarAcao(repo, { ferramenta: nome, clientId: argumentos.clientId, argumentos, resultado, origem, turnId });
+          registrarAcao(repo, { ferramenta: nome, clientId: argumentos.clientId, argumentos, resultado, origem, turnId, monitor });
           numFerramentas += 1;
         }
 

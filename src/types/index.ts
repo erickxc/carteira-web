@@ -298,6 +298,13 @@ export interface AcaoIA {
   descricao?: string;
   origem: 'chat' | 'analise_semanal';
   criadoEm: string;
+  /**
+   * Identidade voluntária de quem perguntou (o filtro global de monitor,
+   * "quem sou eu nesta máquina" — não é autenticação, o app não tem login).
+   * Vazia em ações registradas antes desse campo existir, ou quando quem
+   * perguntou estava com o filtro em "Todos".
+   */
+  monitor?: string;
 }
 
 // --- Lembretes ---

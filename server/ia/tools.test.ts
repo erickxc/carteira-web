@@ -447,6 +447,23 @@ describe('buscar_historico_eventos', () => {
     expect(exec('buscar_historico_eventos', repo, { clientId: 'c1' }).eventos[0]).toMatchObject({ ata: 'Ata X', resumo: 'Resumo Y' });
   });
 
+  it('60b. inclui anexos com nome legível e URL — bug real: agente dizia não ter acesso a ata/anexo quando o campo já vinha aqui', () => {
+    const repo = repoBase({
+      Agenda: [{
+        id: 'a', clientId: 'c1', type: 'Reunião', status: 'Concluído', date: '2026-08-01',
+        attachments: [{ id: 'x1', filename: 'abc-relatorio.pdf', originalName: 'relatorio-agosto.pdf', uploadedAt: '2026-08-01T00:00:00.000Z' }],
+      }],
+    });
+    expect(exec('buscar_historico_eventos', repo, { clientId: 'c1' }).eventos[0].anexos).toEqual([
+      { nome: 'relatorio-agosto.pdf', url: '/uploads/abc-relatorio.pdf' },
+    ]);
+  });
+
+  it('60c. evento sem anexo devolve lista vazia, não erro', () => {
+    const repo = repoBase({ Agenda: [{ id: 'a', clientId: 'c1', type: 'Reunião', status: 'Concluído', date: '2026-08-01' }] });
+    expect(exec('buscar_historico_eventos', repo, { clientId: 'c1' }).eventos[0].anexos).toEqual([]);
+  });
+
   it('61. respeita limite pedido', () => {
     const eventos = Array.from({ length: 10 }, (_, i) => ({ id: `e${i}`, clientId: 'c1', type: 'Reunião', status: 'Concluído', date: `2026-01-${String(i + 1).padStart(2, '0')}` }));
     expect(exec('buscar_historico_eventos', repoBase({ Agenda: eventos }), { clientId: 'c1', limite: 3 }).eventos).toHaveLength(3);
@@ -684,5 +701,37 @@ describe('agendamento', () => {
     expect(r).toMatchObject({ janelaDias: 7 });
     expect(r).toHaveProperty('sincronizadoEm');
     expect(Array.isArray(r.eventos)).toBe(true);
+  });
+});
+
+describe('corrigir_dossie_cliente: sincroniza AnalisesIA.sugestaoProximaPauta', () => {
+  // Bug real de produção: o dossiê (arquivo) e AnalisesIA (sheet, lida pelo
+  // card de análise na ficha do cliente) são fontes SEPARADAS. Corrigir uma
+  // não atualizava a outra — o usuário confirmava que a reunião concluiu, o
+  // agente atualizava o dossiê, e a ficha do cliente continuava mostrando a
+  // pauta antiga.
+  function repoComAnalise(sugestaoProximaPauta: string) {
+    return repoBase({
+      AnalisesIA: [{ id: 'a1', clientId: 'c1', nivelRisco: 'baixo', resumo: '', sugestaoProximaPauta }],
+    });
+  }
+
+  const DOSSIE = (pauta: string) => `### Perfil\nX\n\n### Pontos de Atenção\n— nenhum registro\n\n### Oportunidades\n— nenhum registro\n\n### Pendências\n— nenhum registro\n\n### Próxima pauta\n${pauta}`;
+
+  it('atualiza a pauta na AnalisesIA junto com o dossiê', () => {
+    const repo = repoComAnalise('pauta antiga');
+    exec('corrigir_dossie_cliente', repo, { clientId: 'c1', dossie: DOSSIE('Tema encerrado, sem próxima pauta específica.') });
+    expect(repo.get('AnalisesIA')[0].sugestaoProximaPauta).toBe('Tema encerrado, sem próxima pauta específica.');
+  });
+
+  it('seção vazia ("— nenhum registro") vira pauta vazia, não o texto literal do placeholder', () => {
+    const repo = repoComAnalise('pauta antiga');
+    exec('corrigir_dossie_cliente', repo, { clientId: 'c1', dossie: DOSSIE('— nenhum registro') });
+    expect(repo.get('AnalisesIA')[0].sugestaoProximaPauta).toBe('');
+  });
+
+  it('cliente sem AnalisesIA (nunca analisado) não quebra a correção do dossiê', () => {
+    const repo = repoBase({ AnalisesIA: [] });
+    expect(() => exec('corrigir_dossie_cliente', repo, { clientId: 'c1', dossie: DOSSIE('nova pauta') })).not.toThrow();
   });
 });

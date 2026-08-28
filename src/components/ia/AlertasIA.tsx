@@ -34,7 +34,14 @@ const VARIANTE: Record<SeveridadeAlerta, 'danger' | 'warning' | 'muted'> = {
 
 const ROTULO: Record<SeveridadeAlerta, string> = { alta: 'crítico', media: 'atenção', baixa: 'a ver' };
 
-export default function AlertasIA({ onConversar }: { onConversar: (alerta: AlertaIA | PadraoCarteira) => void }) {
+export default function AlertasIA({
+  onConversar,
+  recarregarEm,
+}: {
+  onConversar: (alerta: AlertaIA | PadraoCarteira) => void;
+  /** Muda a cada valor novo dispara um recálculo — ver AssistenteIAPage.enviarPergunta. */
+  recarregarEm?: number;
+}) {
   const [alertasBrutos, setAlertas] = useState<AlertaIA[] | null>(null);
   const [padroes, setPadroes] = useState<PadraoCarteira[] | null>(null);
   const [recarregando, setRecarregando] = useState(false);
@@ -56,7 +63,7 @@ export default function AlertasIA({ onConversar }: { onConversar: (alerta: Alert
     buscarPadroesCarteira().then(setPadroes).catch(() => setPadroes([])),
   ]), []);
 
-  useEffect(() => { buscar(); }, [buscar]);
+  useEffect(() => { buscar(); }, [buscar, recarregarEm]);
 
   // O spinner só existe no recarregar manual: na carga inicial quem indica
   // "ainda não sei" é o estado `null` abaixo.

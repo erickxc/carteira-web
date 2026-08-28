@@ -322,7 +322,13 @@ const MEMORIA_IA_HEADERS = ['id', 'texto', 'origem', 'criadoEm'];
 // `turnId` correlaciona cada ferramenta chamada com a PERGUNTA que a
 // disparou (uma pergunta pode chamar várias ferramentas) — sem isso, o
 // painel de uso não tem como agrupar "o que aconteceu nesta resposta".
-const ACOES_IA_HEADERS = ['id', 'ferramenta', 'clientId', 'argumentos', 'resultado', 'origem', 'criadoEm', 'descricao', 'turnId'];
+// `monitor`: identidade voluntária de QUEM perguntou (o filtro global de
+// monitor do header, "quem sou eu nesta máquina" — CarteiraContext). NÃO é
+// autenticação (o app não tem login) — é uma etiqueta que a própria pessoa
+// escolhe, e o painel "Ações do agente" usa pra mostrar só o que é de quem
+// está com aquele filtro ativo. Sem filtro definido ("Todos"), continua
+// tudo visível — não dá pra impor privacidade sem identidade real.
+const ACOES_IA_HEADERS = ['id', 'ferramenta', 'clientId', 'argumentos', 'resultado', 'origem', 'criadoEm', 'descricao', 'turnId', 'monitor'];
 
 /**
  * Consumo de IA por pergunta (um turno de `conversar()`, nos dois

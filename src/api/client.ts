@@ -406,8 +406,8 @@ export interface MensagemChatIA {
   content: string;
 }
 
-export const enviarMensagemChatIA = (texto: string, historico: MensagemChatIA[], clienteId?: string) =>
-  request<{ resposta: string }>('/ia/chat', { method: 'POST', body: JSON.stringify({ texto, historico, clientId: clienteId }) });
+export const enviarMensagemChatIA = (texto: string, historico: MensagemChatIA[], clienteId?: string, monitor?: string) =>
+  request<{ resposta: string }>('/ia/chat', { method: 'POST', body: JSON.stringify({ texto, historico, clientId: clienteId, monitor }) });
 
 // Log de auditoria das ações que o agente já executou (mais recentes primeiro).
 export const buscarAcoesIA = () => request<AcaoIA[]>('/ia/acoes');

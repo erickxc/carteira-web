@@ -201,7 +201,7 @@ router.get('/interno/ferramentas', apenasMcp, (_req, res) => {
  * iguais nos dois provedores, sem código de log duplicado.
  */
 router.post('/interno/ferramenta', apenasMcp, (req, res) => {
-  const { nome, argumentos = {}, origem = 'claude-cli', turnId } = req.body ?? {};
+  const { nome, argumentos = {}, origem = 'claude-cli', turnId, monitor } = req.body ?? {};
   const ferramenta = FERRAMENTAS_POR_NOME.get(nome);
   if (!ferramenta) return res.status(404).json({ error: `Ferramenta "${nome}" não existe.` });
 
@@ -211,7 +211,7 @@ router.post('/interno/ferramenta', apenasMcp, (req, res) => {
   } catch (err) {
     resultado = { erro: err.message };
   }
-  registrarAcao(repo, { ferramenta: nome, clientId: argumentos.clientId, argumentos, resultado, origem, turnId });
+  registrarAcao(repo, { ferramenta: nome, clientId: argumentos.clientId, argumentos, resultado, origem, turnId, monitor });
   res.json({ resultado });
 });
 

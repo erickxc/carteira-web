@@ -85,7 +85,7 @@ function urlInterna() {
  * chamada porque carrega o segredo do processo atual: um arquivo de um boot
  * anterior tem segredo velho e a ferramenta falharia com 401.
  */
-function garantirConfigMcp(origem, turnId) {
+function garantirConfigMcp(origem, turnId, monitor) {
   if (process.pkg) {
     throw new Error('O provedor Claude CLI não funciona com o backend empacotado (pkg) — o servidor MCP precisa de um node.exe real.');
   }
@@ -99,6 +99,7 @@ function garantirConfigMcp(origem, turnId) {
           CARTEIRA_IA_SEGREDO: SEGREDO_INTERNO,
           CARTEIRA_IA_ORIGEM: origem,
           CARTEIRA_IA_TURNO: turnId || '',
+          CARTEIRA_IA_MONITOR: monitor || '',
         },
       },
     },
@@ -307,14 +308,14 @@ function extrairUsoCli(dados) {
   return { modelo: principal?.[1]?.canonicalModel || principal?.[0] || null, ...somado, custoUsd: dados.total_cost_usd ?? null };
 }
 
-async function conversar({ mensagens, origem = 'chat', repo }) {
+async function conversar({ mensagens, origem = 'chat', repo, monitor }) {
   const { sistema, prompt } = montarPromptConversa(mensagens);
   const turnId = crypto.randomUUID();
   const t0 = Date.now();
 
   let dados;
   try {
-    dados = await rodarCli(prompt, { systemPrompt: sistema, mcpConfig: garantirConfigMcp(origem, turnId) });
+    dados = await rodarCli(prompt, { systemPrompt: sistema, mcpConfig: garantirConfigMcp(origem, turnId, monitor) });
   } catch (err) {
     if (repo) {
       const numFerramentas = repo.get('AcoesIA').filter((a) => a.turnId === turnId).length;

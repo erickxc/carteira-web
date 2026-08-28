@@ -257,12 +257,36 @@ function buscarRegistrosProduto(repo, { clientId }) {
  * correção pontual de fato) e exige o corpo INTEIRO reescrito respeitando o
  * template de 5 seções — mais simples e previsível que aceitar um diff.
  */
+/**
+ * Seção "### Próxima pauta" do corpo do dossiê, em texto — usada só pra
+ * manter `AnalisesIA.sugestaoProximaPauta` sincronizada (ver comentário em
+ * `corrigirDossie` abaixo). "— nenhum registro"/traço solto vira string vazia,
+ * mesma convenção de seção vazia do template.
+ */
+function extrairProximaPauta(corpo) {
+  const m = corpo.match(/###\s*Próxima pauta([\s\S]*?)(?:\n###|$)/i);
+  if (!m) return '';
+  const texto = m[1].trim();
+  return /^[—-]?\s*(nenhum registro)?\.?$/i.test(texto) ? '' : texto;
+}
+
 function corrigirDossie(repo, { clientId, dossie }) {
   if (!clientId || !dossie) throw new Error('corrigir_dossie_cliente: "clientId" e "dossie" são obrigatórios.');
   const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
   if (!cliente) throw new Error(`corrigir_dossie_cliente: cliente "${clientId}" não encontrado.`);
   const analise = repo.get('AnalisesIA').find((a) => String(a.clientId) === String(clientId));
   corrigirDossieCliente({ clientId, empresa: cliente.empresa, nivelRisco: analise?.nivelRisco ?? 'baixo', corpoNovo: dossie });
+
+  // Bug real: o dossiê (arquivo) e `AnalisesIA` (sheet, usada pelo card de
+  // análise na ficha do cliente e no dashboard) são DUAS fontes diferentes, e
+  // corrigir uma não atualizava a outra — o usuário pedia pro agente "apagar"
+  // a próxima pauta, o agente confirmava, o dossiê mudava, mas a ficha do
+  // cliente continuava mostrando a pauta antiga porque lia `AnalisesIA`, não
+  // o arquivo. Mantém as duas em sincronia pro campo que mais causou
+  // confusão (a pauta); `resumo`/`fatores` continuam sendo só da análise
+  // automática, de propósito — não são um-pra-um com nenhuma seção do dossiê.
+  if (analise) repo.update('AnalisesIA', analise.id, { sugestaoProximaPauta: extrairProximaPauta(dossie) });
+
   return { ok: true, empresa: cliente.empresa };
 }
 
@@ -392,7 +416,14 @@ function buscarHistoricoEventos(repo, { clientId, limite }) {
     .slice(0, teto)
     .map((a) => ({
       date: a.date, time: a.time || null, type: a.type, status: a.status,
-      subject: a.subject || '', resumo: a.resumo || '', ata: a.ata || '',
+      subject: a.subject || '', resumo: a.resumo || '',
+      // TEXTO COMPLETO da ata — não é resumo nem indicador de existência.
+      // Ver GATILHO ATA em normas.cjs: já houve resposta afirmando não ter
+      // acesso a isso quando o campo estava aqui o tempo todo.
+      ata: a.ata || '',
+      // Arquivos anexados à reunião (PDF, planilha, foto do que foi discutido
+      // etc.) — `url` é caminho relativo à raiz do app, servido estaticamente.
+      anexos: listaJSON(a.attachments).map((x) => ({ nome: x.originalName || x.filename, url: `/uploads/${x.filename}` })),
     }));
 
   return { ...identidadeCliente(cliente), eventos };
@@ -677,7 +708,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_historico_eventos',
-    description: 'Devolve o histórico bruto de eventos da agenda de um cliente (reuniões, contatos, relatórios — com ata/resumo), mais recente primeiro. Use pra "quando foi a última reunião", "quantos eventos tivemos", ou qualquer pergunta sobre histórico de agenda que buscar_dossie_cliente/buscar_registros_produto não cobrem.',
+    description: 'Devolve o histórico de eventos da agenda de um cliente, mais recente primeiro — incluindo o TEXTO COMPLETO da ata de cada reunião (campo "ata", não um resumo) e os arquivos anexados a ela (campo "anexos", com nome e link). Use pra "quando foi a última reunião", "quantos eventos tivemos", "o que ficou combinado na ata de tal dia", "tem algum arquivo anexado nessa reunião", ou qualquer pergunta sobre histórico/conteúdo de agenda que buscar_dossie_cliente/buscar_registros_produto não cobrem.',
     parameters: {
       type: 'object',
       properties: { clientId: { type: 'string' }, limite: { type: 'number', description: 'Máximo de eventos, padrão e teto 15.' } },

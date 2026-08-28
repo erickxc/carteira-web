@@ -44,7 +44,7 @@ router.get('/acoes', (req, res) => {
 // o próprio agente decide se/quando consultar `buscar_clientes`/
 // `buscar_dossie_cliente` pra responder.
 router.post('/chat', async (req, res) => {
-  const { texto, historico, clientId } = req.body ?? {};
+  const { texto, historico, clientId, monitor } = req.body ?? {};
   if (typeof texto !== 'string' || !texto.trim()) {
     return res.status(400).json({ error: 'Campo "texto" é obrigatório.' });
   }
@@ -58,7 +58,7 @@ router.post('/chat', async (req, res) => {
   ];
 
   try {
-    const resposta = await conversar({ mensagens, origem: 'chat', repo });
+    const resposta = await conversar({ mensagens, origem: 'chat', repo, monitor });
     res.json({ resposta });
   } catch (err) {
     res.status(502).json({ error: err.message });

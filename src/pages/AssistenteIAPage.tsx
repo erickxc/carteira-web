@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Bot, Check, ChevronRight, History, Loader2, Plus, Send } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
@@ -87,7 +87,7 @@ const SUGESTOES: { titulo: string; pergunta: string }[] = [
  * audita o que ele já fez.
  */
 export default function AssistenteIAPage() {
-  const { clientes } = useCarteira();
+  const { clientes, filtroMonitor } = useCarteira();
   // Cliente em foco também persiste: voltar pra tela com a conversa de um
   // cliente mas o seletor zerado faria a próxima pergunta perder o contexto.
   const [clienteId, setClienteId] = usePersistedState('assistenteIA:clienteId', '');
@@ -103,7 +103,18 @@ export default function AssistenteIAPage() {
   const [mensagens, setMensagens] = usePersistedState<MensagemChatIA[]>('assistenteIA:conversa', []);
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const [acoes, setAcoes] = useState<AcaoIA[]>([]);
+  // Muda a cada resposta do agente — força o AlertasIA a recarregar (ver
+  // comentário em enviarPergunta).
+  const [versaoAlertas, setVersaoAlertas] = useState(0);
+  const [acoesBrutas, setAcoesBrutas] = useState<AcaoIA[]>([]);
+  // Ninguém deveria ver o que outro monitor conversou com o agente — o app
+  // não tem login, então a única identidade possível é o filtro global de
+  // monitor (o que a própria pessoa escolheu no header). Sem filtro
+  // ("Todos"), não dá pra saber de quem é o quê, então mostra tudo.
+  const acoes = useMemo(
+    () => (filtroMonitor === 'Todos' ? acoesBrutas : acoesBrutas.filter((a) => a.monitor === filtroMonitor)),
+    [acoesBrutas, filtroMonitor],
+  );
   const [historicoAberto, setHistoricoAberto] = usePersistedState('assistenteIA:historicoAberto', false);
   const fimListaRef = useRef<HTMLDivElement>(null);
 
@@ -121,7 +132,7 @@ export default function AssistenteIAPage() {
   }
 
   function recarregarAcoes() {
-    buscarAcoesIA().then(setAcoes).catch((err) => toastError(err instanceof Error ? err.message : 'Falha ao buscar log de ações.'));
+    buscarAcoesIA().then(setAcoesBrutas).catch((err) => toastError(err instanceof Error ? err.message : 'Falha ao buscar log de ações.'));
   }
 
   useEffect(() => { recarregarAcoes(); }, []);
@@ -171,9 +182,14 @@ export default function AssistenteIAPage() {
     }, 1200);
 
     try {
-      const { resposta } = await enviarMensagemChatIA(pergunta, historico, clienteId || undefined);
+      const { resposta } = await enviarMensagemChatIA(pergunta, historico, clienteId || undefined, filtroMonitor === 'Todos' ? undefined : filtroMonitor);
       setMensagens((prev) => [...prev, { role: 'assistant' as const, content: resposta }].slice(-MAX_MENSAGENS));
       recarregarAcoes();
+      // O agente pode ter criado evento/lembrete, corrigido o dossiê ou
+      // registrado uma memória — qualquer um desses muda o que "precisa de
+      // atenção agora". Sem isso, os cards de alerta só atualizavam com F5
+      // ou o botão de recarregar manual, o que parecia "não atualizou".
+      setVersaoAlertas((v) => v + 1);
     } catch (err) {
       toastError(err instanceof Error ? err.message : 'Falha ao falar com o monitorIA.');
       setMensagens((prev) => prev.slice(0, -1));
@@ -196,7 +212,7 @@ export default function AssistenteIAPage() {
           porque o usuário mandou uma mensagem — ele continua precisando de
           atenção até ser resolvido, não até a tela rolar. */}
       <div style={{ marginBottom: 18 }}>
-        <AlertasIA onConversar={conversarSobreAlerta} />
+        <AlertasIA onConversar={conversarSobreAlerta} recarregarEm={versaoAlertas} />
       </div>
 
       <div className="flex-row" style={{ alignItems: 'flex-start', gap: 16 }}>
@@ -324,15 +340,24 @@ export default function AssistenteIAPage() {
 
           {/* Botão de enviar DENTRO da moldura do campo (canto inferior
               direito), não flutuando ao lado — é o padrão que se reconhece de
-              chat, e evita o textarea "encolher" pra caber um botão irmão. */}
-          <form onSubmit={handleEnviar} style={{ position: 'relative' }}>
+              chat. Antes usava `position: absolute` sobre o Textarea nativo
+              (`resize-y`) — a alça de redimensionar do navegador ocupa o MESMO
+              canto, e arrastar/redimensionar deixava o botão visualmente fora
+              da moldura arredondada. Agora a moldura é um wrapper flex (borda
+              própria) com o textarea SEM borda/fundo dentro — o botão nunca
+              escapa porque é um irmão flex, não posicionamento absoluto sobre
+              um elemento que muda de tamanho. */}
+          <form
+            onSubmit={handleEnviar}
+            className="flex items-end gap-1.5 w-full border border-border-strong rounded-sm bg-bg transition-[border-color,box-shadow] duration-100 focus-within:border-accent focus-within:shadow-[0_0_0_3px_var(--accent-soft)]"
+          >
             <Textarea
-              tone="modal"
               placeholder="Escreva sua pergunta..."
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEnviar(e); } }}
-              style={{ minHeight: 44, width: '100%', paddingRight: '3rem' }}
+              className="border-none bg-transparent hover:border-none focus:border-none focus:shadow-none group-hover:border-none group-hover:shadow-none resize-none"
+              style={{ minHeight: 44 }}
             />
             <Button
               type="submit"
@@ -340,7 +365,7 @@ export default function AssistenteIAPage() {
               disabled={enviando || !texto.trim()}
               title="Enviar (Enter)"
               aria-label="Enviar"
-              style={{ position: 'absolute', right: 8, bottom: 8, padding: '0.3rem 0.5rem' }}
+              style={{ margin: 6, padding: '0.3rem 0.5rem', flexShrink: 0 }}
             >
               <Send size={14} />
             </Button>

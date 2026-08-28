@@ -131,3 +131,36 @@ describe('registrarAcao propaga turnId (usado pelos dois provedores)', () => {
     expect(semTurno.turnId).toBe('');
   });
 });
+
+describe('privacidade: identidade de quem perguntou (filtro global de monitor)', () => {
+  // App não tem autenticação — a única forma de separar "minha conversa" da
+  // de outra pessoa é a identidade voluntária que a própria pessoa escolhe
+  // no header (CarteiraContext.filtroMonitor). O backend só carimba o que
+  // o frontend manda; não é segurança real, é o máximo possível sem login.
+  it('registrarAcao grava o monitor quando informado, vazio quando não', () => {
+    const repo = repoMemoria({ AcoesIA: [] });
+    registrarAcao(repo, { ferramenta: 'buscar_clientes', argumentos: {}, resultado: [], origem: 'chat', monitor: 'Erick Cardoso' });
+    registrarAcao(repo, { ferramenta: 'buscar_clientes', argumentos: {}, resultado: [], origem: 'chat' });
+    const [com, sem] = repo.get('AcoesIA');
+    expect(com.monitor).toBe('Erick Cardoso');
+    expect(sem.monitor).toBe('');
+  });
+
+  it('conversar (ollama) propaga o monitor pras ações do turno', async () => {
+    const repo = repoMemoria({
+      Clientes: [{ id: 'c1', empresa: 'Loja', status: 'Regular', servicos: [] }],
+      AnalisesIA: [], AcoesIA: [], UsoIA: [],
+    });
+    await conversar({
+      mensagens: [{ role: 'user', content: 'busca' }],
+      repo,
+      monitor: 'Yann Cruz',
+      ollama: {
+        gerarJSON: async () => ({}),
+        chat: async () => ({ role: 'assistant', content: '', tool_calls: [{ function: { name: 'buscar_clientes', arguments: {} } }] }),
+      },
+    }).catch(() => {}); // pode estourar o limite de iterações (mock sempre pede ferramenta) — só interessa o que já foi registrado
+    const [acao] = repo.get('AcoesIA');
+    expect(acao.monitor).toBe('Yann Cruz');
+  });
+});

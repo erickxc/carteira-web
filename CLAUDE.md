@@ -163,6 +163,22 @@ E `GET /api/ia/padroes` (rota separada, `gerarPadroesCarteira`) é **padrão de 
 
 **Cuidado ao testar isto**: os dois alertas de dossiê chamam `lerDossieCliente`, que lê arquivo em `DOSSIES_DIR` — **não tem override próprio**, deriva de `ONEDRIVE_ROOT` (`DATA_DIR = ONEDRIVE_ROOT + 'Carteira Web'`, `DOSSIES_DIR = DATA_DIR + 'dossies'`). Testar sem isolar `ONEDRIVE_ROOT` (e `require` fresco dos módulos, mesmo padrão de `dbSqlite.test.ts`) escreve no dossiê REAL da máquina — aconteceu durante o desenvolvimento disto, com um id de teste que por sorte não colidia com cliente real, mas o arquivo ficou órfão na pasta de produção até ser notado e apagado manualmente.
 
+### Dossiê (arquivo) e AnalisesIA (sheet) são DUAS fontes — mantidas em sincronia num campo
+
+Bug de produção: `corrigir_dossie_cliente` só reescrevia o arquivo do dossiê. A ficha do cliente (`AnaliseIACard`) e o dashboard leem `AnalisesIA.sugestaoProximaPauta`/`resumo`/`nivelRisco` — um campo **separado**, gerado só pela análise automática. Usuário confirmava "a reunião já aconteceu, atualiza a pauta" pelo chat, o agente confirmava, o dossiê mudava — e a ficha do cliente continuava mostrando a pauta antiga, porque lia a outra fonte.
+
+`corrigirDossie` (tools.cjs) agora extrai a seção "### Próxima pauta" do corpo salvo e escreve em `AnalisesIA.sugestaoProximaPauta` também (`repo.update`). `resumo`/`fatores` continuam só da análise automática, de propósito — não mapeiam 1:1 pra nenhuma seção do dossiê.
+
+### Privacidade das conversas: identidade voluntária, não autenticação
+
+App sem login, LAN, "ninguém deveria ver o que eu converso com o agente". Sem autenticação real, a única identidade possível é o filtro global de monitor (`CarteiraContext.filtroMonitor`, "quem sou eu nesta máquina", já existente) — o frontend manda esse valor junto de cada pergunta ao chat, o backend carimba em cada linha de `AcoesIA` (coluna `monitor`, propagada nos DOIS provedores — no Claude CLI via env var `CARTEIRA_IA_MONITOR` no `--mcp-config`, mesmo mecanismo do `turnId`), e o painel "Ações do agente" filtra pelo `filtroMonitor` atual. Com o filtro em "Todos" (ninguém escolheu identidade), mostra tudo — não dá pra impor privacidade sem identidade real, e isso precisa ficar claro pro usuário: é cortesia entre colegas, não segurança.
+
+### Ata e anexos: já estavam expostos, o agente é que negava acesso
+
+`buscar_historico_eventos` sempre devolveu `ata` (texto completo) — o agente respondeu "não tenho acesso a atas/documentos" quando a informação estava na própria chamada que ele fez. Reforçada a descrição da ferramenta e adicionada uma norma explícita (GATILHO ATA/ANEXO) proibindo essa negação sem antes checar. Junto, `eventos[].anexos` passou a listar os arquivos anexados (`nome` + `url` relativa), que não eram expostos.
+
+**Deliberadamente fora de escopo por ora**: o agente **não pode gerar o PDF da ata** (o botão existente usa `jsPDF` no navegador, `src/utils/ataPdf.ts` — replicar isso no backend seria duplicar ~150 linhas de layout numa segunda fonte de verdade, sem o usuário perder a função: o botão já existe na tela do evento). Se quiser essa capacidade no agente, é decisão de escopo separada, não uma correção.
+
 ### Criar evento/lembrete: valor é validado contra o cadastro, nunca gravado cru
 
 Bug de produção: o agente criou uma reunião com `monitores: ["Erick"]` — a opção cadastrada é "Erick Cardoso" (`Categorias`, tipo `monitor`). O valor foi gravado como veio, não casou com nenhuma opção do `<select>` na tela de edição, e o campo apareceu **vazio** pro usuário. Sem erro, sem log — pareceu que tinha dado certo.
