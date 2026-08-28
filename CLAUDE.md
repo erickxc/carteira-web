@@ -163,17 +163,17 @@ E `GET /api/ia/padroes` (rota separada, `gerarPadroesCarteira`) é **padrão de 
 
 **Cuidado ao testar isto**: os dois alertas de dossiê chamam `lerDossieCliente`, que lê arquivo em `DOSSIES_DIR` — **não tem override próprio**, deriva de `ONEDRIVE_ROOT` (`DATA_DIR = ONEDRIVE_ROOT + 'Carteira Web'`, `DOSSIES_DIR = DATA_DIR + 'dossies'`). Testar sem isolar `ONEDRIVE_ROOT` (e `require` fresco dos módulos, mesmo padrão de `dbSqlite.test.ts`) escreve no dossiê REAL da máquina — aconteceu durante o desenvolvimento disto, com um id de teste que por sorte não colidia com cliente real, mas o arquivo ficou órfão na pasta de produção até ser notado e apagado manualmente.
 
-### IA e máquinas cliente (multi-máquina): 4 sheets ficaram fora da fila
+### IA e máquinas cliente (multi-máquina): 3 sheets entraram na fila
 
-Bug de produção grave: em `APP_MODE=client` (as máquinas remotas — ver seção "Deploy" e `server/fila/`), **qualquer** pergunta ao monitorIA ou uso do MCP derrubava com `"escrita direta no SQLite bloqueada em APP_MODE=client"`. Causa: `AcoesIA`, `UsoIA`, `MemoriaIA` e a sincronização de `AnalisesIA` (ver seção acima) escrevem via `repo.save`/`repo.update` **direto**, e nenhuma das quatro está em `server/fila/entidades.cjs` — a guarda de `dbSqlite.cjs` (`proibirEscritaEmModoCliente`) bloqueia isso incondicionalmente, por design (é o que impede um bug numa rota de furar a arquitetura de fila). `AcoesIA` tinha esse problema desde sempre (não é regressão desta sessão); `UsoIA`/`MemoriaIA`/o sync de `AnalisesIA` são writes novos que repetiram o mesmo erro.
+Bug de produção grave: em `APP_MODE=client` (as máquinas remotas — ver "Deploy" e `server/fila/`), **qualquer** pergunta ao monitorIA derrubava com `"escrita direta no SQLite bloqueada em APP_MODE=client"`. `AcoesIA`, `UsoIA` e `MemoriaIA` escreviam via `repo.save` direto e nenhuma estava em `server/fila/entidades.cjs`.
 
-**Mitigação aplicada** (não é a solução definitiva — só interrompe o crash):
+Hoje as três são entidades da fila, com módulo em `server/dominio/` cada (`acoesIA.cjs`, `usoIA.cjs`, `memoriaIA.cjs`). `acoesIA`/`usoIA` são **append-only** — `atualizar`/`remover` existem só pro contrato de `fila/aplicar.cjs` e **lançam** se alguém tentar usar (log de auditoria e medição não se editam).
 
-- `registrarAcao` (auditoria) e `registrarUso` (consumo) viram **no-op silencioso** em `isClient` — a resposta ao usuário não pode depender de bookkeeping. Nas máquinas remotas, hoje, **auditoria e consumo de IA simplesmente não persistem**.
-- `registrar_memoria`/`remover_memoria` **falham com erro claro** em vez de fingir sucesso — dizer "gravei" sem ter gravado seria pior que recusar.
-- A sincronização de `AnalisesIA.sugestaoProximaPauta` (dossiê→sheet) é pulada em `isClient`; o dossiê em si (arquivo, `fs`, sem guarda de SQLite) continua gravando normalmente em qualquer máquina.
+**Detalhe que já causou estrago**: `executarMutacao` usa `repoPlanilha()` e **ignora o repo do chamador**. Por isso `registrarAcao`/`registrarUso`/memória só passam por ele em `isClient`; no servidor chamam o módulo de domínio direto sobre o repo RECEBIDO — chamar `executarMutacao` sempre quebraria a injeção de `repoMemoria` nos testes, e chegou a gravar uma linha no banco de produção durante o desenvolvimento.
 
-**Dívida real, não resolvida**: pra essas 4 sheets funcionarem de verdade em máquina cliente, precisam entrar na fila (`server/fila/entidades.cjs` + um módulo de domínio cada, mesmo padrão de `dominio/clientes.cjs`/`agenda.cjs`). Enquanto isso não acontece, o monitorIA nas máquinas remotas funciona pra CONSULTA e CRIAÇÃO de evento/lembrete (que já usam a fila via `executarMutacao`), mas sem log de auditoria, sem consumo registrado, e sem gravar memória geral.
+`AnalisesIA` continua **fora** da fila de propósito: é saída da análise automática, que só roda no servidor (`server.cjs`, gated por `isServer`) — enfileirar daqui criaria uma segunda origem de escrita pra um dado de dono único. Por isso a sincronização dossiê→`sugestaoProximaPauta` é pulada em cliente (o dossiê, arquivo `fs` puro, grava em qualquer máquina).
+
+**Ordem de deploy importa**: entidade nova na fila precisa estar na máquina SERVIDORA antes de qualquer cliente enfileirar com ela — senão o controller rejeita com `"Controller: entidade desconhecida"` e a operação fica `skipped` (aconteceu: testes mal isolados escreveram na fila real e 5 operações ficaram presas até serem limpas à mão). Ao testar qualquer coisa que use a fila, isole **`ONEDRIVE_ROOT` E `SQLITE_DIR`** e recarregue TODOS os módulos que cacheiam caminho — incluindo `machine.cjs` (guarda machineId/seq) — ver `server/ia/modoCliente.test.ts`.
 
 ### Dossiê (arquivo) e AnalisesIA (sheet) são DUAS fontes — mantidas em sincronia num campo
 

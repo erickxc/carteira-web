@@ -1,5 +1,6 @@
-const crypto = require('crypto');
+const { executarMutacao } = require('../fila/mutacao.cjs');
 const { isClient } = require('../modo.cjs');
+const usoIADominio = require('../dominio/usoIA.cjs');
 
 /**
  * Registra o consumo de UMA pergunta (um turno de `conversar()`), nos dois
@@ -14,19 +15,15 @@ const { isClient } = require('../modo.cjs');
  * Não é a mesma pergunta que "quanto falta pra resetar", mas é o dado que
  * existe de fato.
  */
-// Mesma guarda de `orquestrador.registrarAcao` — `UsoIA` também não está na
-// fila (server/fila/entidades.cjs). Nas máquinas cliente, o consumo dessa
-// máquina simplesmente não fica registrado até isso ser resolvido; não pode
-// derrubar a resposta do chat/análise por causa disso.
+// Grava PELA FILA (`fila/mutacao.cjs`), igual `orquestrador.registrarAcao` —
+// ver o comentário lá sobre o bug de "escrita direta no SQLite bloqueada" em
+// APP_MODE=client. Falha aqui nunca derruba a resposta: é medição.
 function registrarUso(repo, {
   origem, provedor, modelo, turnId,
   inputTokens = 0, outputTokens = 0, cacheCreationTokens = 0, cacheReadTokens = 0,
   custoUsd = null, duracaoMs, numFerramentas = 0, erro = false, pergunta = '', resposta = '',
 }) {
-  if (isClient) return null;
-  const usos = repo.get('UsoIA');
   const novo = {
-    id: crypto.randomUUID(),
     criadoEm: new Date().toISOString(),
     origem, provedor, modelo: modelo || null, turnId,
     inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens,
@@ -37,8 +34,16 @@ function registrarUso(repo, {
     pergunta: String(pergunta).slice(0, 500),
     resposta: String(resposta).slice(0, 1000),
   };
-  repo.save('UsoIA', [...usos, novo]);
-  return novo;
+  // Mesma separação de `orquestrador.registrarAcao`: no servidor grava sobre o
+  // `repo` recebido (respeita injeção nos testes); no cliente vai pra fila.
+  try {
+    return isClient
+      ? executarMutacao('usoIA', 'create', { payload: novo, userName: null })
+      : usoIADominio.criar(repo, novo);
+  } catch (err) {
+    console.warn(`registrarUso: não foi possível gravar o consumo — ${err.message}`);
+    return null;
+  }
 }
 
 module.exports = { registrarUso };

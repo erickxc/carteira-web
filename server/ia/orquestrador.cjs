@@ -4,7 +4,9 @@ const ollamaClient = require('./ollamaClient.cjs');
 const { FERRAMENTAS } = require('./tools.cjs');
 const { MAX_ITERACOES_FERRAMENTA } = require('./normas.cjs');
 const { registrarUso } = require('./uso.cjs');
+const { executarMutacao } = require('../fila/mutacao.cjs');
 const { isClient } = require('../modo.cjs');
+const acoesIADominio = require('../dominio/acoesIA.cjs');
 
 const FERRAMENTAS_POR_NOME = new Map(FERRAMENTAS.map((f) => [f.name, f]));
 
@@ -117,21 +119,29 @@ function descreverAcao(ferramenta, argumentos, resultado) {
 }
 
 /**
- * Grava o log de auditoria. Máquina em `APP_MODE=client` (as 3 remotas) não
- * tem escrita direta no SQLite pra NENHUMA sheet fora da fila (Etapa 3+, ver
- * `server/fila/entidades.cjs`) — e `AcoesIA` não está nela. Sem esta guarda,
- * TODA chamada de ferramenta (ou seja, toda pergunta ao monitorIA que usa
- * qualquer dado da carteira) derrubava o processo com "escrita direta no
- * SQLite bloqueada" nas máquinas cliente — bug real, achado em produção.
- * Até `AcoesIA` entrar na fila de verdade, auditoria de IA só persiste na
- * máquina servidora (Karol-2D); nas remotas, silenciosamente não grava — a
- * resposta ao usuário não pode depender disso.
+ * Grava o log de auditoria PELA FILA (`fila/mutacao.cjs`) — não com
+ * `repo.save` direto.
+ *
+ * Bug real de produção: `AcoesIA` escrevia direto no SQLite, e em
+ * `APP_MODE=client` (as máquinas remotas) a guarda de `dbSqlite.cjs` derrubava
+ * TODA pergunta ao monitorIA com "escrita direta no SQLite bloqueada". A
+ * primeira correção foi um no-op silencioso (a auditoria simplesmente não
+ * persistia nas remotas); agora a entidade está na fila de verdade
+ * (`fila/entidades.cjs`), então grava nas duas pontas: direto no servidor,
+ * enfileirada no cliente pro controller aplicar.
+ *
+ * Falha aqui nunca derruba a resposta ao usuário: log é bookkeeping, e o
+ * agente já respondeu (ou vai responder) independentemente disso.
+ *
+ * Só o caminho CLIENTE passa por `executarMutacao`. No servidor a gravação é
+ * feita direto pelo módulo de domínio sobre o `repo` RECEBIDO — `executarMutacao`
+ * ignora o repo do chamador e usa `repoPlanilha()` (o banco real), o que
+ * quebraria o isolamento de quem injeta `repoMemoria` (testes, e o overlay do
+ * próprio cliente). Pego na prática: uma execução de teste chegou a gravar uma
+ * linha no banco de produção antes desta separação.
  */
 function registrarAcao(repo, { ferramenta, clientId, argumentos, resultado, origem, turnId, monitor }) {
-  if (isClient) return;
-  const acoes = repo.get('AcoesIA');
-  acoes.push({
-    id: crypto.randomUUID(),
+  const payload = {
     ferramenta,
     clientId: clientId || '',
     argumentos,
@@ -143,8 +153,15 @@ function registrarAcao(repo, { ferramenta, clientId, argumentos, resultado, orig
     // — vazio em contexto sem turno (chamada avulsa, MCP externo sem token).
     turnId: turnId || '',
     monitor: monitor || '',
-  });
-  repo.save('AcoesIA', acoes);
+  };
+  try {
+    return isClient
+      ? executarMutacao('acoesIA', 'create', { payload, userName: monitor || null })
+      : acoesIADominio.criar(repo, payload);
+  } catch (err) {
+    console.warn(`registrarAcao: não foi possível gravar o log de auditoria — ${err.message}`);
+    return null;
+  }
 }
 
 /**

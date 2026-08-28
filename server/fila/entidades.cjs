@@ -9,6 +9,9 @@ const agenda = require('../dominio/agenda.cjs');
 const lembretes = require('../dominio/lembretes.cjs');
 const acoes = require('../dominio/acoes.cjs');
 const modelos = require('../dominio/modelos.cjs');
+const acoesIA = require('../dominio/acoesIA.cjs');
+const usoIA = require('../dominio/usoIA.cjs');
+const memoriaIA = require('../dominio/memoriaIA.cjs');
 
 const ENTIDADES = {
   clientes: { sheet: 'Clientes', dominio: clientes },
@@ -16,6 +19,13 @@ const ENTIDADES = {
   lembretes: { sheet: 'Lembretes', dominio: lembretes },
   acoes: { sheet: 'Acoes', dominio: acoes },
   modelos: { sheet: 'Modelos', dominio: modelos },
+  // Escritas do agente de IA. Entraram depois (bug real: em APP_MODE=client
+  // toda pergunta ao monitorIA quebrava com "escrita direta no SQLite
+  // bloqueada", porque estas três escreviam via repo.save direto, fora da
+  // fila). `acoesIA`/`usoIA` são append-only; `memoriaIA` é editável.
+  acoesIA: { sheet: 'AcoesIA', dominio: acoesIA },
+  usoIA: { sheet: 'UsoIA', dominio: usoIA },
+  memoriaIA: { sheet: 'MemoriaIA', dominio: memoriaIA },
 };
 
 module.exports = { ENTIDADES };

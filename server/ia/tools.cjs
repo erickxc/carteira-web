@@ -8,6 +8,7 @@ const { sugerirAgenda } = require('../dominio/sugestaoAgenda.cjs');
 const { getCache: getCacheCeoAgenda } = require('../ceoAgenda.cjs');
 const { CADENCIAS_SEED } = require('../config.cjs');
 const { isClient } = require('../modo.cjs');
+const memoriaIADominio = require('../dominio/memoriaIA.cjs');
 
 /**
  * Valores configuráveis por tipo (`Categorias`): monitor, serviço, sala,
@@ -187,10 +188,6 @@ function registrarMemoria(repo, { texto } = {}) {
   const limpo = String(texto ?? '').trim();
   if (!limpo) throw new Error('registrar_memoria: "texto" é obrigatório.');
   if (limpo.length > 400) throw new Error('registrar_memoria: regra longa demais (máx. 400 caracteres) — resuma em uma frase.');
-  // `MemoriaIA` não está na fila multi-máquina (server/fila/entidades.cjs) —
-  // erro CLARO em vez de silenciar: ao contrário do log de auditoria/uso,
-  // aqui o agente diria "gravei" pro usuário sem ter gravado de verdade.
-  if (isClient) throw new Error('registrar_memoria: esta máquina não tem escrita direta no banco (multi-máquina) — peça pra registrar a partir da máquina principal (Karol-2D).');
 
   const memorias = repo.get('MemoriaIA');
   // Duplicata exata só inflaria o system prompt, que é reenviado a cada
@@ -198,18 +195,23 @@ function registrarMemoria(repo, { texto } = {}) {
   const jaExiste = memorias.find((m) => String(m.texto).trim().toLowerCase() === limpo.toLowerCase());
   if (jaExiste) return { id: jaExiste.id, texto: jaExiste.texto, jaExistia: true };
 
-  const nova = { id: crypto.randomUUID(), texto: limpo, origem: 'agente', criadoEm: new Date().toISOString() };
-  repo.save('MemoriaIA', [...memorias, nova]);
+  // Cliente vai pela fila (escrita direta no SQLite é bloqueada lá); servidor
+  // grava sobre o `repo` recebido. Ao contrário do log de auditoria, uma falha
+  // aqui NÃO é silenciada: o agente diria "gravei" sem ter gravado.
+  const payload = { texto: limpo, origem: 'agente', criadoEm: new Date().toISOString() };
+  const nova = isClient
+    ? executarMutacao('memoriaIA', 'create', { payload })
+    : memoriaIADominio.criar(repo, payload);
   return { ...nova, jaExistia: false };
 }
 
 function removerMemoria(repo, { id } = {}) {
   if (!id) throw new Error('remover_memoria: "id" é obrigatório.');
-  if (isClient) throw new Error('remover_memoria: esta máquina não tem escrita direta no banco (multi-máquina) — peça pra remover a partir da máquina principal (Karol-2D).');
   const memorias = repo.get('MemoriaIA');
   const alvo = memorias.find((m) => String(m.id) === String(id));
   if (!alvo) throw new Error(`remover_memoria: regra "${id}" não encontrada.`);
-  repo.save('MemoriaIA', memorias.filter((m) => String(m.id) !== String(id)));
+  if (isClient) executarMutacao('memoriaIA', 'delete', { id });
+  else memoriaIADominio.remover(repo, id);
   return { removido: alvo.texto };
 }
 
@@ -291,9 +293,12 @@ function corrigirDossie(repo, { clientId, dossie }) {
   // o arquivo. Mantém as duas em sincronia pro campo que mais causou
   // confusão (a pauta); `resumo`/`fatores` continuam sendo só da análise
   // automática, de propósito — não são um-pra-um com nenhuma seção do dossiê.
-  // `AnalisesIA` também não está na fila — mas o dossiê (arquivo, fs puro,
-  // sem guarda de SQLite) já foi gravado com sucesso acima; não deixa essa
-  // sincronização secundária derrubar a correção principal em máquina cliente.
+  // `AnalisesIA` continua FORA da fila de propósito: é saída da análise
+  // automática, que só roda na máquina servidora (`server.cjs`, gated por
+  // `isServer`) — enfileirar daqui criaria uma segunda origem de escrita pra
+  // um dado que tem dono único. O dossiê (arquivo, `fs` puro, sem guarda de
+  // SQLite) já foi gravado acima e vale em qualquer máquina; esta
+  // sincronização secundária é pulada em cliente em vez de derrubar tudo.
   if (analise && !isClient) repo.update('AnalisesIA', analise.id, { sugestaoProximaPauta: extrairProximaPauta(dossie) });
 
   return { ok: true, empresa: cliente.empresa };
