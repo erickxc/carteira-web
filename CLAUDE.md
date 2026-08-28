@@ -140,6 +140,16 @@ O que o modelo pode fazer é exatamente o que o `parameters` de cada ferramenta 
 
 Os modelos devolvem `**negrito**`, bullets e títulos. O chat imprimia `{m.content}` cru e o usuário via linhas de asterisco. `src/components/ia/RespostaIA.tsx` (+ `blocosMarkdown.ts`, testado) renderiza o subconjunto que os modelos realmente emitem, montando **elementos React** — nunca `dangerouslySetInnerHTML`: o texto vem de um LLM, então nada aqui pode virar HTML. A fala do usuário segue texto puro de propósito.
 
+### Consumo de IA (`server/ia/uso.cjs`) — não é a cota da assinatura
+
+`GET /api/ia/uso` (painel em Configurações → Sistema, `UsoIACard`) mostra tokens/custo **por pergunta**, nos dois provedores, com drill-down até as ferramentas chamadas naquele turno (entrada/saída de cada uma).
+
+**O que não dá pra mostrar, e por quê**: "quanto resta da cota da assinatura até resetar" (a janela de 5h / limite semanal do Pro/Max) não é exposto pelo Claude Code CLI — confirmado inspecionando `~/.claude/debug/<session>.txt` de uma chamada real (`claude -p ... --debug`): nenhum cabeçalho de rate-limit/cota aparece nas requisições HTTP dele, só o resultado da própria resposta (`usage`, `total_cost_usd`, `modelUsage`). Extensões de navegador que mostram isso leem da sessão web do claude.ai (cookies), não da credencial OAuth do CLI — caminho diferente, que este projeto não usa.
+
+**O que É real e fica no painel**: cada resposta gera uma linha em `UsoIA` com tokens de entrada/saída/cache e custo em USD (Claude CLI: soma o `modelUsage` do resultado do CLI, não o `usage` de topo — esse reflete só a ÚLTIMA iteração do turno, visto na prática: uma chamada simples trouxe `usage.input_tokens: 2` enquanto `modelUsage` tinha os ~54 mil tokens de criação de cache da primeira iteração; Ollama: `prompt_eval_count`/`eval_count` da resposta, custo sempre 0 — é local/gratuito).
+
+**Correlação pergunta↔ferramenta**: toda chamada de ferramenta (`AcoesIA`) carrega o mesmo `turnId` da pergunta que a disparou (`UsoIA`). No provedor Ollama isso é trivial (mesmo processo, mesmo loop). No Claude CLI é mais sutil: quem chama a ferramenta é o servidor MCP, um PROCESSO FILHO do CLI — o `turnId` viaja como variável de ambiente (`CARTEIRA_IA_TURNO`) no `--mcp-config` que `cliente.cjs` gera a cada `conversar()`, o mesmo mecanismo que já levava `CARTEIRA_IA_ORIGEM`.
+
 ### Alertas de profundidade — não só atraso/vencimento
 
 Além dos quatro alertas de cadência, `server/ia/alertas.cjs` tem dois que leem o **texto** do dossiê (`### Pontos de Atenção`), não só data:

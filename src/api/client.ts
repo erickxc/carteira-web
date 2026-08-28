@@ -534,3 +534,50 @@ export interface PadraoCarteira {
 }
 
 export const buscarPadroesCarteira = () => request<PadraoCarteira[]>('/ia/padroes');
+
+// --- Consumo de IA (tokens/custo por pergunta) ---
+
+export interface FerramentaDoTurno {
+  ferramenta: string;
+  argumentos: unknown;
+  resultado: unknown;
+  descricao: string;
+}
+
+export interface TurnoUsoIA {
+  id: string;
+  criadoEm: string;
+  origem: string;
+  provedor: 'ollama' | 'claude-cli';
+  modelo: string | null;
+  turnId: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  /** null quando o provedor não expõe custo (Ollama é gratuito). */
+  custoUsd: number | null;
+  duracaoMs: number;
+  numFerramentas: number;
+  erro: boolean;
+  /** Chamadas de ferramenta que aconteceram NESTA pergunta — mesmo turnId. */
+  ferramentas: FerramentaDoTurno[];
+}
+
+export interface TotaisUsoIA {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  custoUsd: number;
+  perguntas: number;
+  erros: number;
+}
+
+export interface UsoIAResposta {
+  dias: number;
+  totais: TotaisUsoIA;
+  turnos: TurnoUsoIA[];
+}
+
+export const buscarUsoIA = (dias = 7) => request<UsoIAResposta>(`/ia/uso?dias=${dias}`);

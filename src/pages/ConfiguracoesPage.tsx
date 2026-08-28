@@ -10,6 +10,7 @@ import {
 import { Badge, Button, Card, Field, Input, Select, Textarea } from '../ui';
 import ProvedorIACard from '../components/config/ProvedorIACard';
 import McpClaudeCard from '../components/config/McpClaudeCard';
+import UsoIACard from '../components/config/UsoIACard';
 import { CATEGORIA_TIPO_LABEL, SEGMENTO_LABEL, type Cadencias, type CategoriaTipo, type Modelo, type Segmento } from '../types';
 
 const TIPOS: CategoriaTipo[] = ['servico', 'tipo_evento', 'status_cliente', 'status_evento', 'monitor', 'tipo_lembrete', 'sala'];
@@ -500,6 +501,9 @@ export default function ConfiguracoesPage() {
           </div>
           <div className="section">
             <McpClaudeCard />
+          </div>
+          <div className="section">
+            <UsoIACard />
           </div>
         </>
       )}

@@ -3,6 +3,7 @@ const { repoPlanilha } = require('../dominio/repo.cjs');
 const ollamaClient = require('./ollamaClient.cjs');
 const { FERRAMENTAS } = require('./tools.cjs');
 const { MAX_ITERACOES_FERRAMENTA } = require('./normas.cjs');
+const { registrarUso } = require('./uso.cjs');
 
 const FERRAMENTAS_POR_NOME = new Map(FERRAMENTAS.map((f) => [f.name, f]));
 
@@ -114,7 +115,7 @@ function descreverAcao(ferramenta, argumentos, resultado) {
   }
 }
 
-function registrarAcao(repo, { ferramenta, clientId, argumentos, resultado, origem }) {
+function registrarAcao(repo, { ferramenta, clientId, argumentos, resultado, origem, turnId }) {
   const acoes = repo.get('AcoesIA');
   acoes.push({
     id: crypto.randomUUID(),
@@ -125,6 +126,9 @@ function registrarAcao(repo, { ferramenta, clientId, argumentos, resultado, orig
     descricao: descreverAcao(ferramenta, argumentos, resultado),
     origem,
     criadoEm: new Date().toISOString(),
+    // Correlaciona com a pergunta que disparou a chamada (server/ia/uso.cjs)
+    // — vazio em contexto sem turno (chamada avulsa, MCP externo sem token).
+    turnId: turnId || '',
   });
   repo.save('AcoesIA', acoes);
 }
@@ -139,36 +143,59 @@ function registrarAcao(repo, { ferramenta, clientId, argumentos, resultado, orig
  */
 async function conversar({ mensagens, origem = 'chat', repo = repoPlanilha(), ollama = ollamaClient }) {
   const historico = [...mensagens];
+  const turnId = crypto.randomUUID();
+  const uso = { modelo: null, inputTokens: 0, outputTokens: 0 };
+  const t0 = Date.now();
+  let numFerramentas = 0;
 
-  for (let i = 0; i < MAX_ITERACOES_FERRAMENTA; i++) {
-    const resposta = await ollama.chat(historico, { tools: TOOLS_SCHEMA });
-    const pseudo = !resposta.tool_calls?.length ? extrairPseudoToolCall(resposta.content) : null;
-    const toolCalls = resposta.tool_calls?.length ? resposta.tool_calls : (pseudo ? [pseudo] : null);
+  const finalizarUso = (extra = {}) => registrarUso(repo, {
+    origem, provedor: 'ollama', modelo: uso.modelo, turnId,
+    inputTokens: uso.inputTokens, outputTokens: uso.outputTokens,
+    custoUsd: 0, // Ollama é local/gratuito — sem custo por token, diferente do Claude CLI.
+    duracaoMs: Date.now() - t0, numFerramentas, ...extra,
+  });
 
-    if (!toolCalls) return resposta.content ?? '';
+  try {
+    for (let i = 0; i < MAX_ITERACOES_FERRAMENTA; i++) {
+      const resposta = await ollama.chat(historico, { tools: TOOLS_SCHEMA, coletarUso: uso });
+      const pseudo = !resposta.tool_calls?.length ? extrairPseudoToolCall(resposta.content) : null;
+      const toolCalls = resposta.tool_calls?.length ? resposta.tool_calls : (pseudo ? [pseudo] : null);
 
-    // Pseudo tool-call: não repassa o texto cru (o JSON vazado) pro histórico
-    // como se fosse fala do assistente — só a intenção de chamar ferramenta.
-    historico.push(pseudo ? { role: 'assistant', content: '', tool_calls: toolCalls } : resposta);
-
-    for (const chamada of toolCalls) {
-      const nome = chamada.function?.name;
-      const ferramenta = FERRAMENTAS_POR_NOME.get(nome);
-      const argumentos = chamada.function?.arguments ?? {};
-
-      let resultado;
-      try {
-        resultado = ferramenta ? ferramenta.executar(repo, argumentos) : { erro: `Ferramenta "${nome}" não existe.` };
-      } catch (err) {
-        resultado = { erro: err.message };
+      if (!toolCalls) {
+        finalizarUso();
+        return resposta.content ?? '';
       }
 
-      if (ferramenta) registrarAcao(repo, { ferramenta: nome, clientId: argumentos.clientId, argumentos, resultado, origem });
+      // Pseudo tool-call: não repassa o texto cru (o JSON vazado) pro histórico
+      // como se fosse fala do assistente — só a intenção de chamar ferramenta.
+      historico.push(pseudo ? { role: 'assistant', content: '', tool_calls: toolCalls } : resposta);
 
-      historico.push({ role: 'tool', content: JSON.stringify(resultado) });
+      for (const chamada of toolCalls) {
+        const nome = chamada.function?.name;
+        const ferramenta = FERRAMENTAS_POR_NOME.get(nome);
+        const argumentos = chamada.function?.arguments ?? {};
+
+        let resultado;
+        try {
+          resultado = ferramenta ? ferramenta.executar(repo, argumentos) : { erro: `Ferramenta "${nome}" não existe.` };
+        } catch (err) {
+          resultado = { erro: err.message };
+        }
+
+        if (ferramenta) {
+          registrarAcao(repo, { ferramenta: nome, clientId: argumentos.clientId, argumentos, resultado, origem, turnId });
+          numFerramentas += 1;
+        }
+
+        historico.push({ role: 'tool', content: JSON.stringify(resultado) });
+      }
     }
+  } catch (err) {
+    finalizarUso({ erro: true });
+    throw err;
   }
 
+  finalizarUso({ erro: true });
   throw new Error('monitorIA excedeu o limite de chamadas de ferramenta sem concluir a resposta.');
 }
 

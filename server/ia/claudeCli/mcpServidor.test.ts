@@ -125,7 +125,7 @@ describe('servidor MCP das ferramentas da carteira', () => {
     expect(JSON.parse(content[0].text)).toEqual({ total: 2, clientes: ['Loja A', 'Loja B'] });
 
     const chamada = chamadas.find((c) => c.rota === '/api/ia/interno/ferramenta')!;
-    expect(chamada.corpo).toEqual({ nome: 'buscar_clientes', argumentos: { grupo: 'Rede X' }, origem: 'teste' });
+    expect(chamada.corpo).toEqual({ nome: 'buscar_clientes', argumentos: { grupo: 'Rede X' }, origem: 'teste', turnId: '' });
     expect(chamada.segredo).toBe(SEGREDO);
   });
 

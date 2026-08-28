@@ -319,7 +319,25 @@ const ANALISES_IA_HEADERS = ['id', 'clientId', 'nivelRisco', 'resumo', 'fatores'
  */
 const MEMORIA_IA_HEADERS = ['id', 'texto', 'origem', 'criadoEm'];
 
-const ACOES_IA_HEADERS = ['id', 'ferramenta', 'clientId', 'argumentos', 'resultado', 'origem', 'criadoEm', 'descricao'];
+// `turnId` correlaciona cada ferramenta chamada com a PERGUNTA que a
+// disparou (uma pergunta pode chamar várias ferramentas) — sem isso, o
+// painel de uso não tem como agrupar "o que aconteceu nesta resposta".
+const ACOES_IA_HEADERS = ['id', 'ferramenta', 'clientId', 'argumentos', 'resultado', 'origem', 'criadoEm', 'descricao', 'turnId'];
+
+/**
+ * Consumo de IA por pergunta (um turno de `conversar()`, nos dois
+ * provedores). Existe porque nem o Claude Code CLI nem o Ollama expõem
+ * "quanto da cota da assinatura resta até resetar" — isso só aparece no site
+ * da Anthropic (sessão de navegador, não a credencial OAuth do CLI). O que dá
+ * pra medir de verdade, e é o que fica aqui: tokens e custo de CADA resposta,
+ * o que sustenta um painel de gasto acumulado (hoje, 7 dias, por origem) —
+ * não um contador de cota do plano.
+ */
+const USO_IA_HEADERS = [
+  'id', 'criadoEm', 'origem', 'provedor', 'modelo', 'turnId',
+  'inputTokens', 'outputTokens', 'cacheCreationTokens', 'cacheReadTokens',
+  'custoUsd', 'duracaoMs', 'numFerramentas', 'erro',
+];
 
 // Headers explícitos por planilha — evita que o SheetJS derive as colunas
 // apenas das chaves da primeira linha do array (se a primeira linha for uma
@@ -344,6 +362,7 @@ const HEADERS_BY_SHEET = {
   AnalisesIA: ANALISES_IA_HEADERS,
   AcoesIA: ACOES_IA_HEADERS,
   MemoriaIA: MEMORIA_IA_HEADERS,
+  UsoIA: USO_IA_HEADERS,
 };
 
 // Cadências padrão (dias) — prazos das recomendações.
@@ -389,7 +408,7 @@ module.exports = {
   CLIENTES_HEADERS, AGENDA_HEADERS, LEMBRETES_HEADERS, CATEGORIAS_HEADERS, ACOES_HEADERS, MODELOS_HEADERS, CADENCIAS_HEADERS,
   AGENDA_SERIES_HEADERS,
   AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_SWIMLANES_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS, AGIL_FRENTES_HEADERS,
-  ANALISES_IA_HEADERS, ACOES_IA_HEADERS, MEMORIA_IA_HEADERS,
+  ANALISES_IA_HEADERS, ACOES_IA_HEADERS, MEMORIA_IA_HEADERS, USO_IA_HEADERS,
   HEADERS_BY_SHEET,
   CADENCIAS_SEED, MODELOS_SEED, CATEGORIAS_SEED,
 };

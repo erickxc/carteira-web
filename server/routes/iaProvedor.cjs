@@ -201,7 +201,7 @@ router.get('/interno/ferramentas', apenasMcp, (_req, res) => {
  * iguais nos dois provedores, sem código de log duplicado.
  */
 router.post('/interno/ferramenta', apenasMcp, (req, res) => {
-  const { nome, argumentos = {}, origem = 'claude-cli' } = req.body ?? {};
+  const { nome, argumentos = {}, origem = 'claude-cli', turnId } = req.body ?? {};
   const ferramenta = FERRAMENTAS_POR_NOME.get(nome);
   if (!ferramenta) return res.status(404).json({ error: `Ferramenta "${nome}" não existe.` });
 
@@ -211,8 +211,40 @@ router.post('/interno/ferramenta', apenasMcp, (req, res) => {
   } catch (err) {
     resultado = { erro: err.message };
   }
-  registrarAcao(repo, { ferramenta: nome, clientId: argumentos.clientId, argumentos, resultado, origem });
+  registrarAcao(repo, { ferramenta: nome, clientId: argumentos.clientId, argumentos, resultado, origem, turnId });
   res.json({ resultado });
+});
+
+/**
+ * Painel de consumo — tokens/custo por pergunta, nos dois provedores. Não
+ * existe "quanto falta pra resetar a cota" aqui (ver server/ia/uso.cjs pro
+ * porquê); o que dá é gasto acumulado e por-pergunta.
+ */
+router.get('/uso', (req, res) => {
+  const dias = Math.min(Math.max(Number(req.query.dias) || 7, 1), 90);
+  const desde = new Date(Date.now() - dias * 86400e3).toISOString();
+  const usos = repo.get('UsoIA')
+    .filter((u) => String(u.criadoEm) >= desde)
+    .sort((a, b) => String(b.criadoEm).localeCompare(String(a.criadoEm)));
+
+  const acoes = repo.get('AcoesIA');
+  const comFerramentas = usos.map((u) => ({
+    ...u,
+    ferramentas: acoes.filter((a) => a.turnId && a.turnId === u.turnId)
+      .map((a) => ({ ferramenta: a.ferramenta, argumentos: a.argumentos, resultado: a.resultado, descricao: a.descricao })),
+  }));
+
+  const totais = usos.reduce((acc, u) => ({
+    inputTokens: acc.inputTokens + (u.inputTokens || 0),
+    outputTokens: acc.outputTokens + (u.outputTokens || 0),
+    cacheCreationTokens: acc.cacheCreationTokens + (u.cacheCreationTokens || 0),
+    cacheReadTokens: acc.cacheReadTokens + (u.cacheReadTokens || 0),
+    custoUsd: acc.custoUsd + (u.custoUsd || 0),
+    perguntas: acc.perguntas + 1,
+    erros: acc.erros + (u.erro ? 1 : 0),
+  }), { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, custoUsd: 0, perguntas: 0, erros: 0 });
+
+  res.json({ dias, totais, turnos: comFerramentas });
 });
 
 module.exports = router;

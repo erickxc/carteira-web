@@ -85,10 +85,25 @@ async function gerarJSON(prompt, { modelos = OLLAMA_MODELS } = {}) {
  * usuário. `opts.tools` é o schema JSON das ferramentas disponíveis nesta
  * chamada (formato OpenAI-style, que é o que o Ollama espera).
  */
-async function chat(mensagens, { modelos = OLLAMA_MODELS, tools } = {}) {
+/**
+ * `coletarUso`, quando passado, é um acumulador MUTÁVEL que `chat` preenche
+ * com o que o Ollama devolve por chamada (`prompt_eval_count`/`eval_count`,
+ * modelo real usado — pode não ser o primeiro da lista, se `chamarComFallback`
+ * caiu pro próximo por cota/indisponibilidade). Existe pra sustentar o painel
+ * de uso (server/ia/uso.cjs) sem mudar o retorno de `chat()` — quem chama
+ * ainda recebe a mensagem crua do Ollama, no formato que sempre teve, e o
+ * loop de tool-calling em `orquestrador.cjs` chama `chat()` várias vezes por
+ * pergunta, então o acumulador soma entre chamadas do MESMO turno.
+ */
+async function chat(mensagens, { modelos = OLLAMA_MODELS, tools, coletarUso } = {}) {
   const body = { messages: mensagens, stream: false };
   if (tools?.length) body.tools = tools;
   const data = await chamarComFallback('/api/chat', body, modelos);
+  if (coletarUso) {
+    coletarUso.modelo = data.model || coletarUso.modelo;
+    coletarUso.inputTokens = (coletarUso.inputTokens || 0) + (data.prompt_eval_count || 0);
+    coletarUso.outputTokens = (coletarUso.outputTokens || 0) + (data.eval_count || 0);
+  }
   return data.message ?? { content: '' };
 }
 

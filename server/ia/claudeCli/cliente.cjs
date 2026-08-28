@@ -6,6 +6,7 @@ const {
   HOST, PORT, SQLITE_DIR, CLAUDE_CLI_TIMEOUT_MS, CLAUDE_CLI_CWD, CLAUDE_MCP_SERVER,
 } = require('../../config.cjs');
 const { extrairJSON } = require('../jsonTexto.cjs');
+const { registrarUso } = require('../uso.cjs');
 const { localizarClaudeCli, versaoClaudeCli } = require('./localizar.cjs');
 const { tokenSalvo, ambienteCredencial, modeloAtivo, modeloTravado } = require('./estado.cjs');
 const { statusAuth, autenticado } = require('./auth.cjs');
@@ -84,7 +85,7 @@ function urlInterna() {
  * chamada porque carrega o segredo do processo atual: um arquivo de um boot
  * anterior tem segredo velho e a ferramenta falharia com 401.
  */
-function garantirConfigMcp(origem) {
+function garantirConfigMcp(origem, turnId) {
   if (process.pkg) {
     throw new Error('O provedor Claude CLI não funciona com o backend empacotado (pkg) — o servidor MCP precisa de um node.exe real.');
   }
@@ -97,6 +98,7 @@ function garantirConfigMcp(origem) {
           CARTEIRA_IA_URL: urlInterna(),
           CARTEIRA_IA_SEGREDO: SEGREDO_INTERNO,
           CARTEIRA_IA_ORIGEM: origem,
+          CARTEIRA_IA_TURNO: turnId || '',
         },
       },
     },
@@ -270,9 +272,66 @@ function montarPromptConversa(mensagens) {
  * rota interna, que usa o repositório do backend — manter o parâmetro deixa a
  * troca de provedor invisível pra quem chama.
  */
-async function conversar({ mensagens, origem = 'chat' }) {
+/**
+ * Tokens/custo do resultado do CLI (`--output-format json`). Prefere
+ * `modelUsage` (soma por modelo REAL usado) ao `usage` de topo, que reflete só
+ * a ÚLTIMA iteração do turno — visto na prática: uma chamada simples trouxe
+ * `usage.input_tokens: 2` mas `modelUsage` mostrava os ~54 mil tokens de
+ * criação de cache da primeira iteração. Some entre modelos (ex.: um
+ * classificador leve + o modelo de geração) pra refletir o custo real do
+ * turno inteiro, não só do último passo.
+ */
+function extrairUsoCli(dados) {
+  const porModelo = Object.values(dados.modelUsage || {});
+  if (!porModelo.length) {
+    const u = dados.usage || {};
+    return {
+      modelo: null,
+      inputTokens: u.input_tokens || 0,
+      outputTokens: u.output_tokens || 0,
+      cacheCreationTokens: u.cache_creation_input_tokens || 0,
+      cacheReadTokens: u.cache_read_input_tokens || 0,
+      custoUsd: dados.total_cost_usd ?? null,
+    };
+  }
+  const somado = porModelo.reduce((acc, m) => ({
+    inputTokens: acc.inputTokens + (m.inputTokens || 0),
+    outputTokens: acc.outputTokens + (m.outputTokens || 0),
+    cacheCreationTokens: acc.cacheCreationTokens + (m.cacheCreationInputTokens || 0),
+    cacheReadTokens: acc.cacheReadTokens + (m.cacheReadInputTokens || 0),
+  }), { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 });
+  // Modelo "principal" = o de maior output — é o que de fato gerou a
+  // resposta, diferente de um classificador leve (fast-mode) que só decide
+  // roteamento e produz poucos tokens de saída.
+  const principal = Object.entries(dados.modelUsage).sort((a, b) => (b[1].outputTokens || 0) - (a[1].outputTokens || 0))[0];
+  return { modelo: principal?.[1]?.canonicalModel || principal?.[0] || null, ...somado, custoUsd: dados.total_cost_usd ?? null };
+}
+
+async function conversar({ mensagens, origem = 'chat', repo }) {
   const { sistema, prompt } = montarPromptConversa(mensagens);
-  const dados = await rodarCli(prompt, { systemPrompt: sistema, mcpConfig: garantirConfigMcp(origem) });
+  const turnId = crypto.randomUUID();
+  const t0 = Date.now();
+
+  let dados;
+  try {
+    dados = await rodarCli(prompt, { systemPrompt: sistema, mcpConfig: garantirConfigMcp(origem, turnId) });
+  } catch (err) {
+    if (repo) {
+      const numFerramentas = repo.get('AcoesIA').filter((a) => a.turnId === turnId).length;
+      registrarUso(repo, { origem, provedor: 'claude-cli', turnId, duracaoMs: Date.now() - t0, numFerramentas, erro: true });
+    }
+    throw err;
+  }
+
+  if (repo) {
+    const uso = extrairUsoCli(dados);
+    // As ferramentas deste turno já foram gravadas em AcoesIA pela rota
+    // interna (o MCP chama enquanto o CLI ainda está rodando) — conta quantas
+    // têm este turnId pra saber "quantas chamadas de função esta pergunta fez".
+    const numFerramentas = repo.get('AcoesIA').filter((a) => a.turnId === turnId).length;
+    registrarUso(repo, { origem, provedor: 'claude-cli', turnId, duracaoMs: Date.now() - t0, numFerramentas, ...uso });
+  }
+
   return String(dados.result ?? '');
 }
 

@@ -31,6 +31,10 @@
 const URL_BASE = process.env.CARTEIRA_IA_URL;
 const SEGREDO = process.env.CARTEIRA_IA_SEGREDO || '';
 const ORIGEM = process.env.CARTEIRA_IA_ORIGEM || 'claude-cli';
+// Correlaciona esta chamada de ferramenta com a pergunta que a disparou —
+// ver `server/ia/uso.cjs`. Vazio quando chamado fora de um `conversar()`
+// instrumentado (ex.: uso manual do MCP externo antes desta mudança).
+const TURNO = process.env.CARTEIRA_IA_TURNO || '';
 const PROTOCOLO_PADRAO = '2025-06-18';
 
 function responder(msg) {
@@ -89,7 +93,7 @@ async function tratar(msg) {
       const nome = params?.name;
       const argumentos = params?.arguments ?? {};
       try {
-        const { resultado } = await chamarBackend('/api/ia/interno/ferramenta', { nome, argumentos, origem: ORIGEM });
+        const { resultado } = await chamarBackend('/api/ia/interno/ferramenta', { nome, argumentos, origem: ORIGEM, turnId: TURNO });
         return ok(id, { content: [{ type: 'text', text: JSON.stringify(resultado) }] });
       } catch (err) {
         // `isError` (e não erro de JSON-RPC): o CLI repassa isso ao modelo
