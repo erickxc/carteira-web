@@ -498,3 +498,21 @@ export const definirModeloClaude = (modelo: string) =>
   request<{ modelo: string }>('/ia/claude/modelo', { method: 'PUT', body: JSON.stringify({ modelo }) });
 
 export const testarClaudeCli = () => request<ResultadoTesteClaude>('/ia/claude/teste', { method: 'POST' });
+
+// --- Alertas conversáveis do monitorIA ---
+
+export type SeveridadeAlerta = 'alta' | 'media' | 'baixa';
+
+export interface AlertaIA {
+  id: string;
+  tipo: 'risco_sem_pauta' | 'sem_contato' | 'vencendo' | 'sem_analise';
+  severidade: SeveridadeAlerta;
+  titulo: string;
+  detalhe: string;
+  clientId: string;
+  cliente: string;
+  /** Frase literal que vai pro chat ao clicar em "Conversar" — não é rótulo. */
+  pergunta: string;
+}
+
+export const buscarAlertasIA = () => request<AlertaIA[]>('/ia/alertas');

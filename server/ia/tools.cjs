@@ -783,4 +783,7 @@ const FERRAMENTAS = [
   },
 ];
 
-module.exports = { FERRAMENTAS };
+// `lerCadencias` exportado pra `alertas.cjs` usar a MESMA leitura de cadência
+// (seed + overrides) — duas versões disso na base seriam duas verdades sobre
+// quando um cliente vence.
+module.exports = { FERRAMENTAS, lerCadencias };

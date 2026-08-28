@@ -138,6 +138,23 @@ O que o modelo pode fazer é exatamente o que o `parameters` de cada ferramenta 
 
 Os modelos devolvem `**negrito**`, bullets e títulos. O chat imprimia `{m.content}` cru e o usuário via linhas de asterisco. `src/components/ia/RespostaIA.tsx` (+ `blocosMarkdown.ts`, testado) renderiza o subconjunto que os modelos realmente emitem, montando **elementos React** — nunca `dangerouslySetInnerHTML`: o texto vem de um LLM, então nada aqui pode virar HTML. A fala do usuário segue texto puro de propósito.
 
+### Memória do agente: dois níveis, e nenhum é o outro
+
+- **Dossiê** (`corrigir_dossie_cliente`, arquivos em `DOSSIES_DIR`) — memória **de um cliente**.
+- **Memória geral** (sheet `MemoriaIA`, ferramentas `buscar`/`registrar`/`remover_memoria`) — **regras do processo** que valem pra carteira inteira ("a ata só é preenchida ao final da reunião"). Antes não existia: pedir isso ao agente não tinha onde cair, e um deles respondeu culpando permissão de escrita de arquivo (`Write`, do Claude Code) em vez de dizer que a ferramenta não existia.
+
+As regras gerais entram **direto no system prompt** (`agente.blocoMemoria`), não só atrás da ferramenta: memória que depende de o modelo lembrar de consultar é memória que ele esquece. Como o system prompt é reenviado a cada chamada, o bloco é limitado (25 regras / 2000 chars, cortando as mais antigas) — crescer sem teto seria custo fixo subindo em toda pergunta.
+
+### Alertas conversáveis (`server/ia/alertas.cjs`)
+
+As análises automáticas rodavam e ninguém lia. `GET /api/ia/alertas` transforma os mesmos gatilhos que as normas já descreviam (risco alto sem reunião marcada, sem contato há 30+ dias, cadência vencendo, cliente sem análise) em cartões na tela do monitorIA, cada um com uma `pergunta` pronta que o botão dispara no chat — o cartão é a porta de entrada da conversa, não um aviso passivo.
+
+Decisões que valem manter: nada é gravado (alerta é derivado, recalculado a cada chamada, então não há estado obsoleto); nada é calculado aqui (reusa `buscarVencendo`/`buscarAlertasSemAcompanhamento`/`isClienteAtivo`, senão a tela teria uma segunda versão da verdade sobre cadência); e um cliente com dois problemas aparece **uma vez só**, no mais grave.
+
+### Conversa do chat persiste no navegador
+
+Sair da página desmontava o componente e zerava o histórico — junto com o contexto, já que a rota de chat é stateless e é o frontend que reenvia o histórico a cada mensagem. Agora vai pro `localStorage` (`assistenteIA:conversa`), com teto de 40 mensagens e botão "Nova". **Não** vai pro banco de propósito: o app não tem autenticação e é servido na LAN, então uma conversa no SQLite seria a de todo mundo misturada, sem dono.
+
 ### `plano_implementacao.md` — roadmap antigo (GestorPro), desalinhado
 
 Documenta um plano **anterior e não implementado** de transformar o projeto em um produto multi-usuário genérico "GestorPro" (PostgreSQL, JWT, multi-tenant, navbar superior). Esse plano é anterior ao pivô para "2D Consultores / Carteira de Monitoria" e à decisão de manter tudo em Excel dentro do OneDrive — **não reflete a direção atual do produto**. Não usar como fonte de verdade sem confirmar antes com o usuário.

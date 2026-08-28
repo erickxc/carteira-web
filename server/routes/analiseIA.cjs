@@ -2,6 +2,7 @@ const express = require('express');
 const { repoPlanilha } = require('../dominio/repo.cjs');
 const { conversar } = require('../ia/provider.cjs');
 const { montarSystemPrompt } = require('../ia/agente.cjs');
+const { gerarAlertas } = require('../ia/alertas.cjs');
 
 const router = express.Router();
 const repo = repoPlanilha();
@@ -11,6 +12,15 @@ router.get('/clientes/:id/analise', (req, res) => {
   const analise = analises.find((a) => String(a.clientId) === String(req.params.id));
   if (!analise) return res.status(404).json({ error: 'Cliente ainda não foi analisado.' });
   res.json(analise);
+});
+
+/**
+ * Alertas conversáveis da tela do monitorIA. Recalculados a cada chamada (são
+ * derivados de cliente/agenda/análise, que mudam o tempo todo) — nada é
+ * gravado, então não há estado de alerta pra ficar obsoleto.
+ */
+router.get('/alertas', (_req, res) => {
+  res.json(gerarAlertas(repo));
 });
 
 router.get('/acoes', (req, res) => {

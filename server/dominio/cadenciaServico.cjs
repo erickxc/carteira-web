@@ -315,7 +315,7 @@ function buscarVencendo(clientes, agenda, cadencias, now = new Date(), janelaVen
 
     for (const r of relogios) {
       if (r.status !== 'vencendo') continue;
-      itens.push({ empresa: c.empresa, servico: r.servico, diasParaVencer: Math.max(0, -r.atraso) });
+      itens.push({ id: c.id, empresa: c.empresa, servico: r.servico, diasParaVencer: Math.max(0, -r.atraso) });
     }
   }
   itens.sort((a, b) => a.diasParaVencer - b.diasParaVencer || a.empresa.localeCompare(b.empresa));
@@ -398,7 +398,7 @@ function buscarAlertasSemAcompanhamento(clientes, agenda, acoes, now = new Date(
     .map((c) => {
       const uc = ultimaInteracaoMap.get(c.id) ?? null;
       const dias = uc ? differenceInCalendarDays(now, uc) : null;
-      return { empresa: c.empresa, ultimoContato: uc ? uc.toISOString() : null, diasSemContato: dias };
+      return { id: c.id, empresa: c.empresa, ultimoContato: uc ? uc.toISOString() : null, diasSemContato: dias };
     })
     .filter((e) => e.diasSemContato === null || e.diasSemContato >= LIMIAR_DIAS)
     .sort((a, b) => (b.diasSemContato ?? 99999) - (a.diasSemContato ?? 99999))

@@ -2,11 +2,12 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Bot, Check, ChevronRight, History, Loader2, Plus, Send } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
-import { buscarAcoesIA, enviarMensagemChatIA, type MensagemChatIA } from '../api/client';
+import { buscarAcoesIA, enviarMensagemChatIA, type AlertaIA, type MensagemChatIA } from '../api/client';
 import { toastError } from '../utils/toast';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { Badge, Button, Card, Select, Textarea } from '../ui';
 import RespostaIA from '../components/ia/RespostaIA';
+import AlertasIA from '../components/ia/AlertasIA';
 import type { AcaoIA } from '../types';
 
 // Fallback só pra ações antigas, registradas antes de `descricao` existir
@@ -136,7 +137,22 @@ export default function AssistenteIAPage() {
 
   async function handleEnviar(e: FormEvent) {
     e.preventDefault();
-    const pergunta = texto.trim();
+    await enviarPergunta(texto);
+  }
+
+  /**
+   * Abre a conversa a partir de um cartão de alerta: foca o cliente do alerta
+   * (pra que as próximas perguntas herdem o contexto dele) e já dispara a
+   * pergunta pronta — só preencher o campo deixaria um clique a mais no
+   * caminho, que é justamente o que o cartão existe pra tirar.
+   */
+  function conversarSobreAlerta(alerta: AlertaIA) {
+    setClienteId(alerta.clientId);
+    enviarPergunta(alerta.pergunta);
+  }
+
+  async function enviarPergunta(bruto: string) {
+    const pergunta = bruto.trim();
     if (!pergunta || enviando) return;
     setTexto('');
     setEnviando(true);
@@ -227,8 +243,13 @@ export default function AssistenteIAPage() {
             {mensagens.length === 0 ? (
               <div className="flex flex-col items-center gap-4 py-2">
                 <Bot size={44} style={{ color: 'var(--text-muted)', opacity: 0.35 }} />
+                {/* Alertas vêm ANTES das sugestões genéricas: são a carteira
+                    de hoje, não exemplos do que dá pra perguntar. */}
+                <div className="w-full" style={{ maxWidth: '44rem' }}>
+                  <AlertasIA onConversar={conversarSobreAlerta} />
+                </div>
                 <p className="text-[0.86rem] text-text-secondary text-center" style={{ maxWidth: '30rem' }}>
-                  Pergunte sobre qualquer cliente, produto ou métrica da carteira — ou comece por uma destas:
+                  Ou pergunte sobre qualquer cliente, produto ou métrica da carteira:
                 </p>
                 <div className="w-full grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(15rem, 1fr))', maxWidth: '44rem' }}>
                   {SUGESTOES.map((s) => (
