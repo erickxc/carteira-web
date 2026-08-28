@@ -209,6 +209,58 @@ body {
   line-height: 1.55;
 }
 
+/* ---------------------------------------------------------------------------
+   Scrollbar — estilo único do app
+   ---------------------------------------------------------------------------
+   Antes só alguns lugares estilizavam a barra (modal, dropdown, duas listas
+   do dashboard), cada um com uma largura diferente; todo o resto — inclusive
+   a página inteira e os painéis do monitorIA — caía na barra nativa do
+   Windows, larga e clara, que destoa do tema (gritante no escuro).
+
+   `scrollbar-color` (padrão) cobre Firefox; `::-webkit-scrollbar` cobre
+   Chrome/Edge, que é o que roda aqui. Ambos apontam pros tokens do tema, então
+   a barra acompanha claro/escuro sem regra duplicada.
+
+   Fica em `*` e não só no `body`: contêiner com scroll próprio (chat, painel
+   de ações, tabelas) tem barra PRÓPRIA, que o seletor do body não alcança. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-muted) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  /* `--text-muted` e não `--border-strong`: aquele dava 1,33:1 sobre o card no
+     tema escuro (invisível na prática — a barra existia mas não se via). Este
+     dá 4,81:1 no escuro e 6,07:1 no claro, com presença sem virar uma barra
+     pesada. Medido, não escolhido a olho. */
+  background: var(--text-muted);
+  border-radius: 999px;
+  /* Borda transparente + `background-clip` afina o polegar sem estreitar a
+     área clicável: o alvo continua com 10px (confortável pro mouse), mas o
+     desenho fica com ~6px. */
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+  background-clip: content-box;
+}
+
+/* Canto onde as duas barras se encontram — sem isso fica um quadrado branco. */
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 h1,
 h2,
 h3 {
@@ -522,9 +574,7 @@ textarea:focus-visible {
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
 }
-.vencendo-lista::-webkit-scrollbar { width: 4px; }
-.vencendo-lista::-webkit-scrollbar-track { background: transparent; }
-.vencendo-lista::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+/* Scrollbar: coberta pelo estilo global (topo do arquivo). */
 .vencendo-lista li {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 0; border-bottom: 1px solid var(--border);
@@ -836,20 +886,8 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .modal-body { padding: 1.35rem; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 0.9rem 1.35rem; border-top: 1px solid var(--border); background: var(--bg); }
 
-/* Scrollbar fina padrão do projeto (mesma usada em .vencendo-lista e
-   .gauge-detalhe-col ul) — sem isso o corpo do modal e o menu do Dropdown
-   caem na scrollbar grossa/branca padrão do navegador, destoando do resto. */
-.modal-body,
-.filter-pop {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
-}
-.modal-body::-webkit-scrollbar,
-.filter-pop::-webkit-scrollbar { width: 4px; }
-.modal-body::-webkit-scrollbar-track,
-.filter-pop::-webkit-scrollbar-track { background: transparent; }
-.modal-body::-webkit-scrollbar-thumb,
-.filter-pop::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+/* Scrollbar: sem regra própria aqui — o estilo global (topo do arquivo) já
+   cobre modal, dropdown e todo o resto com a mesma barra. */
 
 /* ---------------------------------------------------------------------------
    Busca global (Ctrl+K)
@@ -982,9 +1020,10 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .flex-row { display: flex; align-items: center; gap: 0.5rem; }
 .flex-between { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
 
-.custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; }
+/* `.custom-scrollbar` virou no-op: o estilo global cobre qualquer contêiner
+   com scroll. A classe segue existindo nos componentes que já a usam (não vale
+   um diff em três arquivos só pra remover algo inofensivo), mas não precisa
+   ser adicionada em lugar novo. */
 
 /* .animate-spin (0.8s) agora vem do tailwind.config.js (theme.extend.animation)
    — a keyframe app-spin é emitida pelo Tailwind, não precisa mais viver aqui. */

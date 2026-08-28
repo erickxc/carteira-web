@@ -8,6 +8,12 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.3.1
+
+- Barras de rolagem com o visual do sistema em todas as telas — antes só
+  alguns painéis eram estilizados e o resto usava a barra padrão do Windows,
+  clara e destoante (bem visível no tema escuro).
+
 ## 1.3.0
 
 - Atualização muito mais rápida: o pacote deixou de carregar bibliotecas que
