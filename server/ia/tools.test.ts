@@ -93,8 +93,8 @@ function escreverDossie(clientId: string, slug: string, corpo: string) {
 // 1-8: catálogo e contrato geral das ferramentas
 // ---------------------------------------------------------------------------
 describe('catálogo de ferramentas', () => {
-  it('1. expõe exatamente as 22 ferramentas esperadas', () => {
-    expect(FERRAMENTAS).toHaveLength(22);
+  it('1. expõe exatamente as 25 ferramentas esperadas', () => {
+    expect(FERRAMENTAS).toHaveLength(25);
   });
 
   it('2. nenhum nome de ferramenta duplicado', () => {
@@ -126,9 +126,22 @@ describe('catálogo de ferramentas', () => {
     }
   });
 
-  it('7. só existe UMA ferramenta de edição (corrigir_dossie_cliente)', () => {
+  /**
+   * A intenção original ("só uma ferramenta de edição") era garantir que o
+   * agente não edita Cliente/Agenda/Lembrete. Isso continua valendo: as
+   * ferramentas de escrita que existem hoje atuam sobre memória do agente
+   * (dossiê e regras do processo) e sobre CRIAÇÃO de evento/lembrete — nenhuma
+   * altera ou apaga cadastro existente.
+   */
+  it('7. as ferramentas de edição são só as de memória do agente', () => {
     const edicao = FERRAMENTAS.filter((f) => /^(corrigir|atualizar|editar|remover|excluir|deletar)/.test(f.name));
-    expect(edicao.map((f) => f.name)).toEqual(['corrigir_dossie_cliente']);
+    expect(edicao.map((f) => f.name).sort()).toEqual(['corrigir_dossie_cliente', 'remover_memoria']);
+  });
+
+  it('7b. nenhuma ferramenta edita ou apaga Cliente, Agenda ou Lembrete', () => {
+    const proibidas = FERRAMENTAS.filter((f) => /(cliente|evento|lembrete|agenda)$/.test(f.name)
+      && /^(atualizar|editar|remover|excluir|deletar)/.test(f.name));
+    expect(proibidas.map((f) => f.name)).toEqual([]);
   });
 
   it('8. nome de ferramenta segue snake_case', () => {

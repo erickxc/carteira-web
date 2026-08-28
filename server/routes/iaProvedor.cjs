@@ -13,7 +13,7 @@ const { montarSystemPrompt } = require('../ia/agente.cjs');
 // Quais ferramentas MUDAM dado — a tela marca essas, porque o agente executa
 // sem confirmação prévia (decisão do usuário) e quem configura precisa ver o
 // que está entregando na mão dele.
-const FERRAMENTAS_ESCRITA = new Set(['criar_evento', 'criar_lembrete', 'corrigir_dossie_cliente']);
+const FERRAMENTAS_ESCRITA = new Set(['criar_evento', 'criar_lembrete', 'corrigir_dossie_cliente', 'registrar_memoria', 'remover_memoria']);
 
 /**
  * Rotas de configuração do provedor de IA e do login da conta Claude, mais o
@@ -131,6 +131,7 @@ router.get('/claude/mcp', (_req, res) => {
     arquivoConfig: claudeCli.CONFIG_MCP,
     timeoutSegundos: Math.round(CLAUDE_CLI_TIMEOUT_MS / 1000),
     modelos: CLAUDE_CLI_MODELOS,
+    arquivoConfigExterno: claudeCli.CONFIG_MCP_EXTERNO,
     ferramentas: FERRAMENTAS.map((f) => ({
       nome: f.name,
       qualificado: `mcp__${CLAUDE_MCP_SERVER}__${f.name}`,
@@ -155,7 +156,7 @@ router.post('/claude/teste', async (_req, res) => {
   try {
     const resposta = await conversar({
       mensagens: [
-        { role: 'system', content: montarSystemPrompt({}) },
+        { role: 'system', content: montarSystemPrompt({ memorias: repo.get('MemoriaIA') }) },
         { role: 'user', content: 'Quantos clientes ativos existem na carteira? Responda em uma frase.' },
       ],
       origem: 'teste-config',

@@ -30,8 +30,10 @@ router.post('/chat', async (req, res) => {
     return res.status(400).json({ error: 'Campo "texto" é obrigatório.' });
   }
 
+  // As regras gerais vão no system prompt (e não só como ferramenta) — ver
+  // `blocoMemoria` em `server/ia/agente.cjs`.
   const mensagens = [
-    { role: 'system', content: montarSystemPrompt({ clientId }) },
+    { role: 'system', content: montarSystemPrompt({ clientId, memorias: repo.get('MemoriaIA') }) },
     ...(Array.isArray(historico) ? historico : []),
     { role: 'user', content: texto },
   ];

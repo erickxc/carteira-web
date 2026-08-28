@@ -83,7 +83,7 @@ function normalizar(texto) {
     .trim();
 }
 
-function buscarClientes(repo, { nome, nivelRisco, status, servico, grupo } = {}) {
+function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo } = {}) {
   const clientes = repo.get('Clientes');
   const analises = repo.get('AnalisesIA');
   const analisePorCliente = new Map(analises.map((a) => [String(a.clientId), a]));
@@ -93,6 +93,11 @@ function buscarClientes(repo, { nome, nivelRisco, status, servico, grupo } = {})
   return clientes
     .map((c) => ({ cliente: c, analise: analisePorCliente.get(String(c.id)) }))
     .filter(({ cliente }) => !status || cliente.status === status)
+    // `estado` (Ativo/Inativo) e `status` (Regular/Suspenso/...) são campos
+    // DIFERENTES, e o modelo confundia: perguntar "quantos clientes ativos"
+    // virava `status: "Ativo"` e devolvia zero, porque nenhum cliente tem esse
+    // status. Visto no log de auditoria em produção.
+    .filter(({ cliente }) => !estado || (cliente.estado || '') === estado)
     .filter(({ cliente }) => !servico || listaJSON(cliente.servicos).includes(servico))
     .filter(({ analise }) => !nivelRisco || analise?.nivelRisco === nivelRisco)
     .filter(({ cliente }) => !grupoBusca || normalizar(cliente.grupo).includes(grupoBusca))
@@ -107,6 +112,47 @@ function buscarClientes(repo, { nome, nivelRisco, status, servico, grupo } = {})
       estado: cliente.estado || null,
       nivelRisco: analise?.nivelRisco ?? null,
     }));
+}
+
+/**
+ * Memória geral: regras do processo/sistema que valem pra carteira inteira.
+ * Diferente do dossiê, que é a memória DE UM CLIENTE.
+ *
+ * Estas regras também entram no system prompt (`agente.cjs`) — a ferramenta de
+ * leitura existe pro agente conseguir citar/remover uma regra específica pelo
+ * id, não pra ele "lembrar" (memória que só existe atrás de uma chamada de
+ * ferramenta é memória que o modelo esquece de consultar).
+ */
+function buscarMemoria(repo) {
+  return repo.get('MemoriaIA')
+    .slice()
+    .sort((a, b) => String(a.criadoEm).localeCompare(String(b.criadoEm)))
+    .map((m) => ({ id: m.id, texto: m.texto, criadoEm: m.criadoEm }));
+}
+
+function registrarMemoria(repo, { texto } = {}) {
+  const limpo = String(texto ?? '').trim();
+  if (!limpo) throw new Error('registrar_memoria: "texto" é obrigatório.');
+  if (limpo.length > 400) throw new Error('registrar_memoria: regra longa demais (máx. 400 caracteres) — resuma em uma frase.');
+
+  const memorias = repo.get('MemoriaIA');
+  // Duplicata exata só inflaria o system prompt, que é reenviado a cada
+  // chamada ao modelo.
+  const jaExiste = memorias.find((m) => String(m.texto).trim().toLowerCase() === limpo.toLowerCase());
+  if (jaExiste) return { id: jaExiste.id, texto: jaExiste.texto, jaExistia: true };
+
+  const nova = { id: crypto.randomUUID(), texto: limpo, origem: 'agente', criadoEm: new Date().toISOString() };
+  repo.save('MemoriaIA', [...memorias, nova]);
+  return { ...nova, jaExistia: false };
+}
+
+function removerMemoria(repo, { id } = {}) {
+  if (!id) throw new Error('remover_memoria: "id" é obrigatório.');
+  const memorias = repo.get('MemoriaIA');
+  const alvo = memorias.find((m) => String(m.id) === String(id));
+  if (!alvo) throw new Error(`remover_memoria: regra "${id}" não encontrada.`);
+  repo.save('MemoriaIA', memorias.filter((m) => String(m.id) !== String(id)));
+  return { removido: alvo.texto };
 }
 
 function buscarDossieCliente(repo, { clientId }) {
@@ -506,11 +552,12 @@ function verificarDisponibilidade(repo, { date, time, monitores, sala }) {
 const FERRAMENTAS = [
   {
     name: 'buscar_clientes',
-    description: 'Busca/lista clientes da carteira. Pra achar UM cliente pelo nome que o usuário falou, use "nome" (busca parcial, ignora acento e maiúscula) — é o caminho pra obter o clientId antes de qualquer ferramenta que peça clientId. Também filtra por nível de risco, status, serviço ou grupo/rede. Um cliente com "grupo" é uma LOJA de uma rede — o nome da rede sozinho (ex.: "Altese") não é um cliente, use o filtro "grupo" pra achar todas as lojas dela de uma vez. Sem nenhum filtro, devolve a carteira inteira.',
+    description: 'Busca/lista clientes da carteira. ATENÇÃO aos dois campos de situação: "estado" é Ativo/Inativo; "status" é a situação granular (Regular, Suspenso, Atendido pelo Marco, Gratuidade, Problemas Externos). "Cliente ativo" = estado, nunca status. Pra achar UM cliente pelo nome que o usuário falou, use "nome" (busca parcial, ignora acento e maiúscula) — é o caminho pra obter o clientId antes de qualquer ferramenta que peça clientId. Também filtra por nível de risco, status, serviço ou grupo/rede. Um cliente com "grupo" é uma LOJA de uma rede — o nome da rede sozinho (ex.: "Altese") não é um cliente, use o filtro "grupo" pra achar todas as lojas dela de uma vez. Sem nenhum filtro, devolve a carteira inteira.',
     parameters: {
       type: 'object',
       properties: {
         nome: { type: 'string', description: 'Trecho do nome do cliente/loja (ex.: "27 de setembro", "recreio"). Busca parcial, sem diferenciar acento/maiúscula.' },
+        estado: { type: 'string', enum: ['Ativo', 'Inativo'], description: 'Liga/desliga o cliente das contas de cadência. É ESTE o campo de "cliente ativo/inativo" — não confundir com "status".' },
         nivelRisco: { type: 'string', enum: ['baixo', 'medio', 'alto'] },
         status: { type: 'string' },
         servico: { type: 'string' },
@@ -518,6 +565,28 @@ const FERRAMENTAS = [
       },
     },
     executar: buscarClientes,
+  },
+  {
+    name: 'buscar_memoria',
+    description: 'Lista as regras gerais do processo que o usuário mandou você guardar (memória do sistema, não de um cliente). Essas regras já chegam no seu contexto automaticamente — use esta ferramenta só quando precisar do id de uma regra (pra remover) ou quando o usuário perguntar o que você tem guardado.',
+    parameters: { type: 'object', properties: {} },
+    executar: buscarMemoria,
+  },
+  {
+    name: 'registrar_memoria',
+    description: 'Guarda uma REGRA GERAL do processo/sistema, válida pra carteira inteira e não ligada a um cliente (ex.: "a ata da reunião só é preenchida ao final da reunião"). Use só depois de o usuário CONFIRMAR que quer guardar — ofereça antes. Para fato de UM cliente use corrigir_dossie_cliente, não isto. Uma frase por regra.',
+    parameters: {
+      type: 'object',
+      properties: { texto: { type: 'string', description: 'A regra, em uma frase curta e afirmativa (máx. 400 caracteres).' } },
+      required: ['texto'],
+    },
+    executar: registrarMemoria,
+  },
+  {
+    name: 'remover_memoria',
+    description: 'Apaga uma regra geral da memória do sistema. Só com pedido explícito do usuário. Use buscar_memoria antes para obter o id.',
+    parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+    executar: removerMemoria,
   },
   {
     name: 'buscar_dossie_cliente',

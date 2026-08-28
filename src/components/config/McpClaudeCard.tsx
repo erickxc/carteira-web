@@ -91,6 +91,12 @@ export default function McpClaudeCard() {
         <dd style={{ margin: 0 }}><code>{mcp.cwd}</code> (vazia, para o CLI não carregar regras do projeto)</dd>
         <dt className="text-text-secondary">Tempo limite por resposta</dt>
         <dd style={{ margin: 0 }}>{mcp.timeoutSegundos}s</dd>
+        <dt className="text-text-secondary">Usar em outro cliente MCP</dt>
+        <dd style={{ margin: 0 }}>
+          <code>{mcp.arquivoConfigExterno}</code> — aponte seu Claude Code para este arquivo. As chamadas dele
+          aparecem no log como <code>mcp-externo</code>, separadas das do app. O segredo muda a cada reinício
+          do servidor, então reaponte depois de reiniciar.
+        </dd>
       </dl>
 
       <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 16 }}>

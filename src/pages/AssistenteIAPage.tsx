@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { format, parseISO } from 'date-fns';
-import { Bot, Check, ChevronRight, History, Loader2, Send } from 'lucide-react';
+import { Bot, Check, ChevronRight, History, Loader2, Plus, Send } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { buscarAcoesIA, enviarMensagemChatIA, type MensagemChatIA } from '../api/client';
 import { toastError } from '../utils/toast';
@@ -20,6 +20,9 @@ const FERRAMENTA_LABEL: Record<string, string> = {
   criar_evento: 'Criou evento',
   criar_lembrete: 'Criou lembrete',
   gerar_relatorio_executivo: 'Gerou relatório executivo',
+  buscar_memoria: 'Consultou as regras do processo',
+  registrar_memoria: 'Guardou uma regra do processo',
+  remover_memoria: 'Apagou uma regra do processo',
 };
 const legendaAcao = (a: AcaoIA) => a.descricao ?? FERRAMENTA_LABEL[a.ferramenta] ?? a.ferramenta;
 
@@ -30,7 +33,7 @@ const legendaAcao = (a: AcaoIA) => a.descricao ?? FERRAMENTA_LABEL[a.ferramenta]
  * o mesmo peso visual. Espelha `FERRAMENTAS_ESCRITA` em
  * `server/routes/iaProvedor.cjs`.
  */
-const FERRAMENTAS_ESCRITA = new Set(['criar_evento', 'criar_lembrete', 'corrigir_dossie_cliente']);
+const FERRAMENTAS_ESCRITA = new Set(['criar_evento', 'criar_lembrete', 'corrigir_dossie_cliente', 'registrar_memoria', 'remover_memoria']);
 
 // A legenda vem em gerúndio porque serve também ao progresso ao vivo
 // ("Buscando clientes..."). No log, que é passado, o "..." fica estranho.
@@ -84,13 +87,37 @@ const SUGESTOES: { titulo: string; pergunta: string }[] = [
  */
 export default function AssistenteIAPage() {
   const { clientes } = useCarteira();
-  const [clienteId, setClienteId] = useState('');
-  const [mensagens, setMensagens] = useState<MensagemChatIA[]>([]);
+  // Cliente em foco também persiste: voltar pra tela com a conversa de um
+  // cliente mas o seletor zerado faria a próxima pergunta perder o contexto.
+  const [clienteId, setClienteId] = usePersistedState('assistenteIA:clienteId', '');
+  // A conversa vive no localStorage, não em `useState`: a página é
+  // desmontada ao navegar pra qualquer outra rota, e voltar zerava o
+  // histórico inteiro — inclusive o contexto que o backend precisa receber de
+  // volta a cada mensagem (a rota de chat é stateless, o frontend é quem
+  // reenvia o histórico).
+  //
+  // localStorage e não servidor de propósito: o app não tem autenticação e é
+  // servido na LAN, então uma conversa gravada no banco seria a conversa de
+  // TODO MUNDO misturada, sem dono. Por navegador, cada pessoa tem a sua.
+  const [mensagens, setMensagens] = usePersistedState<MensagemChatIA[]>('assistenteIA:conversa', []);
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [acoes, setAcoes] = useState<AcaoIA[]>([]);
   const [historicoAberto, setHistoricoAberto] = usePersistedState('assistenteIA:historicoAberto', false);
   const fimListaRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Teto de mensagens guardadas. Duas razões: `localStorage` costuma ter ~5MB
+   * por origem, e o histórico inteiro é REENVIADO ao modelo a cada pergunta —
+   * uma conversa infinita viraria custo crescente por mensagem. Corta as mais
+   * antigas, que é o que menos importa numa conversa de trabalho.
+   */
+  const MAX_MENSAGENS = 40;
+
+  function novaConversa() {
+    setMensagens([]);
+    setTexto('');
+  }
 
   function recarregarAcoes() {
     buscarAcoesIA().then(setAcoes).catch((err) => toastError(err instanceof Error ? err.message : 'Falha ao buscar log de ações.'));
@@ -115,7 +142,7 @@ export default function AssistenteIAPage() {
     setEnviando(true);
     setPassosEmAndamento([]);
     const historico = mensagens;
-    setMensagens((prev) => [...prev, { role: 'user', content: pergunta }]);
+    setMensagens((prev) => [...prev, { role: 'user' as const, content: pergunta }].slice(-MAX_MENSAGENS));
 
     const desde = new Date().toISOString();
     const polling = setInterval(() => {
@@ -126,7 +153,7 @@ export default function AssistenteIAPage() {
 
     try {
       const { resposta } = await enviarMensagemChatIA(pergunta, historico, clienteId || undefined);
-      setMensagens((prev) => [...prev, { role: 'assistant', content: resposta }]);
+      setMensagens((prev) => [...prev, { role: 'assistant' as const, content: resposta }].slice(-MAX_MENSAGENS));
       recarregarAcoes();
     } catch (err) {
       toastError(err instanceof Error ? err.message : 'Falha ao falar com o monitorIA.');
@@ -157,6 +184,19 @@ export default function AssistenteIAPage() {
                   {clientes.map((c) => <option key={c.id} value={c.id}>{c.empresa}</option>)}
                 </Select>
               </div>
+              {/* A conversa agora sobrevive a sair da tela (localStorage), então
+                  passa a ser necessário um jeito explícito de começar do zero —
+                  antes bastava navegar pra outra página. */}
+              {mensagens.length > 0 && (
+                <Button
+                  variant="secondary"
+                  onClick={novaConversa}
+                  title="Começar uma conversa nova (apaga o histórico desta tela)"
+                  style={{ padding: '0.35rem 0.55rem', whiteSpace: 'nowrap' }}
+                >
+                  <Plus size={14} /> Nova
+                </Button>
+              )}
               {!historicoAberto && (
                 <Button
                   variant="secondary"

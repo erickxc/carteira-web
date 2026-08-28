@@ -62,6 +62,12 @@ function descreverAcao(ferramenta, argumentos, resultado) {
       return `Criando evento${argumentos.subject ? `: ${argumentos.subject}` : ''}...`;
     case 'criar_lembrete':
       return `Criando lembrete${argumentos.title ? `: ${argumentos.title}` : ''}...`;
+    case 'buscar_memoria':
+      return 'Consultando as regras do processo...';
+    case 'registrar_memoria':
+      return `Guardando regra${argumentos.texto ? `: "${String(argumentos.texto).slice(0, 60)}"` : ''}...`;
+    case 'remover_memoria':
+      return `Apagando regra${resultado?.removido ? `: "${String(resultado.removido).slice(0, 60)}"` : ''}...`;
     case 'gerar_relatorio_executivo':
       return 'Calculando relatório executivo da carteira...';
 

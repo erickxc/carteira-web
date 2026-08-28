@@ -310,6 +310,15 @@ const ANALISES_IA_HEADERS = ['id', 'clientId', 'nivelRisco', 'resumo', 'fatores'
 // Log de auditoria de toda ação que o agente de IA executa de verdade (criar
 // evento, criar lembrete etc.) — argumentos/resultado como JSON string.
 // origem: 'chat' (usuário pediu) ou 'analise_semanal' (futuro uso automático).
+/**
+ * Memória GERAL do agente: regras do processo que não pertencem a nenhum
+ * cliente ("a ata só é preenchida ao fim da reunião"). O dossiê
+ * (`corrigir_dossie_cliente`) é por cliente e não servia pra isso — o agente
+ * ficava sem onde guardar, e um deles chegou a culpar permissão de arquivo em
+ * vez de dizer que a ferramenta não existia.
+ */
+const MEMORIA_IA_HEADERS = ['id', 'texto', 'origem', 'criadoEm'];
+
 const ACOES_IA_HEADERS = ['id', 'ferramenta', 'clientId', 'argumentos', 'resultado', 'origem', 'criadoEm', 'descricao'];
 
 // Headers explícitos por planilha — evita que o SheetJS derive as colunas
@@ -334,6 +343,7 @@ const HEADERS_BY_SHEET = {
   AgilComentarios: AGIL_COMENTARIOS_HEADERS,
   AnalisesIA: ANALISES_IA_HEADERS,
   AcoesIA: ACOES_IA_HEADERS,
+  MemoriaIA: MEMORIA_IA_HEADERS,
 };
 
 // Cadências padrão (dias) — prazos das recomendações.
@@ -379,7 +389,7 @@ module.exports = {
   CLIENTES_HEADERS, AGENDA_HEADERS, LEMBRETES_HEADERS, CATEGORIAS_HEADERS, ACOES_HEADERS, MODELOS_HEADERS, CADENCIAS_HEADERS,
   AGENDA_SERIES_HEADERS,
   AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_SWIMLANES_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS, AGIL_FRENTES_HEADERS,
-  ANALISES_IA_HEADERS, ACOES_IA_HEADERS,
+  ANALISES_IA_HEADERS, ACOES_IA_HEADERS, MEMORIA_IA_HEADERS,
   HEADERS_BY_SHEET,
   CADENCIAS_SEED, MODELOS_SEED, CATEGORIAS_SEED,
 };

@@ -56,6 +56,22 @@ const FERRAMENTAS_NATIVAS_NEGADAS = [
 
 const CONFIG_MCP = path.join(SQLITE_DIR, 'claude-mcp.json');
 
+/**
+ * Config paralela pra quem quiser plugar as ferramentas da carteira num
+ * cliente MCP PRÓPRIO (o Claude Code do usuário, Claude Desktop).
+ *
+ * Existe por causa de rastreabilidade: a config interna carrega
+ * `CARTEIRA_IA_ORIGEM` da chamada que a escreveu (`chat`, por exemplo), então
+ * uma sessão externa apontada pro mesmo arquivo apareceria no log de auditoria
+ * como se fosse o chat do app — indistinguível. Aconteceu: um agente externo
+ * afirmou ter consultado a carteira e o log não tinha como confirmar nem
+ * desmentir pela origem (só o número de clientes, que não batia).
+ *
+ * O segredo é o mesmo e ROTACIONA a cada boot do backend — uma sessão externa
+ * aberta antes de um restart para de funcionar até reapontar pro arquivo.
+ */
+const CONFIG_MCP_EXTERNO = path.join(SQLITE_DIR, 'claude-mcp-externo.json');
+
 function urlInterna() {
   // `HOST` pode ser 0.0.0.0 em dev (APP_HOST) — o filho tem que discar num IP
   // conectável, não no coringa de bind.
@@ -87,6 +103,12 @@ function garantirConfigMcp(origem) {
   };
   fs.mkdirSync(path.dirname(CONFIG_MCP), { recursive: true });
   fs.writeFileSync(CONFIG_MCP, JSON.stringify(config, null, 2), { mode: 0o600 });
+
+  // Gêmea pra uso externo, com origem própria — ver CONFIG_MCP_EXTERNO.
+  const externo = JSON.parse(JSON.stringify(config));
+  externo.mcpServers[CLAUDE_MCP_SERVER].env.CARTEIRA_IA_ORIGEM = 'mcp-externo';
+  fs.writeFileSync(CONFIG_MCP_EXTERNO, JSON.stringify(externo, null, 2), { mode: 0o600 });
+
   return CONFIG_MCP;
 }
 
@@ -300,5 +322,5 @@ async function diagnostico() {
 
 module.exports = {
   conversar, gerarJSON, diagnostico, rodarCli, montarPromptConversa,
-  SEGREDO_INTERNO, CONFIG_MCP,
+  SEGREDO_INTERNO, CONFIG_MCP, CONFIG_MCP_EXTERNO,
 };

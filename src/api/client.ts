@@ -477,6 +477,8 @@ export interface StatusMcpClaude {
   prefixo: string;
   cwd: string;
   arquivoConfig: string;
+  /** Config paralela pra plugar as ferramentas num cliente MCP próprio (origem própria no log). */
+  arquivoConfigExterno: string;
   timeoutSegundos: number;
   modelos: string[];
   ferramentas: FerramentaMcp[];
