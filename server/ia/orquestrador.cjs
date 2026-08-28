@@ -4,6 +4,7 @@ const ollamaClient = require('./ollamaClient.cjs');
 const { FERRAMENTAS } = require('./tools.cjs');
 const { MAX_ITERACOES_FERRAMENTA } = require('./normas.cjs');
 const { registrarUso } = require('./uso.cjs');
+const { isClient } = require('../modo.cjs');
 
 const FERRAMENTAS_POR_NOME = new Map(FERRAMENTAS.map((f) => [f.name, f]));
 
@@ -115,7 +116,19 @@ function descreverAcao(ferramenta, argumentos, resultado) {
   }
 }
 
+/**
+ * Grava o log de auditoria. Máquina em `APP_MODE=client` (as 3 remotas) não
+ * tem escrita direta no SQLite pra NENHUMA sheet fora da fila (Etapa 3+, ver
+ * `server/fila/entidades.cjs`) — e `AcoesIA` não está nela. Sem esta guarda,
+ * TODA chamada de ferramenta (ou seja, toda pergunta ao monitorIA que usa
+ * qualquer dado da carteira) derrubava o processo com "escrita direta no
+ * SQLite bloqueada" nas máquinas cliente — bug real, achado em produção.
+ * Até `AcoesIA` entrar na fila de verdade, auditoria de IA só persiste na
+ * máquina servidora (Karol-2D); nas remotas, silenciosamente não grava — a
+ * resposta ao usuário não pode depender disso.
+ */
 function registrarAcao(repo, { ferramenta, clientId, argumentos, resultado, origem, turnId, monitor }) {
+  if (isClient) return;
   const acoes = repo.get('AcoesIA');
   acoes.push({
     id: crypto.randomUUID(),

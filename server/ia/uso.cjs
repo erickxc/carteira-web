@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { isClient } = require('../modo.cjs');
 
 /**
  * Registra o consumo de UMA pergunta (um turno de `conversar()`), nos dois
@@ -13,11 +14,16 @@ const crypto = require('crypto');
  * Não é a mesma pergunta que "quanto falta pra resetar", mas é o dado que
  * existe de fato.
  */
+// Mesma guarda de `orquestrador.registrarAcao` — `UsoIA` também não está na
+// fila (server/fila/entidades.cjs). Nas máquinas cliente, o consumo dessa
+// máquina simplesmente não fica registrado até isso ser resolvido; não pode
+// derrubar a resposta do chat/análise por causa disso.
 function registrarUso(repo, {
   origem, provedor, modelo, turnId,
   inputTokens = 0, outputTokens = 0, cacheCreationTokens = 0, cacheReadTokens = 0,
   custoUsd = null, duracaoMs, numFerramentas = 0, erro = false,
 }) {
+  if (isClient) return null;
   const usos = repo.get('UsoIA');
   const novo = {
     id: crypto.randomUUID(),

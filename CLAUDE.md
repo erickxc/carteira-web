@@ -163,6 +163,18 @@ E `GET /api/ia/padroes` (rota separada, `gerarPadroesCarteira`) é **padrão de 
 
 **Cuidado ao testar isto**: os dois alertas de dossiê chamam `lerDossieCliente`, que lê arquivo em `DOSSIES_DIR` — **não tem override próprio**, deriva de `ONEDRIVE_ROOT` (`DATA_DIR = ONEDRIVE_ROOT + 'Carteira Web'`, `DOSSIES_DIR = DATA_DIR + 'dossies'`). Testar sem isolar `ONEDRIVE_ROOT` (e `require` fresco dos módulos, mesmo padrão de `dbSqlite.test.ts`) escreve no dossiê REAL da máquina — aconteceu durante o desenvolvimento disto, com um id de teste que por sorte não colidia com cliente real, mas o arquivo ficou órfão na pasta de produção até ser notado e apagado manualmente.
 
+### IA e máquinas cliente (multi-máquina): 4 sheets ficaram fora da fila
+
+Bug de produção grave: em `APP_MODE=client` (as máquinas remotas — ver seção "Deploy" e `server/fila/`), **qualquer** pergunta ao monitorIA ou uso do MCP derrubava com `"escrita direta no SQLite bloqueada em APP_MODE=client"`. Causa: `AcoesIA`, `UsoIA`, `MemoriaIA` e a sincronização de `AnalisesIA` (ver seção acima) escrevem via `repo.save`/`repo.update` **direto**, e nenhuma das quatro está em `server/fila/entidades.cjs` — a guarda de `dbSqlite.cjs` (`proibirEscritaEmModoCliente`) bloqueia isso incondicionalmente, por design (é o que impede um bug numa rota de furar a arquitetura de fila). `AcoesIA` tinha esse problema desde sempre (não é regressão desta sessão); `UsoIA`/`MemoriaIA`/o sync de `AnalisesIA` são writes novos que repetiram o mesmo erro.
+
+**Mitigação aplicada** (não é a solução definitiva — só interrompe o crash):
+
+- `registrarAcao` (auditoria) e `registrarUso` (consumo) viram **no-op silencioso** em `isClient` — a resposta ao usuário não pode depender de bookkeeping. Nas máquinas remotas, hoje, **auditoria e consumo de IA simplesmente não persistem**.
+- `registrar_memoria`/`remover_memoria` **falham com erro claro** em vez de fingir sucesso — dizer "gravei" sem ter gravado seria pior que recusar.
+- A sincronização de `AnalisesIA.sugestaoProximaPauta` (dossiê→sheet) é pulada em `isClient`; o dossiê em si (arquivo, `fs`, sem guarda de SQLite) continua gravando normalmente em qualquer máquina.
+
+**Dívida real, não resolvida**: pra essas 4 sheets funcionarem de verdade em máquina cliente, precisam entrar na fila (`server/fila/entidades.cjs` + um módulo de domínio cada, mesmo padrão de `dominio/clientes.cjs`/`agenda.cjs`). Enquanto isso não acontece, o monitorIA nas máquinas remotas funciona pra CONSULTA e CRIAÇÃO de evento/lembrete (que já usam a fila via `executarMutacao`), mas sem log de auditoria, sem consumo registrado, e sem gravar memória geral.
+
 ### Dossiê (arquivo) e AnalisesIA (sheet) são DUAS fontes — mantidas em sincronia num campo
 
 Bug de produção: `corrigir_dossie_cliente` só reescrevia o arquivo do dossiê. A ficha do cliente (`AnaliseIACard`) e o dashboard leem `AnalisesIA.sugestaoProximaPauta`/`resumo`/`nivelRisco` — um campo **separado**, gerado só pela análise automática. Usuário confirmava "a reunião já aconteceu, atualiza a pauta" pelo chat, o agente confirmava, o dossiê mudava — e a ficha do cliente continuava mostrando a pauta antiga, porque lia a outra fonte.
