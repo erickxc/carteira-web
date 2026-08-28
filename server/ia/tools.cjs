@@ -1,5 +1,5 @@
 const { executarMutacao } = require('../fila/mutacao.cjs');
-const { lerDossieCliente, corrigirDossieCliente } = require('./analisesAutomaticas.cjs');
+const { lerDossieCliente, corrigirDossieCliente, gerarAnalisesPendentes } = require('./analisesAutomaticas.cjs');
 const { TEMPLATE_DOSSIE } = require('./analiseCliente.cjs');
 const {
   calcularAderencia, listaJSON, buscarVencendo, buscarCobertura, buscarCoberturaServicos, buscarAlertasSemAcompanhamento,
@@ -167,6 +167,32 @@ function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo
  * id, não pra ele "lembrar" (memória que só existe atrás de uma chamada de
  * ferramenta é memória que o modelo esquece de consultar).
  */
+/**
+ * Reprocessa a análise de um cliente do zero (`forcar`), sem esperar um evento
+ * novo — é como se recupera uma ata escrita depois da reunião, que o gatilho
+ * automático não enxerga por si (ver `eventosParaAnalisar`).
+ *
+ * Assíncrona: chama o modelo. É a única ferramenta que faz isso — as outras
+ * são consulta ou escrita direta. O orquestrador já dá `await` no resultado
+ * de `executar`, então funciona nos dois provedores.
+ */
+async function reanalisarCliente(repo, { clientId } = {}) {
+  if (!clientId) throw new Error('reanalisar_cliente: "clientId" é obrigatório.');
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
+  if (!cliente) throw new Error(`reanalisar_cliente: cliente "${clientId}" não encontrado.`);
+
+  const processados = await gerarAnalisesPendentes({ repo, apenasClientId: clientId, forcar: true });
+  if (!processados) return { ok: false, motivo: 'Nenhuma reunião concluída/cancelada com conteúdo pra analisar.' };
+
+  const analise = repo.get('AnalisesIA').find((a) => String(a.clientId) === String(clientId));
+  return {
+    ok: true,
+    empresa: cliente.empresa,
+    nivelRisco: analise?.nivelRisco ?? null,
+    dossie: lerDossieCliente(clientId),
+  };
+}
+
 function buscarOpcoesEvento(repo) {
   return {
     monitor: opcoesDe(repo, 'monitor'),
@@ -418,6 +444,30 @@ function buscarContatosCliente(repo, { clientId }) {
  * nenhuma ferramenta pra responder. Mais recente primeiro, teto de 15 pelo
  * mesmo motivo do teto de `buscar_registros_produto` (não estourar o prompt).
  */
+/**
+ * Tarefas combinadas numa ata, no formato que a ata gerada usa:
+ * `Responsável: ação`, uma por linha, na seção de tarefas.
+ *
+ * Extrai como DADO ESTRUTURADO (responsável separado da ação, com a data da
+ * reunião) em vez de deixar o modelo garimpar em 6 mil caracteres de texto —
+ * assim ele consegue comparar o combinado com o que aconteceu depois e dizer
+ * o que virou ação e o que ficou parado, que é o valor real. Não inventa
+ * status: se a tarefa foi cumprida ou não, isso o sistema não sabe; quem
+ * julga é o agente com o resto do contexto (eventos posteriores, lembretes).
+ */
+function tarefasDaAta(ata, dataEvento) {
+  const texto = String(ata ?? '');
+  const secao = texto.match(/Tarefas?\s*:?([\s\S]*?)(?:Perguntas-chave|Bloco de Notas|\d\.\s*DECIS|\d\.\s*PR[ÓO]XIMOS|Ata gerada|$)/i);
+  if (!secao) return [];
+  return secao[1].split('\n')
+    .map((l) => l.trim())
+    .map((l) => l.match(/^([A-Za-zÀ-ÿ][\wÀ-ÿ .'-]{1,40}?)\s*:\s*(.+)$/))
+    .filter(Boolean)
+    // Linha muito curta não é tarefa (título de subseção, sobra de parsing).
+    .filter((m) => m[2].trim().length > 12)
+    .map((m) => ({ responsavel: m[1].trim(), acao: m[2].trim(), combinadoEm: String(dataEvento ?? '').slice(0, 10) }));
+}
+
 function buscarHistoricoEventos(repo, { clientId, limite }) {
   if (!clientId) throw new Error('buscar_historico_eventos: "clientId" é obrigatório.');
   const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
@@ -438,6 +488,8 @@ function buscarHistoricoEventos(repo, { clientId, limite }) {
       // Arquivos anexados à reunião (PDF, planilha, foto do que foi discutido
       // etc.) — `url` é caminho relativo à raiz do app, servido estaticamente.
       anexos: listaJSON(a.attachments).map((x) => ({ nome: x.originalName || x.filename, url: `/uploads/${x.filename}` })),
+      // O que ficou COMBINADO nessa reunião, já separado por responsável.
+      tarefas: tarefasDaAta(a.ata, a.date),
     }));
 
   return { ...identidadeCliente(cliente), eventos };
@@ -675,6 +727,12 @@ const FERRAMENTAS = [
     executar: buscarClientes,
   },
   {
+    name: 'reanalisar_cliente',
+    description: 'Recalcula a análise de risco e o dossiê de UM cliente lendo as atas do zero. Use quando a ata foi escrita/corrigida DEPOIS da reunião e o dossiê ficou defasado — o caso mais comum, já que a ata costuma ser preenchida ao final. Custa uma chamada ao modelo por cliente, então rode a pedido, um de cada vez, nunca a carteira toda de uma vez.',
+    parameters: { type: 'object', properties: { clientId: { type: 'string' } }, required: ['clientId'] },
+    executar: reanalisarCliente,
+  },
+  {
     name: 'buscar_opcoes_evento',
     description: 'Devolve os valores VÁLIDOS de monitor, serviço, sala, tipo de evento e tipo de lembrete, como estão cadastrados em Configurações. Use antes de criar evento/lembrete quando não tiver certeza do nome exato — o cadastro é editável, então não confie em memória.',
     parameters: { type: 'object', properties: {} },
@@ -722,7 +780,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_historico_eventos',
-    description: 'Devolve o histórico de eventos da agenda de um cliente, mais recente primeiro — incluindo o TEXTO COMPLETO da ata de cada reunião (campo "ata", não um resumo) e os arquivos anexados a ela (campo "anexos", com nome e link). Use pra "quando foi a última reunião", "quantos eventos tivemos", "o que ficou combinado na ata de tal dia", "tem algum arquivo anexado nessa reunião", ou qualquer pergunta sobre histórico/conteúdo de agenda que buscar_dossie_cliente/buscar_registros_produto não cobrem.',
+    description: 'Devolve o histórico de eventos da agenda de um cliente, mais recente primeiro — incluindo o TEXTO COMPLETO da ata de cada reunião (campo "ata", não um resumo), os arquivos anexados (campo "anexos") e o que ficou COMBINADO nela (campo "tarefas": responsável + ação + data). Use "tarefas" pra avaliar o que foi acordado e ainda não virou reunião/lembrete — mas NÃO afirme que uma tarefa foi ou não cumprida: o sistema não guarda isso; conclua a partir de eventos posteriores, lembretes existentes e do dossiê, e diga em que está se baseando. Use pra "quando foi a última reunião", "quantos eventos tivemos", "o que ficou combinado na ata de tal dia", "tem algum arquivo anexado nessa reunião", ou qualquer pergunta sobre histórico/conteúdo de agenda que buscar_dossie_cliente/buscar_registros_produto não cobrem.',
     parameters: {
       type: 'object',
       properties: { clientId: { type: 'string' }, limite: { type: 'number', description: 'Máximo de eventos, padrão e teto 15.' } },

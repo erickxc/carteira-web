@@ -158,12 +158,20 @@ describe('schema das ferramentas x implementação', () => {
    * precisa falhar de forma explícita quando ele não vem — se devolvesse algo
    * vazio em silêncio, o agente concluiria "esse cliente não tem nada".
    */
-  it('ferramenta que exige clientId falha claro quando ele não vem', () => {
+  it('ferramenta que exige clientId falha claro quando ele não vem', async () => {
     const repoVazio = { get: () => [], save: () => {}, update: () => null, delete: () => false };
     const comClientId = FERRAMENTAS.filter((f) => (f.parameters?.required ?? []).includes('clientId'));
     expect(comClientId.length).toBeGreaterThan(0);
     for (const f of comClientId) {
-      expect(() => f.executar(repoVazio, {}), `${f.name} não reclamou de clientId ausente`).toThrow();
+      // `reanalisar_cliente` é async (chama o modelo) — rejeita em vez de
+      // lançar síncrono. O contrato que importa é o mesmo: falhar explícito.
+      let falhou = false;
+      try {
+        await f.executar(repoVazio, {});
+      } catch {
+        falhou = true;
+      }
+      expect(falhou, `${f.name} não reclamou de clientId ausente`).toBe(true);
     }
   });
 });

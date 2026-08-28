@@ -106,6 +106,40 @@ function corrigirDossieCliente({ clientId, empresa, nivelRisco, corpoNovo }) {
  * 1 cliente — mesmo padrão de `relatoriosAutomaticos.gerarRelatoriosPendentes`,
  * útil pra validar o fluxo manualmente sem rodar a carteira inteira.
  */
+/**
+ * Impressão digital do conteúdo de uma ata. Curta de propósito: o que importa
+ * é detectar MUDANÇA, não guardar o texto (que já vive na Agenda).
+ */
+function hashAta(texto) {
+  return crypto.createHash('sha1').update(String(texto ?? '')).digest('hex').slice(0, 12);
+}
+
+/** `{ eventoId: hashDaAta }` dos eventos relevantes de um cliente. */
+function assinaturaAtas(eventos) {
+  const mapa = {};
+  for (const ev of eventos) mapa[String(ev.id)] = hashAta(ev.ata);
+  return mapa;
+}
+
+/**
+ * Eventos que a análise ainda não viu NO ESTADO ATUAL: novos, ou já conhecidos
+ * porém com a ata mudada desde a última rodada (preenchida depois da reunião,
+ * corrigida, complementada).
+ */
+function eventosParaAnalisar(eventosRelevantes, analiseAnterior) {
+  const desde = analiseAnterior?.ultimoEventoAnalisadoData ? new Date(analiseAnterior.ultimoEventoAnalisadoData) : null;
+  const jaLidas = analiseAnterior?.atasAnalisadas ?? null;
+
+  return eventosRelevantes.filter((ev) => {
+    if (!desde || new Date(ev.date) > desde) return true;
+    // Sem mapa (análise anterior ao campo existir): não reprocessa o passado
+    // inteiro sozinho — seria uma enxurrada de chamadas ao modelo sem ninguém
+    // pedir. O backlog é resolvido sob demanda (`apenasClientId`).
+    if (!jaLidas) return false;
+    return jaLidas[String(ev.id)] !== hashAta(ev.ata);
+  });
+}
+
 async function gerarAnalisesPendentes(opts = {}) {
   const repo = opts.repo || repoPlanilha();
   const apenasClientId = opts.apenasClientId;
@@ -120,18 +154,25 @@ async function gerarAnalisesPendentes(opts = {}) {
       const analiseAnterior = analises.find((a) => String(a.clientId) === String(cliente.id));
       const desde = analiseAnterior?.ultimoEventoAnalisadoData ? new Date(analiseAnterior.ultimoEventoAnalisadoData) : null;
 
-      const eventosCliente = agenda.filter((a) => String(a.clientId) === String(cliente.id));
-      const eventosNovos = eventosCliente
+      const eventosRelevantes = agenda
+        .filter((a) => String(a.clientId) === String(cliente.id))
         .filter((a) => EVENTO_RELEVANTE.test(a.status || ''))
-        .filter((a) => !desde || new Date(a.date) > desde)
         .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      // `forcar` (usado pelo "reanalisar este cliente") ignora o que já foi
+      // lido e reprocessa o histórico relevante inteiro — é como se recupera
+      // uma ata escrita depois, sem esperar um evento novo.
+      const eventosNovos = opts.forcar ? eventosRelevantes : eventosParaAnalisar(eventosRelevantes, analiseAnterior);
 
       if (eventosNovos.length === 0) continue;
 
       const dossieAnterior = lerDossieCliente(cliente.id);
       const resultado = await gerarAnaliseIA({ cliente, eventosNovos, dossieAnterior, ollama: opts.ollama });
 
-      const ultimoEventoAnalisadoData = eventosNovos[eventosNovos.length - 1].date;
+      // Data do evento mais recente CONHECIDO (não só dos reprocessados): se
+      // a reanálise foi disparada por uma ata antiga, manter a data do evento
+      // antigo faria toda rodada seguinte reprocessar os eventos no meio.
+      const ultimoEventoAnalisadoData = eventosRelevantes[eventosRelevantes.length - 1].date;
       const dossieCompleto = montarDossieCompleto({
         empresa: cliente.empresa,
         nivelRisco: resultado.nivelRisco,
@@ -148,6 +189,7 @@ async function gerarAnalisesPendentes(opts = {}) {
         fatores: resultado.fatores,
         sugestaoProximaPauta: resultado.sugestaoProximaPauta,
         ultimoEventoAnalisadoData,
+        atasAnalisadas: assinaturaAtas(eventosRelevantes),
         geradoEm: new Date().toISOString(),
       };
 
@@ -164,4 +206,4 @@ async function gerarAnalisesPendentes(opts = {}) {
   return processados;
 }
 
-module.exports = { gerarAnalisesPendentes, lerDossieCliente, corrigirDossieCliente };
+module.exports = { gerarAnalisesPendentes, lerDossieCliente, corrigirDossieCliente, eventosParaAnalisar, assinaturaAtas, hashAta };

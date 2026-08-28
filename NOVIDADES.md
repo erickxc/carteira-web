@@ -8,6 +8,16 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.3.2
+
+- Corrigido: ata escrita DEPOIS de concluir a reunião (o fluxo normal) nunca
+  chegava ao dossiê — a análise só reagia a reunião nova, não a ata nova. Na
+  base havia 38 de 45 atas nessa situação.
+- O agente passa a ler o que ficou COMBINADO em cada ata (responsável +
+  ação), o que permite cobrar o que não virou reunião nem lembrete.
+- Peça ao agente para "reanalisar" um cliente e ele reprocessa as atas do
+  zero, sem esperar uma reunião nova.
+
 ## 1.3.1
 
 - Barras de rolagem com o visual do sistema em todas as telas — antes só

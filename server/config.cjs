@@ -306,7 +306,12 @@ const AGIL_COMENTARIOS_HEADERS = ['id', 'tarefaId', 'autor', 'texto', 'createdAt
 // noutras entidades). ultimoEventoAnalisadoData marca até onde a Agenda já
 // foi lida — a próxima rodada só reprocessa o cliente se houver evento
 // concluído/cancelado/reagendado mais recente que essa data.
-const ANALISES_IA_HEADERS = ['id', 'clientId', 'nivelRisco', 'resumo', 'fatores', 'sugestaoProximaPauta', 'ultimoEventoAnalisadoData', 'geradoEm'];
+// `atasAnalisadas`: mapa `{ eventoId: hashDaAta }` do que a última análise de
+// fato LEU. Sem ele o gatilho era só `data do evento > última analisada` — e
+// ata preenchida DEPOIS da reunião (o fluxo normal: conclui, depois escreve)
+// nunca disparava reanálise. Efeito real medido na base: 38 de 45 atas
+// escritas jamais chegaram ao dossiê.
+const ANALISES_IA_HEADERS = ['id', 'clientId', 'nivelRisco', 'resumo', 'fatores', 'sugestaoProximaPauta', 'ultimoEventoAnalisadoData', 'geradoEm', 'atasAnalisadas'];
 // Log de auditoria de toda ação que o agente de IA executa de verdade (criar
 // evento, criar lembrete etc.) — argumentos/resultado como JSON string.
 // origem: 'chat' (usuário pediu) ou 'analise_semanal' (futuro uso automático).
