@@ -11,6 +11,7 @@ import { clienteStatusBadge, isGratuidade } from '../utils/badges';
 import { toastError, toastSuccess } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
+import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
 import { Dropdown } from '../components/Dropdown';
 import { Badge, Button, Card, Td, Th } from '../ui';
 import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
@@ -221,6 +222,8 @@ export default function ClientesPage() {
           </Button>
         </div>
       </div>
+
+      <PainelCadastroAlvos />
 
       {/* Barra de filtros */}
       <Card flat className="mb-4">

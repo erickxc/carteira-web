@@ -539,6 +539,86 @@ export interface PadraoCarteira {
 
 export const buscarPadroesCarteira = () => request<PadraoCarteira[]>('/ia/padroes');
 
+// --- Dados Alvos: dashboard de cadastro (/clientes) ---
+
+/** Estado do vínculo loja↔cliente — ver server/alvos/estado.cjs. */
+export type EstadoAlvosCliente = 'ok' | 'sem_vinculo' | 'vinculo_quebrado';
+
+export interface LinhaCadastroAlvos {
+  clientId: string;
+  empresa: string;
+  estadoAlvos: EstadoAlvosCliente;
+  motivo: string | null;
+  semLocal: boolean;
+}
+
+export interface ResumoCadastroAlvos {
+  total: number;
+  ok: number;
+  sem_vinculo: number;
+  vinculo_quebrado: number;
+  semLocal: number;
+}
+
+export const buscarCadastroAlvos = () =>
+  request<{ resumo: ResumoCadastroAlvos; linhas: LinhaCadastroAlvos[] }>('/alvos/cadastro');
+
+export interface AlertaAlvos {
+  id: string;
+  tipo: 'alvos_vinculo_quebrado' | 'alvos_acompanhamento';
+  severidade: SeveridadeAlerta;
+  titulo: string;
+  detalhe: string;
+  clientId: string;
+  cliente: string;
+  monitor: string | null;
+  pergunta: string;
+}
+
+export const buscarAlertasAlvos = () => request<AlertaAlvos[]>('/alvos/alertas');
+
+export const buscarEmpresasAlvos = () => request<string[]>('/alvos/empresas');
+
+export interface CandidatoVinculoAlvos {
+  clientId: string;
+  empresa: string;
+  pontos: number;
+  confianca: 'alta' | 'media' | 'baixa';
+  motivo: string;
+}
+
+export interface LojaVinculoAlvos {
+  loja: string;
+  receita: number;
+  vinculado: string | null;
+  sugestao: CandidatoVinculoAlvos | null;
+  candidatos: CandidatoVinculoAlvos[];
+  ambiguo: boolean;
+}
+
+export const buscarSugestoesVinculo = (empresa: string, forcar?: boolean) =>
+  request<LojaVinculoAlvos[]>(`/alvos/sugestoes/${encodeURIComponent(empresa)}${forcar ? '?forcar=1' : ''}`);
+
+export const vincularLojaAlvos = (empresa: string, loja: string, clientId: string | null) =>
+  request<{ success: true }>('/alvos/vinculo', { method: 'POST', body: JSON.stringify({ empresa, loja, clientId }) });
+
+export interface CatalogoAlvosCliente {
+  disponivel: boolean;
+  estado?: EstadoAlvosCliente | 'dados_nao_carregados';
+  motivo?: string | null;
+  pendentes?: string[];
+  produtos: string[];
+  clientes: string[];
+}
+
+/**
+ * `aquecer`: só passe `true` a partir da FICHA do cliente (ao abrir a página) —
+ * pode custar ~20s se o cache estiver frio. O seletor do formulário de reunião
+ * nunca deve aquecer: usa o resultado como veio, disponível ou não.
+ */
+export const buscarCatalogoAlvos = (clientId: string, aquecer?: boolean) =>
+  request<CatalogoAlvosCliente>(`/alvos/catalogo/${clientId}${aquecer ? '?aquecer=1' : ''}`);
+
 // --- Consumo de IA (tokens/custo por pergunta) ---
 
 export interface FerramentaDoTurno {

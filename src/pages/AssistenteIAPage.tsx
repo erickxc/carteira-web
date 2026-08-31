@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useLocation } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { Bot, Check, ChevronRight, History, Loader2, Plus, Send } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
@@ -88,6 +89,7 @@ const SUGESTOES: { titulo: string; pergunta: string }[] = [
  */
 export default function AssistenteIAPage() {
   const { clientes, filtroMonitor } = useCarteira();
+  const location = useLocation();
   // Cliente em foco também persiste: voltar pra tela com a conversa de um
   // cliente mas o seletor zerado faria a próxima pergunta perder o contexto.
   const [clienteId, setClienteId] = usePersistedState('assistenteIA:clienteId', '');
@@ -200,6 +202,23 @@ export default function AssistenteIAPage() {
       setEnviando(false);
     }
   }
+
+  /**
+   * Entrada vinda de OUTRA página (hoje: cartão de alerta do painel de
+   * cadastro em `/clientes`), via `navigate('/assistente', { state: {...} })`
+   * — mesmo mecanismo já usado por "Novo Evento"/"Novo Lembrete" na Agenda.
+   * Depende de `location.key`, não de `[]`: navegar de novo pra cá com uma
+   * pergunta diferente, com a rota já montada, não dispararia o efeito
+   * (bug real já visto em AgendaPage por causa disso).
+   */
+  useEffect(() => {
+    const estado = location.state as { clientId?: string; pergunta?: string } | null;
+    if (!estado?.pergunta) return;
+    if (estado.clientId) setClienteId(estado.clientId);
+    enviarPergunta(estado.pergunta);
+    window.history.replaceState({}, '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
 
   return (
     <div className="page-container">

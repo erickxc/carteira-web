@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
@@ -20,6 +20,7 @@ import type { TimelineFiltro, TimelineItem } from '../utils/timelineCliente';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { Badge, Button, Card, Textarea } from '../ui';
 import { CLIENTE_ESTADO_OPCOES, type Contato, type EventoAgenda } from '../types';
+import { buscarCatalogoAlvos } from '../api/client';
 
 export default function ClienteDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -41,6 +42,20 @@ export default function ClienteDetailPage() {
   // render, e o compilador do React não consegue provar que memos que dependem
   // de `cliente?.algumCampo` (ex.: lojasDoGrupo) são estáveis.
   const cliente = useMemo(() => clientes.find((c) => c.id === id), [clientes, id]);
+
+  /**
+   * Aquece o cache dos Dados Alvos deste cliente ao abrir a ficha —
+   * silenciosamente, sem bloquear nada na tela. É o único lugar do app onde
+   * vale pagar o custo de ler o xlsx (até ~20s em arquivo grande): faz isso
+   * ANTES do monitor abrir o formulário de reunião, cujo seletor de
+   * produto/cliente nunca aquece por conta própria (ver server/alvos/consulta.cjs).
+   * Resultado descartado de propósito — só o efeito colateral (cache gravado
+   * em disco) importa aqui.
+   */
+  useEffect(() => {
+    if (!id) return;
+    buscarCatalogoAlvos(id, true).catch(() => { /* integração opcional — falha aqui não afeta a ficha */ });
+  }, [id]);
 
   const [observacao, setObservacao] = useState(cliente?.observacao ?? '');
   const [salvandoObs, setSalvandoObs] = useState(false);
@@ -209,6 +224,7 @@ export default function ClienteDetailPage() {
               {cliente.grupo && (
                 <Badge variant="warning">Grupo: {cliente.grupo}</Badge>
               )}
+              {cliente.local && <Badge variant="muted">{cliente.local}</Badge>}
             </div>
           </div>
           <div className="flex-row">
