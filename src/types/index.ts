@@ -1,5 +1,5 @@
 // --- Categorias (CRUD editável) ---
-export type CategoriaTipo = 'servico' | 'tipo_evento' | 'status_cliente' | 'status_evento' | 'monitor' | 'tipo_lembrete' | 'sala' | 'prioridade_tarefa';
+export type CategoriaTipo = 'servico' | 'tipo_evento' | 'status_cliente' | 'status_evento' | 'monitor' | 'tipo_lembrete' | 'sala' | 'prioridade_tarefa' | 'local_cliente';
 
 export const CATEGORIA_TIPO_LABEL: Record<CategoriaTipo, string> = {
   servico: 'Serviços',
@@ -10,6 +10,7 @@ export const CATEGORIA_TIPO_LABEL: Record<CategoriaTipo, string> = {
   tipo_lembrete: 'Tipos de lembrete',
   sala: 'Salas de reunião',
   prioridade_tarefa: 'Prioridades de tarefa (Ágil)',
+  local_cliente: 'Local do cliente',
 };
 
 export interface Categoria {
@@ -84,6 +85,14 @@ export interface Cliente {
   status: string;
   /** Pessoas de contato do cliente (nome, cargo, telefone). */
   contatos?: Contato[];
+  /**
+   * Segmento do cliente (Indústria, Autopeça, Oficina, ...) — valores
+   * editáveis em Configurações (categoria `local_cliente`), mesmo padrão de
+   * `status`/`servicos`. Não confundir com `sala` (local de REUNIÃO): este é
+   * o tipo de negócio do cliente, usado como contexto na análise/dossiê e
+   * exposto ao agente na conversa.
+   */
+  local?: string;
   /** Análise unitária (empresa toda) ou segmentada (por loja). */
   tipoAnalise?: TipoAnalise;
   /**

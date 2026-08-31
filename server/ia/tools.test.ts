@@ -33,6 +33,8 @@ const MODULOS = [
   '../dominio/sugestaoAgenda.cjs', '../dominio/feriados.cjs', '../ceoAgenda.cjs',
   './tools.cjs', './analisesAutomaticas.cjs', './analiseCliente.cjs', './ollamaClient.cjs',
   '../fila/mutacao.cjs', '../dominio/agenda.cjs', '../dominio/lembretes.cjs',
+  '../alvos/leitor.cjs', '../alvos/cache.cjs', '../alvos/mapa.cjs', '../alvos/estado.cjs',
+  '../alvos/entidades.cjs', '../alvos/movimento.cjs', '../alvos/acompanhamento.cjs', '../alvos/consulta.cjs',
 ];
 
 function limparCaches() {
@@ -41,11 +43,15 @@ function limparCaches() {
   }
 }
 
+let tmpAlvos: string;
+
 beforeEach(() => {
   tmpOneDrive = fs.mkdtempSync(path.join(os.tmpdir(), 'carteira-tools-od-'));
   tmpSqlite = fs.mkdtempSync(path.join(os.tmpdir(), 'carteira-tools-sq-'));
+  tmpAlvos = fs.mkdtempSync(path.join(os.tmpdir(), 'carteira-tools-alvos-'));
   process.env.ONEDRIVE_ROOT = tmpOneDrive;
   process.env.SQLITE_DIR = tmpSqlite;
+  process.env.ALVOS_DIR = tmpAlvos;
   limparCaches();
   ({ repoMemoria } = require('../dominio/repo.cjs'));
   ({ FERRAMENTAS } = require('./tools.cjs'));
@@ -55,9 +61,11 @@ beforeEach(() => {
 afterEach(() => {
   delete process.env.ONEDRIVE_ROOT;
   delete process.env.SQLITE_DIR;
+  delete process.env.ALVOS_DIR;
   limparCaches();
   fs.rmSync(tmpOneDrive, { recursive: true, force: true });
   fs.rmSync(tmpSqlite, { recursive: true, force: true });
+  fs.rmSync(tmpAlvos, { recursive: true, force: true });
 });
 
 const tool = (nome: string) => {
@@ -94,7 +102,7 @@ function escreverDossie(clientId: string, slug: string, corpo: string) {
 // ---------------------------------------------------------------------------
 describe('catálogo de ferramentas', () => {
   it('1. expõe exatamente as 27 ferramentas esperadas', () => {
-    expect(FERRAMENTAS).toHaveLength(27);
+    expect(FERRAMENTAS).toHaveLength(29);
   });
 
   it('2. nenhum nome de ferramenta duplicado', () => {
@@ -166,6 +174,34 @@ describe('buscar_clientes', () => {
     const repo = repoBase({ Clientes: [clienteBase({ empresa: 'Rede X - Filial Norte', grupo: 'Rede X' })] });
     const [r] = exec('buscar_clientes', repo);
     expect(r).toMatchObject({ grupo: 'Rede X', loja: 'Filial Norte' });
+  });
+
+  it('11b. expõe o segmento (campo Local) quando cadastrado, null quando não', () => {
+    const repo = repoBase({ Clientes: [clienteBase({ local: 'Autopeça' })] });
+    expect(exec('buscar_clientes', repo)[0]).toMatchObject({ local: 'Autopeça' });
+    expect(exec('buscar_clientes', repoBase())[0]).toMatchObject({ local: null });
+  });
+
+  it('11c. filtra por local (segmento), ignorando acento e maiúscula', () => {
+    const repo = repoBase({
+      Clientes: [
+        clienteBase({ id: 'a', local: 'Autopeça' }),
+        clienteBase({ id: 'b', local: 'Oficina' }),
+        clienteBase({ id: 'c' }),
+      ],
+    });
+    expect(exec('buscar_clientes', repo, { local: 'autopeca' })).toHaveLength(1);
+    expect(exec('buscar_clientes', repo, { local: 'AUTOPEÇA' })[0]).toMatchObject({ id: 'a' });
+  });
+
+  it('11d. filtro de local é igualdade exata, não substring — "atacado" não casa com outro valor que contenha o trecho', () => {
+    const repo = repoBase({ Clientes: [clienteBase({ id: 'a', local: 'Distribuidora/Atacado' })] });
+    expect(exec('buscar_clientes', repo, { local: 'atacado' })).toHaveLength(0);
+  });
+
+  it('11e. local não cadastrado não casa com filtro nenhum', () => {
+    const repo = repoBase({ Clientes: [clienteBase({ id: 'a' })] });
+    expect(exec('buscar_clientes', repo, { local: 'Autopeça' })).toHaveLength(0);
   });
 
   it('12. filtra por grupo (case-insensitive)', () => {
@@ -733,5 +769,107 @@ describe('corrigir_dossie_cliente: sincroniza AnalisesIA.sugestaoProximaPauta', 
   it('cliente sem AnalisesIA (nunca analisado) não quebra a correção do dossiê', () => {
     const repo = repoBase({ AnalisesIA: [] });
     expect(() => exec('corrigir_dossie_cliente', repo, { clientId: 'c1', dossie: DOSSIE('nova pauta') })).not.toThrow();
+  });
+});
+
+describe('buscar_fatos_alvos / definir_status_acompanhamento', () => {
+  /**
+   * Empresa pequena de teste, com o mesmo formato do arquivo real (colunas em
+   * PT, mês por nome, "Receita Acumulada 11 Meses" na verdade por linha) —
+   * grande o bastante para exercitar o cálculo de movimento, pequena o
+   * bastante para ler em milissegundos em vez dos ~20s do arquivo real.
+   */
+  function criarEmpresaDeTeste(clientId: string) {
+    const xlsx = require('xlsx');
+    const linha = (mes: string, receita: number, qtd: number, produto = 'Kit Amortecedor') => ({
+      ID_LOJA: 'loja_teste', NOME_CLIENTE: 'EDUARDO MECANICO (CM)', DESCRICAO_PRODUTO: produto,
+      ANO: 2026, 'MÊS': mes, CODIGO_INTERNO_PRODUTO: '1', CODIGO_REFERENCIA_PRODUTO: 'X',
+      NOME_FABRICANTE: 'FAB', 'Receita Acumulada 11 Meses': receita, QTD: qtd,
+    });
+    const linhas = [
+      linha('Março', 1000, 10), linha('Abril', 1000, 10), linha('Maio', 1000, 10),
+      linha('Julho', 1000, 10), linha('Agosto', 1000, 10),
+    ];
+    const { ALVOS_DIR, ALVOS_ARQUIVO } = require('../config.cjs');
+    const dir = path.join(ALVOS_DIR, 'Empresa Teste');
+    fs.mkdirSync(dir, { recursive: true });
+    const wb = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(linhas), 'Dados');
+    xlsx.writeFile(wb, path.join(dir, ALVOS_ARQUIVO));
+
+    const { vincular } = require('../alvos/mapa.cjs');
+    vincular('Empresa Teste', 'loja_teste', clientId);
+  }
+
+  function repoComEventoDeReuniao() {
+    return repoBase({
+      Agenda: [{
+        id: 'ev1', clientId: 'c1', date: '2026-06-12', status: 'Concluído',
+        ata: 'Combinado reduzir margem do Kit Amortecedor.',
+      }],
+    });
+  }
+
+  it('clientId ausente falha explícito', () => {
+    expect(() => exec('buscar_fatos_alvos', repoBase(), {})).toThrow(/clientId.*obrigatório/);
+  });
+
+  it('cliente sem vínculo não inventa número: devolve estado e motivo', () => {
+    const r = exec('buscar_fatos_alvos', repoComEventoDeReuniao(), { clientId: 'c1' });
+    expect(r.estado).toBe('sem_vinculo');
+    expect(r.acompanhamentos).toEqual([]);
+    expect(r.motivo).toMatch(/nenhuma loja/);
+  });
+
+  it('com vínculo e ata, mede o movimento desde a reunião', () => {
+    criarEmpresaDeTeste('c1');
+    const r = exec('buscar_fatos_alvos', repoComEventoDeReuniao(), { clientId: 'c1' });
+    expect(r.estado).toBe('ok');
+    expect(r.acompanhamentos).toHaveLength(1);
+    expect(r.acompanhamentos[0].entidade).toBe('Kit Amortecedor');
+    expect(r.acompanhamentos[0].combinadoEm).toBe('2026-06-12');
+    expect(r.acompanhamentos[0].veredicto).toBe('nao_movimentou');
+  });
+
+  it('cliente inexistente falha explícito, igual às outras ferramentas', () => {
+    expect(() => exec('buscar_fatos_alvos', repoBase(), { clientId: 'fantasma' })).toThrow(/não encontrado/);
+  });
+
+  it('definir_status_acompanhamento exige clientId, entidade e status', () => {
+    expect(() => exec('definir_status_acompanhamento', repoBase(), { entidade: 'X', status: 'em_curso' }))
+      .toThrow(/clientId.*obrigatório/);
+    expect(() => exec('definir_status_acompanhamento', repoBase(), { clientId: 'c1', status: 'em_curso' }))
+      .toThrow(/entidade.*obrigatório/);
+  });
+
+  it('recusa status fora do vocabulário', () => {
+    criarEmpresaDeTeste('c1');
+    expect(() => exec('definir_status_acompanhamento', repoBase(), {
+      clientId: 'c1', entidade: 'Kit Amortecedor', status: 'meio_resolvido',
+    })).toThrow(/status inválido/);
+  });
+
+  /**
+   * A mesma disciplina do resolverOpcao: nome que não existe no catálogo da
+   * loja não pode virar registro — geraria um acompanhamento que nenhum cálculo
+   * de movimento jamais encontra.
+   */
+  it('recusa entidade que não existe no catálogo da loja', () => {
+    criarEmpresaDeTeste('c1');
+    expect(() => exec('definir_status_acompanhamento', repoBase(), {
+      clientId: 'c1', entidade: 'Produto Que Não Existe', status: 'abandonado',
+    })).toThrow(/não existe no catálogo/);
+  });
+
+  it('grava o status e o próximo buscar_fatos_alvos reflete a decisão', () => {
+    criarEmpresaDeTeste('c1');
+    const r1 = exec('definir_status_acompanhamento', repoBase(), {
+      clientId: 'c1', entidade: 'Kit Amortecedor', status: 'abandonado', nota: 'sem verba este trimestre',
+    });
+    expect(r1.success).toBe(true);
+
+    const r2 = exec('buscar_fatos_alvos', repoComEventoDeReuniao(), { clientId: 'c1' });
+    expect(r2.acompanhamentos[0].status).toBe('abandonado');
+    expect(r2.acompanhamentos[0].alerta).toBe(false);
   });
 });

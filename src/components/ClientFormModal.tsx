@@ -22,6 +22,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const servicoOpcoes = opcoesPorTipo('servico');
   const statusOpcoes = [...CLIENTE_STATUS_OPCOES];
   const monitorOpcoes = opcoesPorTipo('monitor');
+  const localOpcoes = opcoesPorTipo('local_cliente');
   const editando = !!initial;
 
   const [empresa, setEmpresa] = useState(initial?.empresa ?? '');
@@ -32,6 +33,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const [status, setStatus] = useState(statusLegado ? 'Regular' : (initial?.status ?? 'Regular'));
   const [estado, setEstado] = useState(initial?.estado ?? (/^(ativ|gratuidade)/i.test(initial?.status ?? '') ? 'Ativo' : 'Inativo'));
   const [observacao, setObservacao] = useState(initial?.observacao ?? '');
+  const [local, setLocal] = useState(initial?.local ?? '');
   const [tipoAnalise, setTipoAnalise] = useState<TipoAnalise>(initial?.tipoAnalise ?? 'unitaria');
   const [lojas, setLojas] = useState<string[]>([]);
   const [novaLoja, setNovaLoja] = useState('');
@@ -89,30 +91,30 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
         const [primeira, ...resto] = lojasFinais;
         await atualizarCliente(initial.id, {
           empresa: `${grupo} - ${primeira}`, grupo, tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, estado, status, observacao, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, estado, status, observacao, local, relatorioCadencia,
         });
         if (resto.length > 0) {
           const novos: NovoCliente[] = resto.map((nome) => ({
             empresa: `${grupo} - ${nome}`,
             grupo,
             tipoAnalise: 'segmentado',
-            monitor, servicos, servicosIndependentes, estado, status, observacao, relatorioCadencia,
+            monitor, servicos, servicosIndependentes, estado, status, observacao, local, relatorioCadencia,
           }));
           await criarClientesEmLote(novos);
         }
       } else if (editando) {
-        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, tipoAnalise, relatorioCadencia });
+        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, tipoAnalise, relatorioCadencia });
       } else if (tipoAnalise === 'segmentado') {
         if (lojasFinais.length === 0) { toastError('Adicione ao menos uma loja para a análise segmentada.'); setSaving(false); return; }
         const novos: NovoCliente[] = lojasFinais.map((nome) => ({
           empresa: `${base} - ${nome}`,
           grupo: base,
           tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, estado, status, observacao, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, estado, status, observacao, local, relatorioCadencia,
         }));
         await criarClientesEmLote(novos);
       } else {
-        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, tipoAnalise: 'unitaria', relatorioCadencia });
+        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, tipoAnalise: 'unitaria', relatorioCadencia });
       }
       onClose();
     } catch (err) {
@@ -170,6 +172,15 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
             <Field label="Estado">
               <Select tone="modal" value={estado} onChange={(e) => setEstado(e.target.value)}>
                 {CLIENTE_ESTADO_OPCOES.map((e) => <option key={e} value={e}>{e}</option>)}
+              </Select>
+            </Field>
+
+            <Field label="Local">
+              <Select tone="modal" value={local} onChange={(e) => setLocal(e.target.value)}>
+                <option value="">Não informado</option>
+                {localOpcoes.map((l) => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
               </Select>
             </Field>
 

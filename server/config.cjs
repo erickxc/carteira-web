@@ -23,25 +23,41 @@ const os = require('os');
  * Só seta se a env ainda não existir (mesma precedência do `dotenv`: env real
  * do processo sempre vence o `.env`).
  */
+/**
+ * Aplica as linhas `CHAVE=valor` de um arquivo no estilo `.env` sobre
+ * `process.env`. Nunca sobrescreve chave que já exista (mesma precedência do
+ * `dotenv`). Devolve `false` se o arquivo não existir/não puder ser lido.
+ *
+ * `permitidas`, quando passado, restringe as chaves que o arquivo pode setar —
+ * usado no config COMPARTILHADO do OneDrive (ver `CONFIG_IA_COMPARTILHADO`
+ * abaixo), que mora numa pasta corporativa e não deve poder mexer em nada
+ * estrutural. `CARTEIRA_HOSTNAME_SERVIDOR` em especial: ela decide, em
+ * `server/modo.cjs`, se esta máquina é a dona do banco ou uma cliente da fila.
+ */
+function aplicarEnvDeArquivo(caminho, { permitidas } = {}) {
+  let conteudo;
+  try {
+    conteudo = fs.readFileSync(caminho, 'utf8');
+  } catch {
+    return false;
+  }
+  for (const linha of conteudo.split('\n')) {
+    const l = linha.trim();
+    if (!l || l.startsWith('#')) continue;
+    const i = l.indexOf('=');
+    if (i === -1) continue;
+    const chave = l.slice(0, i).trim();
+    const valor = l.slice(i + 1).trim();
+    if (!chave || chave in process.env) continue;
+    if (permitidas && !permitidas.includes(chave)) continue;
+    process.env[chave] = valor;
+  }
+  return true;
+}
+
 (function carregarEnv() {
   const candidatos = [path.join(__dirname, '..', '.env'), path.join(__dirname, '..', '..', '.env')];
-  for (const envPath of candidatos) {
-    let conteudo;
-    try {
-      conteudo = fs.readFileSync(envPath, 'utf8');
-    } catch {
-      continue;
-    }
-    for (const linha of conteudo.split('\n')) {
-      const l = linha.trim();
-      if (!l || l.startsWith('#')) continue;
-      const i = l.indexOf('=');
-      if (i === -1) continue;
-      const chave = l.slice(0, i).trim();
-      const valor = l.slice(i + 1).trim();
-      if (chave && !(chave in process.env)) process.env[chave] = valor;
-    }
-  }
+  for (const envPath of candidatos) aplicarEnvDeArquivo(envPath);
 })();
 
 // Em produção (Apache/XAMPP como proxy reverso), o Node só precisa ser
@@ -92,6 +108,27 @@ const CEO_AGENDA_OAUTH_TOKEN_PATH = process.env.CEO_AGENDA_OAUTH_TOKEN_PATH || p
 // Pasta onde cada reunião é gravada como .json (integração com outro sistema).
 const REUNIOES_DIR = path.join(DATA_DIR, 'reunioes_json');
 
+/**
+ * "Dados Alvos" — vendas por loja/cliente/produto/mês, geradas por OUTRO
+ * sistema (Ecossistema-Monitoria). Fonte SOMENTE LEITURA: nada aqui é escrito
+ * por este app, e o conteúdo NÃO entra no SQLite — é lido, agregado e cacheado.
+ *
+ * Fica FORA de `DATA_DIR` de propósito: é irmã de "6 - Erick" dentro de
+ * "01 - Marco + Monitores", não é dado da Carteira. Por isso o default sobe um
+ * nível a partir de `ONEDRIVE_ROOT`. Sobrescrevível por `ALVOS_DIR` no `.env`.
+ *
+ * Não faz `process.exit` se não existir: diferente da planilha do app, isto é
+ * integração opcional — sem a pasta, as telas que a consomem ficam vazias e o
+ * app sobe normalmente.
+ */
+const ALVOS_DIR = process.env.ALVOS_DIR
+  || path.join(ONEDRIVE_ROOT, '..', 'Ecossistema-Monitoria', 'Dados Alvos');
+// Nome do arquivo dentro da pasta de cada empresa — igual nas 4 pastas
+// verificadas. A ABA, ao contrário, varia ("Sheet1", "Dados", "Dados (2)") e no
+// Gomec a PRIMEIRA aba está vazia: por isso a aba é escolhida pelo conteúdo,
+// nunca pela posição (ver server/alvos/leitor.cjs).
+const ALVOS_ARQUIVO = 'Dados Mais Atacado.xlsx';
+
 // Falha alto e claro se o OneDrive não estiver sincronizado nesta máquina —
 // nunca cria essa árvore de pastas do zero, para não fingir estar "salvo no
 // OneDrive" quando na verdade é só uma pasta local desconectada da nuvem.
@@ -103,6 +140,30 @@ if (!fs.existsSync(ONEDRIVE_ROOT)) {
   process.exit(1);
 }
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+
+/**
+ * Config de IA COMPARTILHADO entre as máquinas, dentro do OneDrive (ao lado do
+ * banco). Existe para que uma máquina cliente nova (`APP_MODE=client`, ver
+ * `server/modo.cjs`) já nasça capaz de usar o monitorIA sem ninguém editar um
+ * `.env` nela à mão — sem `OLLAMA_API_KEY`, `OLLAMA_URL` cai no default do
+ * Ollama LOCAL (`127.0.0.1:11434`), que nessas máquinas não existe, e toda
+ * pergunta ao agente falhava com "Ollama inacessível".
+ *
+ * Cabe compartilhar porque a key do Ollama Cloud é credencial de SERVIÇO (tier
+ * gratuito, cota por modelo, pensada para ser usada por várias máquinas), não
+ * de pessoa — e quem lê esta pasta já lê todos os dados de cliente que estão
+ * nela. O oposto vale para o Claude CLI: aquele login é assinatura PESSOAL, é
+ * detectado por máquina (`server/ia/claudeCli/auth.cjs`) e cada uma usa o
+ * próprio — nada dele entra neste arquivo.
+ *
+ * Lido só agora, e não junto do `.env` da máquina, porque depende de
+ * `DATA_DIR` — que por sua vez pode vir do próprio `.env` local. Com
+ * allowlist: o `.env` da máquina continua vencendo (precedência de
+ * `aplicarEnvDeArquivo`), então uma máquina com key própria não é atrapalhada
+ * por este arquivo.
+ */
+const CONFIG_IA_COMPARTILHADO = path.join(DATA_DIR, 'config-ia.env');
+aplicarEnvDeArquivo(CONFIG_IA_COMPARTILHADO, { permitidas: ['OLLAMA_API_KEY', 'OLLAMA_URL', 'OLLAMA_MODELS'] });
 
 // Banco de desenvolvimento/sandbox (schema novo). O banco real da 2D fica em
 // ../database.xlsx (pasta "6 - Erick"); a virada para ele será feita depois.
@@ -254,7 +315,7 @@ const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, 'carteira-snapshot.sqlite');
 // inteira com json_to_sheet(dados, { header }), então qualquer coluna fora
 // dessa lista era apagada de TODAS as linhas a cada save (`sala` é campo ativo,
 // gravado pelo EventFormModal — bug real de perda de dado, não só legado).
-const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'servicosIndependentes', 'contatos', 'observacao', 'estado', 'status', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'lastPricing', 'userId', 'lojas', 'relatorioCadencia'];
+const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'servicosIndependentes', 'contatos', 'observacao', 'estado', 'status', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'lastPricing', 'userId', 'lojas', 'relatorioCadencia', 'local'];
 // `origem` = de quem partiu a interação ('nos' | 'cliente'). Vazio nos eventos
 // antigos (tratado como não informado, nunca como 'nos') — é o que permite
 // separar contato que NÓS fizemos de contato que o CLIENTE fez.
@@ -412,12 +473,19 @@ const CATEGORIAS_SEED = [
   ['monitor', ['Yann Cruz', 'Erick Cardoso', 'Karol Santana', 'Administrador']],
   ['tipo_lembrete', ['Contato', 'Reunião', 'Relatório', 'Alvo', 'Outro']],
   ['prioridade_tarefa', ['Baixa', 'Média', 'Alta', 'Urgente']],
+  // Segmento de negócio do cliente — contexto pra análise/dossiê/conversa (não
+  // é o "estado"/"status" de atendimento, que já existem). Seed alinhado ao
+  // perfil real da carteira (2D atende autopeças/oficinas/distribuidoras);
+  // editável em Configurações como qualquer outra categoria.
+  ['local_cliente', ['Autopeça', 'Oficina', 'Distribuidora', 'Atacado', 'Indústria', 'Varejo']],
 ];
 
 module.exports = {
   HOST, PORT, CEO_AGENDA_CALENDAR_ID, CEO_AGENDA_OAUTH_CLIENT_PATH, CEO_AGENDA_OAUTH_TOKEN_PATH,
   ONEDRIVE_ROOT, DATA_DIR, REUNIOES_DIR, DB_FILE, UPLOADS_DIR, SQLITE_DIR, SQLITE_FILE, BACKUP_ONEDRIVE_DIR,
+  ALVOS_DIR, ALVOS_ARQUIVO,
   SNAPSHOT_DIR, SNAPSHOT_FILE, DOSSIES_DIR, OLLAMA_URL, OLLAMA_MODEL, OLLAMA_MODELS, OLLAMA_API_KEY,
+  CONFIG_IA_COMPARTILHADO,
   IA_PROVIDER, IA_PROVIDERS, CLAUDE_STATE_FILE, CLAUDE_CLI_PATH, CLAUDE_CLI_MODEL,
   CLAUDE_CLI_MODEL_PADRAO, CLAUDE_CLI_MODELOS,
   CLAUDE_CLI_TIMEOUT_MS, CLAUDE_CLI_CWD, CLAUDE_MCP_SERVER,

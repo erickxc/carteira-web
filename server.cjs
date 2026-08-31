@@ -153,6 +153,7 @@ app.use('/api/sistema', require('./server/routes/sistemaLocal.cjs'));
 app.use('/api/reunioes', require('./server/routes/reunioes.cjs'));
 app.use('/api/ceo-agenda', require('./server/routes/ceoAgenda.cjs'));
 app.use('/api/ia', require('./server/routes/analiseIA.cjs'));
+app.use('/api/alvos', require('./server/routes/alvos.cjs'));
 // Router separado no MESMO prefixo: configuracao do provedor de IA, login da
 // conta Claude (Claude Code CLI) e o canal interno do servidor MCP.
 app.use('/api/ia', require('./server/routes/iaProvedor.cjs'));

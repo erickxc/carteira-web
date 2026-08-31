@@ -22,7 +22,7 @@ const ACAO_STATUS_BADGE: Record<string, BadgeVariant> = { programado: 'accent', 
 const ACAO_STATUS_LABEL: Record<string, string> = { programado: 'Programada', concluido: 'Concluída', dispensado: 'Dispensada' };
 
 export default function AcoesPage() {
-  const { clientes, agenda, acoes, cadencias, atualizarAcao, removerAcao } = useCarteira();
+  const { clientes, agenda, acoes, cadencias, atualizarAcao, removerAcao, opcoesPorTipo } = useCarteira();
   const navigate = useNavigate();
   const [aba, setAba] = usePersistedState<'acompanhamento' | 'acoes'>('filtro:acoes:aba', 'acompanhamento');
   const [visaoAcompanhamento, setVisaoAcompanhamento] = usePersistedState<'precisa' | 'emdia'>('filtro:acoes:visao', 'precisa');
@@ -36,6 +36,7 @@ export default function AcoesPage() {
   // filtros da aba Acompanhamento
   const { value: acCliente, debounced: debouncedAcCliente, setValue: setAcCliente } = useSearchFilter();
   const [acMonitores, setAcMonitores] = usePersistedState<string[]>('filtro:acoes:acMonitores', []);
+  const [acLocais, setAcLocais] = usePersistedState<string[]>('filtro:acoes:acLocais', []);
   const [acProduto, setAcProduto] = usePersistedState<'Todos' | 'Monitoria' | 'Price'>('filtro:acoes:acProduto', 'Monitoria');
   const [acOrd, setAcOrd] = usePersistedState('filtro:acoes:acOrd', 'contato-recente');
 
@@ -145,6 +146,10 @@ export default function AcoesPage() {
   };
 
   const monitorOpcoes = useMemo(() => [...new Set(clientes.map((c) => c.monitor).filter(Boolean) as string[])].sort(), [clientes]);
+  // Da categoria configurável (Configurações), não só dos valores já usados
+  // pelos clientes — mesmo padrão do `ClientFormModal`, pra listar também
+  // segmentos cadastrados que hoje nenhum cliente usa ainda.
+  const localOpcoes = opcoesPorTipo('local_cliente');
 
   // Filtro comum (busca/monitor/serviço) da aba Acompanhamento. Serviço
   // (Monitoria/Price) é segmentado por sub-aba, não mais dropdown — os dois
@@ -154,6 +159,7 @@ export default function AcoesPage() {
     const termo = debouncedAcCliente.trim().toLowerCase();
     return (!termo || c.empresa?.toLowerCase().includes(termo)) &&
       (acMonitores.length === 0 || acMonitores.includes(c.monitor || '')) &&
+      (acLocais.length === 0 || acLocais.includes(c.local || '')) &&
       (acProduto === 'Todos' || produtos(c).includes(acProduto));
   };
 
@@ -163,7 +169,7 @@ export default function AcoesPage() {
   const filaVisivel = useMemo(
     () => filaCadencia.filter((f) => passaFiltro(f.cliente)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filaCadencia, debouncedAcCliente, acMonitores, acProduto]
+    [filaCadencia, debouncedAcCliente, acMonitores, acLocais, acProduto]
   );
   const nPrecisaAcao = useMemo(() => filaVisivel.filter((f) => f.precisaAcao).length, [filaVisivel]);
   // Grupos por CADÊNCIA (mesmo motor da fila) — fonte única pros dois botões
@@ -171,8 +177,8 @@ export default function AcoesPage() {
   const vencidos = useMemo(() => filaVisivel.filter((f) => classificarCadencia(f) === 'vencido'), [filaVisivel]);
   const vencendo = useMemo(() => filaVisivel.filter((f) => classificarCadencia(f) === 'vencendo'), [filaVisivel]);
   const emdia = useMemo(() => filaVisivel.filter((f) => classificarCadencia(f) === 'em_dia'), [filaVisivel]);
-  const filtrosAcompanhamentoAtivos = !!debouncedAcCliente.trim() || acMonitores.length > 0;
-  function limparFiltrosAcompanhamento() { setAcCliente(''); setAcMonitores([]); }
+  const filtrosAcompanhamentoAtivos = !!debouncedAcCliente.trim() || acMonitores.length > 0 || acLocais.length > 0;
+  function limparFiltrosAcompanhamento() { setAcCliente(''); setAcMonitores([]); setAcLocais([]); }
 
   function filtrarOrdenar(lista: Cliente[]): Cliente[] {
     const out = lista.filter(passaFiltro);
@@ -263,6 +269,7 @@ export default function AcoesPage() {
                 <input placeholder="Buscar cliente..." value={acCliente} onChange={(e) => setAcCliente(e.target.value)} />
               </label>
               <Dropdown label="Monitor" multiple options={monitorOpcoes.map((m) => ({ value: m, label: m }))} value={acMonitores} onChange={(v) => setAcMonitores(v as string[])} />
+              <Dropdown label="Local" multiple options={localOpcoes.map((l) => ({ value: l, label: l }))} value={acLocais} onChange={(v) => setAcLocais(v as string[])} />
               <Dropdown label="Ordenar" defaultValue="contato-recente" options={[
                 { value: 'contato-recente', label: 'Contato recente' },
                 { value: 'contato-antigo', label: 'Contato antigo' },

@@ -32,11 +32,21 @@ function textoPrecificacoes(itensRaw) {
  * que presentes — dado estruturado (preenchido em campo próprio do form,
  * `EventFormModal`), mais confiável que o modelo extrair o mesmo fato de
  * prosa livre.
+ *
+ * `motivo` (reagendamento/cancelamento) e `reagendamentos` (quantas vezes ESTE
+ * evento já foi remarcado) também entram — sem isso o modelo via só "status:
+ * Cancelado" sem o porquê, e não tinha como notar "esta reunião já foi
+ * cancelada 2x", que é justamente o padrão de desengajamento que vale virar
+ * Ponto de Atenção no dossiê (pedido do usuário).
  */
 function textoEvento(ev) {
   const corpo = ev.ata?.trim() || ev.resumo?.trim() || ev.description?.trim() || '(sem registro)';
+  const motivo = ev.motivo?.trim() ? `\nMotivo: ${ev.motivo.trim()}` : '';
+  const reagendamentos = Number(ev.reagendamentos) > 0
+    ? `\nEsta reunião já foi remarcada ${ev.reagendamentos}x antes deste registro.`
+    : '';
   const extra = textoProdutosSituacao(ev.produtosSituacao) + textoPrecificacoes(ev.precificacoes);
-  return `[${ev.date ?? ''} — ${ev.status ?? ''}]\n${corpo}${extra}`;
+  return `[${ev.date ?? ''} — ${ev.status ?? ''}]\n${corpo}${motivo}${reagendamentos}${extra}`;
 }
 
 // Template fixo do dossiê — decisão do usuário: nada de prosa longa, tópicos
@@ -69,7 +79,13 @@ function montarPrompt({ cliente, eventosNovos, dossieAnterior }) {
   const identidade = cliente.grupo
     ? `a loja "${cliente.empresa.replace(`${cliente.grupo} - `, '')}" da rede "${cliente.grupo}" (registrada como "${cliente.empresa}")`
     : `o cliente "${cliente.empresa}"`;
-  return `Você é um analista sênior de monitoria da 2D Consultores, avaliando ${identidade}. Escreva sempre em português do Brasil, com ortografia e gramática corretas — revise o texto antes de responder, como se fosse publicado num relatório executivo.${cliente.grupo ? ` Trate isso como uma loja específica, não como "a empresa" — se mencionar a rede, deixe claro que é a rede, não esta loja.` : ''}
+  // Segmento de negócio (Autopeça, Oficina, Indústria...) muda o que é sinal
+  // normal — queda de compra de uma peça específica pesa diferente pra uma
+  // Oficina (compra o que a demanda do dia pedir) do que pra uma Distribuidora
+  // (compra por contrato/volume recorrente). Só entra no prompt quando
+  // cadastrado; cliente sem o campo preenchido não deve ter isso inventado.
+  const segmento = cliente.local ? ` (segmento: ${cliente.local})` : '';
+  return `Você é um analista sênior de monitoria da 2D Consultores, avaliando ${identidade}${segmento}. Escreva sempre em português do Brasil, com ortografia e gramática corretas — revise o texto antes de responder, como se fosse publicado num relatório executivo.${cliente.grupo ? ` Trate isso como uma loja específica, não como "a empresa" — se mencionar a rede, deixe claro que é a rede, não esta loja.` : ''}
 
 DOSSIÊ ATUAL DO CLIENTE (memória acumulada de análises anteriores):
 ${dossie}
@@ -96,6 +112,7 @@ Regras:
 - Não invente informação que não está nas reuniões ou no dossiê anterior; se um dado não aparece, não afirme sobre ele.
 - Se a ata/registro mencionar QUAL cliente final (comprador da loja, não a rede) está associado a um fato — ex.: "Widmen: venda zerada", uma linha de "Orientações" no formato "Cliente / Produto: situação" — preserve esse nome no "Pontos de Atenção"/"Oportunidades" e em "fatores". Generalizar "vendas zeraram" sem dizer de qual cliente perde informação que já estava disponível — não faça isso.
 - Se não houver sinal de risco, "nivelRisco" é "baixo" e "fatores" pode ser uma lista vazia — não force um fator artificial pra preencher.
+- Reunião marcada como "Motivo:" (cancelamento) ou "já foi remarcada Nx" (ver texto de cada reunião abaixo) é sinal de desengajamento, não detalhe operacional — trate 2+ ocorrências disso no MESMO cliente (nesta rodada ou já registradas no dossiê anterior) como padrão, cite o motivo concreto em "Pontos de Atenção" (ex.: "reunião já foi cancelada 2x — motivo alegado: agenda do responsável"), e pese isso no "nivelRisco" como faria com queda de venda repetida. Uma única ocorrência isolada, sem repetição, não sustenta "alto" sozinha.
 - Cada bullet é 1 linha, direto ao ponto — nada de parágrafo dentro de bullet, mas também nada de fórmula mecânica repetida ("fato → consequência" em todo item soa como log, não como análise). Varie a construção da frase como um analista de verdade escreveria, mantendo evidência (data/fonte) e clareza do porquê importa. Seção sem conteúdo real fica com "— nenhum registro" em vez de bullet inventado.
 - "dossieAtualizado" tem um limite de espaço: no máximo ${DOSSIE_MAX_CHARS} caracteres no total. Isso significa CONSOLIDAR a cada rodada, não empilhar: remova pendência já entregue, remova ponto de atenção já resolvido, mantenha só o que ainda importa para decisão futura. Nunca cole a ata da reunião nova no dossiê — extraia dela só o que é memória duradoura.`;
 }

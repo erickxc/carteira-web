@@ -79,7 +79,11 @@ function lerCadencias(repo) {
 function identidadeCliente(cliente) {
   const grupo = cliente.grupo || null;
   const loja = grupo ? cliente.empresa.replace(`${grupo} - `, '') : null;
-  return { empresa: cliente.empresa, grupo, loja };
+  // `local`: segmento de negócio (Autopeça, Oficina, Indústria...), não o
+  // "sala" de reunião. Passado a toda ferramenta que devolve identidade do
+  // cliente, pra o agente ter contexto do tipo de negócio na conversa sem
+  // precisar de uma ferramenta separada só pra isso.
+  return { empresa: cliente.empresa, grupo, loja, local: cliente.local || null };
 }
 
 /**
@@ -127,12 +131,17 @@ function normalizar(texto) {
     .trim();
 }
 
-function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo } = {}) {
+function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo, local } = {}) {
   const clientes = repo.get('Clientes');
   const analises = repo.get('AnalisesIA');
   const analisePorCliente = new Map(analises.map((a) => [String(a.clientId), a]));
   const grupoBusca = normalizar(grupo);
   const nomeBusca = normalizar(nome);
+  // Igualdade normalizada (não substring): "local" vem de uma categoria de
+  // valores fixos (Autopeça, Oficina, ...), então "atacado" não deve casar
+  // com "Distribuidora/Atacado" por acidente como aconteceria com um filtro
+  // de texto livre tipo `grupo`.
+  const localBusca = normalizar(local);
 
   return clientes
     .map((c) => ({ cliente: c, analise: analisePorCliente.get(String(c.id)) }))
@@ -145,6 +154,7 @@ function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo
     .filter(({ cliente }) => !servico || listaJSON(cliente.servicos).includes(servico))
     .filter(({ analise }) => !nivelRisco || analise?.nivelRisco === nivelRisco)
     .filter(({ cliente }) => !grupoBusca || normalizar(cliente.grupo).includes(grupoBusca))
+    .filter(({ cliente }) => !localBusca || normalizar(cliente.local) === localBusca)
     // Nome casa contra `empresa` (que já inclui a rede quando há: "Rede - Loja"),
     // então funciona tanto pra "27 de setembro" quanto pra "recreio" ou
     // "altese recreio".
@@ -468,6 +478,107 @@ function tarefasDaAta(ata, dataEvento) {
     .map((m) => ({ responsavel: m[1].trim(), acao: m[2].trim(), combinadoEm: String(dataEvento ?? '').slice(0, 10) }));
 }
 
+/**
+ * Escopo REUNIÃO dos Dados Alvos: o que foi pautado nas reuniões deste cliente e
+ * o que o número fez depois ("retorno do combinado").
+ *
+ * Sem esta ferramenta o cartão de alerta abriria um chat incapaz de responder
+ * sobre o próprio alerta — foi o que aconteceu com ata/anexos, que estavam na
+ * resposta da ferramenta e ainda assim o agente dizia não ter acesso.
+ *
+ * Aquece o cache sob demanda (`aquecer: true`) se ele ainda não estiver quente:
+ * a ficha do cliente já aquece ao abrir para poupar essa espera no caminho
+ * comum, mas a ferramenta não pode depender disso — se ninguém abriu a ficha
+ * antes de perguntar no chat, responder "dados não carregados" na primeira
+ * pergunta tornaria a ferramenta inútil bem onde deveria servir. Custa até
+ * ~20 s no pior caso (arquivo de 57 MB); é o mesmo tipo de espera que o usuário
+ * já aceita de uma resposta do modelo.
+ */
+function buscarFatosAlvos(repo, { clientId }) {
+  if (!clientId) throw new Error('buscar_fatos_alvos: "clientId" é obrigatório.');
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
+  if (!cliente) throw new Error(`buscar_fatos_alvos: cliente "${clientId}" não encontrado.`);
+
+  const eventos = repo.get('Agenda').filter((a) => String(a.clientId) === String(clientId));
+  const { fatosDoCliente } = require('../alvos/consulta.cjs');
+  const r = fatosDoCliente({ id: cliente.id, empresa: cliente.empresa }, eventos, { aquecer: true });
+
+  // Estado diferente de ok não é lista vazia: é motivo. Sem isso o agente
+  // concluiria "esse cliente não tem nada em pauta" quando o que falta é o
+  // vínculo da loja.
+  if (r.estado !== 'ok') {
+    return { ...identidadeCliente(cliente), estado: r.estado, motivo: r.motivo, acompanhamentos: [] };
+  }
+  return {
+    ...identidadeCliente(cliente),
+    estado: 'ok',
+    lojas: r.lojas,
+    mesEmCursoParcial: r.periodoParcial,
+    acompanhamentos: r.acompanhamentos.map((a) => ({
+      entidade: a.nome,
+      tipo: a.tipo,
+      combinadoEm: a.combinadoEm,
+      reunioes: a.reunioes.length,
+      status: a.status,
+      alerta: a.alerta,
+      razaoDoAlerta: a.razao,
+      veredicto: a.movimento?.veredicto,
+      receitaAntes: a.movimento?.receita?.base,
+      receitaDepois: a.movimento?.receita?.atual,
+      variacaoReceita: a.movimento?.receita?.variacao,
+      variacaoQtd: a.movimento?.qtd?.variacao,
+      // O agente PRECISA disto para não afirmar perda com base em mês
+      // incompleto: com `veredicto: 'indicativo_parcial'` não há mês fechado
+      // depois da reunião.
+      mesesFechadosDepois: a.movimento?.mesesDepoisFechados,
+      incluiMesParcial: a.movimento?.incluiMesParcial,
+    })),
+  };
+}
+
+/**
+ * Registra a decisão do usuário sobre um acompanhamento: seguir, abandonar ou
+ * dar por resolvido. É o que faz o alerta parar de aparecer — e o motivo fica
+ * gravado, diferente de um botão "dispensar".
+ *
+ * Grava num JSON em DATA_DIR, não no SQLite: por isso funciona em máquina
+ * cliente sem passar pela fila (mesmo caminho do dossiê).
+ */
+function definirStatusAcompanhamento(repo, { clientId, entidade, tipo, status, nota }) {
+  if (!clientId) throw new Error('definir_status_acompanhamento: "clientId" é obrigatório.');
+  if (!entidade) throw new Error('definir_status_acompanhamento: "entidade" é obrigatório.');
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
+  if (!cliente) throw new Error(`definir_status_acompanhamento: cliente "${clientId}" não encontrado.`);
+
+  const { STATUS_VALIDOS, definirStatus } = require('../alvos/acompanhamento.cjs');
+  if (!STATUS_VALIDOS.includes(status)) {
+    throw new Error(`definir_status_acompanhamento: status inválido "${status}". Use: ${STATUS_VALIDOS.join(', ')}.`);
+  }
+  const tipoFinal = tipo === 'cliente' ? 'cliente' : 'produto';
+
+  // A entidade tem de existir no catálogo da loja — nome aproximado ("kit de
+  // amortecedores") gravaria um acompanhamento que nenhum cálculo encontra.
+  // `aquecer: true` pelo mesmo motivo de buscar_fatos_alvos: se o catálogo não
+  // estivesse disponível, pular a validação em silêncio reabriria exatamente o
+  // buraco que ela existe para fechar — nome nunca confirmado contra o arquivo.
+  const { catalogoDoCliente } = require('../alvos/consulta.cjs');
+  const catalogo = catalogoDoCliente(cliente.id, { aquecer: true });
+  if (!catalogo.disponivel) {
+    throw new Error(`definir_status_acompanhamento: não foi possível confirmar "${entidade}" contra os dados do cliente (${catalogo.motivo}). Use buscar_fatos_alvos primeiro.`);
+  }
+  const lista = tipoFinal === 'cliente' ? catalogo.clientes : catalogo.produtos;
+  const achado = lista.find((x) => String(x).toLowerCase() === String(entidade).toLowerCase());
+  if (!achado) {
+    throw new Error(`definir_status_acompanhamento: "${entidade}" não existe no catálogo de ${tipoFinal} deste cliente. Use buscar_fatos_alvos para ver os nomes exatos.`);
+  }
+
+  definirStatus(cliente.id, { nome: entidade, tipo: tipoFinal }, status, {
+    decididoEm: new Date().toISOString().slice(0, 10),
+    nota,
+  });
+  return { success: true, entidade, tipo: tipoFinal, status, cliente: cliente.empresa };
+}
+
 function buscarHistoricoEventos(repo, { clientId, limite }) {
   if (!clientId) throw new Error('buscar_historico_eventos: "clientId" é obrigatório.');
   const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
@@ -712,7 +823,7 @@ function verificarDisponibilidade(repo, { date, time, monitores, sala }) {
 const FERRAMENTAS = [
   {
     name: 'buscar_clientes',
-    description: 'Busca/lista clientes da carteira. ATENÇÃO aos dois campos de situação: "estado" é Ativo/Inativo; "status" é a situação granular (Regular, Suspenso, Atendido pelo Marco, Gratuidade, Problemas Externos). "Cliente ativo" = estado, nunca status. Pra achar UM cliente pelo nome que o usuário falou, use "nome" (busca parcial, ignora acento e maiúscula) — é o caminho pra obter o clientId antes de qualquer ferramenta que peça clientId. Também filtra por nível de risco, status, serviço ou grupo/rede. Um cliente com "grupo" é uma LOJA de uma rede — o nome da rede sozinho (ex.: "Altese") não é um cliente, use o filtro "grupo" pra achar todas as lojas dela de uma vez. Sem nenhum filtro, devolve a carteira inteira.',
+    description: 'Busca/lista clientes da carteira. ATENÇÃO aos dois campos de situação: "estado" é Ativo/Inativo; "status" é a situação granular (Regular, Suspenso, Atendido pelo Marco, Gratuidade, Problemas Externos). "Cliente ativo" = estado, nunca status. Pra achar UM cliente pelo nome que o usuário falou, use "nome" (busca parcial, ignora acento e maiúscula) — é o caminho pra obter o clientId antes de qualquer ferramenta que peça clientId. Também filtra por nível de risco, status, serviço, grupo/rede ou local (segmento de negócio: Autopeça, Oficina, Distribuidora...). Um cliente com "grupo" é uma LOJA de uma rede — o nome da rede sozinho (ex.: "Altese") não é um cliente, use o filtro "grupo" pra achar todas as lojas dela de uma vez. Sem nenhum filtro, devolve a carteira inteira.',
     parameters: {
       type: 'object',
       properties: {
@@ -722,6 +833,7 @@ const FERRAMENTAS = [
         status: { type: 'string' },
         servico: { type: 'string' },
         grupo: { type: 'string', description: 'Nome da rede/grupo (ex.: "Altese") — devolve todas as lojas dela.' },
+        local: { type: 'string', description: 'Segmento de negócio do cliente, como cadastrado (ex.: "Autopeça", "Oficina", "Distribuidora"). Igualdade exata, ignora acento/maiúscula.' },
       },
     },
     executar: buscarClientes,
@@ -951,6 +1063,32 @@ const FERRAMENTAS = [
       required: ['title', 'datetime'],
     },
     executar: criarLembrete,
+  },
+  {
+    name: 'buscar_fatos_alvos',
+    description: 'Dados de VENDA do cliente (Dados Alvos) no escopo das reuniões: para cada produto ou cliente final que já foi pautado numa reunião, o que a receita e a quantidade fizeram depois. Use quando o usuário perguntar se o que foi combinado deu resultado, quais produtos/clientes estão em queda, ou ao recomendar pauta. Se "estado" não for "ok", NÃO invente números: diga o motivo (falta vincular a loja, ou os dados ainda não foram carregados). Quando "veredicto" for "indicativo_parcial", o mês em curso está incompleto — não afirme que o cliente parou de comprar.',
+    parameters: {
+      type: 'object',
+      properties: { clientId: { type: 'string', description: 'ID do cliente da carteira.' } },
+      required: ['clientId'],
+    },
+    executar: buscarFatosAlvos,
+  },
+  {
+    name: 'definir_status_acompanhamento',
+    description: 'Registra o que o usuário decidiu sobre um acompanhamento de produto/cliente final: "em_curso" (segue tentando), "abandonado" (desistiu dessa abordagem) ou "resolvido". É isso que faz o alerta parar de aparecer. Use só depois de o usuário DECIDIR — não decida por ele. O nome da entidade tem de ser exatamente o que veio em buscar_fatos_alvos.',
+    parameters: {
+      type: 'object',
+      properties: {
+        clientId: { type: 'string', description: 'ID do cliente da carteira.' },
+        entidade: { type: 'string', description: 'Nome exato do produto ou do cliente final, como veio em buscar_fatos_alvos.' },
+        tipo: { type: 'string', description: '"produto" ou "cliente" (cliente final da loja). Padrão: produto.' },
+        status: { type: 'string', description: 'em_curso | abandonado | resolvido' },
+        nota: { type: 'string', description: 'Motivo da decisão, em uma frase (opcional, máx. 300 caracteres).' },
+      },
+      required: ['clientId', 'entidade', 'status'],
+    },
+    executar: definirStatusAcompanhamento,
   },
   {
     name: 'gerar_relatorio_executivo',

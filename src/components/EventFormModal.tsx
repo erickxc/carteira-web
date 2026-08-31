@@ -114,8 +114,13 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   // Interação pontual (Contato/Ligação) — a única em que "quem procurou quem"
   // faz sentido. Relatório é entrega nossa; reunião é agendamento.
   const ehInteracao = /contato|liga[çc]/i.test(type);
-  // Status "Reagendado" exige informar o motivo do reagendamento.
-  const precisaMotivo = /reagend/i.test(status);
+  // Status "Reagendado" ou "Cancelado" exige informar o motivo — pedido do
+  // usuário: o dossiê precisa poder dizer "já cancelou 2x por tal motivo", e
+  // isso só existe se o motivo do cancelamento também for capturado (antes só
+  // reagendamento pedia). `ehCancelamento` separa o texto do label/placeholder
+  // do de reagendamento sem duplicar a checagem regex pelo componente inteiro.
+  const ehCancelamento = /cancel/i.test(status);
+  const precisaMotivo = /reagend|cancel/i.test(status);
   const naoOcupaHorario = (a: EventoAgenda) => /cancel|reagend/i.test(a.status || '');
   const mesmoDiaHora = (a: EventoAgenda) => Boolean(time) && dataValida && a.time === time && format(dataSegura, 'yyyy-MM-dd') === format(new Date(a.date), 'yyyy-MM-dd');
 
@@ -189,6 +194,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     if (ehReuniao && servicos.length === 0) { toastError('Marque ao menos um serviço tratado.'); return; }
     const statusFinalPre = statusOverride ?? status;
     if (/reagend/i.test(statusFinalPre) && !motivo.trim()) { toastError('Informe o motivo do reagendamento.'); return; }
+    if (/cancel/i.test(statusFinalPre) && !motivo.trim()) { toastError('Informe o motivo do cancelamento.'); return; }
     // Bloqueia de verdade (não só avisa): mesmo monitor ou mesma sala não podem
     // ocupar o mesmo dia/horário duas vezes.
     if (conflitoMonitor) { toastError(`${nomeMonitorConflitante} já tem outro evento marcado nesse dia e horário.`); return; }
@@ -211,7 +217,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         resumo: modoSimples ? '' : resumo,
         monitores,
         sala: ehReuniao ? (sala || undefined) : undefined,
-        motivo: /reagend/i.test(statusFinal) ? motivo : undefined,
+        motivo: /reagend|cancel/i.test(statusFinal) ? motivo : undefined,
         // Só faz sentido em interação pontual (Contato/Ligação): reunião e
         // relatório não são "quem procurou quem".
         origem: ehInteracao ? (origem || undefined) : undefined,
@@ -422,8 +428,14 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
             )}
 
             {precisaMotivo && (
-              <Field label="Motivo do reagendamento *">
-                <Textarea tone="modal" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} placeholder="Por que a reunião foi reagendada?" />
+              <Field label={ehCancelamento ? 'Motivo do cancelamento *' : 'Motivo do reagendamento *'}>
+                <Textarea
+                  tone="modal"
+                  value={motivo}
+                  onChange={(e) => setMotivo(e.target.value)}
+                  rows={2}
+                  placeholder={ehCancelamento ? 'Por que a reunião foi cancelada?' : 'Por que a reunião foi reagendada?'}
+                />
               </Field>
             )}
 
