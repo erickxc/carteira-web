@@ -8,6 +8,26 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.0
+
+- Nova integração com os dados de venda por loja de cada empresa (Dados
+  Alvos): a Carteira agora consegue ler o histórico de compra dos clientes
+  finais e trazer isso pro dossiê e pra conversa com o monitorIA — quem
+  parou de comprar, o que foi combinado numa reunião e não teve retorno
+  depois, etc.
+- Novo painel de Cadastro em Carteira, com uma aba de Alertas: mostra quando
+  um cliente ainda não tem os dados de venda vinculados e traz cartões que
+  já abrem o chat com a pergunta pronta.
+- Corrigido: em empresas com histórico de vendas muito grande, o sistema
+  podia ler um recorte errado ou incompleto dos dados sem avisar nada — a
+  leitura agora sempre pega o dado completo.
+- Novo campo "Local" no cadastro do cliente (Autopeça, Oficina,
+  Distribuidora...), com filtro na Carteira e em Ações, e usado como
+  contexto na análise do monitorIA.
+- Cancelar uma reunião agora pede o motivo, igual já acontecia ao reagendar.
+- O dossiê passa a registrar quando uma reunião é cancelada/reagendada
+  repetidas vezes como sinal de desengajamento, citando o motivo.
+
 ## 1.3.2
 
 - Corrigido: ata escrita DEPOIS de concluir a reunião (o fluxo normal) nunca
