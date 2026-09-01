@@ -22,7 +22,7 @@ const FOLLOW_UP_THRESHOLD_DAYS = 30;
 export function useDashboardData() {
   // `filtroMonitor` vem do Context — é o filtro GLOBAL ("quem sou eu"),
   // compartilhado com o header e com o monitorIA, não mais local desta tela.
-  const { clientes, agenda, acoes, lembretes, cadencias, filtroMonitor, setFiltroMonitor, monitoresDisponiveis } = useCarteira();
+  const { clientes, agenda, acoes, lembretes, cadencias, filtroMonitor, setFiltroMonitor, monitoresDisponiveis, opcoesPorTipo } = useCarteira();
   const [filtroTipo, setFiltroTipo] = usePersistedState<string>('filtro:dash:tipo', 'Todos');
   const [filtroTipoEvento, setFiltroTipoEvento] = usePersistedState<string>('filtro:dash:tipoEvento', 'Todos');
   const [filtroServicoAderencia, setFiltroServicoAderencia] = usePersistedState<ServicoCad | 'Todos'>('filtro:dash:servicoAderencia', 'Todos');
@@ -245,6 +245,22 @@ export function useDashboardData() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativos, ultimaInteracao, agendaAtiva, clientes]);
 
+  /**
+   * Serviços cadastrados fora de Monitoria/Price (Controladoria, OptiMarco,
+   * AutoTech, Book Fiscal, Raptor, Protocolo GPS, e qualquer outro que for
+   * cadastrado depois em Configurações → Categorias) — decisão do usuário:
+   * eles NÃO entram na métrica de cadência/aderência de `servicosDist` acima
+   * (não têm regra de "atendido em 30 dias"), só contagem simples de quantos
+   * clientes ativos têm cada um contratado. Lista dinâmica (não hardcoded)
+   * pra um serviço novo aparecer aqui sozinho, sem precisar mexer em código.
+   */
+  const outrosServicosDist = useMemo(() => {
+    const outros = opcoesPorTipo('servico').filter((s) => !/monitor|price|prec/i.test(s));
+    return outros
+      .map((label) => ({ label, n: ativos.filter((c) => (c.servicos ?? []).includes(label)).length }))
+      .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
+  }, [ativos, opcoesPorTipo]);
+
   // --- Cobertura da carteira no período: clientes ativos com >= 1 reunião ou
   // relatório nos ÚLTIMOS 2 MESES (mês selecionado + anterior, não só o
   // selecionado — janela mais realista de "foi atendido recentemente", senão
@@ -428,7 +444,7 @@ export function useDashboardData() {
     // gráfico
     linhaPorMes, linhaHighlight,
     // cards
-    servicosDist, totalAtendidos, cobertura, aderencia,
+    servicosDist, totalAtendidos, outrosServicosDist, cobertura, aderencia,
     vencendo, filtroServicoVencendo, setFiltroServicoVencendo,
     tiposDisponiveis, proximos,
     alertas, alertasProgramados,
