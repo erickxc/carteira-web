@@ -1,4 +1,4 @@
-import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilColuna, AgilComentario, AgilFrente, AgilSubtarefa, AgilSwimlane, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, Lembrete, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilFrente, NovaAgilSubtarefa, NovaAgilSwimlane, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao } from '../types';
+import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilColuna, AgilComentario, AgilFrente, AgilSubtarefa, AgilSwimlane, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilFrente, NovaAgilSubtarefa, NovaAgilSwimlane, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao } from '../types';
 
 const PRE_ANALISE_VAZIA: PreAnalise = { orientacoes: [], clientesGeral: '', produtosGeral: '' };
 function parsePreAnalise(raw: unknown): PreAnalise {
@@ -277,9 +277,9 @@ export const removerLembrete = (id: string) => request<{ success: boolean }>(`/r
 
 // --- Categorias ---
 export const listarCategorias = () => request<Categoria[]>('/categorias');
-export const criarCategoria = (tipo: string, valor: string) =>
-  request<Categoria>('/categorias', { method: 'POST', body: JSON.stringify({ tipo, valor }) });
-export const atualizarCategoria = (id: string, data: Partial<Categoria>) =>
+export const criarCategoria = (tipo: string, valor: string, extra?: ExtraLinkServico) =>
+  request<Categoria>('/categorias', { method: 'POST', body: JSON.stringify({ tipo, valor, ...extra }) });
+export const atualizarCategoria = (id: string, data: Partial<Omit<Categoria, 'tipoLink' | 'urlAplicacao'>> & ExtraLinkServico) =>
   request<Categoria>(`/categorias/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const removerCategoria = (id: string) => request<{ success: boolean }>(`/categorias/${id}`, { method: 'DELETE' });
 

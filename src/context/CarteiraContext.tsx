@@ -19,6 +19,7 @@ import type {
   CeoAgendaCache,
   Categoria,
   CategoriaTipo,
+  ExtraLinkServico,
   Cliente,
   EventoAgenda,
   Lembrete,
@@ -92,6 +93,8 @@ interface CarteiraContextValue {
 
   /** Lista de valores (strings) de uma categoria, na ordem cadastrada. */
   opcoesPorTipo: (tipo: CategoriaTipo) => string[];
+  /** Igual, mas devolve o objeto `Categoria` inteiro (tipoLink/urlAplicacao inclusos). */
+  categoriasPorTipo: (tipo: CategoriaTipo) => Categoria[];
 
   criarCliente: (data: NovoCliente) => Promise<Cliente>;
   criarClientesEmLote: (data: NovoCliente[]) => Promise<Cliente[]>;
@@ -115,8 +118,8 @@ interface CarteiraContextValue {
   atualizarLembrete: (id: string, data: Partial<Lembrete>) => Promise<void>;
   removerLembrete: (id: string) => Promise<void>;
 
-  criarCategoria: (tipo: CategoriaTipo, valor: string) => Promise<void>;
-  atualizarCategoria: (id: string, valor: string) => Promise<void>;
+  criarCategoria: (tipo: CategoriaTipo, valor: string, extra?: ExtraLinkServico) => Promise<void>;
+  atualizarCategoria: (id: string, valor: string, extra?: ExtraLinkServico) => Promise<void>;
   removerCategoria: (id: string) => Promise<void>;
 
   registrarAcao: (data: Omit<Acao, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
@@ -371,6 +374,14 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     [categorias]
   );
 
+  /** Igual a `opcoesPorTipo`, mas devolve o objeto `Categoria` inteiro — usado
+   *  onde importa mais que o `valor` (ex.: `tipoLink`/`urlAplicacao` de um
+   *  serviço, pra saber se ele é PowerBI/Aplicação). */
+  const categoriasPorTipo = useCallback(
+    (tipo: CategoriaTipo) => categorias.filter((c) => c.tipo === tipo).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0)),
+    [categorias]
+  );
+
   const criarCliente = useCallback(async (data: NovoCliente) => {
     const novo: Cliente = { id: uuidv4(), createdAt: new Date().toISOString(), ...data };
     const salvo = await api.criarCliente(novo);
@@ -476,13 +487,13 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     setLembretes((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
-  const criarCategoriaFn = useCallback(async (tipo: CategoriaTipo, valor: string) => {
-    const nova = await api.criarCategoria(tipo, valor);
+  const criarCategoriaFn = useCallback(async (tipo: CategoriaTipo, valor: string, extra?: ExtraLinkServico) => {
+    const nova = await api.criarCategoria(tipo, valor, extra);
     setCategorias((prev) => [...prev, nova]);
   }, []);
 
-  const atualizarCategoriaFn = useCallback(async (id: string, valor: string) => {
-    const salva = await api.atualizarCategoria(id, { valor });
+  const atualizarCategoriaFn = useCallback(async (id: string, valor: string, extra?: ExtraLinkServico) => {
+    const salva = await api.atualizarCategoria(id, { valor, ...extra });
     setCategorias((prev) => prev.map((c) => (c.id === id ? salva : c)));
   }, []);
 
@@ -761,6 +772,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       recarregar,
       ceoAgenda,
       opcoesPorTipo,
+      categoriasPorTipo,
       criarCliente,
       criarClientesEmLote,
       atualizarCliente: atualizarClienteFn,
@@ -818,7 +830,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     [
       clientes, filtroMonitor, definirFiltroMonitor, monitoresDisponiveis, agenda, agendaSeries, lembretes, categorias, acoes, modelos, cadencias,
       agilWorkspaces, agilBoards, agilColunas, agilSwimlanes, agilFrentes, agilTarefas, agilSubtarefas, agilComentarios,
-      loading, error, recarregar, ceoAgenda, opcoesPorTipo,
+      loading, error, recarregar, ceoAgenda, opcoesPorTipo, categoriasPorTipo,
       criarCliente, criarClientesEmLote, atualizarClienteFn, removerClienteFn,
       criarEventoFn, atualizarEventoFn, removerEventoFn, enviarAnexoEvento, removerAnexoEvento,
       criarAgendaSerieFn, atualizarAgendaSerieFn, removerAgendaSerieFn,

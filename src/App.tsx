@@ -22,6 +22,7 @@ import { Dropdown } from './components/Dropdown';
 // apontando pra chunks que já não existiam. Bundle único é robusto e rápido na LAN.
 import DashboardPage from './pages/DashboardPage';
 import ClientesPage from './pages/ClientesPage';
+import CarteiraDashboardPage from './pages/CarteiraDashboardPage';
 import ClienteDetailPage from './pages/ClienteDetailPage';
 import AgendaPage from './pages/AgendaPage';
 import AcoesPage from './pages/AcoesPage';
@@ -148,6 +149,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/clientes" element={<ClientesPage />} />
+        <Route path="/clientes/dashboard" element={<CarteiraDashboardPage />} />
         <Route path="/clientes/:id" element={<ClienteDetailPage />} />
         <Route path="/agenda" element={<AgendaPage />} />
         <Route path="/acoes" element={<AcoesPage />} />

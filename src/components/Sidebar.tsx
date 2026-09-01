@@ -1,8 +1,9 @@
 import { NavLink } from 'react-router-dom';
-import { Bell, Bot, CalendarDays, CalendarPlus, ChevronRight, Contact, FileDown, FileSpreadsheet, Kanban, LayoutDashboard, MessageSquare, PanelLeftClose, PhoneIncoming, Search, Settings, Target, Users, X } from 'lucide-react';
+import { Bell, Bot, CalendarDays, CalendarPlus, ChevronRight, Contact, ExternalLink, FileDown, FileSpreadsheet, Kanban, LayoutDashboard, MessageSquare, PanelLeftClose, PhoneIncoming, Search, Settings, Target, Users, X } from 'lucide-react';
 import prismaLogo from '../assets/prisma-logo.png';
 import priceLogo from '../assets/price-logo.svg';
 import { FilaStatusBadge } from './FilaStatusBadge';
+import { useCarteira } from '../context/CarteiraContext';
 
 interface SidebarProps {
   onOpenSearch: () => void;
@@ -45,6 +46,12 @@ function linkClass(isActive: boolean): string {
 export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder, onImportarResumo, onRegistrarContatoCliente, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: SidebarProps) {
   // No mobile (drawer), clicar num link fecha o menu.
   const closeIfMobile = () => onCloseMobile();
+  const { categoriasPorTipo } = useCarteira();
+  // Serviços tipo "Aplicação": link ÚNICO e global (mesma URL pra 2D inteira,
+  // ver Configurações → Categorias → Serviço) — ao lado de PRISMA/Price, que
+  // são os mesmos 2 fixos de sempre. "PowerBI" é o outro tipo, mas esse é por
+  // CLIENTE (fica no cadastro do cliente, não aqui).
+  const aplicacoes = categoriasPorTipo('servico').filter((c) => c.tipoLink === 'aplicacao' && c.urlAplicacao?.trim());
 
   return (
     // `overflow-y-auto`: a coluna tem mais conteúdo do que cabe em telas
@@ -155,6 +162,18 @@ export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder, onImportarRes
                 scroll horizontal na sidebar inteira. */}
             <img src={priceLogo} alt="Price 2D" className="shrink-0" style={{ height: 20, width: 'auto', maxWidth: '100%' }} />
           </a>
+          {aplicacoes.map((app) => (
+            <a
+              key={app.id}
+              href={app.urlAplicacao}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Abrir ${app.valor}`}
+              className="sidebar-action flex items-center justify-center gap-[0.35rem] w-full h-[40px] rounded-sm px-[0.5rem] text-[0.76rem] font-semibold text-white bg-black border-none cursor-pointer no-underline transition-all duration-150 hover:bg-neutral-800"
+            >
+              <ExternalLink size={14} className="shrink-0" /> <span className="sidebar-label">{app.valor}</span>
+            </a>
+          ))}
         </div>
       </div>
 

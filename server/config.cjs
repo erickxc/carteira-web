@@ -315,13 +315,13 @@ const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, 'carteira-snapshot.sqlite');
 // inteira com json_to_sheet(dados, { header }), então qualquer coluna fora
 // dessa lista era apagada de TODAS as linhas a cada save (`sala` é campo ativo,
 // gravado pelo EventFormModal — bug real de perda de dado, não só legado).
-const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'servicosIndependentes', 'contatos', 'observacao', 'estado', 'status', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'lastPricing', 'userId', 'lojas', 'relatorioCadencia', 'local', 'linkPowerBI', 'linkPlataforma'];
+const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'servicosIndependentes', 'contatos', 'observacao', 'estado', 'status', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'lastPricing', 'userId', 'lojas', 'relatorioCadencia', 'local', 'linksServicos'];
 // `origem` = de quem partiu a interação ('nos' | 'cliente'). Vazio nos eventos
 // antigos (tratado como não informado, nunca como 'nos') — é o que permite
 // separar contato que NÓS fizemos de contato que o CLIENTE fez.
 const AGENDA_HEADERS = ['id', 'createdAt', 'clientId', 'clientName', 'type', 'subject', 'date', 'time', 'duracao', 'description', 'status', 'motivo', 'monitores', 'sala', 'origem', 'reagendamentos', 'datasAnteriores', 'servicos', 'checklist', 'preAnalise', 'ata', 'resumo', 'transcricao', 'serie', 'attachments', 'userId', 'notifiedDay', 'notes', 'produtosSituacao', 'precificacoes'];
 const LEMBRETES_HEADERS = ['id', 'createdAt', 'title', 'datetime', 'description', 'status', 'clientId', 'eventId', 'recurrence', 'type', 'userId'];
-const CATEGORIAS_HEADERS = ['id', 'tipo', 'valor', 'ordem', 'createdAt'];
+const CATEGORIAS_HEADERS = ['id', 'tipo', 'valor', 'ordem', 'createdAt', 'tipoLink', 'urlAplicacao'];
 const ACOES_HEADERS = ['id', 'clientId', 'tipo', 'segmento', 'status', 'servico', 'monitor', 'notes', 'dueAt', 'createdAt', 'updatedAt'];
 const MODELOS_HEADERS = ['id', 'segmento', 'titulo', 'conteudo', 'createdAt'];
 const CADENCIAS_HEADERS = ['chave', 'valor'];

@@ -18,7 +18,7 @@ interface ClientFormModalProps {
 }
 
 export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
-  const { criarCliente, criarClientesEmLote, atualizarCliente, opcoesPorTipo } = useCarteira();
+  const { criarCliente, criarClientesEmLote, atualizarCliente, opcoesPorTipo, categoriasPorTipo } = useCarteira();
   const servicoOpcoes = opcoesPorTipo('servico');
   const statusOpcoes = [...CLIENTE_STATUS_OPCOES];
   const monitorOpcoes = opcoesPorTipo('monitor');
@@ -34,8 +34,8 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const [estado, setEstado] = useState(initial?.estado ?? (/^(ativ|gratuidade)/i.test(initial?.status ?? '') ? 'Ativo' : 'Inativo'));
   const [observacao, setObservacao] = useState(initial?.observacao ?? '');
   const [local, setLocal] = useState(initial?.local ?? '');
-  const [linkPowerBI, setLinkPowerBI] = useState(initial?.linkPowerBI ?? '');
-  const [linkPlataforma, setLinkPlataforma] = useState(initial?.linkPlataforma ?? '');
+  const [linksServicos, setLinksServicos] = useState<Record<string, string>>(initial?.linksServicos ?? {});
+  const [servicoLinkSelecionado, setServicoLinkSelecionado] = useState('');
   const [tipoAnalise, setTipoAnalise] = useState<TipoAnalise>(initial?.tipoAnalise ?? 'unitaria');
   const [lojas, setLojas] = useState<string[]>([]);
   const [novaLoja, setNovaLoja] = useState('');
@@ -93,30 +93,30 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
         const [primeira, ...resto] = lojasFinais;
         await atualizarCliente(initial.id, {
           empresa: `${grupo} - ${primeira}`, grupo, tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, estado, status, observacao, local, linkPowerBI, linkPlataforma, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, estado, status, observacao, local, linksServicos, relatorioCadencia,
         });
         if (resto.length > 0) {
           const novos: NovoCliente[] = resto.map((nome) => ({
             empresa: `${grupo} - ${nome}`,
             grupo,
             tipoAnalise: 'segmentado',
-            monitor, servicos, servicosIndependentes, estado, status, observacao, local, linkPowerBI, linkPlataforma, relatorioCadencia,
+            monitor, servicos, servicosIndependentes, estado, status, observacao, local, linksServicos, relatorioCadencia,
           }));
           await criarClientesEmLote(novos);
         }
       } else if (editando) {
-        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linkPowerBI, linkPlataforma, tipoAnalise, relatorioCadencia });
+        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linksServicos, tipoAnalise, relatorioCadencia });
       } else if (tipoAnalise === 'segmentado') {
         if (lojasFinais.length === 0) { toastError('Adicione ao menos uma loja para a análise segmentada.'); setSaving(false); return; }
         const novos: NovoCliente[] = lojasFinais.map((nome) => ({
           empresa: `${base} - ${nome}`,
           grupo: base,
           tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, estado, status, observacao, local, linkPowerBI, linkPlataforma, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, estado, status, observacao, local, linksServicos, relatorioCadencia,
         }));
         await criarClientesEmLote(novos);
       } else {
-        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linkPowerBI, linkPlataforma, tipoAnalise: 'unitaria', relatorioCadencia });
+        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linksServicos, tipoAnalise: 'unitaria', relatorioCadencia });
       }
       onClose();
     } catch (err) {
@@ -259,12 +259,39 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
               <Textarea tone="modal" value={observacao} onChange={(e) => setObservacao(e.target.value)} />
             </Field>
 
-            <Field as="div" label={<>Links externos <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· opcional, vira botão de acesso no cadastro</span></>}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <Input tone="modal" type="url" placeholder="Link do Power BI deste cliente" value={linkPowerBI} onChange={(e) => setLinkPowerBI(e.target.value)} />
-                <Input tone="modal" type="url" placeholder="Link da Plataforma deste cliente" value={linkPlataforma} onChange={(e) => setLinkPlataforma(e.target.value)} />
-              </div>
-            </Field>
+            {/* Só serviços marcados como "PowerBI" (Configurações → Categorias
+                → Serviço) E que este cliente já tem contratado — o link é
+                por (cliente, serviço), não um campo genérico fixo. Sem
+                nenhum serviço PowerBI contratado, a seção nem aparece. */}
+            {(() => {
+              const servicosPowerBI = categoriasPorTipo('servico').filter((c) => c.tipoLink === 'powerbi' && servicos.includes(c.valor));
+              if (servicosPowerBI.length === 0) return null;
+              const servicoAtivo = servicosPowerBI.some((c) => c.valor === servicoLinkSelecionado)
+                ? servicoLinkSelecionado
+                : servicosPowerBI[0].valor;
+              return (
+                <Field as="div" label={<>Link PowerBI <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· por serviço, vira botão de acesso no cadastro</span></>}>
+                  <div className="flex-row" style={{ gap: 8 }}>
+                    <Select
+                      tone="modal"
+                      value={servicoAtivo}
+                      onChange={(e) => setServicoLinkSelecionado(e.target.value)}
+                      style={{ maxWidth: 200, flexShrink: 0 }}
+                    >
+                      {servicosPowerBI.map((c) => <option key={c.valor} value={c.valor}>{c.valor}</option>)}
+                    </Select>
+                    <Input
+                      tone="modal"
+                      type="url"
+                      placeholder={`Link do ${servicoAtivo} deste cliente`}
+                      value={linksServicos[servicoAtivo] ?? ''}
+                      onChange={(e) => setLinksServicos((prev) => ({ ...prev, [servicoAtivo]: e.target.value }))}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                </Field>
+              );
+            })()}
 
             <Field as="div" label="Relatório automático">
               <label className="check-row" style={{ margin: '0.25rem 0' }}>

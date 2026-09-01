@@ -10,7 +10,6 @@ import { CoberturaCard } from '../components/dashboard/CoberturaCard';
 import { AderenciaCard } from '../components/dashboard/AderenciaCard';
 import { VencendoCard } from '../components/dashboard/VencendoCard';
 import { ServicosCard } from '../components/dashboard/ServicosCard';
-import { OutrosServicosCard } from '../components/dashboard/OutrosServicosCard';
 import { ProximasAgendasCard } from '../components/dashboard/ProximasAgendasCard';
 import { AlertasSemAcompanhamentoCard } from '../components/dashboard/AlertasSemAcompanhamentoCard';
 import { AlertasProgramadosCard } from '../components/dashboard/AlertasProgramadosCard';
@@ -143,8 +142,6 @@ export default function DashboardPage() {
           onSelecionarEvento={(ev) => navigate('/agenda', { state: { focusDate: ev.date } })}
         />
       </div>
-
-      <OutrosServicosCard outrosServicosDist={d.outrosServicosDist} />
 
       {/* Alertas */}
       <div className="dash-two-col">

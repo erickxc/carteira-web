@@ -12,7 +12,7 @@ import ProvedorIACard from '../components/config/ProvedorIACard';
 import LimiteContaCard from '../components/config/LimiteContaCard';
 import McpClaudeCard from '../components/config/McpClaudeCard';
 import UsoIACard from '../components/config/UsoIACard';
-import { CATEGORIA_TIPO_LABEL, SEGMENTO_LABEL, type Cadencias, type CategoriaTipo, type Modelo, type Segmento } from '../types';
+import { CATEGORIA_TIPO_LABEL, SEGMENTO_LABEL, type Cadencias, type CategoriaTipo, type Modelo, type Segmento, type TipoLinkServico } from '../types';
 
 const TIPOS: CategoriaTipo[] = ['servico', 'tipo_evento', 'status_cliente', 'status_evento', 'monitor', 'tipo_lembrete', 'sala', 'local_cliente'];
 
@@ -193,17 +193,25 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
   }
 
   const [novoValor, setNovoValor] = useState('');
+  const [novoTipoLink, setNovoTipoLink] = useState<'' | TipoLinkServico>('');
+  const [novaUrlAplicacao, setNovaUrlAplicacao] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [editValor, setEditValor] = useState('');
+  const [editTipoLink, setEditTipoLink] = useState<'' | TipoLinkServico>('');
+  const [editUrlAplicacao, setEditUrlAplicacao] = useState('');
 
   async function adicionar() {
     const valor = novoValor.trim();
     if (!valor) return;
     setSalvando(true);
     try {
-      await criarCategoria(tipo, valor);
+      await criarCategoria(tipo, valor, tipo === 'servico'
+        ? { tipoLink: novoTipoLink || null, urlAplicacao: novoTipoLink === 'aplicacao' ? novaUrlAplicacao.trim() : null }
+        : undefined);
       setNovoValor('');
+      setNovoTipoLink('');
+      setNovaUrlAplicacao('');
     } catch (e) {
       toastError(e instanceof Error ? e.message : 'Falha ao adicionar.');
     } finally {
@@ -214,7 +222,9 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
   async function salvarEdicao(id: string) {
     const valor = editValor.trim();
     if (!valor) return;
-    await atualizarCategoria(id, valor);
+    await atualizarCategoria(id, valor, tipo === 'servico'
+      ? { tipoLink: editTipoLink || null, urlAplicacao: editTipoLink === 'aplicacao' ? editUrlAplicacao.trim() : null }
+      : undefined);
     setEditandoId(null);
   }
 
@@ -237,48 +247,101 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
         {itens.length === 0 && <div className="empty-state">Nenhum item.</div>}
         {itens.map((cat) => (
-          <div key={cat.id} className="flex-between" style={{ padding: '0.5rem 0.65rem', borderRadius: 6, background: 'var(--card-hover)', border: '1px solid var(--border)' }}>
+          <div key={cat.id} style={{ padding: '0.5rem 0.65rem', borderRadius: 6, background: 'var(--card-hover)', border: '1px solid var(--border)' }}>
             {editandoId === cat.id ? (
-              <>
-                <Input
-                  value={editValor}
-                  autoFocus
-                  onChange={(e) => setEditValor(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && salvarEdicao(cat.id)}
-                  style={{ marginRight: 8 }}
-                />
-                <div className="flex-row">
-                  <Button variant="secondary" size="icon" onClick={() => salvarEdicao(cat.id)}><Check size={14} /></Button>
-                  <Button variant="secondary" size="icon" onClick={() => setEditandoId(null)}><X size={14} /></Button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div className="flex-between">
+                  <Input
+                    value={editValor}
+                    autoFocus
+                    onChange={(e) => setEditValor(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && salvarEdicao(cat.id)}
+                    style={{ marginRight: 8 }}
+                  />
+                  <div className="flex-row">
+                    <Button variant="secondary" size="icon" onClick={() => salvarEdicao(cat.id)}><Check size={14} /></Button>
+                    <Button variant="secondary" size="icon" onClick={() => setEditandoId(null)}><X size={14} /></Button>
+                  </div>
                 </div>
-              </>
+                {tipo === 'servico' && (
+                  <div className="flex-row" style={{ gap: 8 }}>
+                    <Select value={editTipoLink} onChange={(e) => setEditTipoLink(e.target.value as '' | TipoLinkServico)} style={{ maxWidth: 160 }}>
+                      <option value="">Sem link</option>
+                      <option value="powerbi">PowerBI (por cliente)</option>
+                      <option value="aplicacao">Aplicação (link único)</option>
+                    </Select>
+                    {editTipoLink === 'aplicacao' && (
+                      <Input
+                        type="url"
+                        placeholder="URL da aplicação (sidebar)"
+                        value={editUrlAplicacao}
+                        onChange={(e) => setEditUrlAplicacao(e.target.value)}
+                        style={{ flex: 1 }}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
             ) : (
-              <>
-                <span>{cat.valor}</span>
+              <div className="flex-between">
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {cat.valor}
+                  {cat.tipoLink === 'powerbi' && <Badge variant="muted">PowerBI</Badge>}
+                  {cat.tipoLink === 'aplicacao' && <Badge variant="muted">{cat.urlAplicacao ? 'Aplicação' : 'Aplicação · sem URL'}</Badge>}
+                </span>
                 <div className="flex-row">
-                  <Button variant="secondary" size="icon" onClick={() => { setEditandoId(cat.id); setEditValor(cat.valor); }}>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    onClick={() => {
+                      setEditandoId(cat.id);
+                      setEditValor(cat.valor);
+                      setEditTipoLink(cat.tipoLink ?? '');
+                      setEditUrlAplicacao(cat.urlAplicacao ?? '');
+                    }}
+                  >
                     <Pencil size={13} />
                   </Button>
                   <Button variant="danger" size="icon" onClick={() => excluir(cat.id, cat.valor)}>
                     <Trash2 size={13} />
                   </Button>
                 </div>
-              </>
+              </div>
             )}
           </div>
         ))}
       </div>
 
-      <div className="flex-row">
-        <Input
-          placeholder="Adicionar..."
-          value={novoValor}
-          onChange={(e) => setNovoValor(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && adicionar()}
-        />
-        <Button variant="primary" size="icon" onClick={adicionar} disabled={salvando || !novoValor.trim()}>
-          <Plus size={16} />
-        </Button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="flex-row">
+          <Input
+            placeholder="Adicionar..."
+            value={novoValor}
+            onChange={(e) => setNovoValor(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && adicionar()}
+          />
+          <Button variant="primary" size="icon" onClick={adicionar} disabled={salvando || !novoValor.trim()}>
+            <Plus size={16} />
+          </Button>
+        </div>
+        {tipo === 'servico' && novoValor.trim() && (
+          <div className="flex-row" style={{ gap: 8 }}>
+            <Select value={novoTipoLink} onChange={(e) => setNovoTipoLink(e.target.value as '' | TipoLinkServico)} style={{ maxWidth: 160 }}>
+              <option value="">Sem link</option>
+              <option value="powerbi">PowerBI (por cliente)</option>
+              <option value="aplicacao">Aplicação (link único)</option>
+            </Select>
+            {novoTipoLink === 'aplicacao' && (
+              <Input
+                type="url"
+                placeholder="URL da aplicação (sidebar)"
+                value={novaUrlAplicacao}
+                onChange={(e) => setNovaUrlAplicacao(e.target.value)}
+                style={{ flex: 1 }}
+              />
+            )}
+          </div>
+        )}
       </div>
     </Card>
   );

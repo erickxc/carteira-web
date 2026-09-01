@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { FileUp, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { FileUp, LayoutDashboard, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -218,6 +218,9 @@ export default function ClientesPage() {
           </p>
         </div>
         <div className="flex-row" style={{ gap: 10 }}>
+          <Button variant="secondary" onClick={() => navigate('/clientes/dashboard')}>
+            <LayoutDashboard size={16} /> Dashboard da Carteira
+          </Button>
           <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
             <FileUp size={16} /> Importar
           </Button>

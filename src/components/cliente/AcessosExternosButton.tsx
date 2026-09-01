@@ -1,27 +1,26 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ExternalLink } from 'lucide-react';
-import plataformaLogo from '../../assets/plataforma-logo.svg';
+import { ChevronDown } from 'lucide-react';
+import powerbiLogo from '../../assets/powerbi-logo.webp';
 import type { Cliente } from '../../types';
 import { Button } from '../../ui';
 
 interface AcessoOpcao {
   label: string;
   url: string;
-  icon: ReactNode;
 }
 
 interface AcessosExternosButtonProps {
   cliente: Cliente;
 }
 
+const Icone = () => <img src={powerbiLogo} alt="" style={{ width: 15, height: 15, objectFit: 'contain' }} />;
+
 /**
- * Botão de acesso externo no cabeçalho do cadastro do cliente (Power BI /
- * Plataforma). Diferente de PRISMA/Price na sidebar (2 botões fixos, link
- * único pro app inteiro): aqui o link é PRÓPRIO de cada cliente — por isso é
- * um seletor só, que lista apenas o que está preenchido pra este cliente
- * (campo "Links externos" na edição). Sem nenhum link cadastrado, o botão
- * nem aparece.
+ * Botão de acesso a PowerBI no cabeçalho do cadastro do cliente — um link por
+ * SERVIÇO PowerBI que o cliente tem (`cliente.linksServicos`, preenchido no
+ * cadastro por um seletor interno: escolhe o serviço, cola o link). Sem
+ * nenhum link cadastrado, o botão nem aparece.
  */
 export function AcessosExternosButton({ cliente }: AcessosExternosButtonProps) {
   const [open, setOpen] = useState(false);
@@ -29,15 +28,9 @@ export function AcessosExternosButton({ cliente }: AcessosExternosButtonProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
 
-  const candidatos: (AcessoOpcao | null)[] = [
-    cliente.linkPowerBI?.trim()
-      ? { label: 'Power BI', url: cliente.linkPowerBI.trim(), icon: <ExternalLink size={15} /> }
-      : null,
-    cliente.linkPlataforma?.trim()
-      ? { label: 'Plataforma', url: cliente.linkPlataforma.trim(), icon: <img src={plataformaLogo} alt="" style={{ width: 15, height: 15, objectFit: 'contain' }} /> }
-      : null,
-  ];
-  const opcoes = candidatos.filter((o): o is AcessoOpcao => o !== null);
+  const opcoes: AcessoOpcao[] = Object.entries(cliente.linksServicos ?? {})
+    .filter(([, url]) => url?.trim())
+    .map(([label, url]) => ({ label, url: url.trim() }));
 
   useEffect(() => {
     if (!open) return;
@@ -68,7 +61,7 @@ export function AcessosExternosButton({ cliente }: AcessosExternosButtonProps) {
     const [unica] = opcoes;
     return (
       <Button variant="secondary" onClick={() => abrir(unica.url)} title={`Abrir ${unica.label}`}>
-        {unica.icon} {unica.label}
+        <Icone /> {unica.label}
       </Button>
     );
   }
@@ -84,7 +77,7 @@ export function AcessosExternosButton({ cliente }: AcessosExternosButtonProps) {
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <ExternalLink size={15} /> Acessar <ChevronDown size={13} />
+        <Icone /> Power BI <ChevronDown size={13} />
       </Button>
       {open && rect && createPortal(
         <div
@@ -95,7 +88,7 @@ export function AcessosExternosButton({ cliente }: AcessosExternosButtonProps) {
         >
           {opcoes.map((o) => (
             <button type="button" key={o.label} role="option" onClick={() => abrir(o.url)} className="filter-pop-item">
-              {o.icon} {o.label}
+              <Icone /> {o.label}
             </button>
           ))}
         </div>,

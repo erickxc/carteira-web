@@ -13,12 +13,29 @@ export const CATEGORIA_TIPO_LABEL: Record<CategoriaTipo, string> = {
   local_cliente: 'Local do cliente',
 };
 
+/** Tipo de link associado a um serviço (só relevante pra `tipo: 'servico'`):
+ *  "powerbi" = link PRÓPRIO de cada cliente (cadastro do cliente); "aplicacao"
+ *  = link ÚNICO e global (mesma URL pra 2D inteira, ex.: AutoTech, Raptor —
+ *  aparece na sidebar junto de PRISMA/Price, não no cadastro de cliente). */
+export type TipoLinkServico = 'powerbi' | 'aplicacao';
+
+/** Patch de tipoLink/urlAplicacao — `null` limpa o campo de propósito (diferente
+ *  de `undefined`, que o JSON.stringify descarta e o backend nunca vê, então
+ *  nunca limparia um valor já gravado ao voltar pra "Nenhum"). */
+export interface ExtraLinkServico {
+  tipoLink?: TipoLinkServico | null;
+  urlAplicacao?: string | null;
+}
+
 export interface Categoria {
   id: string;
   tipo: CategoriaTipo;
   valor: string;
   ordem: number;
   createdAt: string;
+  tipoLink?: TipoLinkServico;
+  /** URL global — só preenchida quando `tipoLink === 'aplicacao'`. */
+  urlAplicacao?: string;
 }
 
 // --- Cliente ---
@@ -103,12 +120,14 @@ export interface Cliente {
   /** Cadência de geração automática de Relatório na agenda (opcional — sem isso,
    * o cliente não participa da geração automática). */
   relatorioCadencia?: RelatorioCadencia;
-  /** Link de acesso ao Power BI deste cliente (opcional). Botão no cabeçalho
-   *  do cadastro (`ClienteDetailPage`) abre isto numa aba nova. */
-  linkPowerBI?: string;
-  /** Link de acesso à Plataforma deste cliente (opcional). Mesmo botão do
-   *  Power BI acima. */
-  linkPlataforma?: string;
+  /**
+   * Link de PowerBI por serviço — chave é o nome do serviço (`Categoria.valor`
+   * com `tipoLink === 'powerbi'`), valor é a URL daquele serviço PARA ESTE
+   * cliente. Um serviço só aparece pra vincular link se o cliente já tiver
+   * esse serviço em `servicos`. Botão no cabeçalho do cadastro
+   * (`ClienteDetailPage`) abre o link escolhido numa aba nova.
+   */
+  linksServicos?: Record<string, string>;
   createdAt: string;
   // Colunas legadas do banco real, mantidas em sincronia pelo backend:
   suspenso?: boolean;
