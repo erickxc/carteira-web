@@ -8,6 +8,18 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.1
+
+- Reagendar uma reunião agora mantém o horário antigo na Agenda, marcado
+  como "Realocado" — antes ele simplesmente desaparecia.
+- A fila de priorização em Ações passa a recomendar reunião com base no que
+  foi combinado numa reunião anterior e ainda não teve retorno (Dados
+  Alvos), não só por atraso de cadência.
+- Novo resumo de vendas por período (receita, quantidade, clientes
+  distintos) e novas análises estratégicas (queda persistente, erosão de
+  cliente, poder de compra) a partir dos Dados Alvos, disponíveis pro
+  monitorIA consultar na conversa.
+
 ## 1.4.0
 
 - Nova integração com os dados de venda por loja de cada empresa (Dados
