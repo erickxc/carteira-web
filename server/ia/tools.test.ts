@@ -35,6 +35,7 @@ const MODULOS = [
   '../fila/mutacao.cjs', '../dominio/agenda.cjs', '../dominio/lembretes.cjs',
   '../alvos/leitor.cjs', '../alvos/cache.cjs', '../alvos/mapa.cjs', '../alvos/estado.cjs',
   '../alvos/entidades.cjs', '../alvos/movimento.cjs', '../alvos/acompanhamento.cjs', '../alvos/consulta.cjs',
+  '../alvos/clientesFinais.cjs',
 ];
 
 function limparCaches() {
@@ -101,8 +102,8 @@ function escreverDossie(clientId: string, slug: string, corpo: string) {
 // 1-8: catálogo e contrato geral das ferramentas
 // ---------------------------------------------------------------------------
 describe('catálogo de ferramentas', () => {
-  it('1. expõe exatamente as 31 ferramentas esperadas', () => {
-    expect(FERRAMENTAS).toHaveLength(31);
+  it('1. expõe exatamente as 33 ferramentas esperadas', () => {
+    expect(FERRAMENTAS).toHaveLength(33);
   });
 
   it('2. nenhum nome de ferramenta duplicado', () => {
@@ -922,5 +923,61 @@ describe('buscar_fatos_alvos / definir_status_acompanhamento', () => {
 
   it('buscar_analise_estrategica_alvos: cliente inexistente falha explícito', () => {
     expect(() => exec('buscar_analise_estrategica_alvos', repoBase(), { clientId: 'fantasma' })).toThrow(/não encontrado/);
+  });
+
+  it('buscar_status_clientes_finais: clientId ausente falha explícito', () => {
+    expect(() => exec('buscar_status_clientes_finais', repoBase(), {})).toThrow(/clientId.*obrigatório/);
+  });
+
+  it('buscar_status_clientes_finais: cliente inexistente falha explícito', () => {
+    expect(() => exec('buscar_status_clientes_finais', repoBase(), { clientId: 'fantasma' })).toThrow(/não encontrado/);
+  });
+
+  it('buscar_status_clientes_finais: sem nada registrado devolve lista vazia', () => {
+    const r = exec('buscar_status_clientes_finais', repoBase(), { clientId: 'c1' });
+    expect(r.clientesFinais).toEqual([]);
+  });
+
+  it('definir_status_cliente_final: exige clientId, clienteFinal e status', () => {
+    expect(() => exec('definir_status_cliente_final', repoBase(), { clienteFinal: 'X', status: 'regular' }))
+      .toThrow(/clientId.*obrigatório/);
+    expect(() => exec('definir_status_cliente_final', repoBase(), { clientId: 'c1', status: 'regular' }))
+      .toThrow(/clienteFinal.*obrigatório/);
+  });
+
+  it('definir_status_cliente_final: recusa status fora do vocabulário', () => {
+    criarEmpresaDeTeste('c1');
+    expect(() => exec('definir_status_cliente_final', repoBase(), {
+      clientId: 'c1', clienteFinal: 'EDUARDO MECANICO (CM)', status: 'atrasado',
+    })).toThrow(/status inválido/);
+  });
+
+  // Mesma disciplina do resolverOpcao/definir_status_acompanhamento: nome que
+  // não existe no catálogo real da loja não pode virar registro.
+  it('definir_status_cliente_final: recusa cliente final que não existe no catálogo da loja', () => {
+    criarEmpresaDeTeste('c1');
+    expect(() => exec('definir_status_cliente_final', repoBase(), {
+      clientId: 'c1', clienteFinal: 'Cliente Que Não Existe', status: 'inadimplente',
+    })).toThrow(/não existe no catálogo/);
+  });
+
+  it('definir_status_cliente_final: grava e buscar_status_clientes_finais reflete', () => {
+    criarEmpresaDeTeste('c1');
+    const r1 = exec('definir_status_cliente_final', repoBase(), {
+      clientId: 'c1', clienteFinal: 'EDUARDO MECANICO (CM)', status: 'inadimplente', observacao: 'atrasou 3 boletos',
+    });
+    expect(r1).toMatchObject({ success: true, clienteFinal: 'EDUARDO MECANICO (CM)', status: 'inadimplente' });
+
+    const r2 = exec('buscar_status_clientes_finais', repoBase(), { clientId: 'c1' });
+    expect(r2.clientesFinais).toHaveLength(1);
+    expect(r2.clientesFinais[0]).toMatchObject({ nome: 'EDUARDO MECANICO (CM)', status: 'inadimplente', observacao: 'atrasou 3 boletos' });
+  });
+
+  it('definir_status_cliente_final: mesmo nome em outro clientId não conflita (escopo por loja)', () => {
+    criarEmpresaDeTeste('c1');
+    exec('definir_status_cliente_final', repoBase(), { clientId: 'c1', clienteFinal: 'EDUARDO MECANICO (CM)', status: 'inadimplente' });
+    // c2 não tem vínculo/catálogo — confirma só que a gravação de c1 não vazou pra outro clientId.
+    const { statusDoCliente } = require('../alvos/clientesFinais.cjs');
+    expect(statusDoCliente('c2')).toEqual([]);
   });
 });

@@ -643,6 +643,50 @@ function definirStatusAcompanhamento(repo, { clientId, entidade, tipo, status, n
   return { success: true, entidade, tipo: tipoFinal, status, cliente: cliente.empresa };
 }
 
+/**
+ * Situação (inadimplente/regular/situação externa) de um CLIENTE FINAL —
+ * o comprador da loja, não a loja em si — escopada por `clientId` (decisão
+ * do usuário: o mesmo nome pode ter situação diferente em lojas diferentes,
+ * porque o crédito é com a loja, não com o nome abstrato).
+ *
+ * Mesmo padrão de `definirStatusAcompanhamento`: JSON em DATA_DIR (não
+ * SQLite), nome do cliente final validado contra o catálogo real da loja
+ * antes de gravar — nunca cru (mesma disciplina de `resolverOpcao`).
+ */
+function definirStatusClienteFinal(repo, { clientId, clienteFinal, status, observacao }) {
+  if (!clientId) throw new Error('definir_status_cliente_final: "clientId" é obrigatório.');
+  if (!clienteFinal) throw new Error('definir_status_cliente_final: "clienteFinal" é obrigatório.');
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
+  if (!cliente) throw new Error(`definir_status_cliente_final: cliente "${clientId}" não encontrado.`);
+
+  const { STATUS_VALIDOS, definirStatus } = require('../alvos/clientesFinais.cjs');
+  if (!STATUS_VALIDOS.includes(status)) {
+    throw new Error(`definir_status_cliente_final: status inválido "${status}". Use: ${STATUS_VALIDOS.join(', ')}.`);
+  }
+
+  const { catalogoDoCliente } = require('../alvos/consulta.cjs');
+  const catalogo = catalogoDoCliente(cliente.id, { aquecer: true });
+  if (!catalogo.disponivel) {
+    throw new Error(`definir_status_cliente_final: não foi possível confirmar "${clienteFinal}" contra os dados do cliente (${catalogo.motivo}). Use buscar_fatos_alvos primeiro.`);
+  }
+  const achado = catalogo.clientes.find((x) => String(x).toLowerCase() === String(clienteFinal).toLowerCase());
+  if (!achado) {
+    throw new Error(`definir_status_cliente_final: "${clienteFinal}" não existe no catálogo de clientes finais desta loja. Use buscar_fatos_alvos para ver os nomes exatos.`);
+  }
+
+  definirStatus(cliente.id, achado, status, { atualizadoEm: new Date().toISOString().slice(0, 10), observacao });
+  return { success: true, clienteFinal: achado, status, cliente: cliente.empresa };
+}
+
+function buscarStatusClientesFinais(repo, { clientId }) {
+  if (!clientId) throw new Error('buscar_status_clientes_finais: "clientId" é obrigatório.');
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
+  if (!cliente) throw new Error(`buscar_status_clientes_finais: cliente "${clientId}" não encontrado.`);
+
+  const { statusDoCliente } = require('../alvos/clientesFinais.cjs');
+  return { cliente: cliente.empresa, clientesFinais: statusDoCliente(cliente.id) };
+}
+
 function buscarHistoricoEventos(repo, { clientId, limite }) {
   if (!clientId) throw new Error('buscar_historico_eventos: "clientId" é obrigatório.');
   const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
@@ -1173,6 +1217,31 @@ const FERRAMENTAS = [
       required: ['clientId', 'entidade', 'status'],
     },
     executar: definirStatusAcompanhamento,
+  },
+  {
+    name: 'buscar_status_clientes_finais',
+    description: 'Lista a situação (inadimplente/regular/situação externa) já registrada para os clientes finais desta loja/cliente da carteira. Use antes de responder sobre a situação de um cliente final, ou antes de perguntar ao usuário se já não sabe.',
+    parameters: {
+      type: 'object',
+      properties: { clientId: { type: 'string', description: 'ID do cliente da carteira.' } },
+      required: ['clientId'],
+    },
+    executar: buscarStatusClientesFinais,
+  },
+  {
+    name: 'definir_status_cliente_final',
+    description: 'Registra a situação de um cliente final (comprador desta loja): "inadimplente", "regular" ou "situacao_externa" (ex.: fechou, mudou de dono). Escopado por loja — o mesmo nome pode ter situação diferente em outra loja sua. Use só depois de o usuário INFORMAR/DECIDIR isso — não conclua sozinho a partir de queda de compra. O nome do cliente final tem de ser exatamente o que veio em buscar_fatos_alvos/buscar_status_clientes_finais.',
+    parameters: {
+      type: 'object',
+      properties: {
+        clientId: { type: 'string', description: 'ID do cliente da carteira.' },
+        clienteFinal: { type: 'string', description: 'Nome exato do cliente final, como veio em buscar_fatos_alvos.' },
+        status: { type: 'string', description: 'inadimplente | regular | situacao_externa' },
+        observacao: { type: 'string', description: 'Contexto da situação, em uma frase (opcional, máx. 300 caracteres).' },
+      },
+      required: ['clientId', 'clienteFinal', 'status'],
+    },
+    executar: definirStatusClienteFinal,
   },
   {
     name: 'gerar_relatorio_executivo',
