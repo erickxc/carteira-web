@@ -1,9 +1,10 @@
 import { format, isSameDay, isSameMonth, parseISO } from 'date-fns';
-import { AlertTriangle, CalendarSync, MapPin, Paperclip, Plus, User } from 'lucide-react';
+import { AlertTriangle, CalendarSync, History, MapPin, Paperclip, Plus, User } from 'lucide-react';
 import { formatHolidayLabel, getHoliday } from '../../utils/holidays';
 import { corTipo } from '../../utils/tipoCor';
 import { salaDoEvento } from '../../utils/turnos';
 import { ReagendarButton } from './ReagendarButton';
+import type { GhostRealocado } from '../../utils/reagendamento';
 import type { EventoAgenda, EventoCeo } from '../../types';
 
 const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -14,6 +15,8 @@ interface MonthGridProps {
   hoje: Date;
   eventsByDay: Map<string, EventoAgenda[]>;
   eventsByDayCeo: Map<string, EventoCeo[]>;
+  /** Slots de onde uma reunião já saiu (remarcada) — ver `src/utils/reagendamento.ts`. */
+  ghostsByDay: Map<string, GhostRealocado[]>;
   conflitos: Set<string>;
   draggedId: string | null;
   dragOverKey: string | null;
@@ -33,7 +36,7 @@ interface MonthGridProps {
  * mesmas classes/markup), sem alterar nenhuma regra de negócio.
  */
 export function MonthGrid({
-  monthDays, currentMonth, hoje, eventsByDay, eventsByDayCeo, conflitos, draggedId, dragOverKey,
+  monthDays, currentMonth, hoje, eventsByDay, eventsByDayCeo, ghostsByDay, conflitos, draggedId, dragOverKey,
   onDragOverDay, onDragLeaveDay, onDropDay, onDragStartEvento, onDragEndEvento,
   onSelecionarEvento, onSelecionarEventoCeo, onNovoEvento, onReagendar,
 }: MonthGridProps) {
@@ -47,6 +50,7 @@ export function MonthGrid({
           const key = format(day, 'yyyy-MM-dd');
           const dayEvents = eventsByDay.get(key) ?? [];
           const dayEventsCeo = eventsByDayCeo.get(key) ?? [];
+          const dayGhosts = ghostsByDay.get(key) ?? [];
           const holiday = getHoliday(day);
           const classes = ['calendar-day', 'calendar-day-big',
             !isSameMonth(day, currentMonth) && 'is-outside', isSameDay(day, hoje) && 'is-today',
@@ -111,6 +115,19 @@ export function MonthGrid({
                       <span className="calendar-chip-type">Agendas do Marco</span>
                     </span>
                   </button>
+                ))}
+                {/* "Realocado": o slot de onde a reunião já saiu, ver
+                    src/utils/reagendamento.ts. Não é arrastável nem clicável —
+                    é só o rastro de onde ela esteve antes; a reunião de
+                    verdade está no dia novo, editável por lá. */}
+                {dayGhosts.map((g) => (
+                  <div key={g.id} className="calendar-chip is-ghost"
+                    title={`${g.clientName} — remarcada para ${format(parseISO(g.novaData), 'dd/MM/yyyy')}${g.subject ? ' · ' + g.subject : ''}`}>
+                    <span className="calendar-chip-title"><History size={11} /> {g.clientName}</span>
+                    <span className="calendar-chip-meta">
+                      <span className="calendar-chip-type">Realocado → {format(parseISO(g.novaData), 'dd/MM')}</span>
+                    </span>
+                  </div>
                 ))}
               </div>
             </div>

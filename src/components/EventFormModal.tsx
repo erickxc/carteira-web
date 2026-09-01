@@ -3,6 +3,7 @@ import { format, isValid, parse, setHours, setMinutes } from 'date-fns';
 import { AlertTriangle, Ban, Check, FileText } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { gerarAta } from '../utils/ata';
+import { registrarRemarcacao } from '../utils/reagendamento';
 import { gerarAtaPdf } from '../utils/ataPdf';
 import { toastError } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
@@ -248,7 +249,13 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
       const precificacoes = ehPrecificacaoTipo ? pc.itens : [];
       if (editando) {
         const iso = baseData.toISOString();
-        await atualizarEvento(initial.id, { ...comum, date: iso, checklist: ck.checklist, ata: ataDe(iso, ck.checklist), produtosSituacao, precificacoes });
+        // Editar a data pelo formulário é tão remarcação quanto arrastar no
+        // calendário — antes só o drag contava, então a mesma reunião
+        // remarcada pela tela tinha `reagendamentos` divergente do real.
+        await atualizarEvento(initial.id, {
+          ...comum, date: iso, checklist: ck.checklist, ata: ataDe(iso, ck.checklist), produtosSituacao, precificacoes,
+          ...registrarRemarcacao(initial, iso),
+        });
       } else if (rec.recorrente) {
         // Salva só a REGRA — o servidor materializa o mês corrente na hora
         // (e os meses seguintes conforme chegam), em vez do form gerar aqui

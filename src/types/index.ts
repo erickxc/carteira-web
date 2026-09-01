@@ -266,6 +266,13 @@ export interface EventoAgenda {
    * card nunca mexeu no status.
    */
   reagendamentos?: number;
+  /**
+   * Uma entrada por remarcação: o `date` (ISO) que o evento tinha ANTES de
+   * cada vez que foi movido. Sustenta o "realocado" na Agenda — o slot antigo
+   * continua visível na tela, marcado como já reaproveitado, em vez de
+   * simplesmente sumir quando a reunião é remarcada. Ver `src/utils/reagendamento.ts`.
+   */
+  datasAnteriores?: string[];
   /** Id da série de recorrência (agrupa ocorrências geradas juntas). */
   serie?: string;
   createdAt: string;

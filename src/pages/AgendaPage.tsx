@@ -15,6 +15,7 @@ import { ProximasReunioesTicker } from '../components/agenda/ProximasReunioesTic
 import { MonthGrid } from '../components/agenda/MonthGrid';
 import { WeekKanban } from '../components/agenda/WeekKanban';
 import { turnoDe } from '../utils/turnos';
+import { ghostsByDay, registrarRemarcacao } from '../utils/reagendamento';
 import { gerarAta } from '../utils/ata';
 import { corTipo } from '../utils/tipoCor';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -99,6 +100,15 @@ export default function AgendaPage() {
     return map;
   }, [agendaFiltrada]);
 
+  /**
+   * "Realocado": o slot de onde uma reunião JÁ SAIU continua na tela, marcado
+   * como já reaproveitado — em vez de simplesmente sumir quando ela é
+   * remarcada. Deriva do mesmo conjunto filtrado que `eventsByDay`: um
+   * fantasma não aparece se o evento real dele estiver fora do filtro ativo
+   * (monitor/tipo), pelo mesmo motivo que o evento em si não apareceria.
+   */
+  const ghostsRealocadosByDay = useMemo(() => ghostsByDay(agendaFiltrada), [agendaFiltrada]);
+
   // Eventos da Agenda do CEO, por dia (chave 'yyyy-MM-dd') — inclui todos os
   // dias entre start/end para compromissos que abrangem mais de um dia.
   const eventsByDayCeo = useMemo(() => {
@@ -164,23 +174,11 @@ export default function AgendaPage() {
     return [0, 1, 2, 3, 4].map((i) => addDays(start, i)); // Seg..Sex
   }, [weekRef]);
 
-  /**
-   * Mudar o DIA de um evento é uma remarcação — conta no `reagendamentos`.
-   * Só reunião entra na conta: mover um Contato/Relatório de dia é ajuste de
-   * registro, não uma reunião desmarcada com o cliente.
-   */
-  function contarRemarcacao(ev: EventoAgenda): Partial<EventoAgenda> {
-    if (!/reuni/i.test(ev.type || '')) return {};
-    return { reagendamentos: (ev.reagendamentos ?? 0) + 1 };
-  }
-
   async function moverParaDia(id: string, targetKey: string) {
     const ev = agenda.find((e) => e.id === id);
     if (!ev || format(parseISO(ev.date), 'yyyy-MM-dd') === targetKey) return;
-    await atualizarEvento(id, {
-      date: parse(targetKey, 'yyyy-MM-dd', new Date()).toISOString(),
-      ...contarRemarcacao(ev),
-    });
+    const novaData = parse(targetKey, 'yyyy-MM-dd', new Date()).toISOString();
+    await atualizarEvento(id, { date: novaData, ...registrarRemarcacao(ev, novaData) });
   }
 
   async function moverKanban(id: string, dayKey: string, turno: 'manha' | 'tarde') {
@@ -189,13 +187,8 @@ export default function AgendaPage() {
     const curTurno = turnoDe(ev);
     let novaHora = ev.time || '';
     if (turno !== curTurno || !ev.time) novaHora = turno === 'manha' ? '09:00' : '14:00';
-    // Trocar só de turno no mesmo dia não é remarcação com o cliente.
-    const mudouDeDia = format(parseISO(ev.date), 'yyyy-MM-dd') !== dayKey;
-    await atualizarEvento(id, {
-      date: parse(dayKey, 'yyyy-MM-dd', new Date()).toISOString(),
-      time: novaHora,
-      ...(mudouDeDia ? contarRemarcacao(ev) : {}),
-    });
+    const novaData = parse(dayKey, 'yyyy-MM-dd', new Date()).toISOString();
+    await atualizarEvento(id, { date: novaData, time: novaHora, ...registrarRemarcacao(ev, novaData) });
   }
 
   function concluir(ev: EventoAgenda) {
@@ -304,6 +297,7 @@ export default function AgendaPage() {
             hoje={hoje}
             eventsByDay={eventsByDay}
             eventsByDayCeo={eventsByDayCeo}
+            ghostsByDay={ghostsRealocadosByDay}
             conflitos={conflitos}
             draggedId={draggedId}
             dragOverKey={dragOverKey}

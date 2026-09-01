@@ -725,11 +725,20 @@ textarea:focus-visible {
 .date-badge-day { font-size: 1.15rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
 .date-badge-mon { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--accent); margin-top: 2px; }
 
-/* Reunião de hoje: badge de data em dourado sólido (destaque real, não só o
-   tom suave que todas as linhas já têm) + contorno na linha inteira. */
-.date-badge.is-today { background: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+/* Reunião de hoje: destaque real, não só o tom suave que todas as linhas já
+   têm — mas o TIPO de destaque muda por tema (pedido do usuário, medido como
+   bug: "não fica escuro"). No claro, preenchimento dourado sólido (funciona
+   bem sobre fundo claro). No escuro (padrão, ver bloco :root acima), um
+   quadrado sólido dourado destoava — parecia um card que "esqueceu" de
+   escurecer. Vira anel dourado sobre o mesmo tom suave das outras linhas: já
+   se destaca (as outras não têm anel) sem virar um bloco claro isolado numa
+   tela escura. */
+.date-badge.is-today { background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent); }
 .date-badge.is-today .date-badge-day,
-.date-badge.is-today .date-badge-mon { color: var(--accent-contrast); }
+.date-badge.is-today .date-badge-mon { color: var(--accent); }
+:root[data-theme='light'] .date-badge.is-today { background: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+:root[data-theme='light'] .date-badge.is-today .date-badge-day,
+:root[data-theme='light'] .date-badge.is-today .date-badge-mon { color: var(--accent-contrast); }
 .agenda-row.is-today { border-color: var(--accent); }
 
 .agenda-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -1280,6 +1289,14 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .calendar-chip.is-done .calendar-chip-title { text-decoration: line-through; }
 .calendar-chip.is-cancel { opacity: 0.5; background: var(--danger-pastel-bg); }
 .calendar-chip.is-cancel .calendar-chip-title { text-decoration: line-through; }
+/* "Realocado" (src/utils/reagendamento.ts): o slot de onde uma reunião já
+   saiu. Contorno tracejado em vez de sólido — sinaliza "isto não está mais
+   aqui de verdade" sem competir visualmente com os cards reais do dia; sem
+   cor de barra lateral (não é chip-color de tipo, é rastro). */
+.calendar-chip.is-ghost { cursor: default; opacity: 0.55; border-style: dashed; background: transparent; }
+.calendar-chip.is-ghost::before { display: none; }
+.calendar-chip.is-ghost:hover { background: transparent; border-color: var(--border); transform: none; box-shadow: none; }
+.calendar-chip.is-ghost .calendar-chip-title { color: var(--text-muted); }
 
 .calendar-chip:hover {
   background: var(--card-hover);

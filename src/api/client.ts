@@ -205,6 +205,7 @@ function deserializeEvento(raw: Record<string, unknown>): EventoAgenda {
     checklist: parseListaJSON<ChecklistItem>(raw.checklist),
     preAnalise: parsePreAnalise(raw.preAnalise),
     attachments: parseListaJSON<Anexo>(raw.attachments),
+    datasAnteriores: parseListaJSON<string>(raw.datasAnteriores),
     produtosSituacao: parseListaJSON<ProdutoSituacaoItem>(raw.produtosSituacao),
     precificacoes: parseListaJSON<PrecificacaoItem>(raw.precificacoes),
     subject: (raw.subject as string) ?? '',
