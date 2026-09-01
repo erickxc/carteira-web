@@ -131,8 +131,29 @@ function normalizar(texto) {
     .trim();
 }
 
-function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo, local } = {}) {
-  const clientes = repo.get('Clientes');
+/**
+ * Escopo do "filtro universal de monitor" (CarteiraContext.filtroMonitor, "quem
+ * sou eu nesta máquina") aplicado às ferramentas que olham a carteira INTEIRA
+ * — não as que já recebem `clientId` explícito, essas continuam abertas
+ * (o modelo/usuário pode legitimamente discutir um cliente de outro monitor).
+ *
+ * Sem monitor identificado (filtro em "Todos"), devolve tudo — mesma regra já
+ * aplicada na UI (`filtroMonitor`/CLAUDE.md "Privacidade das conversas"):
+ * sem identidade real, não dá pra impor privacidade, então mostra tudo.
+ *
+ * `ctx` chega como 3º argumento de `executar`, FORA do schema — o modelo
+ * nunca vê nem declara este parâmetro (evita ele inventar "sou o monitor X"),
+ * é injetado pelo orquestrador a partir de quem de fato mandou a pergunta
+ * (ver `conversar`/`iaProvedor.cjs`, mesmo valor que já carimba `AcoesIA.monitor`).
+ */
+function clientesDoMonitor(repo, ctx) {
+  const todos = repo.get('Clientes');
+  const monitor = ctx?.monitor;
+  return monitor ? todos.filter((c) => c.monitor === monitor) : todos;
+}
+
+function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo, local } = {}, ctx = {}) {
+  const clientes = clientesDoMonitor(repo, ctx);
   const analises = repo.get('AnalisesIA');
   const analisePorCliente = new Map(analises.map((a) => [String(a.clientId), a]));
   const grupoBusca = normalizar(grupo);
@@ -419,9 +440,10 @@ function criarLembrete(repo, args) {
   });
 }
 
-function gerarRelatorioExecutivo(repo) {
-  const clientes = repo.get('Clientes');
-  const analises = repo.get('AnalisesIA');
+function gerarRelatorioExecutivo(repo, _argumentos, ctx = {}) {
+  const clientes = clientesDoMonitor(repo, ctx);
+  const idsDoEscopo = new Set(clientes.map((c) => String(c.id)));
+  const analises = repo.get('AnalisesIA').filter((a) => idsDoEscopo.has(String(a.clientId)));
   const empresaPorId = new Map(clientes.map((c) => [String(c.id), c.empresa]));
 
   const porNivel = { baixo: 0, medio: 0, alto: 0 };
@@ -725,8 +747,8 @@ function buscarHistoricoEventos(repo, { clientId, limite }) {
  * quando, respeitando fila de cadência, dia útil, conflito de monitor e teto
  * por dia. NÃO cria nada: quem cria é `criar_evento`, e só a pedido.
  */
-function sugerirEncaixesAgenda(repo, { dias, max } = {}) {
-  const sugestoes = sugerirAgenda(repo.get('Clientes'), repo.get('Agenda'), repo.get('Acoes'), lerCadencias(repo), {
+function sugerirEncaixesAgenda(repo, { dias, max } = {}, ctx = {}) {
+  const sugestoes = sugerirAgenda(clientesDoMonitor(repo, ctx), repo.get('Agenda'), repo.get('Acoes'), lerCadencias(repo), {
     dias: Math.min(Math.max(Number(dias) || 10, 1), 30),
     max: Math.min(Math.max(Number(max) || 8, 1), 20),
   });
@@ -853,12 +875,12 @@ function buscarCoberturaContatos(repo, { clientId }) {
  * "quem é o João de algum cliente nosso" / "todos os contatos com cargo
  * Diretor" era impossível sem iterar a carteira inteira.
  */
-function buscarContatos(repo, { nome, cargo, servico } = {}) {
+function buscarContatos(repo, { nome, cargo, servico } = {}, ctx = {}) {
   const buscaNome = nome?.trim().toLowerCase();
   const buscaCargo = cargo?.trim().toLowerCase();
 
   const todos = [];
-  for (const cliente of repo.get('Clientes')) {
+  for (const cliente of clientesDoMonitor(repo, ctx)) {
     for (const c of listaJSON(cliente.contatos)) {
       const servicosContato = listaJSON(c.servicos);
       if (buscaNome && !(c.nome || '').toLowerCase().includes(buscaNome)) continue;
@@ -881,31 +903,31 @@ function buscarConfigCadencias(repo) {
 }
 
 /** Mesmo cálculo do card "Vencendo" da Visão Geral (janela de 5 dias). */
-function buscarVencendoTool(repo, { dias } = {}) {
+function buscarVencendoTool(repo, { dias } = {}, ctx = {}) {
   const cadencias = lerCadencias(repo);
   // Teto de 60 dias: mesmo limite de `buscar_agenda_ceo`, evita o modelo pedir
   // "o ano inteiro" e a resposta virar uma lista enorme sem filtro nenhum.
   const janela = Math.min(Math.max(Number(dias) || 5, 1), 60);
-  return buscarVencendo(repo.get('Clientes'), repo.get('Agenda'), cadencias, new Date(), janela);
+  return buscarVencendo(clientesDoMonitor(repo, ctx), repo.get('Agenda'), cadencias, new Date(), janela);
 }
 
 /** Mesmo cálculo do card "Cobertura" da Visão Geral (últimos 2 meses). */
-function buscarCoberturaTool(repo) {
-  return buscarCobertura(repo.get('Clientes'), repo.get('Agenda'));
+function buscarCoberturaTool(repo, _argumentos, ctx = {}) {
+  return buscarCobertura(clientesDoMonitor(repo, ctx), repo.get('Agenda'));
 }
 
 /** Mesmo cálculo do card "Serviços" da Visão Geral (últimos 30 dias). */
-function buscarCoberturaServicosTool(repo) {
-  return { servicos: buscarCoberturaServicos(repo.get('Clientes'), repo.get('Agenda')) };
+function buscarCoberturaServicosTool(repo, _argumentos, ctx = {}) {
+  return { servicos: buscarCoberturaServicos(clientesDoMonitor(repo, ctx), repo.get('Agenda')) };
 }
 
 /** Mesmo cálculo do card "Alertas de acompanhamento" da Visão Geral. */
-function buscarAlertasTool(repo) {
-  return { alertas: buscarAlertasSemAcompanhamento(repo.get('Clientes'), repo.get('Agenda'), repo.get('Acoes')) };
+function buscarAlertasTool(repo, _argumentos, ctx = {}) {
+  return { alertas: buscarAlertasSemAcompanhamento(clientesDoMonitor(repo, ctx), repo.get('Agenda'), repo.get('Acoes')) };
 }
 
-function buscarFilaPriorizacao(repo, { servico } = {}) {
-  const clientes = repo.get('Clientes');
+function buscarFilaPriorizacao(repo, { servico } = {}, ctx = {}) {
+  const clientes = clientesDoMonitor(repo, ctx);
   const agenda = repo.get('Agenda');
   const acoes = repo.get('Acoes');
   const cadencias = lerCadencias(repo);

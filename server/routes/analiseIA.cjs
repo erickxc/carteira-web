@@ -54,7 +54,7 @@ router.post('/chat', async (req, res) => {
   // As regras gerais vão no system prompt (e não só como ferramenta) — ver
   // `blocoMemoria` em `server/ia/agente.cjs`.
   const mensagens = [
-    { role: 'system', content: montarSystemPrompt({ clientId, memorias: repo.get('MemoriaIA') }) },
+    { role: 'system', content: montarSystemPrompt({ clientId, memorias: repo.get('MemoriaIA'), monitor }) },
     ...(Array.isArray(historico) ? historico : []),
     { role: 'user', content: texto },
   ];

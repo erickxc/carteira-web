@@ -39,11 +39,24 @@ function blocoMemoria(memorias = []) {
   return ` REGRAS DO PROCESSO registradas pelo usuário (valem sempre, trate como fato desta operação):\n${linhas.join('\n')}\n`;
 }
 
-function montarSystemPrompt({ clientId, memorias } = {}) {
+/**
+ * Nota de escopo quando o "filtro universal de monitor" (CarteiraContext,
+ * "quem sou eu nesta máquina") está ativo — sem isso o agente respondia com
+ * dado da carteira INTEIRA mesmo com o monitor filtrado na tela, porque as
+ * ferramentas de carteira (buscar_clientes e afins, ver `clientesDoMonitor`
+ * em tools.cjs) já vêm filtradas, mas o modelo não sabia disso e falava "toda
+ * a carteira" sobre um recorte.
+ */
+function notaEscopoMonitor(monitor) {
+  if (!monitor) return '';
+  return ` O usuário se identificou como o monitor "${monitor}" (filtro global de monitor ativo). As ferramentas que olham a carteira inteira (buscar_clientes, buscar_fila_priorizacao, gerar_relatorio_executivo, buscar_vencendo, buscar_cobertura, buscar_cobertura_servicos, buscar_alertas_acompanhamento, buscar_contatos, sugerir_encaixes_agenda) já devolvem só os clientes DESTE monitor — ao responder com esses dados, deixe claro que é a carteira dele, não "toda a carteira" da 2D. Ferramentas com clientId específico continuam funcionando pra qualquer cliente citado pelo nome, mesmo de outro monitor.`;
+}
+
+function montarSystemPrompt({ clientId, memorias, monitor } = {}) {
   const contexto = clientId
     ? ` O usuário está vendo o cliente de id "${clientId}" — use a ferramenta buscar_dossie_cliente com esse id se precisar do histórico dele.`
     : '';
-  return `${IDENTIDADE}${contexto}${blocoMemoria(memorias)} ${INSTRUCAO_BASE}`;
+  return `${IDENTIDADE}${contexto}${notaEscopoMonitor(monitor)}${blocoMemoria(memorias)} ${INSTRUCAO_BASE}`;
 }
 
 module.exports = { montarSystemPrompt, blocoMemoria };

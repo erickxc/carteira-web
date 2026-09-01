@@ -209,7 +209,7 @@ async function conversar({ mensagens, origem = 'chat', repo = repoPlanilha(), ol
 
         let resultado;
         try {
-          resultado = ferramenta ? ferramenta.executar(repo, argumentos) : { erro: `Ferramenta "${nome}" não existe.` };
+          resultado = ferramenta ? ferramenta.executar(repo, argumentos, { monitor }) : { erro: `Ferramenta "${nome}" não existe.` };
         } catch (err) {
           resultado = { erro: err.message };
         }

@@ -74,7 +74,7 @@ const tool = (nome: string) => {
   if (!f) throw new Error(`ferramenta "${nome}" não existe`);
   return f;
 };
-const exec = (nome: string, repo: unknown, args?: unknown) => tool(nome).executar(repo, args) as any;
+const exec = (nome: string, repo: unknown, args?: unknown, ctx?: unknown) => tool(nome).executar(repo, args, ctx) as any;
 
 /** Cliente base: ativo, Regular, com Monitoria+Price, 1 contato. */
 function clienteBase(over: Record<string, unknown> = {}) {
@@ -979,5 +979,65 @@ describe('buscar_fatos_alvos / definir_status_acompanhamento', () => {
     // c2 não tem vínculo/catálogo — confirma só que a gravação de c1 não vazou pra outro clientId.
     const { statusDoCliente } = require('../alvos/clientesFinais.cjs');
     expect(statusDoCliente('c2')).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Escopo por "filtro universal de monitor" (CarteiraContext.filtroMonitor)
+// ---------------------------------------------------------------------------
+describe('escopo por filtro de monitor (ctx.monitor)', () => {
+  function repoComDoisMonitores() {
+    return repoBase({
+      Clientes: [
+        clienteBase({ id: 'c1', empresa: 'Loja do Erick', monitor: 'Erick Cardoso' }),
+        clienteBase({ id: 'c2', empresa: 'Loja do Yan', monitor: 'Yan' }),
+      ],
+      AnalisesIA: [
+        { id: 'a1', clientId: 'c1', nivelRisco: 'alto', sugestaoProximaPauta: 'Pauta do Erick' },
+        { id: 'a2', clientId: 'c2', nivelRisco: 'alto', sugestaoProximaPauta: 'Pauta do Yan' },
+      ],
+    });
+  }
+
+  it('buscar_clientes sem ctx.monitor (ou "Todos") devolve a carteira inteira — comportamento de hoje preservado', () => {
+    const r = exec('buscar_clientes', repoComDoisMonitores(), {});
+    expect(r.map((c: { empresa: string }) => c.empresa).sort()).toEqual(['Loja do Erick', 'Loja do Yan']);
+  });
+
+  it('buscar_clientes com ctx.monitor devolve só os clientes daquele monitor', () => {
+    const r = exec('buscar_clientes', repoComDoisMonitores(), {}, { monitor: 'Yan' });
+    expect(r).toHaveLength(1);
+    expect(r[0].empresa).toBe('Loja do Yan');
+  });
+
+  it('gerar_relatorio_executivo escopado não conta análise de cliente de outro monitor', () => {
+    const semEscopo = exec('gerar_relatorio_executivo', repoComDoisMonitores(), {});
+    expect(semEscopo.clientesAnalisados).toBe(2);
+
+    const doYan = exec('gerar_relatorio_executivo', repoComDoisMonitores(), {}, { monitor: 'Yan' });
+    expect(doYan.clientesAnalisados).toBe(1);
+    expect(doYan.clientesRiscoAlto).toEqual([{ empresa: 'Loja do Yan', sugestaoProximaPauta: 'Pauta do Yan' }]);
+  });
+
+  it('buscar_fila_priorizacao escopado só considera os clientes do monitor na aderência', () => {
+    const repo = repoComDoisMonitores();
+    const semEscopo = exec('buscar_fila_priorizacao', repo, {});
+    const doYan = exec('buscar_fila_priorizacao', repo, {}, { monitor: 'Yan' });
+    // Sem asserção de fórmula interna (já coberta em cadenciaServico.test.ts) —
+    // só confirma que o universo de clientes considerado mudou de fato.
+    expect(doYan.total).toBeLessThanOrEqual(semEscopo.total);
+    expect(doYan.total).toBe(1);
+  });
+
+  it('ctx ausente (chamada antiga, sem 3º argumento) não quebra — equivale a sem filtro', () => {
+    const r = exec('buscar_clientes', repoComDoisMonitores());
+    expect(r).toHaveLength(2);
+  });
+
+  it('clientId explícito (buscar_dossie_cliente) não é bloqueado pelo escopo de monitor — só as ferramentas de carteira inteira filtram', () => {
+    const repo = repoComDoisMonitores();
+    escreverDossie('c2', 'loja-do-yan', '### Perfil\nCliente do Yan.');
+    const r = exec('buscar_dossie_cliente', repo, { clientId: 'c2' }, { monitor: 'Erick Cardoso' });
+    expect(r.empresa).toBe('Loja do Yan');
   });
 });

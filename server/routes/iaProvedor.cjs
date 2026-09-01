@@ -207,7 +207,7 @@ router.post('/interno/ferramenta', apenasMcp, (req, res) => {
 
   let resultado;
   try {
-    resultado = ferramenta.executar(repo, argumentos);
+    resultado = ferramenta.executar(repo, argumentos, { monitor });
   } catch (err) {
     resultado = { erro: err.message };
   }
