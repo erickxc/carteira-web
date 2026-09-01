@@ -70,22 +70,27 @@ export default function ClientesPage() {
   // eventos do tipo Reunião. A separação usa STATUS, não só a data: um evento
   // de hoje já marcado Concluído é último contato, não "próximo" (já foi
   // tratado por data ontem/hoje e ficava preso em próximo agendamento até o
-  // dia virar). Cancelado/Reagendado não conta como contato nem como próximo.
+  // dia virar). Cancelado/Reagendado nunca é "próximo" (evento morto), mas
+  // CONTA como último contato: cancelar/reagendar sempre envolveu falar com
+  // o cliente — motivo é obrigatório nos dois casos (ver `EventFormModal`).
   const { proximoAgendamento, ultimoContato } = useMemo(() => {
     const proximoMap = new Map<string, EventoAgenda>();
     const ultimoMap = new Map<string, EventoAgenda>();
     const concluido = (a: EventoAgenda) => /conclu|realiz/i.test(a.status || '');
     const cancelado = (a: EventoAgenda) => /cancel|reagend/i.test(a.status || '');
+    const marcarUltimo = (a: EventoAgenda, d: Date) => {
+      const atual = ultimoMap.get(a.clientId);
+      if (!atual || d > parseISO(atual.date)) ultimoMap.set(a.clientId, a);
+    };
     agenda.forEach((a) => {
-      if (cancelado(a)) return;
       const d = parseISO(a.date);
       if (isNaN(d.getTime())) return;
+      if (cancelado(a)) { marcarUltimo(a, d); return; }
       if (!concluido(a) && differenceInCalendarDays(d, hoje) >= 0) {
         const atual = proximoMap.get(a.clientId);
         if (!atual || d < parseISO(atual.date)) proximoMap.set(a.clientId, a);
       } else {
-        const atual = ultimoMap.get(a.clientId);
-        if (!atual || d > parseISO(atual.date)) ultimoMap.set(a.clientId, a);
+        marcarUltimo(a, d);
       }
     });
     return { proximoAgendamento: proximoMap, ultimoContato: ultimoMap };

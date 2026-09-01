@@ -20,8 +20,13 @@ export function buildUltimaInteracaoMap(
     const cur = m.get(cid);
     if (!cur || d > cur) m.set(cid, d);
   };
-  // Cancelado/Reagendado não conta como contato — a reunião não aconteceu.
-  agenda.filter((a) => !/cancel|reagend/i.test(a.status || '')).forEach((a) => push(a.clientId, parseISO(a.date)));
+  // Cancelado/Reagendado TAMBÉM conta como contato: a reunião em si não
+  // aconteceu, mas cancelar ou reagendar sempre envolveu falar com o cliente
+  // — por isso o motivo é obrigatório nos dois casos (ver `EventFormModal`).
+  // O que este mapa mede é "quando falamos com o cliente por último", não
+  // "quando a reunião de fato aconteceu" (essa é outra métrica — ver
+  // `ultimaReuniao` em `ClientesPage.tsx`, que continua excluindo os dois).
+  agenda.forEach((a) => push(a.clientId, parseISO(a.date)));
   acoes.filter((a) => a.status === 'concluido').forEach((a) => push(a.clientId, parseISO(a.dueAt || a.updatedAt || a.createdAt)));
   return m;
 }
