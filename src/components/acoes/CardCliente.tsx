@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { differenceInCalendarDays } from 'date-fns';
-import { CalendarPlus, Plus } from 'lucide-react';
+import { CalendarPlus, MessageSquare, Plus } from 'lucide-react';
 import { rotuloDataCurto, sugestoes, type Item } from '../../utils/acoesHelpers';
 import { contatoRecenteNaoRefletido, rotuloRelogio, type CadStatus, type ClassificacaoCadencia, type RelogioServico } from '../../utils/cadenciaServico';
 import { isAtendidoMarco, isGratuidade } from '../../utils/badges';
 import { Badge, Button, Card, Chip } from '../../ui';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../../types';
+import type { AlertaAlvos } from '../../api/client';
 
 interface CardClienteProps {
   c: Cliente;
@@ -22,8 +23,14 @@ interface CardClienteProps {
   /** Classificação pela pior cadência (mesma usada pra agrupar em Vencidos/
    *  Vencendo/Em dia) — dá a borda esquerda de severidade do card. */
   severidade?: ClassificacaoCadencia;
+  /** Alerta de "retorno do combinado" (Dados Alvos) pra este cliente, se houver
+   *  — é o que puxa a recomendação de reunião pra dentro da fila de Ações,
+   *  em vez de só aparecer em /clientes. `null`/ausente = sem integração ou
+   *  sem nada a reportar; o card não muda em nada nesse caso. */
+  alertaAlvos?: AlertaAlvos | null;
   onRegistrar: (clienteId: string, tipo?: AcaoTipo) => void;
   onAgendar: (clienteId: string) => void;
+  onConversarAlvos?: (alerta: AlertaAlvos) => void;
 }
 
 const CLASSE_DOT: Record<CadStatus, string> = {
@@ -47,7 +54,7 @@ const pedeAcao = (r: RelogioServico) => r.status === 'vencido' || r.status === '
  * relativas ("hoje", "há 12d", "em 5d") para deixar óbvio o que já aconteceu e
  * o que só está agendado. Antes tudo tinha o mesmo peso, dentro de duas caixas
  * cinza aninhadas — muita tinta para pouca informação. */
-export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, historico, produtos, relogios, severidade, onRegistrar, onAgendar }: CardClienteProps) {
+export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, historico, produtos, relogios, severidade, alertaAlvos, onRegistrar, onAgendar, onConversarAlvos }: CardClienteProps) {
   const navigate = useNavigate();
   // Capturado uma vez no mount, não a cada render — chamar Date.now() direto no
   // corpo do componente é impuro (react-hooks/purity acusa em build).
@@ -159,6 +166,27 @@ export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, his
             ))}
           </div>
         )
+      )}
+
+      {/* Retorno do combinado (Dados Alvos): o que foi pautado numa reunião e
+          não teve movimento depois — é sinal de "precisa de reunião" tão
+          real quanto cadência vencida, só que vem de outra fonte. Fica na
+          própria cor de severidade (warning), sem duplicar o texto: o
+          título já é a pergunta que abriria a conversa. */}
+      {alertaAlvos && (
+        <div className="flex items-center gap-2 text-[0.8rem]" style={{ color: 'var(--warning-fg)' }}>
+          <span className="acao-dot is-warn" />
+          <span className="truncate" title={alertaAlvos.detalhe}>{alertaAlvos.titulo}</span>
+          {onConversarAlvos && (
+            <Button
+              variant="secondary"
+              style={{ padding: '0.15rem 0.5rem', fontSize: 11, flexShrink: 0, marginLeft: 'auto' }}
+              onClick={() => onConversarAlvos(alertaAlvos)}
+            >
+              <MessageSquare size={12} /> Conversar
+            </Button>
+          )}
+        </div>
       )}
 
       {/* Ações — sugestões junto dos botões, em vez de uma seção própria. */}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -15,6 +15,7 @@ import { buildFilaCadencia, classificarCadencia, type FilaCadItem } from '../uti
 import { confirmDialog } from '../utils/confirmDialog';
 import { eventoStatusBadge, isAtendidoMarco } from '../utils/badges';
 import { ordenarPorProximidade, type Item } from '../utils/acoesHelpers';
+import { buscarAlertasAlvos, type AlertaAlvos } from '../api/client';
 import { Badge, Button, Card, Chip, Td, Th, type BadgeVariant } from '../ui';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../types';
 
@@ -27,6 +28,21 @@ export default function AcoesPage() {
   const [aba, setAba] = usePersistedState<'acompanhamento' | 'acoes'>('filtro:acoes:aba', 'acompanhamento');
   const [visaoAcompanhamento, setVisaoAcompanhamento] = usePersistedState<'precisa' | 'emdia'>('filtro:acoes:visao', 'precisa');
   const [modal, setModal] = useState<{ modo: 'nova' | 'agendar'; clienteId?: string; tipo?: AcaoTipo } | null>(null);
+
+  // Recomendação de reunião a partir dos Dados Alvos ("retorno do
+  // combinado") — mesmo dado que já aparece em /clientes, aqui só pra marcar
+  // o card na fila de priorização. Falha vira lista vazia: é enriquecimento,
+  // não pode impedir o uso da tela de Ações se a integração estiver indisponível.
+  const [alertasAlvos, setAlertasAlvos] = useState<AlertaAlvos[]>([]);
+  useEffect(() => { buscarAlertasAlvos().then(setAlertasAlvos).catch(() => setAlertasAlvos([])); }, []);
+  // Um cliente pode ter mais de um alerta (ex.: 2 produtos sem retorno) — o
+  // card mostra só o PRIMEIRO que aparecer (a API já ordena por severidade e
+  // impacto); a lista completa continua em /clientes.
+  const alertaAlvosPorCliente = useMemo(() => {
+    const mapa = new Map<string, AlertaAlvos>();
+    for (const a of alertasAlvos) if (a.clientId && !mapa.has(a.clientId)) mapa.set(a.clientId, a);
+    return mapa;
+  }, [alertasAlvos]);
   const { value: fCliente, debounced: debouncedFCliente, setValue: setFCliente } = useSearchFilter();
   const [fTipos, setFTipos] = usePersistedState<string[]>('filtro:acoes:tipos', []);
   const [fOrigem, setFOrigem] = usePersistedState<string[]>('filtro:acoes:origem', []);
@@ -219,8 +235,10 @@ export default function AcoesPage() {
       totalReunioes={info.nReun.get(f.cliente.id) ?? 0}
       historico={(itensPorCliente.get(f.cliente.id) ?? []).slice(0, 3)}
       produtos={produtos(f.cliente)}
+      alertaAlvos={alertaAlvosPorCliente.get(f.cliente.id) ?? null}
       onRegistrar={(clienteId, tipo) => setModal({ modo: 'nova', clienteId, tipo })}
       onAgendar={(clienteId) => setModal({ modo: 'agendar', clienteId })}
+      onConversarAlvos={(a) => navigate('/assistente', { state: { clientId: a.clientId, pergunta: a.pergunta } })}
     />
   );
 
