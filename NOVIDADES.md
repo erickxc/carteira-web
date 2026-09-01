@@ -14,6 +14,13 @@ teste, ajuste interno), não entra aqui.
   e/ou para a Plataforma, específico de cada cliente. Aparece só quando você
   preenche o link (em "Links externos" na edição do cliente) — se preencher
   os dois, vira um seletor.
+- O monitorIA agora respeita o filtro de monitor do cabeçalho: com um monitor
+  selecionado, o chat responde só sobre os clientes dele (antes respondia com
+  a carteira inteira mesmo com o filtro ativo).
+- Novo card "Outros Serviços" no Dashboard: Controladoria, OptiMarco,
+  AutoTech, Book Fiscal, Raptor e Protocolo GPS entram como serviços
+  selecionáveis, com contagem simples de clientes por serviço (sem entrar na
+  métrica de cadência da Monitoria/Price).
 
 ## 1.4.3
 
