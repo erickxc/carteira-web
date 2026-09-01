@@ -8,6 +8,13 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.4
+
+- Novo botão de acesso rápido no cadastro do cliente: link para o Power BI
+  e/ou para a Plataforma, específico de cada cliente. Aparece só quando você
+  preenche o link (em "Links externos" na edição do cliente) — se preencher
+  os dois, vira um seletor.
+
 ## 1.4.3
 
 - O monitorIA agora registra e consulta a situação do cliente final de cada
