@@ -1,7 +1,7 @@
 const express = require('express');
 const { repoPlanilha } = require('../dominio/repo.cjs');
 const { linhasCadastro, resumoCadastro, gerarAlertasAlvos } = require('../alvos/painel.cjs');
-const { catalogoDoCliente, resumoGeralDoCliente } = require('../alvos/consulta.cjs');
+const { catalogoDoCliente, resumoGeralDoCliente, analiseEstrategicaDoCliente } = require('../alvos/consulta.cjs');
 const { sugerir, vincular, carregar } = require('../alvos/mapa.cjs');
 const { empresasDisponiveis } = require('../alvos/leitor.cjs');
 const { agregadoDaEmpresa } = require('../alvos/cache.cjs');
@@ -79,6 +79,16 @@ router.get('/resumo/:clientId', (req, res) => {
   const cliente = repo.get('Clientes').find((c) => String(c.id) === req.params.clientId);
   if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
   res.json(resumoGeralDoCliente(cliente, { aquecer: req.query.aquecer === '1' }));
+});
+
+/**
+ * Escopo ESTRATÉGICO (item 5.3): as 4 análises do relatório do analisador da
+ * 2D. Mesma regra de custo do resumo/catálogo: nunca aquece sozinho.
+ */
+router.get('/estrategico/:clientId', (req, res) => {
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === req.params.clientId);
+  if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
+  res.json(analiseEstrategicaDoCliente(cliente, { aquecer: req.query.aquecer === '1' }));
 });
 
 module.exports = router;

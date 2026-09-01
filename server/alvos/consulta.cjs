@@ -3,6 +3,7 @@ const cacheReal = require('./cache.cjs');
 const { estadoDoCliente } = require('./estado.cjs');
 const { listasDoCliente, fatosDeReuniao } = require('./acompanhamento.cjs');
 const { resumoGeral } = require('./resumoGeral.cjs');
+const analiseEstrategica = require('./analiseEstrategica.cjs');
 
 /**
  * Fachada de leitura dos Dados Alvos por CLIENTE da carteira.
@@ -167,6 +168,40 @@ function resumoGeralDoCliente(cliente, opts = {}) {
   };
 }
 
+/**
+ * Escopo ESTRATÉGICO (item 5.3): as mesmas análises do relatório Excel do
+ * analisador da 2D — queda persistente de produto, erosão de cliente, cliente
+ * que praticamente parou, poder de compra. Um endpoint só com as 4, porque é
+ * assim que o relatório de origem já é consumido (as 4 abas juntas, não uma
+ * de cada vez). Mesma regra de custo: nunca aquece sozinho.
+ */
+function analiseEstrategicaDoCliente(cliente, opts = {}) {
+  const ctx = contextoDoCliente(cliente.id, opts);
+  if (ctx.estado.estado !== 'ok' || ctx.pendentes.length) {
+    return {
+      clientId: String(cliente.id),
+      empresa: cliente.empresa,
+      estado: ctx.pendentes.length ? 'dados_nao_carregados' : ctx.estado.estado,
+      motivo: ctx.pendentes.length
+        ? `dados da empresa ainda não carregados: ${ctx.pendentes.join(', ')}`
+        : ctx.estado.motivo,
+      quedaPersistente: [], erosaoClientes: [], semVenda: [], poderDeCompra: [],
+    };
+  }
+  const lojas = ctx.estado.lojas.map((l) => l.loja);
+  const agregado = agregadoUnificado(ctx.agregados);
+  return {
+    clientId: String(cliente.id),
+    empresa: cliente.empresa,
+    estado: 'ok',
+    lojas,
+    quedaPersistente: analiseEstrategica.quedaPersistente(agregado, lojas, opts),
+    erosaoClientes: analiseEstrategica.erosaoClientes(agregado, lojas, opts),
+    semVenda: analiseEstrategica.semVenda(agregado, lojas, opts),
+    poderDeCompra: analiseEstrategica.poderDeCompra(agregado, lojas, opts),
+  };
+}
+
 module.exports = {
   empresasDoCliente,
   contextoDoCliente,
@@ -174,4 +209,5 @@ module.exports = {
   catalogoDoCliente,
   fatosDoCliente,
   resumoGeralDoCliente,
+  analiseEstrategicaDoCliente,
 };

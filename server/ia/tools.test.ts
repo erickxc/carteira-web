@@ -101,8 +101,8 @@ function escreverDossie(clientId: string, slug: string, corpo: string) {
 // 1-8: catálogo e contrato geral das ferramentas
 // ---------------------------------------------------------------------------
 describe('catálogo de ferramentas', () => {
-  it('1. expõe exatamente as 30 ferramentas esperadas', () => {
-    expect(FERRAMENTAS).toHaveLength(30);
+  it('1. expõe exatamente as 31 ferramentas esperadas', () => {
+    expect(FERRAMENTAS).toHaveLength(31);
   });
 
   it('2. nenhum nome de ferramenta duplicado', () => {
@@ -898,5 +898,29 @@ describe('buscar_fatos_alvos / definir_status_acompanhamento', () => {
 
   it('buscar_resumo_vendas_alvos: cliente inexistente falha explícito', () => {
     expect(() => exec('buscar_resumo_vendas_alvos', repoBase(), { clientId: 'fantasma' })).toThrow(/não encontrado/);
+  });
+
+  it('buscar_analise_estrategica_alvos: clientId ausente falha explícito', () => {
+    expect(() => exec('buscar_analise_estrategica_alvos', repoBase(), {})).toThrow(/clientId.*obrigatório/);
+  });
+
+  it('buscar_analise_estrategica_alvos: cliente sem vínculo devolve estado e motivo, sem inventar número', () => {
+    const r = exec('buscar_analise_estrategica_alvos', repoBase(), { clientId: 'c1' });
+    expect(r.estado).toBe('sem_vinculo');
+    expect(r).toMatchObject({ quedaPersistente: [], erosaoClientes: [], semVenda: [], poderDeCompra: [] });
+  });
+
+  it('buscar_analise_estrategica_alvos: com vínculo, roda as 4 análises e devolve o shape esperado', () => {
+    criarEmpresaDeTeste('c1');
+    const r = exec('buscar_analise_estrategica_alvos', repoBase(), { clientId: 'c1' });
+    expect(r.estado).toBe('ok');
+    expect(Array.isArray(r.quedaPersistente)).toBe(true);
+    expect(Array.isArray(r.erosaoClientes)).toBe(true);
+    expect(Array.isArray(r.semVenda)).toBe(true);
+    expect(Array.isArray(r.poderDeCompra)).toBe(true);
+  });
+
+  it('buscar_analise_estrategica_alvos: cliente inexistente falha explícito', () => {
+    expect(() => exec('buscar_analise_estrategica_alvos', repoBase(), { clientId: 'fantasma' })).toThrow(/não encontrado/);
   });
 });

@@ -213,3 +213,37 @@ describe('consulta: resumo geral do cliente (escopo 5.2)', () => {
     expect(r.ultimoPeriodo).toBe('2026-07');
   });
 });
+
+describe('consulta: análise estratégica do cliente (escopo 5.3)', () => {
+  const cliente = { id: 'c-itab', empresa: 'Aliança - Itaboraí' };
+
+  it('estado != ok não calcula nada, devolve as 4 listas vazias', () => {
+    const r = consulta.analiseEstrategicaDoCliente({ id: 'c-nada', empresa: 'X' }, { vinculos: VINCULOS, cache: fake() });
+    expect(r.estado).toBe('sem_vinculo');
+    expect(r).toMatchObject({ quedaPersistente: [], erosaoClientes: [], semVenda: [], poderDeCompra: [] });
+  });
+
+  it('dados não carregados vira estado próprio', () => {
+    cacheValido = false;
+    const r = consulta.analiseEstrategicaDoCliente(cliente, { vinculos: VINCULOS, cache: fake() });
+    expect(r.estado).toBe('dados_nao_carregados');
+  });
+
+  it('com cache quente, roda as 4 análises só nas lojas do cliente', () => {
+    const cruzamento = [
+      { loja: 'alianca_itaborai', cliente: 'EDUARDO MECANICO (CM)', produto: 'Kit Amortecedor', ano: 2026, mes: 1, receita: 20000, qtd: 20 },
+      { loja: 'alianca_itaborai', cliente: 'EDUARDO MECANICO (CM)', produto: 'Kit Amortecedor', ano: 2026, mes: 2, receita: 4000, qtd: 4 },
+      // outra loja do mesmo grupo — não pode entrar no resultado deste cliente
+      { loja: 'alianca_itaborai_CF', cliente: 'FORA (CM)', produto: 'Pneu', ano: 2026, mes: 1, receita: 99999, qtd: 1 },
+    ];
+    const fakeComDados = () => ({
+      agregadoDaEmpresa: () => ({ ...AGREGADO, cruzamento }),
+      estadoDoCache: () => ({ existe: true, valido: true }),
+    });
+    const r = consulta.analiseEstrategicaDoCliente(cliente, { vinculos: VINCULOS, cache: fakeComDados(), periodoParcial: '2026-03' });
+    expect(r.estado).toBe('ok');
+    expect(r.erosaoClientes).toHaveLength(1);
+    expect(r.erosaoClientes[0].cliente).toBe('EDUARDO MECANICO (CM)');
+    expect(r.erosaoClientes[0].receitaPico).toBe(20000);
+  });
+});

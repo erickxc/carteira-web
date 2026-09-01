@@ -566,6 +566,41 @@ function buscarResumoVendasAlvos(repo, { clientId }) {
 }
 
 /**
+ * Escopo ESTRATÉGICO dos Dados Alvos: as mesmas análises do relatório que o
+ * analisador da 2D já gera — produto em queda persistente (3+ meses seguidos,
+ * mínimo R$5.000), cliente final em erosão (caiu 50%+ do próprio pico),
+ * cliente que praticamente parou (95%+ abaixo do pico) e poder de compra
+ * (potencial pela média dos 3 melhores meses vs. os 3 últimos fechados). O mês
+ * em curso NUNCA entra nessas contas — regra da própria fonte, não nossa.
+ */
+function buscarAnaliseEstrategicaAlvos(repo, { clientId }) {
+  if (!clientId) throw new Error('buscar_analise_estrategica_alvos: "clientId" é obrigatório.');
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
+  if (!cliente) throw new Error(`buscar_analise_estrategica_alvos: cliente "${clientId}" não encontrado.`);
+
+  const { analiseEstrategicaDoCliente } = require('../alvos/consulta.cjs');
+  const r = analiseEstrategicaDoCliente({ id: cliente.id, empresa: cliente.empresa }, { aquecer: true });
+
+  if (r.estado !== 'ok') {
+    return {
+      ...identidadeCliente(cliente), estado: r.estado, motivo: r.motivo,
+      quedaPersistente: [], erosaoClientes: [], semVenda: [], poderDeCompra: [],
+    };
+  }
+  return {
+    ...identidadeCliente(cliente),
+    estado: 'ok',
+    // Recortado pro que cabe numa resposta de chat — cada lista já vem
+    // ordenada pelo maior impacto (ver analiseEstrategica.cjs); o resto some
+    // sem virar poluição visual.
+    quedaPersistente: r.quedaPersistente.slice(0, 10),
+    erosaoClientes: r.erosaoClientes.slice(0, 10),
+    semVenda: r.semVenda.slice(0, 10).map((s) => ({ ...s, serieMensal: undefined })),
+    poderDeCompra: r.poderDeCompra.slice(0, 10),
+  };
+}
+
+/**
  * Registra a decisão do usuário sobre um acompanhamento: seguir, abandonar ou
  * dar por resolvido. É o que faz o alerta parar de aparecer — e o motivo fica
  * gravado, diferente de um botão "dispensar".
@@ -1112,6 +1147,16 @@ const FERRAMENTAS = [
       required: ['clientId'],
     },
     executar: buscarResumoVendasAlvos,
+  },
+  {
+    name: 'buscar_analise_estrategica_alvos',
+    description: 'Análises estratégicas de venda do cliente (Dados Alvos), no mesmo padrão do relatório que o analisador da 2D já gera: produtos em queda persistente (3+ meses seguidos), clientes finais em erosão contra o próprio pico, clientes que praticamente pararam de comprar, e poder de compra (potencial vs. desempenho recente). Use pra perguntas tipo "o que está em queda", "quais clientes estão sumindo", "ele está comprando dentro do potencial dele". O mês em curso nunca entra nessas contas — não afirme nada sobre "este mês" com base nisso. Se "estado" não for "ok", diga o motivo em vez de inventar número.',
+    parameters: {
+      type: 'object',
+      properties: { clientId: { type: 'string', description: 'ID do cliente da carteira.' } },
+      required: ['clientId'],
+    },
+    executar: buscarAnaliseEstrategicaAlvos,
   },
   {
     name: 'definir_status_acompanhamento',

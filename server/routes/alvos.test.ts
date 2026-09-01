@@ -276,3 +276,37 @@ describe('GET /api/alvos/resumo/:clientId', () => {
     } finally { fechar(); }
   });
 });
+
+describe('GET /api/alvos/estrategico/:clientId', () => {
+  it('404 pra cliente inexistente', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      expect((await fetch(`${url}/estrategico/fantasma`)).status).toBe(404);
+    } finally { fechar(); }
+  });
+
+  it('sem vínculo, estado sem_vinculo e as 4 listas vazias', async () => {
+    criarCliente('c1', 'Empresa Teste');
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const body = await (await fetch(`${url}/estrategico/c1`)).json();
+      expect(body).toMatchObject({ estado: 'sem_vinculo', quedaPersistente: [], erosaoClientes: [], semVenda: [], poderDeCompra: [] });
+    } finally { fechar(); }
+  });
+
+  it('com aquecer=1, devolve as 4 análises calculadas', async () => {
+    criarEmpresaDeTeste('Empresa Teste');
+    criarCliente('c1', 'Empresa Teste');
+    const { vincular } = require('../alvos/mapa.cjs');
+    vincular('Empresa Teste', 'loja_teste', 'c1');
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const body = await (await fetch(`${url}/estrategico/c1?aquecer=1`)).json();
+      expect(body.estado).toBe('ok');
+      expect(body).toHaveProperty('quedaPersistente');
+      expect(body).toHaveProperty('erosaoClientes');
+      expect(body).toHaveProperty('semVenda');
+      expect(body).toHaveProperty('poderDeCompra');
+    } finally { fechar(); }
+  });
+});
