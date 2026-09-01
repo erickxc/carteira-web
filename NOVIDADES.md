@@ -8,6 +8,13 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.3
+
+- O monitorIA agora registra e consulta a situação do cliente final de cada
+  loja (inadimplente, regular ou situação externa como fechamento/troca de
+  dono) — só quando você informar isso na conversa, nunca deduzido sozinho
+  por queda de compra.
+
 ## 1.4.2
 
 - Nova transcrição da reunião e botão "Gerar ata com IA": a IA escreve o que
