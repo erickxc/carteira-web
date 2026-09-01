@@ -35,7 +35,14 @@ const MODULOS = [
   '../fila/mutacao.cjs', '../dominio/agenda.cjs', '../dominio/lembretes.cjs',
   '../alvos/leitor.cjs', '../alvos/cache.cjs', '../alvos/mapa.cjs', '../alvos/estado.cjs',
   '../alvos/entidades.cjs', '../alvos/movimento.cjs', '../alvos/acompanhamento.cjs', '../alvos/consulta.cjs',
-  '../alvos/clientesFinais.cjs',
+  '../alvos/clientesFinais.cjs', '../alvos/tags.cjs',
+];
+
+/** Vocabulário compartilhado do Ecossistema (`Bancos/tags.json`) — em teste,
+ *  um arquivo temporário apontado por `TAGS_CLIENTE_FINAL_PATH`. */
+const TAGS_FIXTURE = [
+  { id: 'alerta', rotulo: 'Alerta', ativa: true, entra_na_analise: true },
+  { id: 'inadimplente', rotulo: 'Inadimplente', ativa: true, entra_na_analise: true },
 ];
 
 function limparCaches() {
@@ -53,6 +60,8 @@ beforeEach(() => {
   process.env.ONEDRIVE_ROOT = tmpOneDrive;
   process.env.SQLITE_DIR = tmpSqlite;
   process.env.ALVOS_DIR = tmpAlvos;
+  process.env.TAGS_CLIENTE_FINAL_PATH = path.join(tmpOneDrive, 'tags.json');
+  fs.writeFileSync(path.join(tmpOneDrive, 'tags.json'), JSON.stringify(TAGS_FIXTURE), 'utf8');
   limparCaches();
   ({ repoMemoria } = require('../dominio/repo.cjs'));
   ({ FERRAMENTAS } = require('./tools.cjs'));
@@ -63,6 +72,7 @@ afterEach(() => {
   delete process.env.ONEDRIVE_ROOT;
   delete process.env.SQLITE_DIR;
   delete process.env.ALVOS_DIR;
+  delete process.env.TAGS_CLIENTE_FINAL_PATH;
   limparCaches();
   fs.rmSync(tmpOneDrive, { recursive: true, force: true });
   fs.rmSync(tmpSqlite, { recursive: true, force: true });
@@ -925,60 +935,70 @@ describe('buscar_fatos_alvos / definir_status_acompanhamento', () => {
     expect(() => exec('buscar_analise_estrategica_alvos', repoBase(), { clientId: 'fantasma' })).toThrow(/não encontrado/);
   });
 
-  it('buscar_status_clientes_finais: clientId ausente falha explícito', () => {
-    expect(() => exec('buscar_status_clientes_finais', repoBase(), {})).toThrow(/clientId.*obrigatório/);
+  it('buscar_fichas_clientes_finais: clientId ausente falha explícito', () => {
+    expect(() => exec('buscar_fichas_clientes_finais', repoBase(), {})).toThrow(/clientId.*obrigatório/);
   });
 
-  it('buscar_status_clientes_finais: cliente inexistente falha explícito', () => {
-    expect(() => exec('buscar_status_clientes_finais', repoBase(), { clientId: 'fantasma' })).toThrow(/não encontrado/);
+  it('buscar_fichas_clientes_finais: cliente inexistente falha explícito', () => {
+    expect(() => exec('buscar_fichas_clientes_finais', repoBase(), { clientId: 'fantasma' })).toThrow(/não encontrado/);
   });
 
-  it('buscar_status_clientes_finais: sem nada registrado devolve lista vazia', () => {
-    const r = exec('buscar_status_clientes_finais', repoBase(), { clientId: 'c1' });
+  it('buscar_fichas_clientes_finais: sem nada registrado devolve lista vazia + as tags disponíveis', () => {
+    const r = exec('buscar_fichas_clientes_finais', repoBase(), { clientId: 'c1' });
     expect(r.clientesFinais).toEqual([]);
+    expect(r.tagsDisponiveis.map((t: { id: string }) => t.id)).toContain('inadimplente');
   });
 
-  it('definir_status_cliente_final: exige clientId, clienteFinal e status', () => {
-    expect(() => exec('definir_status_cliente_final', repoBase(), { clienteFinal: 'X', status: 'regular' }))
+  it('definir_ficha_cliente_final: exige clientId e clienteFinal, e algo pra gravar', () => {
+    expect(() => exec('definir_ficha_cliente_final', repoBase(), { clienteFinal: 'X', tags: [] }))
       .toThrow(/clientId.*obrigatório/);
-    expect(() => exec('definir_status_cliente_final', repoBase(), { clientId: 'c1', status: 'regular' }))
+    expect(() => exec('definir_ficha_cliente_final', repoBase(), { clientId: 'c1', tags: [] }))
       .toThrow(/clienteFinal.*obrigatório/);
+    expect(() => exec('definir_ficha_cliente_final', repoBase(), { clientId: 'c1', clienteFinal: 'X' }))
+      .toThrow(/nada a gravar/);
   });
 
-  it('definir_status_cliente_final: recusa status fora do vocabulário', () => {
+  it('definir_ficha_cliente_final: recusa tag fora do tags.json compartilhado', () => {
     criarEmpresaDeTeste('c1');
-    expect(() => exec('definir_status_cliente_final', repoBase(), {
-      clientId: 'c1', clienteFinal: 'EDUARDO MECANICO (CM)', status: 'atrasado',
-    })).toThrow(/status inválido/);
+    expect(() => exec('definir_ficha_cliente_final', repoBase(), {
+      clientId: 'c1', clienteFinal: 'EDUARDO MECANICO (CM)', tags: ['inventada'],
+    })).toThrow(/Tag inválida/);
+  });
+
+  it('definir_ficha_cliente_final: recusa grupo fora da categoria grupo_referencia', () => {
+    criarEmpresaDeTeste('c1');
+    expect(() => exec('definir_ficha_cliente_final', repoBase(), {
+      clientId: 'c1', clienteFinal: 'EDUARDO MECANICO (CM)', grupo: 'G9',
+    })).toThrow(/grupo inválido/);
   });
 
   // Mesma disciplina do resolverOpcao/definir_status_acompanhamento: nome que
   // não existe no catálogo real da loja não pode virar registro.
-  it('definir_status_cliente_final: recusa cliente final que não existe no catálogo da loja', () => {
+  it('definir_ficha_cliente_final: recusa cliente final que não existe no catálogo da loja', () => {
     criarEmpresaDeTeste('c1');
-    expect(() => exec('definir_status_cliente_final', repoBase(), {
-      clientId: 'c1', clienteFinal: 'Cliente Que Não Existe', status: 'inadimplente',
+    expect(() => exec('definir_ficha_cliente_final', repoBase(), {
+      clientId: 'c1', clienteFinal: 'Cliente Que Não Existe', tags: ['inadimplente'],
     })).toThrow(/não existe no catálogo/);
   });
 
-  it('definir_status_cliente_final: grava e buscar_status_clientes_finais reflete', () => {
+  it('definir_ficha_cliente_final: grava tags e buscar_fichas_clientes_finais reflete', () => {
     criarEmpresaDeTeste('c1');
-    const r1 = exec('definir_status_cliente_final', repoBase(), {
-      clientId: 'c1', clienteFinal: 'EDUARDO MECANICO (CM)', status: 'inadimplente', observacao: 'atrasou 3 boletos',
+    const r1 = exec('definir_ficha_cliente_final', repoBase(), {
+      clientId: 'c1', clienteFinal: 'EDUARDO MECANICO (CM)', tags: ['inadimplente'], observacao: 'atrasou 3 boletos',
     });
-    expect(r1).toMatchObject({ success: true, clienteFinal: 'EDUARDO MECANICO (CM)', status: 'inadimplente' });
+    expect(r1).toMatchObject({ success: true, clienteFinal: 'EDUARDO MECANICO (CM)' });
 
-    const r2 = exec('buscar_status_clientes_finais', repoBase(), { clientId: 'c1' });
+    const r2 = exec('buscar_fichas_clientes_finais', repoBase(), { clientId: 'c1' });
     expect(r2.clientesFinais).toHaveLength(1);
-    expect(r2.clientesFinais[0]).toMatchObject({ nome: 'EDUARDO MECANICO (CM)', status: 'inadimplente', observacao: 'atrasou 3 boletos' });
+    expect(r2.clientesFinais[0]).toMatchObject({ nome: 'EDUARDO MECANICO (CM)', tags: ['inadimplente'], observacao: 'atrasou 3 boletos' });
   });
 
-  it('definir_status_cliente_final: mesmo nome em outro clientId não conflita (escopo por loja)', () => {
+  it('definir_ficha_cliente_final: mesmo nome em outro clientId não conflita (escopo por loja)', () => {
     criarEmpresaDeTeste('c1');
-    exec('definir_status_cliente_final', repoBase(), { clientId: 'c1', clienteFinal: 'EDUARDO MECANICO (CM)', status: 'inadimplente' });
+    exec('definir_ficha_cliente_final', repoBase(), { clientId: 'c1', clienteFinal: 'EDUARDO MECANICO (CM)', tags: ['inadimplente'] });
     // c2 não tem vínculo/catálogo — confirma só que a gravação de c1 não vazou pra outro clientId.
-    const { statusDoCliente } = require('../alvos/clientesFinais.cjs');
-    expect(statusDoCliente('c2')).toEqual([]);
+    const { fichasDoCliente } = require('../alvos/clientesFinais.cjs');
+    expect(fichasDoCliente('c2')).toEqual([]);
   });
 });
 

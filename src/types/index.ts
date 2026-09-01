@@ -1,5 +1,5 @@
 // --- Categorias (CRUD editável) ---
-export type CategoriaTipo = 'servico' | 'tipo_evento' | 'status_cliente' | 'status_evento' | 'monitor' | 'tipo_lembrete' | 'sala' | 'prioridade_tarefa' | 'local_cliente';
+export type CategoriaTipo = 'servico' | 'tipo_evento' | 'status_cliente' | 'status_evento' | 'monitor' | 'tipo_lembrete' | 'sala' | 'prioridade_tarefa' | 'local_cliente' | 'grupo_referencia';
 
 export const CATEGORIA_TIPO_LABEL: Record<CategoriaTipo, string> = {
   servico: 'Serviços',
@@ -11,6 +11,7 @@ export const CATEGORIA_TIPO_LABEL: Record<CategoriaTipo, string> = {
   sala: 'Salas de reunião',
   prioridade_tarefa: 'Prioridades de tarefa (Ágil)',
   local_cliente: 'Local do cliente',
+  grupo_referencia: 'Grupo Referência',
 };
 
 /** Tipo de link associado a um serviço (só relevante pra `tipo: 'servico'`):

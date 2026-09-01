@@ -123,6 +123,16 @@ const REUNIOES_DIR = path.join(DATA_DIR, 'reunioes_json');
  */
 const ALVOS_DIR = process.env.ALVOS_DIR
   || path.join(ONEDRIVE_ROOT, '..', 'Ecossistema-Monitoria', 'Dados Alvos');
+
+/**
+ * Tags de CLIENTE FINAL (Alerta, Inadimplente, Cliente Balcão, Encerrou
+ * operação...) — arquivo COMPARTILHADO do Ecossistema-Monitoria, mantido fora
+ * deste app (outras ferramentas da 2D leem o mesmo arquivo). Por isso a lista
+ * não é enum no código nem categoria daqui: harmoniza com o resto do
+ * ecossistema lendo a fonte única.
+ */
+const TAGS_CLIENTE_FINAL_PATH = process.env.TAGS_CLIENTE_FINAL_PATH
+  || path.join(ONEDRIVE_ROOT, '..', 'Ecossistema-Monitoria', 'Bancos', 'tags.json');
 // Nome do arquivo dentro da pasta de cada empresa — igual nas 4 pastas
 // verificadas. A ABA, ao contrário, varia ("Sheet1", "Dados", "Dados (2)") e no
 // Gomec a PRIMEIRA aba está vazia: por isso a aba é escolhida pelo conteúdo,
@@ -478,12 +488,13 @@ const CATEGORIAS_SEED = [
   // perfil real da carteira (2D atende autopeças/oficinas/distribuidoras);
   // editável em Configurações como qualquer outra categoria.
   ['local_cliente', ['Autopeça', 'Oficina', 'Distribuidora', 'Atacado', 'Indústria', 'Varejo']],
+  ['grupo_referencia', ['G1 (Grupo 1)', 'G2 (Grupo 2)', 'G3 (Grupo 3)']],
 ];
 
 module.exports = {
   HOST, PORT, CEO_AGENDA_CALENDAR_ID, CEO_AGENDA_OAUTH_CLIENT_PATH, CEO_AGENDA_OAUTH_TOKEN_PATH,
   ONEDRIVE_ROOT, DATA_DIR, REUNIOES_DIR, DB_FILE, UPLOADS_DIR, SQLITE_DIR, SQLITE_FILE, BACKUP_ONEDRIVE_DIR,
-  ALVOS_DIR, ALVOS_ARQUIVO,
+  ALVOS_DIR, ALVOS_ARQUIVO, TAGS_CLIENTE_FINAL_PATH,
   SNAPSHOT_DIR, SNAPSHOT_FILE, DOSSIES_DIR, OLLAMA_URL, OLLAMA_MODEL, OLLAMA_MODELS, OLLAMA_API_KEY,
   CONFIG_IA_COMPARTILHADO,
   IA_PROVIDER, IA_PROVIDERS, CLAUDE_STATE_FILE, CLAUDE_CLI_PATH, CLAUDE_CLI_MODEL,

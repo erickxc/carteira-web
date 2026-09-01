@@ -675,38 +675,52 @@ function definirStatusAcompanhamento(repo, { clientId, entidade, tipo, status, n
  * SQLite), nome do cliente final validado contra o catálogo real da loja
  * antes de gravar — nunca cru (mesma disciplina de `resolverOpcao`).
  */
-function definirStatusClienteFinal(repo, { clientId, clienteFinal, status, observacao }) {
-  if (!clientId) throw new Error('definir_status_cliente_final: "clientId" é obrigatório.');
-  if (!clienteFinal) throw new Error('definir_status_cliente_final: "clienteFinal" é obrigatório.');
+function definirFichaClienteFinal(repo, { clientId, clienteFinal, tags, grupo, observacao }) {
+  if (!clientId) throw new Error('definir_ficha_cliente_final: "clientId" é obrigatório.');
+  if (!clienteFinal) throw new Error('definir_ficha_cliente_final: "clienteFinal" é obrigatório.');
+  if (tags === undefined && grupo === undefined) {
+    throw new Error('definir_ficha_cliente_final: informe "tags" e/ou "grupo" — nada a gravar.');
+  }
   const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
-  if (!cliente) throw new Error(`definir_status_cliente_final: cliente "${clientId}" não encontrado.`);
+  if (!cliente) throw new Error(`definir_ficha_cliente_final: cliente "${clientId}" não encontrado.`);
 
-  const { STATUS_VALIDOS, definirStatus } = require('../alvos/clientesFinais.cjs');
-  if (!STATUS_VALIDOS.includes(status)) {
-    throw new Error(`definir_status_cliente_final: status inválido "${status}". Use: ${STATUS_VALIDOS.join(', ')}.`);
+  // Grupo (G1/G2/G3) vem da categoria deste app; tag vem do arquivo
+  // compartilhado do Ecossistema (validada dentro de `definir`).
+  if (grupo) {
+    const gruposValidos = opcoesDe(repo, 'grupo_referencia');
+    if (!gruposValidos.some((g) => g.toLowerCase() === String(grupo).toLowerCase())) {
+      throw new Error(`definir_ficha_cliente_final: grupo inválido "${grupo}". Use: ${gruposValidos.join(', ') || '(nenhum cadastrado)'}.`);
+    }
   }
 
   const { catalogoDoCliente } = require('../alvos/consulta.cjs');
   const catalogo = catalogoDoCliente(cliente.id, { aquecer: true });
   if (!catalogo.disponivel) {
-    throw new Error(`definir_status_cliente_final: não foi possível confirmar "${clienteFinal}" contra os dados do cliente (${catalogo.motivo}). Use buscar_fatos_alvos primeiro.`);
+    throw new Error(`definir_ficha_cliente_final: não foi possível confirmar "${clienteFinal}" contra os dados do cliente (${catalogo.motivo}). Use buscar_fatos_alvos primeiro.`);
   }
   const achado = catalogo.clientes.find((x) => String(x).toLowerCase() === String(clienteFinal).toLowerCase());
   if (!achado) {
-    throw new Error(`definir_status_cliente_final: "${clienteFinal}" não existe no catálogo de clientes finais desta loja. Use buscar_fatos_alvos para ver os nomes exatos.`);
+    throw new Error(`definir_ficha_cliente_final: "${clienteFinal}" não existe no catálogo de clientes finais desta loja. Use buscar_fatos_alvos para ver os nomes exatos.`);
   }
 
-  definirStatus(cliente.id, achado, status, { atualizadoEm: new Date().toISOString().slice(0, 10), observacao });
-  return { success: true, clienteFinal: achado, status, cliente: cliente.empresa };
+  const { definir } = require('../alvos/clientesFinais.cjs');
+  definir(cliente.id, achado, { tags, grupo, observacao }, { atualizadoEm: new Date().toISOString().slice(0, 10) });
+  return { success: true, clienteFinal: achado, tags: tags ?? null, grupo: grupo ?? null, cliente: cliente.empresa };
 }
 
-function buscarStatusClientesFinais(repo, { clientId }) {
-  if (!clientId) throw new Error('buscar_status_clientes_finais: "clientId" é obrigatório.');
+function buscarFichasClientesFinais(repo, { clientId }) {
+  if (!clientId) throw new Error('buscar_fichas_clientes_finais: "clientId" é obrigatório.');
   const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
-  if (!cliente) throw new Error(`buscar_status_clientes_finais: cliente "${clientId}" não encontrado.`);
+  if (!cliente) throw new Error(`buscar_fichas_clientes_finais: cliente "${clientId}" não encontrado.`);
 
-  const { statusDoCliente } = require('../alvos/clientesFinais.cjs');
-  return { cliente: cliente.empresa, clientesFinais: statusDoCliente(cliente.id) };
+  const { fichasDoCliente } = require('../alvos/clientesFinais.cjs');
+  const { tagsAtivas } = require('../alvos/tags.cjs');
+  return {
+    cliente: cliente.empresa,
+    clientesFinais: fichasDoCliente(cliente.id),
+    tagsDisponiveis: tagsAtivas().map((t) => ({ id: t.id, rotulo: t.rotulo })),
+    gruposDisponiveis: opcoesDe(repo, 'grupo_referencia'),
+  };
 }
 
 function buscarHistoricoEventos(repo, { clientId, limite }) {
@@ -1241,29 +1255,30 @@ const FERRAMENTAS = [
     executar: definirStatusAcompanhamento,
   },
   {
-    name: 'buscar_status_clientes_finais',
-    description: 'Lista a situação (inadimplente/regular/situação externa) já registrada para os clientes finais desta loja/cliente da carteira. Use antes de responder sobre a situação de um cliente final, ou antes de perguntar ao usuário se já não sabe.',
+    name: 'buscar_fichas_clientes_finais',
+    description: 'Lista a ficha já registrada dos clientes finais desta loja: tags (Alerta, Inadimplente, Cliente Balcão, Encerrou operação — vocabulário compartilhado do Ecossistema) e grupo de importância (G1/G2/G3). Devolve também quais tags e grupos existem pra usar. Consulte antes de responder sobre situação de cliente final e antes de gravar com definir_ficha_cliente_final.',
     parameters: {
       type: 'object',
       properties: { clientId: { type: 'string', description: 'ID do cliente da carteira.' } },
       required: ['clientId'],
     },
-    executar: buscarStatusClientesFinais,
+    executar: buscarFichasClientesFinais,
   },
   {
-    name: 'definir_status_cliente_final',
-    description: 'Registra a situação de um cliente final (comprador desta loja): "inadimplente", "regular" ou "situacao_externa" (ex.: fechou, mudou de dono). Escopado por loja — o mesmo nome pode ter situação diferente em outra loja sua. Use só depois de o usuário INFORMAR/DECIDIR isso — não conclua sozinho a partir de queda de compra. O nome do cliente final tem de ser exatamente o que veio em buscar_fatos_alvos/buscar_status_clientes_finais.',
+    name: 'definir_ficha_cliente_final',
+    description: 'Grava tags e/ou grupo (G1/G2/G3) de um cliente final desta loja. Escopado por loja — o mesmo nome pode ter ficha diferente em outra loja sua. Use só depois de o usuário INFORMAR/DECIDIR — não conclua sozinho a partir de queda de compra. Tags e grupos válidos vêm de buscar_fichas_clientes_finais; o nome do cliente final tem de ser exatamente o que veio em buscar_fatos_alvos.',
     parameters: {
       type: 'object',
       properties: {
         clientId: { type: 'string', description: 'ID do cliente da carteira.' },
         clienteFinal: { type: 'string', description: 'Nome exato do cliente final, como veio em buscar_fatos_alvos.' },
-        status: { type: 'string', description: 'inadimplente | regular | situacao_externa' },
-        observacao: { type: 'string', description: 'Contexto da situação, em uma frase (opcional, máx. 300 caracteres).' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Ids de tag (ex.: ["inadimplente","alerta"]). Lista vazia limpa as tags. Omita pra não mexer nas tags atuais.' },
+        grupo: { type: 'string', description: 'Grupo de importância (ex.: "G1 (Grupo 1)"). Vazio limpa o grupo. Omita pra não mexer no grupo atual.' },
+        observacao: { type: 'string', description: 'Contexto, em uma frase (opcional, máx. 300 caracteres).' },
       },
-      required: ['clientId', 'clienteFinal', 'status'],
+      required: ['clientId', 'clienteFinal'],
     },
-    executar: definirStatusClienteFinal,
+    executar: definirFichaClienteFinal,
   },
   {
     name: 'gerar_relatorio_executivo',

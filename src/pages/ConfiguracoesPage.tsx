@@ -14,7 +14,7 @@ import McpClaudeCard from '../components/config/McpClaudeCard';
 import UsoIACard from '../components/config/UsoIACard';
 import { CATEGORIA_TIPO_LABEL, SEGMENTO_LABEL, type Cadencias, type CategoriaTipo, type Modelo, type Segmento, type TipoLinkServico } from '../types';
 
-const TIPOS: CategoriaTipo[] = ['servico', 'tipo_evento', 'status_cliente', 'status_evento', 'monitor', 'tipo_lembrete', 'sala', 'local_cliente'];
+const TIPOS: CategoriaTipo[] = ['servico', 'tipo_evento', 'status_cliente', 'status_evento', 'monitor', 'tipo_lembrete', 'sala', 'local_cliente', 'grupo_referencia'];
 
 const CADENCIA_CAMPOS: { chave: keyof Cadencias; label: string; ajuda: string; min?: number; max?: number }[] = [
   { chave: 'monitoria_dias', label: 'Monitoria a cada (dias)', ajuda: 'Cadência-alvo de reunião de Monitoria. Cliente sem reunião há mais que isso fica vencido na fila de Acompanhamento.' },
