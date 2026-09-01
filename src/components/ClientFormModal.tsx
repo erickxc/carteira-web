@@ -34,6 +34,8 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const [estado, setEstado] = useState(initial?.estado ?? (/^(ativ|gratuidade)/i.test(initial?.status ?? '') ? 'Ativo' : 'Inativo'));
   const [observacao, setObservacao] = useState(initial?.observacao ?? '');
   const [local, setLocal] = useState(initial?.local ?? '');
+  const [linkPowerBI, setLinkPowerBI] = useState(initial?.linkPowerBI ?? '');
+  const [linkPlataforma, setLinkPlataforma] = useState(initial?.linkPlataforma ?? '');
   const [tipoAnalise, setTipoAnalise] = useState<TipoAnalise>(initial?.tipoAnalise ?? 'unitaria');
   const [lojas, setLojas] = useState<string[]>([]);
   const [novaLoja, setNovaLoja] = useState('');
@@ -91,30 +93,30 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
         const [primeira, ...resto] = lojasFinais;
         await atualizarCliente(initial.id, {
           empresa: `${grupo} - ${primeira}`, grupo, tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, estado, status, observacao, local, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, estado, status, observacao, local, linkPowerBI, linkPlataforma, relatorioCadencia,
         });
         if (resto.length > 0) {
           const novos: NovoCliente[] = resto.map((nome) => ({
             empresa: `${grupo} - ${nome}`,
             grupo,
             tipoAnalise: 'segmentado',
-            monitor, servicos, servicosIndependentes, estado, status, observacao, local, relatorioCadencia,
+            monitor, servicos, servicosIndependentes, estado, status, observacao, local, linkPowerBI, linkPlataforma, relatorioCadencia,
           }));
           await criarClientesEmLote(novos);
         }
       } else if (editando) {
-        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, tipoAnalise, relatorioCadencia });
+        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linkPowerBI, linkPlataforma, tipoAnalise, relatorioCadencia });
       } else if (tipoAnalise === 'segmentado') {
         if (lojasFinais.length === 0) { toastError('Adicione ao menos uma loja para a análise segmentada.'); setSaving(false); return; }
         const novos: NovoCliente[] = lojasFinais.map((nome) => ({
           empresa: `${base} - ${nome}`,
           grupo: base,
           tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, estado, status, observacao, local, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, estado, status, observacao, local, linkPowerBI, linkPlataforma, relatorioCadencia,
         }));
         await criarClientesEmLote(novos);
       } else {
-        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, tipoAnalise: 'unitaria', relatorioCadencia });
+        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linkPowerBI, linkPlataforma, tipoAnalise: 'unitaria', relatorioCadencia });
       }
       onClose();
     } catch (err) {
@@ -255,6 +257,13 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
 
             <Field label="Observação">
               <Textarea tone="modal" value={observacao} onChange={(e) => setObservacao(e.target.value)} />
+            </Field>
+
+            <Field as="div" label={<>Links externos <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· opcional, vira botão de acesso no cadastro</span></>}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Input tone="modal" type="url" placeholder="Link do Power BI deste cliente" value={linkPowerBI} onChange={(e) => setLinkPowerBI(e.target.value)} />
+                <Input tone="modal" type="url" placeholder="Link da Plataforma deste cliente" value={linkPlataforma} onChange={(e) => setLinkPlataforma(e.target.value)} />
+              </div>
             </Field>
 
             <Field as="div" label="Relatório automático">

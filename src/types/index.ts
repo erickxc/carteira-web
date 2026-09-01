@@ -103,6 +103,12 @@ export interface Cliente {
   /** Cadência de geração automática de Relatório na agenda (opcional — sem isso,
    * o cliente não participa da geração automática). */
   relatorioCadencia?: RelatorioCadencia;
+  /** Link de acesso ao Power BI deste cliente (opcional). Botão no cabeçalho
+   *  do cadastro (`ClienteDetailPage`) abre isto numa aba nova. */
+  linkPowerBI?: string;
+  /** Link de acesso à Plataforma deste cliente (opcional). Mesmo botão do
+   *  Power BI acima. */
+  linkPlataforma?: string;
   createdAt: string;
   // Colunas legadas do banco real, mantidas em sincronia pelo backend:
   suspenso?: boolean;

@@ -16,6 +16,7 @@ import { WhatsAppMensagemModal } from '../components/WhatsAppMensagemModal';
 import { ContatosCard } from '../components/cliente/ContatosCard';
 import { TimelineCard } from '../components/cliente/TimelineCard';
 import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
+import { AcessosExternosButton } from '../components/cliente/AcessosExternosButton';
 import type { TimelineFiltro, TimelineItem } from '../utils/timelineCliente';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { Badge, Button, Card, Textarea } from '../ui';
@@ -228,6 +229,7 @@ export default function ClienteDetailPage() {
             </div>
           </div>
           <div className="flex-row">
+            <AcessosExternosButton cliente={cliente} />
             <Button variant="secondary" onClick={() => setEditModalOpen(true)}>
               <Pencil size={15} /> Editar
             </Button>
