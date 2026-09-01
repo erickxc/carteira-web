@@ -245,6 +245,10 @@ export interface EventoAgenda {
   ata?: string;
   /** Resumo da reunião (texto livre). */
   resumo?: string;
+  /** Transcrição bruta da reunião (colada de Otter/Fireflies/Gemini Notes ou
+   *  digitada) — fonte pro botão "Gerar ata com IA", mais confiável que o
+   *  resumo por ser o registro literal do que foi dito. */
+  transcricao?: string;
   attachments: Anexo[];
   status: EventoStatus;
   /** Monitores responsáveis por este evento (múltipla escolha, vindos do CRUD

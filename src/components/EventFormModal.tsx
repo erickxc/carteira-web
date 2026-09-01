@@ -1,10 +1,11 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { format, isValid, parse, setHours, setMinutes } from 'date-fns';
-import { AlertTriangle, Ban, Check, FileText } from 'lucide-react';
+import { AlertTriangle, Ban, Bot, Check, FileText, Loader2 } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { gerarAta } from '../utils/ata';
 import { registrarRemarcacao } from '../utils/reagendamento';
 import { gerarAtaPdf } from '../utils/ataPdf';
+import { gerarAtaComIA, atualizarDossieIA } from '../api/client';
 import { toastError } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ModalShell } from './ModalShell';
@@ -89,8 +90,11 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const pc = usePrecificacao(initial?.precificacoes ?? []);
   const [ata, setAta] = useState(initial?.ata ?? '');
   const [resumo, setResumo] = useState(initial?.resumo ?? '');
+  const [transcricao, setTranscricao] = useState(initial?.transcricao ?? '');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [gerandoAtaIA, setGerandoAtaIA] = useState(false);
+  const [atualizandoDossie, setAtualizandoDossie] = useState(false);
 
   const eventoAtual = initial ? agenda.find((a) => a.id === initial.id) : undefined;
 
@@ -174,6 +178,35 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
 
   const statusConcluido = statusOpcoes.find((s) => /conclu|realiz/i.test(s)) ?? 'Concluído';
   const statusCancelado = statusOpcoes.find((s) => /cancel/i.test(s)) ?? 'Cancelado';
+
+  // Só as seções 2-4 (o que foi tratado/decisões/próximos passos) vêm da IA —
+  // cabeçalho/participantes/pauta continuam montados por `gerarAta` sempre da
+  // mesma forma determinística. Sobrescreve a ata direto (sem confirmação):
+  // decisão do usuário, o campo continua editável depois.
+  async function gerarAtaComIAHandler() {
+    setGerandoAtaIA(true);
+    try {
+      const secoes = await gerarAtaComIA({
+        subject, resumo, description, checklist: ck.checklist,
+        produtosSituacao: ehMonitoriaServico ? ps.itens : [],
+        transcricao,
+      });
+      setAta(gerarAta(
+        {
+          clientName: clienteSelecionado?.empresa ?? '',
+          date: dataSegura.toISOString(),
+          time, duracao, type, sala, monitores, subject, servicos,
+          checklist: ck.checklist, resumo, description,
+        },
+        { cliente: clienteSelecionado },
+        secoes
+      ));
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : 'Falha ao gerar ata com IA.');
+    } finally {
+      setGerandoAtaIA(false);
+    }
+  }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -276,6 +309,21 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         const salvo = await criarEvento({ ...comum, date: iso, checklist: ck.checklist, ata: ataDe(iso, ck.checklist), produtosSituacao, precificacoes });
         await lembretesPara(salvo.id, baseData);
       }
+      // Reunião concluída/reagendada/cancelada: a ata pode ter conteúdo novo
+      // pro dossiê refletir — dispara a mesma reanálise do cron/boot, síncrona,
+      // com animação (só quando o hash da ata realmente mudou é que custa uma
+      // chamada de IA de verdade, ver `eventosParaAnalisar`). Falha aqui não
+      // desfaz o salvamento, que já aconteceu — só avisa.
+      if (!rec.recorrente && /conclu|realiz|cancel|reagend/i.test(statusFinal)) {
+        setAtualizandoDossie(true);
+        try {
+          await atualizarDossieIA(clientId);
+        } catch (err) {
+          toastError(err instanceof Error ? `Evento salvo, mas o dossiê não atualizou: ${err.message}` : 'Evento salvo, mas o dossiê não atualizou.');
+        } finally {
+          setAtualizandoDossie(false);
+        }
+      }
       // Fechar o loop: virou concluída agora (não estava concluída antes) → oferece
       // agendar o próximo evento pro mesmo cliente.
       const virouConcluido = /conclu|realiz/i.test(statusFinal) && !/conclu|realiz/i.test(initial?.status || '');
@@ -296,6 +344,14 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     // Soft delete: em vez de apagar, marca como Cancelado (preserva o histórico).
     if (!(await confirmDialog('Cancelar este evento? Ele fica no histórico marcado como Cancelado (não é apagado).', { danger: true, confirmLabel: 'Sim, cancelar', cancelLabel: 'Voltar' }))) return;
     await atualizarEvento(initial.id, { status: statusCancelado });
+    setAtualizandoDossie(true);
+    try {
+      await atualizarDossieIA(initial.clientId);
+    } catch (err) {
+      toastError(err instanceof Error ? `Evento cancelado, mas o dossiê não atualizou: ${err.message}` : 'Evento cancelado, mas o dossiê não atualizou.');
+    } finally {
+      setAtualizandoDossie(false);
+    }
     onClose();
   }
 
@@ -318,16 +374,16 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
       footer={
         <>
           {editando && (
-            <Button variant="danger" onClick={handleDelete} style={{ marginRight: 'auto' }}>
-              <Ban size={15} /> Cancelar evento
+            <Button variant="danger" onClick={handleDelete} disabled={saving} style={{ marginRight: 'auto' }}>
+              {atualizandoDossie ? (<><Loader2 size={13} className="animate-spin" /> Atualizando dossiê...</>) : (<><Ban size={15} /> Cancelar evento</>)}
             </Button>
           )}
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
           <Button variant="success" onClick={handleConcluir} disabled={saving || clientes.length === 0} title="Salvar marcando a reunião como concluída">
-            <Check size={15} /> Concluir
+            {atualizandoDossie ? (<><Loader2 size={13} className="animate-spin" /> Atualizando dossiê...</>) : (<><Check size={15} /> Concluir</>)}
           </Button>
           <Button type="submit" variant="primary" disabled={saving || clientes.length === 0}>
-            {saving ? 'Salvando...' : rec.recorrente && !editando ? 'Salvar recorrência' : 'Salvar'}
+            {atualizandoDossie ? (<><Loader2 size={13} className="animate-spin" /> Atualizando dossiê...</>) : saving ? 'Salvando...' : rec.recorrente && !editando ? 'Salvar recorrência' : 'Salvar'}
           </Button>
         </>
       }
@@ -480,6 +536,23 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
               <Textarea tone="modal" value={resumo} onChange={(e) => setResumo(e.target.value)} rows={3} placeholder="Resumo do que foi tratado na reunião..." />
             </Field>
 
+            {/* Transcrição bruta (colada de Otter/Fireflies/Gemini Notes ou
+                digitada) — opcional, só alimenta o botão "Gerar ata com IA"
+                abaixo; não entra em nenhum outro lugar (dossiê/relatório
+                continuam lendo ata/resumo, não este campo). */}
+            <Field
+              label={
+                <>
+                  Transcrição{' '}
+                  <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>
+                    · opcional, usada pelo "Gerar ata com IA"
+                  </span>
+                </>
+              }
+            >
+              <Textarea tone="modal" value={transcricao} onChange={(e) => setTranscricao(e.target.value)} rows={3} placeholder="Cole aqui a transcrição da reunião (Otter, Fireflies, Gemini Notes...), se houver." />
+            </Field>
+
             {/* Ata: um só significado. O texto aqui É a ata; vazia, ela é gerada
                 a partir de pauta/resumo ao salvar. Antes o rótulo dizia
                 "observações, editável" e o placeholder dizia outra coisa, o que
@@ -487,9 +560,20 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
             <Field as="div" label={
               <span className="flex-between" style={{ marginBottom: 2 }}>
                 <span>Ata <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· vazia = gerada da pauta e do resumo</span></span>
-                <Button variant="secondary" style={{ padding: '0.25rem 0.55rem', fontSize: 12 }} onClick={() => setAta(ataAuto)}>
-                  Preencher com a automática
-                </Button>
+                <span className="flex-row" style={{ gap: 6 }}>
+                  <Button variant="secondary" style={{ padding: '0.25rem 0.55rem', fontSize: 12 }} onClick={() => setAta(ataAuto)}>
+                    Preencher com a automática
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    style={{ padding: '0.25rem 0.55rem', fontSize: 12 }}
+                    disabled={gerandoAtaIA}
+                    onClick={() => void gerarAtaComIAHandler()}
+                    title="A IA lê resumo, pauta, produtos/situação e a transcrição (se houver) e escreve o que foi tratado, decisões e próximos passos — substitui o texto da ata."
+                  >
+                    {gerandoAtaIA ? (<><Loader2 size={12} className="animate-spin" /> Gerando...</>) : (<><Bot size={12} /> Gerar ata com IA</>)}
+                  </Button>
+                </span>
               </span>
             }>
               <Textarea tone="modal" value={ata} onChange={(e) => setAta(e.target.value)} rows={4} placeholder="Deixe vazio para gerar automaticamente ao salvar, ou escreva a ata aqui." />

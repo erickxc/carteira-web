@@ -213,6 +213,7 @@ function deserializeEvento(raw: Record<string, unknown>): EventoAgenda {
     time: (raw.time as string) ?? '',
     ata: (raw.ata as string) ?? '',
     resumo: (raw.resumo as string) ?? '',
+    transcricao: (raw.transcricao as string) ?? '',
   };
 }
 
@@ -416,6 +417,35 @@ export const enviarMensagemChatIA = (texto: string, historico: MensagemChatIA[],
 
 // Log de auditoria das ações que o agente já executou (mais recentes primeiro).
 export const buscarAcoesIA = () => request<AcaoIA[]>('/ia/acoes');
+
+export interface SecoesAtaIA {
+  oQueFoiTratado: string;
+  decisoes: string;
+  proximosPassos: string;
+}
+
+/**
+ * Gera as seções "de conteúdo" da ata (o que foi tratado/decisões/próximos
+ * passos) a partir de resumo + pauta + transcrição — cabeçalho/participantes
+ * continuam montados no frontend (`gerarAta`), sempre determinísticos.
+ */
+export const gerarAtaComIA = (payload: {
+  subject?: string;
+  resumo?: string;
+  description?: string;
+  checklist?: ChecklistItem[];
+  produtosSituacao?: ProdutoSituacaoItem[];
+  transcricao?: string;
+}) => request<SecoesAtaIA>('/ia/gerar-ata', { method: 'POST', body: JSON.stringify(payload) });
+
+/**
+ * Dispara a reanálise do cliente (mesmo mecanismo do agendamento/cron/tool de
+ * chat `reanalisar_cliente`) de forma síncrona — usado ao salvar um evento
+ * como concluído/reagendado/cancelado, pra o dossiê refletir a ata nova sem
+ * esperar o próximo boot/segunda-feira.
+ */
+export const atualizarDossieIA = (clientId: string) =>
+  request<{ processados: number }>(`/ia/atualizar-dossie/${clientId}`, { method: 'POST' });
 
 // --- Provedor de IA / conta Claude (Claude Code CLI) ---
 

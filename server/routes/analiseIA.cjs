@@ -3,6 +3,8 @@ const { repoPlanilha } = require('../dominio/repo.cjs');
 const { conversar } = require('../ia/provider.cjs');
 const { montarSystemPrompt } = require('../ia/agente.cjs');
 const { gerarAlertas, gerarPadroesCarteira } = require('../ia/alertas.cjs');
+const { gerarAtaIA } = require('../ia/geracaoAta.cjs');
+const { gerarAnalisesPendentes } = require('../ia/analisesAutomaticas.cjs');
 
 const router = express.Router();
 const repo = repoPlanilha();
@@ -60,6 +62,42 @@ router.post('/chat', async (req, res) => {
   try {
     const resposta = await conversar({ mensagens, origem: 'chat', repo, monitor });
     res.json({ resposta });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+/**
+ * Botão "Gerar ata com IA" do `EventFormModal`. Escopo fechado (ver
+ * `geracaoAta.cjs`): só as 3 seções de conteúdo — cabeçalho/participantes/
+ * pauta continuam montados no frontend, determinísticos. Não recebe/precisa
+ * de `clientId`: não lê nada do repositório, é um completion isolado.
+ */
+router.post('/gerar-ata', async (req, res) => {
+  const { subject, resumo, description, checklist, produtosSituacao, transcricao } = req.body ?? {};
+  try {
+    const secoes = await gerarAtaIA({ subject, resumo, description, checklist, produtosSituacao, transcricao });
+    res.json(secoes);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+/**
+ * Dispara a reanálise de UM cliente de forma síncrona — mesmo mecanismo do
+ * boot/cron/tool de chat `reanalisar_cliente` (`gerarAnalisesPendentes`), só
+ * que chamado logo após salvar um evento como concluído/reagendado/cancelado,
+ * pra o dossiê refletir a ata nova sem esperar o próximo ciclo automático.
+ * Sem `forcar`: a diferenciação por hash de ata (`eventosParaAnalisar`) já
+ * garante que só reprocessa se algo mudou — chamar isso à toa não tem custo
+ * de IA extra.
+ */
+router.post('/atualizar-dossie/:clientId', async (req, res) => {
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === req.params.clientId);
+  if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
+  try {
+    const processados = await gerarAnalisesPendentes({ repo, apenasClientId: req.params.clientId });
+    res.json({ processados });
   } catch (err) {
     res.status(502).json({ error: err.message });
   }

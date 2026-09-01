@@ -8,6 +8,19 @@ export interface AtaContexto {
   participantesCliente?: string[];
 }
 
+/**
+ * Seções 2-4 geradas por IA (`gerarAtaComIA`, ver `src/api/client.ts`) — pisam
+ * por cima da heurística determinística quando presentes. Cabeçalho,
+ * participantes e a seção de pauta (1) NUNCA vêm daqui: são dados
+ * estruturados, sem motivo pra IA reescrever e arriscar inventar cliente/
+ * data/monitor.
+ */
+export interface AtaSecoesIA {
+  oQueFoiTratado?: string;
+  decisoes?: string;
+  proximosPassos?: string;
+}
+
 const TRACO = '—';
 
 /** "14:30–16:00" a partir de hora + duração. Só a hora se não houver duração. */
@@ -48,7 +61,7 @@ function itens(texto?: string): string[] {
  * desaparecer: numa ata, seção ausente é indistinguível de "nada a registrar",
  * e quem lê depois não sabe se a reunião não teve decisão ou se ninguém anotou.
  */
-export function gerarAta(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}): string {
+export function gerarAta(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}, ia?: AtaSecoesIA): string {
   const L: string[] = [];
   const data = ev.date ? format(parseISO(ev.date), 'dd/MM/yyyy') : '';
   const horario = faixaHoraria(ev.time, ev.duracao);
@@ -91,27 +104,43 @@ export function gerarAta(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}): stri
   }
 
   // --- 2. O que foi tratado ---
+  // IA (transcrição/resumo) tem prioridade sobre o resumo cru quando informada
+  // pelo botão "Gerar ata com IA" — senão cai na heurística de sempre.
   L.push('', '2. O QUE FOI TRATADO');
   const relato = ev.resumo?.trim() || ev.description?.trim() || '';
-  if (relato) relato.split('\n').forEach((l) => L.push(`   ${l.trim()}`));
+  const relatoFinal = ia?.oQueFoiTratado?.trim() || relato;
+  if (relatoFinal) relatoFinal.split('\n').forEach((l) => L.push(`   ${l.trim()}`));
   else L.push('   (a preencher)');
 
   // --- 3. Decisões ---
-  // Heurística deliberadamente simples: linhas do relato que começam com um
-  // marcador de decisão. Nada de "adivinhar" decisão em texto corrido — ata
-  // errada é pior que ata incompleta, e o campo é editável.
-  const decisoes = itens(relato).filter((l) => /^(decis|decidid|ficou\s+(definido|acordado)|acordad)/i.test(l));
+  // Sem IA: heurística deliberadamente simples — linhas do relato que começam
+  // com um marcador de decisão. Nada de "adivinhar" decisão em texto corrido
+  // sem apoio de IA — ata errada é pior que ata incompleta, e o campo é editável.
   L.push('', '3. DECISÕES');
-  if (decisoes.length > 0) decisoes.forEach((d) => L.push(`   ${TRACO} ${d}`));
-  else L.push('   (a preencher)');
+  if (ia?.decisoes?.trim()) {
+    ia.decisoes.trim().split('\n').map((l) => l.trim()).filter(Boolean).forEach((d) => L.push(`   ${TRACO} ${d}`));
+  } else {
+    const decisoes = itens(relato).filter((l) => /^(decis|decidid|ficou\s+(definido|acordado)|acordad)/i.test(l));
+    if (decisoes.length > 0) decisoes.forEach((d) => L.push(`   ${TRACO} ${d}`));
+    else L.push('   (a preencher)');
+  }
 
   // --- 4. Próximos passos ---
   // Item de pauta não cumprido é, por definição, pendência: vira próximo passo
-  // automaticamente em vez de só ficar desmarcado na seção 1.
+  // automaticamente em vez de só ficar desmarcado na seção 1. Compromissos
+  // novos que a IA identificou na transcrição/resumo (não cobertos pela
+  // pauta) somam-se aos pendentes, nunca os substituem.
   const pendentes = checklist.filter((i) => !i.done).map((i) => i.text);
+  const extrasIA = ia?.proximosPassos?.trim()
+    ? ia.proximosPassos.trim().split('\n').map((l) => l.trim()).filter(Boolean)
+    : [];
   L.push('', '4. PRÓXIMOS PASSOS');
-  if (pendentes.length > 0) pendentes.forEach((p) => L.push(`   [2D]      ${p}`));
-  else L.push('   (a preencher)');
+  if (pendentes.length + extrasIA.length > 0) {
+    pendentes.forEach((p) => L.push(`   [2D]      ${p}`));
+    extrasIA.forEach((p) => L.push(`   [2D]      ${p}`));
+  } else {
+    L.push('   (a preencher)');
+  }
 
   L.push('', `Ata gerada automaticamente pela Carteira de Monitoria ${TRACO} revise antes de enviar.`);
   return L.join('\n');
