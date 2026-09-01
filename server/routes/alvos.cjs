@@ -1,7 +1,7 @@
 const express = require('express');
 const { repoPlanilha } = require('../dominio/repo.cjs');
 const { linhasCadastro, resumoCadastro, gerarAlertasAlvos } = require('../alvos/painel.cjs');
-const { catalogoDoCliente } = require('../alvos/consulta.cjs');
+const { catalogoDoCliente, resumoGeralDoCliente } = require('../alvos/consulta.cjs');
 const { sugerir, vincular, carregar } = require('../alvos/mapa.cjs');
 const { empresasDisponiveis } = require('../alvos/leitor.cjs');
 const { agregadoDaEmpresa } = require('../alvos/cache.cjs');
@@ -68,6 +68,17 @@ router.get('/catalogo/:clientId', (req, res) => {
   const cliente = repo.get('Clientes').find((c) => String(c.id) === req.params.clientId);
   if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
   res.json(catalogoDoCliente(cliente.id, { aquecer: req.query.aquecer === '1' }));
+});
+
+/**
+ * Escopo GERAL (item 5.2): série de receita/qtd por período + total de
+ * clientes finais distintos, sem interpretação nenhuma. Mesma regra de custo
+ * do catálogo: nunca aquece sozinho.
+ */
+router.get('/resumo/:clientId', (req, res) => {
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === req.params.clientId);
+  if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
+  res.json(resumoGeralDoCliente(cliente, { aquecer: req.query.aquecer === '1' }));
 });
 
 module.exports = router;

@@ -175,3 +175,41 @@ describe('consulta: cliente com lojas em duas pastas', () => {
     expect(ctx.pendentes).toEqual(['Pasta A', 'Pasta B']);
   });
 });
+
+describe('consulta: resumo geral do cliente (escopo 5.2)', () => {
+  const cliente = { id: 'c-itab', empresa: 'Aliança - Itaboraí' };
+  const COM_CRUZAMENTO = {
+    ...AGREGADO,
+    cruzamento: [
+      { loja: 'alianca_itaborai', cliente: 'EDUARDO MECANICO (CM)', produto: 'Lubrificante', ano: 2026, mes: 6, receita: 1000, qtd: 10 },
+      { loja: 'alianca_itaborai', cliente: 'OUTRO (CM)', produto: 'Kit Amortecedor', ano: 2026, mes: 7, receita: 2000, qtd: 20 },
+      { loja: 'alianca_itaborai_CF', cliente: 'FORA (CM)', produto: 'Pneu', ano: 2026, mes: 7, receita: 9999, qtd: 99 },
+    ],
+  };
+
+  it('estado != ok não calcula nada, devolve motivo', () => {
+    const r = consulta.resumoGeralDoCliente({ id: 'c-nada', empresa: 'X' }, { vinculos: VINCULOS, cache: fake() });
+    expect(r.estado).toBe('sem_vinculo');
+    expect(r.serie).toEqual([]);
+  });
+
+  it('dados não carregados vira estado próprio', () => {
+    cacheValido = false;
+    const r = consulta.resumoGeralDoCliente(cliente, { vinculos: VINCULOS, cache: fake() });
+    expect(r.estado).toBe('dados_nao_carregados');
+  });
+
+  it('com cache quente e cruzamento real, agrega só as lojas do cliente', () => {
+    const fakeComDados = () => ({
+      agregadoDaEmpresa: () => COM_CRUZAMENTO,
+      estadoDoCache: () => ({ existe: true, valido: true }),
+    });
+    const r = consulta.resumoGeralDoCliente(cliente, { vinculos: VINCULOS, cache: fakeComDados() });
+    expect(r.estado).toBe('ok');
+    expect(r.totalReceita).toBe(3000); // 1000 + 2000, NÃO os 9999 da outra loja
+    expect(r.totalClientesDistintos).toBe(2);
+    expect(r.serie).toHaveLength(2);
+    expect(r.primeiroPeriodo).toBe('2026-06');
+    expect(r.ultimoPeriodo).toBe('2026-07');
+  });
+});

@@ -101,8 +101,8 @@ function escreverDossie(clientId: string, slug: string, corpo: string) {
 // 1-8: catálogo e contrato geral das ferramentas
 // ---------------------------------------------------------------------------
 describe('catálogo de ferramentas', () => {
-  it('1. expõe exatamente as 27 ferramentas esperadas', () => {
-    expect(FERRAMENTAS).toHaveLength(29);
+  it('1. expõe exatamente as 30 ferramentas esperadas', () => {
+    expect(FERRAMENTAS).toHaveLength(30);
   });
 
   it('2. nenhum nome de ferramenta duplicado', () => {
@@ -871,5 +871,32 @@ describe('buscar_fatos_alvos / definir_status_acompanhamento', () => {
     const r2 = exec('buscar_fatos_alvos', repoComEventoDeReuniao(), { clientId: 'c1' });
     expect(r2.acompanhamentos[0].status).toBe('abandonado');
     expect(r2.acompanhamentos[0].alerta).toBe(false);
+  });
+
+  it('buscar_resumo_vendas_alvos: clientId ausente falha explícito', () => {
+    expect(() => exec('buscar_resumo_vendas_alvos', repoBase(), {})).toThrow(/clientId.*obrigatório/);
+  });
+
+  it('buscar_resumo_vendas_alvos: cliente sem vínculo devolve estado e motivo, sem inventar número', () => {
+    const r = exec('buscar_resumo_vendas_alvos', repoBase(), { clientId: 'c1' });
+    expect(r.estado).toBe('sem_vinculo');
+    expect(r.serie).toEqual([]);
+    expect(r.motivo).toMatch(/nenhuma loja/);
+  });
+
+  it('buscar_resumo_vendas_alvos: com vínculo, devolve série e totais reais do arquivo', () => {
+    criarEmpresaDeTeste('c1');
+    const r = exec('buscar_resumo_vendas_alvos', repoBase(), { clientId: 'c1' });
+    expect(r.estado).toBe('ok');
+    expect(r.totalReceita).toBe(5000);
+    expect(r.totalQtd).toBe(50);
+    expect(r.totalClientesDistintos).toBe(1);
+    expect(r.serie).toHaveLength(5);
+    expect(r.primeiroPeriodo).toBe('2026-03');
+    expect(r.ultimoPeriodo).toBe('2026-08');
+  });
+
+  it('buscar_resumo_vendas_alvos: cliente inexistente falha explícito', () => {
+    expect(() => exec('buscar_resumo_vendas_alvos', repoBase(), { clientId: 'fantasma' })).toThrow(/não encontrado/);
   });
 });

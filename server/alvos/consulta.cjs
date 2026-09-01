@@ -2,6 +2,7 @@ const { carregar } = require('./mapa.cjs');
 const cacheReal = require('./cache.cjs');
 const { estadoDoCliente } = require('./estado.cjs');
 const { listasDoCliente, fatosDeReuniao } = require('./acompanhamento.cjs');
+const { resumoGeral } = require('./resumoGeral.cjs');
 
 /**
  * Fachada de leitura dos Dados Alvos por CLIENTE da carteira.
@@ -138,10 +139,39 @@ function fatosDoCliente(cliente, eventos, opts = {}) {
   });
 }
 
+/**
+ * Escopo GERAL (item 5.2): receita/qtd por período + total de clientes finais
+ * distintos, sem interpretação nenhuma — o retrato cru da carteira desse
+ * cliente. Mesma regra de custo dos outros: nunca aquece sozinho.
+ */
+function resumoGeralDoCliente(cliente, opts = {}) {
+  const ctx = contextoDoCliente(cliente.id, opts);
+  if (ctx.estado.estado !== 'ok' || ctx.pendentes.length) {
+    return {
+      clientId: String(cliente.id),
+      empresa: cliente.empresa,
+      estado: ctx.pendentes.length ? 'dados_nao_carregados' : ctx.estado.estado,
+      motivo: ctx.pendentes.length
+        ? `dados da empresa ainda não carregados: ${ctx.pendentes.join(', ')}`
+        : ctx.estado.motivo,
+      serie: [],
+    };
+  }
+  const lojas = ctx.estado.lojas.map((l) => l.loja);
+  return {
+    clientId: String(cliente.id),
+    empresa: cliente.empresa,
+    estado: 'ok',
+    lojas,
+    ...resumoGeral(agregadoUnificado(ctx.agregados), lojas),
+  };
+}
+
 module.exports = {
   empresasDoCliente,
   contextoDoCliente,
   agregadoUnificado,
   catalogoDoCliente,
   fatosDoCliente,
+  resumoGeralDoCliente,
 };

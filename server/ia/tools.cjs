@@ -537,6 +537,35 @@ function buscarFatosAlvos(repo, { clientId }) {
 }
 
 /**
+ * Escopo GERAL dos Dados Alvos: receita/quantidade por período e total de
+ * clientes finais distintos — o retrato cru da carteira desse cliente, sem
+ * interpretação de reunião nenhuma (isso é `buscar_fatos_alvos`). Mesma
+ * decisão de aquecer sob demanda, pelo mesmo motivo.
+ */
+function buscarResumoVendasAlvos(repo, { clientId }) {
+  if (!clientId) throw new Error('buscar_resumo_vendas_alvos: "clientId" é obrigatório.');
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
+  if (!cliente) throw new Error(`buscar_resumo_vendas_alvos: cliente "${clientId}" não encontrado.`);
+
+  const { resumoGeralDoCliente } = require('../alvos/consulta.cjs');
+  const r = resumoGeralDoCliente({ id: cliente.id, empresa: cliente.empresa }, { aquecer: true });
+
+  if (r.estado !== 'ok') {
+    return { ...identidadeCliente(cliente), estado: r.estado, motivo: r.motivo, serie: [] };
+  }
+  return {
+    ...identidadeCliente(cliente),
+    estado: 'ok',
+    primeiroPeriodo: r.primeiroPeriodo,
+    ultimoPeriodo: r.ultimoPeriodo,
+    totalReceita: r.totalReceita,
+    totalQtd: r.totalQtd,
+    totalClientesDistintos: r.totalClientesDistintos,
+    serie: r.serie,
+  };
+}
+
+/**
  * Registra a decisão do usuário sobre um acompanhamento: seguir, abandonar ou
  * dar por resolvido. É o que faz o alerta parar de aparecer — e o motivo fica
  * gravado, diferente de um botão "dispensar".
@@ -1073,6 +1102,16 @@ const FERRAMENTAS = [
       required: ['clientId'],
     },
     executar: buscarFatosAlvos,
+  },
+  {
+    name: 'buscar_resumo_vendas_alvos',
+    description: 'Dados de VENDA gerais do cliente (Dados Alvos), por mês/ano: receita total, quantidade e quantos clientes finais distintos compraram em cada período. Sem interpretação nenhuma — use pra responder "quanto ele vendeu em [mês]", "a receita está subindo ou caindo", "quantos clientes ele tem". Pra saber se um combinado específico de reunião deu resultado, use buscar_fatos_alvos, não esta. Se "estado" não for "ok", diga o motivo em vez de inventar número.',
+    parameters: {
+      type: 'object',
+      properties: { clientId: { type: 'string', description: 'ID do cliente da carteira.' } },
+      required: ['clientId'],
+    },
+    executar: buscarResumoVendasAlvos,
   },
   {
     name: 'definir_status_acompanhamento',

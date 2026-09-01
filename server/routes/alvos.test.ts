@@ -243,3 +243,36 @@ describe('GET /api/alvos/catalogo/:clientId', () => {
     } finally { fechar(); }
   });
 });
+
+describe('GET /api/alvos/resumo/:clientId', () => {
+  it('404 pra cliente inexistente', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      expect((await fetch(`${url}/resumo/fantasma`)).status).toBe(404);
+    } finally { fechar(); }
+  });
+
+  it('sem vínculo, estado sem_vinculo e série vazia', async () => {
+    criarCliente('c1', 'Empresa Teste');
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const body = await (await fetch(`${url}/resumo/c1`)).json();
+      expect(body).toMatchObject({ estado: 'sem_vinculo', serie: [] });
+    } finally { fechar(); }
+  });
+
+  it('com aquecer=1, devolve a série real do arquivo', async () => {
+    criarEmpresaDeTeste('Empresa Teste');
+    criarCliente('c1', 'Empresa Teste');
+    const { vincular } = require('../alvos/mapa.cjs');
+    vincular('Empresa Teste', 'loja_teste', 'c1');
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const body = await (await fetch(`${url}/resumo/c1?aquecer=1`)).json();
+      expect(body.estado).toBe('ok');
+      expect(body.totalReceita).toBe(1000);
+      expect(body.totalQtd).toBe(10);
+      expect(body.serie).toEqual([{ periodo: '2026-07', receita: 1000, qtd: 10, totalClientes: 1 }]);
+    } finally { fechar(); }
+  });
+});
