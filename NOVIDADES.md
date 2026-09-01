@@ -8,6 +8,20 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.2
+
+- Nova transcrição da reunião e botão "Gerar ata com IA": a IA escreve o que
+  foi tratado, as decisões e os próximos passos a partir do resumo, da pauta
+  e da transcrição (se você colar uma) — cabeçalho e participantes continuam
+  preenchidos automaticamente, sem risco de a IA errar cliente ou data.
+- Ao concluir, reagendar ou cancelar uma reunião, o dossiê do cliente agora
+  atualiza na hora (antes só na próxima segunda-feira ou se alguém pedisse no
+  chat).
+- Corrigido: cancelar ou reagendar uma reunião não contava como contato com o
+  cliente em nenhum lugar do sistema (Dashboard, Ações, Carteira) — mesmo
+  falando com o cliente para desmarcar, o "último contato" mostrava dias a
+  mais do que o real.
+
 ## 1.4.1
 
 - Reagendar uma reunião agora mantém o horário antigo na Agenda, marcado
