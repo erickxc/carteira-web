@@ -8,6 +8,24 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.5
+
+- Corrigido (importante): gerar a ata com IA agora **salva na hora**. Antes o
+  texto aparecia na tela mas era descartado se você fechasse o evento sem
+  clicar em Salvar — junto com a transcrição colada.
+- Novo "Registro da Monitoria" na reunião, com três formas de registrar:
+  só cliente final, cliente + produto, ou só produto. E o nome de
+  produto/cliente final agora vem por sugestão dos dados reais de venda, em
+  vez de texto digitado às cegas.
+- A lista de produtos e clientes finais passou a ser guardada e atualizada a
+  cada reunião concluída/cancelada — não depende mais de cache e não
+  desaparece.
+- Situação de cliente final usa as tags compartilhadas do Ecossistema
+  (Alerta, Inadimplente, Cliente Balcão, Encerrou operação) e ganhou grupo
+  G1/G2/G3.
+- Corrigido: pedir uma reunião ao monitorIA com o nome do monitor escrito de
+  dois jeitos gravava o mesmo monitor duas vezes.
+
 ## 1.4.4
 
 - Novo botão de acesso rápido no cadastro do cliente: link para o Power BI
