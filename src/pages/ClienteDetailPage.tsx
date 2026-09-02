@@ -274,9 +274,10 @@ export default function ClienteDetailPage() {
         </div>
       </Card>
 
-      <AnaliseIACard clienteId={cliente.id} />
-
-      <AgilTarefasCard cliente={cliente} />
+      <div className="dash-two-col">
+        <AnaliseIACard clienteId={cliente.id} />
+        <AgilTarefasCard cliente={cliente} />
+      </div>
 
       <div className="flex-row" style={{ marginBottom: 24 }}>
         <Button variant="primary" onClick={() => setEventModalOpen(true)}>

@@ -11,9 +11,18 @@ interface AgilTarefasCardProps {
   cliente: Cliente;
 }
 
+// Colunas são texto livre (mesmo padrão de status_cliente/status_evento — sem
+// enum fixo), então "concluída" é inferido por palavra-chave no título da
+// coluna, igual a `eventoStatusBadge`/`clienteStatusBadge` — nunca quebra
+// com um board que nomeia a coluna diferente, só deixa de filtrar aquele caso.
+const colunaConcluida = (titulo?: string) => /conclu|feito|pronto|final|done|entregue/i.test(titulo || '');
+
 /**
- * Tarefas do Ágil (Kanban interno) vinculadas a este cliente (`AgilTarefa.clientId`).
- * Só leitura + navegação — editar a tarefa continua sendo feito no board, o
+ * Tarefas do Ágil (Kanban interno) vinculadas a este cliente (`AgilTarefa.clientId`),
+ * só as PENDENTES/EM ANDAMENTO (fora de coluna "Concluído") — pedido do
+ * usuário: junto do card de análise de IA, o que interessa é o que ainda
+ * falta fazer, não o histórico já entregue (esse continua no board). Só
+ * leitura + navegação — editar a tarefa continua sendo feito no board, o
  * mesmo padrão do agente de IA (`buscar_tarefas_cliente`), que já cruzava esse
  * dado sem a ficha do cliente nunca mostrar de volta. Oculto quando vazio, sem
  * popup: diferente de Contatos (que virou popup por sobrecarregar o cabeçalho),
@@ -23,25 +32,31 @@ export function AgilTarefasCard({ cliente }: AgilTarefasCardProps) {
   const navigate = useNavigate();
   const { agilTarefas, agilBoards, agilColunas, agilWorkspaces } = useCarteira();
 
+  const vinculadas = useMemo(() => agilTarefas.filter((t) => t.clientId === cliente.id), [agilTarefas, cliente.id]);
   const tarefas = useMemo(
-    () => agilTarefas
-      .filter((t) => t.clientId === cliente.id)
+    () => vinculadas
+      .filter((t) => !colunaConcluida(agilColunas.find((c) => c.id === t.colunaId)?.titulo))
       .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')),
-    [agilTarefas, cliente.id]
+    [vinculadas, agilColunas]
   );
 
-  if (tarefas.length === 0) return null;
+  // Cliente sem NENHUMA tarefa vinculada nunca participou do Ágil — aí sim
+  // some (não faz sentido reservar a metade da tela pra isso pra sempre).
+  // Já com tarefas vinculadas mas todas concluídas, o card fica (mostra "tudo
+  // concluído") — senão o par com o card de IA fica com um buraco ao lado.
+  if (vinculadas.length === 0) return null;
 
   function abrirBoard(boardId: string, workspaceId: string) {
     navigate('/agil', { state: { agilWorkspaceId: workspaceId, agilBoardId: boardId } });
   }
 
   return (
-    <Card flat style={{ marginBottom: 24 }}>
+    <Card flat>
       <div className="section-header">
         <h3>Tarefas Ágil</h3>
-        <span className="text-text-muted" style={{ fontSize: 12 }}>{tarefas.length}</span>
+        <span className="text-text-muted" style={{ fontSize: 12 }}>{tarefas.length} pendente(s)</span>
       </div>
+      {tarefas.length === 0 && <div className="empty-state">Tudo concluído — nenhuma tarefa pendente.</div>}
       <div className="flex flex-col gap-1.5">
         {tarefas.map((t) => {
           const board = agilBoards.find((b) => b.id === t.boardId);

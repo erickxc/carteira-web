@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Bot, ChevronDown, ChevronUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Bot, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
 import { buscarAnaliseIA } from '../../api/client';
 import { toastError } from '../../utils/toast';
 import { Badge, Button, Card } from '../../ui';
@@ -38,6 +39,7 @@ interface AnaliseIACardProps {
  * Fatores/sugestão de pauta (o conteúdo mais longo) ficam atrás de "Ver mais".
  */
 export function AnaliseIACard({ clienteId, variante = 'padrao' }: AnaliseIACardProps) {
+  const navigate = useNavigate();
   // `undefined` até a busca deste `clienteId` terminar — evita um segundo
   // estado boolean de loading só pra isso.
   const [analise, setAnalise] = useState<AnaliseIA | null | undefined>(undefined);
@@ -84,6 +86,21 @@ export function AnaliseIACard({ clienteId, variante = 'padrao' }: AnaliseIACardP
             {analise.resumo}
           </p>
 
+          {!popover && (
+            <Button
+              variant="secondary"
+              onClick={() => navigate('/assistente', {
+                state: {
+                  clientId: clienteId,
+                  pergunta: 'Vamos falar sobre a análise de risco deste cliente? Me explica os pontos de atenção e o que você recomenda eu fazer a respeito.',
+                },
+              })}
+              style={{ marginTop: 10, padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}
+            >
+              <MessageSquare size={13} /> Vamos falar sobre isso?
+            </Button>
+          )}
+
           {expandido && (
             <div className="flex flex-col gap-2" style={{ marginTop: 10 }}>
               {analise.fatores.length > 0 && (
@@ -104,7 +121,7 @@ export function AnaliseIACard({ clienteId, variante = 'padrao' }: AnaliseIACardP
   if (popover) return <div style={{ minWidth: 260, maxWidth: 340 }}>{conteudo}</div>;
 
   return (
-    <Card flat style={{ marginBottom: 24, padding: '0.85rem 1rem', maxWidth: 420, width: 'fit-content', minWidth: 280 }}>
+    <Card flat style={{ padding: '0.85rem 1rem' }}>
       {conteudo}
     </Card>
   );
