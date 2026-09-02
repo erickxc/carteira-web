@@ -126,7 +126,14 @@ export default function DashboardPage() {
           filtroServico={d.filtroServicoVencendo}
           onFiltroServico={d.setFiltroServicoVencendo}
         />
-        <Top10AtendimentosCard itens={d.top10AtendimentosAno.itens} inicio={d.top10AtendimentosAno.inicio} fim={d.top10AtendimentosAno.fim} ano={d.ano} />
+        <Top10AtendimentosCard
+          itens={d.top10AtendimentosAno.itens}
+          inicio={d.top10AtendimentosAno.inicio}
+          fim={d.top10AtendimentosAno.fim}
+          ano={d.ano}
+          filtro={d.filtroServicoTop10}
+          onFiltro={d.setFiltroServicoTop10}
+        />
       </div>
 
       {/* Serviços + próximas agendas */}

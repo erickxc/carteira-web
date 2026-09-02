@@ -578,31 +578,39 @@ textarea:focus-visible {
    gauge-cards, então header+subtítulo+chips ocupam menos altura — 133px
    fecha a conta pra bater com o min-height de 285px de .cobertura-card
    (mesmo padrão do comentário acima: min-height fixo, não stretch). */
-.vencendo-resumo { display: flex; gap: 1.25rem; align-items: flex-start; }
-.vencendo-numero { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 96px; height: 133px; }
-.vencendo-numero-valor { font-size: 2.6rem; font-weight: 700; color: var(--warning); line-height: 1; font-variant-numeric: tabular-nums; }
-.vencendo-numero-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 6px; }
+/* O contador saiu de um bloco de 96px à ESQUERDA da lista e virou um número
+   ao lado do título: a lista passou a usar a largura inteira do card, que é
+   o que estava faltando (nome de cliente truncava com 4 linhas visíveis num
+   scroll de 133px de altura fixa). Agora a lista cresce com o card. */
+.vencendo-resumo { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.vencendo-total { font-size: 1.05rem; font-weight: 700; color: var(--warning); font-variant-numeric: tabular-nums; }
 .vencendo-lista {
   flex: 1; min-width: 0; list-style: none; margin: 0; padding: 0;
-  height: 133px; overflow-y: auto;
+  min-height: 150px; max-height: 260px; overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
 }
 /* Scrollbar: coberta pelo estilo global (topo do arquivo). */
 .vencendo-lista li {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 0; border-bottom: 1px solid var(--border);
-  font-size: 0.8rem; color: var(--text-secondary);
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 0; border-bottom: 1px solid var(--border);
+  font-size: 0.82rem; color: var(--text-secondary);
 }
 .vencendo-lista li:last-child { border-bottom: none; }
 /* Nome e serviço em linhas separadas: nome nunca trunca no meio por causa do
    serviço disputando a mesma linha (ex.: "Piloto - Filial · Mo..." cortando
    sem dar pra saber nem o nome inteiro nem qual serviço estava vencendo). */
-.vencendo-lista-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.vencendo-lista-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .vencendo-lista-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--text-primary); }
-.vencendo-lista-servico { font-size: 0.7rem; color: var(--text-muted); }
-.vencendo-lista-data { flex-shrink: 0; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.vencendo-lista-dias { flex-shrink: 0; width: 40px; text-align: right; font-weight: 600; color: var(--warning); font-variant-numeric: tabular-nums; }
+.vencendo-lista-servico { font-size: 0.72rem; color: var(--text-muted); }
+.vencendo-lista-data { flex-shrink: 0; color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: 0.76rem; }
+.vencendo-lista-dias {
+  flex-shrink: 0; min-width: 46px; text-align: right; font-weight: 600;
+  color: var(--warning); font-variant-numeric: tabular-nums;
+}
+/* Vence HOJE não é o mesmo que vence em 5 dias — cor de perigo separa os dois
+   sem precisar ler o número. */
+.vencendo-lista-dias.is-hoje { color: var(--danger); }
 
 .section-header {
   display: flex;

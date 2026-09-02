@@ -28,6 +28,9 @@ export function useDashboardData() {
   const [filtroTipoEvento, setFiltroTipoEvento] = usePersistedState<string>('filtro:dash:tipoEvento', 'Todos');
   const [filtroServicoAderencia, setFiltroServicoAderencia] = usePersistedState<ServicoCad | 'Todos'>('filtro:dash:servicoAderencia', 'Todos');
   const [filtroServicoVencendo, setFiltroServicoVencendo] = usePersistedState<ServicoCad | 'Todos'>('filtro:dash:servicoVencendo', 'Todos');
+  // Só Monitoria/Price aqui (não Relatório): Relatório é TIPO de evento e já
+  // entra na conta de atendimento — não é um serviço marcado no evento.
+  const [filtroServicoTop10, setFiltroServicoTop10] = usePersistedState<'Todos' | 'Monitoria' | 'Price'>('filtro:dash:servicoTop10', 'Todos');
 
   const hoje = new Date();
   const [mes, setMes] = useState(hoje.getMonth());
@@ -147,6 +150,19 @@ export function useDashboardData() {
   // que é só tipo Reunião e alimenta os KPIs/gráfico mensal — mudar o
   // significado dali quebraria esses outros cards).
   const top10AtendimentosAno = useMemo(() => {
+    // Filtro por serviço tratado NO EVENTO (não no cadastro do cliente): a
+    // pergunta aqui é "quantos atendimentos DE MONITORIA esse cliente teve",
+    // não "esse cliente tem Monitoria contratada". Reunião sem serviço
+    // marcado conta como Monitoria (a reunião comum é de monitoria — mesma
+    // regra de `servicosDist`), senão o filtro zeraria com dado legado.
+    const combinaServico = (a: EventoAgenda) => {
+      if (filtroServicoTop10 === 'Todos') return true;
+      const servicos = (a.servicos ?? []).join(' ');
+      const ehPrice = /(price|prec)/i.test(servicos);
+      if (filtroServicoTop10 === 'Price') return ehPrice;
+      return /monitor/i.test(servicos) || (/reuni/i.test(a.type || '') && !ehPrice);
+    };
+
     const contagem = new Map<string, number>();
     // Amplitude real dos atendimentos contados (nem todo ano tem atendimento
     // de jan a dez) — o card mostra esse intervalo, não só o ano inteiro, pra
@@ -155,6 +171,7 @@ export function useDashboardData() {
     let fim: Date | null = null;
     agenda.forEach((a) => {
       if (!ativosIds.has(a.clientId) || !/reuni|relat/i.test(a.type || '') || !concluida(a)) return;
+      if (!combinaServico(a)) return;
       const d = parseISO(a.date);
       if (isNaN(d.getTime()) || d.getFullYear() !== ano) return;
       contagem.set(a.clientId, (contagem.get(a.clientId) ?? 0) + 1);
@@ -166,7 +183,7 @@ export function useDashboardData() {
       .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label))
       .slice(0, 10);
     return { itens, inicio, fim };
-  }, [agenda, ativosIds, ano, clientes]);
+  }, [agenda, ativosIds, ano, clientes, filtroServicoTop10]);
 
   // --- KPIs (escopo do período, base de ativos) ---
   const reunioesConcluidasMes = reunioesAtivas.filter((a) => concluida(a) && isSameMonth(parseISO(a.date), periodo)).length;
@@ -608,7 +625,8 @@ export function useDashboardData() {
     // cards
     servicosDist, totalAtendidos, cobertura, aderencia,
     clientesPorMonitor, clientesPorSegmento, clientesPorLinha, crescimentoCarteira,
-    saudeCarteira, profundidadeServicos, mediaServicosPorCliente, novosClientesMes, top10AtendimentosAno,
+    saudeCarteira, profundidadeServicos, mediaServicosPorCliente, novosClientesMes,
+    top10AtendimentosAno, filtroServicoTop10, setFiltroServicoTop10,
     vencendo, filtroServicoVencendo, setFiltroServicoVencendo,
     tiposDisponiveis, proximos,
     alertas, alertasProgramados,
