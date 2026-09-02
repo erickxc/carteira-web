@@ -181,12 +181,27 @@ export interface ChecklistItem {
  * cliente segmentado (`Cliente.tipoAnalise === 'segmentado'`) — cada loja tem
  * clientes finais próprios; cliente unitário não preenche este campo.
  */
+/**
+ * Um registro pode ser de três formas (o monitor escolhe o modo na hora de
+ * adicionar, ver `useProdutosSituacao`):
+ *  - só cliente final + situação (`produto` vazio) — ex.: "Comac: encerrou operação"
+ *  - cliente final + produto + situação — ex.: "GSM: amortecedor caiu em agosto"
+ *  - só produto + situação (`cliente` vazio) — ex.: "coxim: queda geral"
+ */
 export interface ProdutoSituacaoItem {
   id: string;
-  produto: string;
+  produto?: string;
   cliente?: string;
   situacao: string;
 }
+
+export type ModoProdutoSituacao = 'cliente' | 'cliente_produto' | 'produto';
+
+export const MODO_PRODUTO_SITUACAO_LABEL: Record<ModoProdutoSituacao, string> = {
+  cliente: 'Cliente × Situação',
+  cliente_produto: 'Cliente × Produto × Situação',
+  produto: 'Produto × Situação',
+};
 
 export type MargemPrecificacao = 'subiu' | 'desceu' | 'manteve';
 

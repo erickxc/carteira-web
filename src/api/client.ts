@@ -650,6 +650,17 @@ export interface CatalogoAlvosCliente {
 export const buscarCatalogoAlvos = (clientId: string, aquecer?: boolean) =>
   request<CatalogoAlvosCliente>(`/alvos/catalogo/${clientId}${aquecer ? '?aquecer=1' : ''}`);
 
+/** Tag de cliente final — vocabulário compartilhado do Ecossistema (tags.json). */
+export interface TagClienteFinal {
+  id: string;
+  rotulo: string;
+  ativa: boolean;
+  entraNaAnalise: boolean;
+  cor: string | null;
+}
+
+export const buscarTagsClienteFinal = () => request<TagClienteFinal[]>('/alvos/tags');
+
 // --- Consumo de IA (tokens/custo por pergunta) ---
 
 export interface FerramentaDoTurno {

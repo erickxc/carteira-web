@@ -1,11 +1,14 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { format, isValid, parse, setHours, setMinutes } from 'date-fns';
 import { AlertTriangle, Ban, Bot, Check, FileText, Loader2 } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { gerarAta } from '../utils/ata';
 import { registrarRemarcacao } from '../utils/reagendamento';
 import { gerarAtaPdf } from '../utils/ataPdf';
-import { gerarAtaComIA, atualizarDossieIA } from '../api/client';
+import {
+  gerarAtaComIA, atualizarDossieIA, buscarCatalogoAlvos, buscarTagsClienteFinal,
+  type CatalogoAlvosCliente, type TagClienteFinal,
+} from '../api/client';
 import { toastError } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ModalShell } from './ModalShell';
@@ -95,6 +98,8 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const [uploading, setUploading] = useState(false);
   const [gerandoAtaIA, setGerandoAtaIA] = useState(false);
   const [atualizandoDossie, setAtualizandoDossie] = useState(false);
+  const [catalogoAlvos, setCatalogoAlvos] = useState<{ clientId: string; catalogo: CatalogoAlvosCliente | null } | null>(null);
+  const [tagsClienteFinal, setTagsClienteFinal] = useState<TagClienteFinal[]>([]);
 
   const eventoAtual = initial ? agenda.find((a) => a.id === initial.id) : undefined;
 
@@ -115,7 +120,26 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   // tratado numa Reunião — cliente segmentado (rede/grupo) ganha a coluna
   // extra "Cliente" (cada loja tem clientes finais próprios).
   const ehMonitoriaServico = !modoSimples && servicos.some((s) => /monitoria/i.test(s));
-  const clienteSegmentado = clientes.find((c) => c.id === clientId)?.tipoAnalise === 'segmentado';
+  // Catálogo real de Dados Alvos (produtos/clientes finais) pro autocomplete do
+  // Registro da Monitoria + tags compartilhadas do Ecossistema. NUNCA aquece o
+  // cache aqui (`aquecer` fica de fora de propósito): pode custar ~20s em
+  // arquivo grande, e quem aquece é a ficha do cliente ao abrir. Cache frio =
+  // sem sugestão, e o campo segue aceitando texto livre.
+  // Guarda o clientId junto do resultado: sem isso, trocar de cliente no
+  // combobox deixaria a sugestão do cliente ANTERIOR na tela até a resposta
+  // nova chegar (e limpar com setState síncrono dentro do efeito é justamente
+  // o padrão que o lint do projeto proíbe).
+  useEffect(() => {
+    if (!clientId) return;
+    buscarCatalogoAlvos(clientId)
+      .then((c) => setCatalogoAlvos({ clientId, catalogo: c }))
+      .catch(() => setCatalogoAlvos({ clientId, catalogo: null }));
+  }, [clientId]);
+
+  useEffect(() => {
+    buscarTagsClienteFinal().then(setTagsClienteFinal).catch(() => setTagsClienteFinal([]));
+  }, []);
+
   // Interação pontual (Contato/Ligação) — a única em que "quem procurou quem"
   // faz sentido. Relatório é entrega nossa; reunião é agendamento.
   const ehInteracao = /contato|liga[çc]/i.test(type);
@@ -519,7 +543,14 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
               )}
             </Field>
 
-            {ehMonitoriaServico && <ProdutosSituacaoField ps={ps} segmentado={clienteSegmentado} />}
+            {ehMonitoriaServico && (
+              <ProdutosSituacaoField
+                ps={ps}
+                produtosDisponiveis={catalogoAlvos?.clientId === clientId ? (catalogoAlvos.catalogo?.produtos ?? []) : []}
+                clientesDisponiveis={catalogoAlvos?.clientId === clientId ? (catalogoAlvos.catalogo?.clientes ?? []) : []}
+                tags={tagsClienteFinal}
+              />
+            )}
 
             <SecaoLabel>Registro da reunião</SecaoLabel>
 

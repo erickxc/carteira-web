@@ -1,60 +1,123 @@
 import { Plus, X } from 'lucide-react';
-import { Button, Field, Input } from '../../ui';
+import { Badge, Button, Chip, Field, Input, Select } from '../../ui';
+import { AutocompleteInput } from '../AutocompleteInput';
+import { MODO_PRODUTO_SITUACAO_LABEL, type ModoProdutoSituacao } from '../../types';
+import type { TagClienteFinal } from '../../api/client';
 import type { useProdutosSituacao } from './useProdutosSituacao';
+
+const MODOS: ModoProdutoSituacao[] = ['cliente', 'cliente_produto', 'produto'];
 
 interface ProdutosSituacaoFieldProps {
   ps: ReturnType<typeof useProdutosSituacao>;
-  /** Cliente segmentado (rede/grupo): mostra a coluna extra "Cliente" (loja
-   *  atende clientes finais próprios). Cliente unitário só produto+situação. */
-  segmentado: boolean;
+  /** Nomes REAIS do arquivo de vendas (Dados Alvos) deste cliente — vazio quando
+   *  a integração não está disponível/aquecida: aí o campo é só texto livre. */
+  produtosDisponiveis?: string[];
+  clientesDisponiveis?: string[];
+  /** Vocabulário compartilhado do Ecossistema (tags.json) — usado como situação
+   *  no modo "Cliente × Situação". */
+  tags?: TagClienteFinal[];
 }
 
 /**
- * Bloco "Produtos — Situação" (serviço Monitoria). Registro do que aconteceu
- * com cada produto na reunião — vira fato consumido pela análise de IA
+ * Bloco "Registro da Monitoria" (serviço Monitoria). Registro do que aconteceu
+ * na reunião — vira fato consumido pela análise de IA
  * (`server/ia/analiseCliente.cjs`, textoEvento), não é preparação.
+ *
+ * Três modos (pedido do usuário): só cliente final, cliente + produto, ou só
+ * produto. Nome de produto/cliente final vem por AUTOCOMPLETE do catálogo real
+ * — digitar às cegas gerava nome que nenhum cálculo encontra depois. No modo
+ * "só cliente", a situação vem das TAGS compartilhadas (Alerta, Inadimplente,
+ * Cliente Balcão, Encerrou operação) em vez de texto livre, pra harmonizar com
+ * o resto do Ecossistema.
  */
-export function ProdutosSituacaoField({ ps, segmentado }: ProdutosSituacaoFieldProps) {
+export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDisponiveis = [], tags = [] }: ProdutosSituacaoFieldProps) {
+  const usaTag = ps.modo === 'cliente' && tags.length > 0;
+
   return (
     <Field
       as="div"
       label={
         <>
-          Produtos {segmentado ? '+ Cliente' : ''} — Situação{' '}
+          Registro da Monitoria{' '}
           <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>
-            · o que mudou em cada produto{segmentado ? ' (e em qual cliente)' : ''}
+            · o que mudou em cada produto e/ou cliente final
           </span>
         </>
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 4, marginBottom: 8 }}>
-        {ps.itens.length === 0 && <span className="text-text-muted" style={{ fontSize: 13, textTransform: 'none' }}>Nenhum produto registrado.</span>}
+        {ps.itens.length === 0 && <span className="text-text-muted" style={{ fontSize: 13, textTransform: 'none' }}>Nenhum registro.</span>}
         {ps.itens.map((it) => (
           <div key={it.id} className="check-item">
             <span style={{ flex: 1 }}>
-              <strong>{it.produto}</strong>
-              {segmentado && it.cliente ? <span className="text-text-muted"> ({it.cliente})</span> : null}
+              {it.cliente && <strong>{it.cliente}</strong>}
+              {it.cliente && it.produto ? ' · ' : null}
+              {it.produto && <strong>{it.produto}</strong>}
               {': '}{it.situacao}
             </span>
             <Button variant="secondary" size="icon" onClick={() => ps.removeItem(it.id)} aria-label="Remover"><X size={12} /></Button>
           </div>
         ))}
       </div>
-      <div className="flex-row" style={{ gap: 6, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        <Input tone="modal" style={{ flex: segmentado ? '1 1 140px' : '1 1 180px' }} placeholder="Produto" value={ps.produto} onChange={(e) => ps.setProduto(e.target.value)} />
-        {segmentado && (
-          <Input tone="modal" style={{ flex: '1 1 140px' }} placeholder="Cliente (loja)" value={ps.cliente} onChange={(e) => ps.setCliente(e.target.value)} />
-        )}
-        <Input
-          tone="modal"
-          style={{ flex: '2 1 220px' }}
-          placeholder="Situação (ex.: vendas zeraram em julho)"
-          value={ps.situacao}
-          onChange={(e) => ps.setSituacao(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ps.addItem(); } }}
-        />
-        <Button variant="primary" size="icon" onClick={ps.addItem} disabled={!ps.produto.trim() || !ps.situacao.trim()}><Plus size={16} /></Button>
+
+      <div className="flex flex-wrap gap-2" style={{ marginBottom: 8 }}>
+        {MODOS.map((m) => (
+          <Chip key={m} variant="toggle" active={ps.modo === m} onClick={() => ps.trocarModo(m)}>
+            {MODO_PRODUTO_SITUACAO_LABEL[m]}
+          </Chip>
+        ))}
       </div>
+
+      <div className="flex-row" style={{ gap: 6, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        {ps.precisaCliente && (
+          <AutocompleteInput
+            tone="modal"
+            style={{ flex: '1 1 160px' }}
+            placeholder="Cliente final"
+            value={ps.cliente}
+            onChange={ps.setCliente}
+            opcoes={clientesDisponiveis}
+          />
+        )}
+        {ps.precisaProduto && (
+          <AutocompleteInput
+            tone="modal"
+            style={{ flex: '1 1 160px' }}
+            placeholder="Produto"
+            value={ps.produto}
+            onChange={ps.setProduto}
+            opcoes={produtosDisponiveis}
+          />
+        )}
+        {usaTag ? (
+          <Select tone="modal" style={{ flex: '2 1 200px' }} value={ps.situacao} onChange={(e) => ps.setSituacao(e.target.value)}>
+            <option value="">Situação (tag)...</option>
+            {tags.map((t) => <option key={t.id} value={t.rotulo}>{t.rotulo}</option>)}
+          </Select>
+        ) : (
+          <Input
+            tone="modal"
+            style={{ flex: '2 1 200px' }}
+            placeholder="Situação (ex.: vendas zeraram em julho)"
+            value={ps.situacao}
+            onChange={(e) => ps.setSituacao(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ps.addItem(); } }}
+          />
+        )}
+        <Button variant="primary" size="icon" onClick={ps.addItem} disabled={ps.incompleto}><Plus size={16} /></Button>
+      </div>
+
+      {ps.precisaCliente && clientesDisponiveis.length === 0 && (
+        <span className="text-text-muted" style={{ fontSize: 11, textTransform: 'none', letterSpacing: 'normal', marginTop: 6, display: 'block' }}>
+          Sem sugestão de cliente final aqui — abra a ficha do cliente uma vez para carregar os dados de venda, ou digite o nome manualmente.
+        </span>
+      )}
+      {ps.modo === 'cliente' && tags.length > 0 && (
+        <span className="text-text-muted" style={{ fontSize: 11, textTransform: 'none', letterSpacing: 'normal', marginTop: 6, display: 'block' }}>
+          Situação vem das tags do Ecossistema:{' '}
+          {tags.map((t) => <Badge key={t.id} variant="muted" style={{ marginRight: 4 }}>{t.rotulo}</Badge>)}
+        </span>
+      )}
     </Field>
   );
 }

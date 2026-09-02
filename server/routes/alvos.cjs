@@ -32,6 +32,15 @@ router.get('/empresas', (_req, res) => {
 });
 
 /**
+ * Tags de cliente final (vocabulário COMPARTILHADO do Ecossistema-Monitoria,
+ * `Bancos/tags.json` — ver `alvos/tags.cjs`). Só as ativas: é o que se oferece
+ * pra marcar na tela.
+ */
+router.get('/tags', (_req, res) => {
+  res.json(require('../alvos/tags.cjs').tagsAtivas());
+});
+
+/**
  * Candidatos ranqueados de vínculo pra uma empresa (ver `mapa.sugerir`).
  * `forcar=1` ignora o cache — usado pelo botão "atualizar" da tela de vínculo,
  * nunca automático (custa até ~20s).
