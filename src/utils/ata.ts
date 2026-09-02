@@ -123,7 +123,8 @@ export function gerarAta(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}, ia?: 
     registros.forEach((r) => {
       const quem = [r.cliente, r.produto].filter(Boolean).join(' · ') || '(sem identificação)';
       const tag = r.tag ? ` [${r.tag}]` : '';
-      L.push(`   ${TRACO} ${quem}: ${r.situacao}${tag}`);
+      const grupo = r.grupo ? ` (${r.grupo})` : '';
+      L.push(`   ${TRACO} ${quem}: ${r.situacao}${tag}${grupo}`);
     });
   }
 

@@ -34,6 +34,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const [estado, setEstado] = useState(initial?.estado ?? (/^(ativ|gratuidade)/i.test(initial?.status ?? '') ? 'Ativo' : 'Inativo'));
   const [observacao, setObservacao] = useState(initial?.observacao ?? '');
   const [local, setLocal] = useState(initial?.local ?? '');
+  const [endereco, setEndereco] = useState(initial?.endereco ?? '');
   const [linksServicos, setLinksServicos] = useState<Record<string, string>>(initial?.linksServicos ?? {});
   const [tipoAnalise, setTipoAnalise] = useState<TipoAnalise>(initial?.tipoAnalise ?? 'unitaria');
   const [lojas, setLojas] = useState<string[]>([]);
@@ -92,30 +93,30 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
         const [primeira, ...resto] = lojasFinais;
         await atualizarCliente(initial.id, {
           empresa: `${grupo} - ${primeira}`, grupo, tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, estado, status, observacao, local, linksServicos, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, estado, status, observacao, local, endereco, linksServicos, relatorioCadencia,
         });
         if (resto.length > 0) {
           const novos: NovoCliente[] = resto.map((nome) => ({
             empresa: `${grupo} - ${nome}`,
             grupo,
             tipoAnalise: 'segmentado',
-            monitor, servicos, servicosIndependentes, estado, status, observacao, local, linksServicos, relatorioCadencia,
+            monitor, servicos, servicosIndependentes, estado, status, observacao, local, endereco, linksServicos, relatorioCadencia,
           }));
           await criarClientesEmLote(novos);
         }
       } else if (editando) {
-        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linksServicos, tipoAnalise, relatorioCadencia });
+        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, endereco, linksServicos, tipoAnalise, relatorioCadencia });
       } else if (tipoAnalise === 'segmentado') {
         if (lojasFinais.length === 0) { toastError('Adicione ao menos uma loja para a análise segmentada.'); setSaving(false); return; }
         const novos: NovoCliente[] = lojasFinais.map((nome) => ({
           empresa: `${base} - ${nome}`,
           grupo: base,
           tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, estado, status, observacao, local, linksServicos, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, estado, status, observacao, local, endereco, linksServicos, relatorioCadencia,
         }));
         await criarClientesEmLote(novos);
       } else {
-        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linksServicos, tipoAnalise: 'unitaria', relatorioCadencia });
+        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, endereco, linksServicos, tipoAnalise: 'unitaria', relatorioCadencia });
       }
       onClose();
     } catch (err) {
@@ -153,6 +154,10 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
 
             <Field label={segmentadoNovo ? 'Empresa / grupo (rede)' : 'Empresa'}>
               <Input tone="modal" autoFocus value={empresa} onChange={(e) => setEmpresa(e.target.value)} required />
+            </Field>
+
+            <Field label="Endereço">
+              <Input tone="modal" value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Rua, número, bairro, cidade/UF" />
             </Field>
 
             <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>

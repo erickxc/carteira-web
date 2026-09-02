@@ -129,6 +129,8 @@ export interface Cliente {
    * (`ClienteDetailPage`) abre o link escolhido numa aba nova.
    */
   linksServicos?: Record<string, string>;
+  /** Endereço do cliente, texto livre (rua, número, bairro, cidade/UF). */
+  endereco?: string;
   createdAt: string;
   // Colunas legadas do banco real, mantidas em sincronia pelo backend:
   suspenso?: boolean;
@@ -199,6 +201,10 @@ export interface ProdutoSituacaoItem {
   /** Classificação opcional do cliente final (rótulo de `tags.json`:
    *  Alerta, Inadimplente, Cliente Balcão, Encerrou operação). */
   tag?: string;
+  /** Grupo referência do cliente final (G1/G2/G3 — categoria `grupo_referencia`).
+   *  É do CLIENTE FINAL (a loja/empresa citada na reunião), não do cliente da
+   *  carteira — por isso só aparece quando o modo de registro inclui cliente. */
+  grupo?: string;
 }
 
 export type ModoProdutoSituacao = 'cliente' | 'cliente_produto' | 'produto';

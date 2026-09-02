@@ -547,6 +547,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                 produtosDisponiveis={catalogoAlvos?.clientId === clientId ? (catalogoAlvos.catalogo?.produtos ?? []) : []}
                 clientesDisponiveis={catalogoAlvos?.clientId === clientId ? (catalogoAlvos.catalogo?.clientes ?? []) : []}
                 tags={tagsClienteFinal}
+                gruposReferencia={opcoesPorTipo('grupo_referencia')}
               />
             )}
 

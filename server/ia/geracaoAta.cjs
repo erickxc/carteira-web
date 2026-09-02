@@ -18,7 +18,7 @@ function textoProdutosSituacao(itens) {
   if (!Array.isArray(itens) || itens.length === 0) return '';
   const linhas = itens.map((i) => {
     const quem = [i?.cliente, i?.produto].filter(Boolean).join(' · ') || '(sem identificação)';
-    return `- ${quem}: ${i?.situacao ?? ''}${i?.tag ? ` [tag: ${i.tag}]` : ''}`;
+    return `- ${quem}: ${i?.situacao ?? ''}${i?.tag ? ` [tag: ${i.tag}]` : ''}${i?.grupo ? ` [grupo: ${i.grupo}]` : ''}`;
   });
   return `\n\nRegistro da monitoria (cliente final / produto):\n${linhas.join('\n')}`;
 }

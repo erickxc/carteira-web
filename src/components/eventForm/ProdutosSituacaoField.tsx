@@ -16,6 +16,9 @@ interface ProdutosSituacaoFieldProps {
   /** Vocabulário compartilhado do Ecossistema (tags.json) — usado como situação
    *  no modo "Cliente × Situação". */
   tags?: TagClienteFinal[];
+  /** Opções de grupo referência (categoria `grupo_referencia`: G1/G2/G3) — do
+   *  CLIENTE FINAL, não do cliente da carteira. */
+  gruposReferencia?: string[];
 }
 
 /**
@@ -30,11 +33,13 @@ interface ProdutosSituacaoFieldProps {
  * Cliente Balcão, Encerrou operação) em vez de texto livre, pra harmonizar com
  * o resto do Ecossistema.
  */
-export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDisponiveis = [], tags = [] }: ProdutosSituacaoFieldProps) {
+export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDisponiveis = [], tags = [], gruposReferencia = [] }: ProdutosSituacaoFieldProps) {
   // Tag aparece como campo PRÓPRIO e opcional, ao lado da situação — nunca no
   // lugar dela: situação é o relato do que foi conversado (texto livre), tag é
   // classificação do cliente final. Só faz sentido quando há cliente final.
   const mostrarTag = ps.precisaCliente && tags.length > 0;
+  // Grupo referência (G1/G2/G3) também é do CLIENTE FINAL — mesma regra da tag.
+  const mostrarGrupo = ps.precisaCliente && gruposReferencia.length > 0;
 
   return (
     <Field
@@ -58,6 +63,7 @@ export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDi
               {it.produto && <strong>{it.produto}</strong>}
               {': '}{it.situacao}
               {it.tag && <Badge variant="muted" style={{ marginLeft: 6 }}>{it.tag}</Badge>}
+              {it.grupo && <Badge variant="warning" style={{ marginLeft: 6 }}>{it.grupo}</Badge>}
             </span>
             <Button variant="secondary" size="icon" onClick={() => ps.removeItem(it.id)} aria-label="Remover"><X size={12} /></Button>
           </div>
@@ -105,6 +111,12 @@ export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDi
           <Select tone="modal" style={{ flex: '0 1 170px' }} value={ps.tag} onChange={(e) => ps.setTag(e.target.value)}>
             <option value="">Tag (opcional)</option>
             {tags.map((t) => <option key={t.id} value={t.rotulo}>{t.rotulo}</option>)}
+          </Select>
+        )}
+        {mostrarGrupo && (
+          <Select tone="modal" style={{ flex: '0 1 150px' }} value={ps.grupo} onChange={(e) => ps.setGrupo(e.target.value)}>
+            <option value="">Grupo (opcional)</option>
+            {gruposReferencia.map((g) => <option key={g} value={g}>{g}</option>)}
           </Select>
         )}
         <Button variant="primary" size="icon" onClick={ps.addItem} disabled={ps.incompleto}><Plus size={16} /></Button>

@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { FileUp, LayoutDashboard, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { FileUp, LayoutDashboard, Layers, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -25,6 +26,49 @@ const PERIODOS = [
   { valor: '30', label: 'Sem reunião +30d' },
   { valor: '60', label: 'Sem reunião +60d' },
 ];
+
+/**
+ * Célula "Serviços" da tabela: no máximo 2 badges visíveis + "+N" quando há
+ * mais — a lista completa (Monitoria/Precificação e os "outros serviços" que
+ * não entram na cadência) aparece num popover ao passar o mouse no "+N", sem
+ * precisar clicar. Evita que um cliente com 5-6 serviços contratados alargue
+ * a linha inteira da tabela.
+ */
+function ServicosCell({ servicos }: { servicos: string[] }) {
+  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  if (servicos.length === 0) return <span className="text-text-muted">—</span>;
+
+  const visiveis = servicos.slice(0, 2);
+  const resto = servicos.slice(2);
+
+  return (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      {visiveis.map((s) => <Badge key={s} variant="accent">{s}</Badge>)}
+      {resto.length > 0 && (
+        <span
+          ref={ref}
+          onMouseEnter={() => { setRect(ref.current?.getBoundingClientRect() ?? null); setOpen(true); }}
+          onMouseLeave={() => setOpen(false)}
+          style={{ display: 'inline-block' }}
+        >
+          <Badge variant="muted" style={{ cursor: 'default' }}>+{resto.length}</Badge>
+          {open && rect && createPortal(
+            <div
+              className="filter-pop"
+              style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, display: 'flex', flexDirection: 'column', gap: 5, padding: '8px 10px' }}
+            >
+              {resto.map((s) => <Badge key={s} variant="accent">{s}</Badge>)}
+            </div>,
+            document.body
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
 
 export default function ClientesPage() {
   const { clientes, agenda, cadencias, removerCliente, criarClientesEmLote, opcoesPorTipo } = useCarteira();
@@ -317,13 +361,10 @@ export default function ClientesPage() {
                   <Th sortable onClick={() => ordenarPor('empresa')}>Empresa{seta('empresa')}</Th>
                   <Th sortable onClick={() => ordenarPor('monitor')}>Monitor{seta('monitor')}</Th>
                   <Th sortable onClick={() => ordenarPor('servicos')}>Serviços{seta('servicos')}</Th>
-                  <Th sortable onClick={() => ordenarPor('analise')}>Análise{seta('analise')}</Th>
-                  <Th sortable onClick={() => ordenarPor('estado')}>Estado{seta('estado')}</Th>
-                  <Th sortable onClick={() => ordenarPor('status')}>Status{seta('status')}</Th>
+                  <Th sortable onClick={() => ordenarPor('analise')} title="Análise unitária ou segmentada por loja">Anál.{seta('analise')}</Th>
+                  <Th sortable onClick={() => ordenarPor('status')}>Situação{seta('status')}</Th>
                   <Th sortable onClick={() => ordenarPor('anotacoes')}>Anotações{seta('anotacoes')}</Th>
-                  <Th sortable onClick={() => ordenarPor('ultimaReuniao')}>Última reunião{seta('ultimaReuniao')}</Th>
-                  <Th sortable onClick={() => ordenarPor('proximo')}>Próximo agendamento{seta('proximo')}</Th>
-                  <Th sortable onClick={() => ordenarPor('ultimoContato')}>Último contato{seta('ultimoContato')}</Th>
+                  <Th>Cadência</Th>
                   <Th sortable onClick={() => ordenarPor('diasSemContato')}>Dias sem contato{seta('diasSemContato')}</Th>
                   <Th style={{ width: 96 }}></Th>
                 </tr>
@@ -336,6 +377,7 @@ export default function ClientesPage() {
                   const ultCData = ultC ? parseISO(ultC.date) : null;
                   const diasSemContato = ultCData ? differenceInCalendarDays(hoje, ultCData) : null;
                   const segmentado = cliente.tipoAnalise === 'segmentado' || !!cliente.grupo;
+                  const inativo = (cliente.estado || 'Ativo') !== 'Ativo';
                   return (
                     <tr
                       key={cliente.id}
@@ -349,29 +391,29 @@ export default function ClientesPage() {
                       </Td>
                       <Td className="text-text-muted">{cliente.monitor || '—'}</Td>
                       <Td>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          {cliente.servicos.length > 0
-                            ? cliente.servicos.map((s) => <Badge key={s} variant="accent">{s}</Badge>)
-                            : <span className="text-text-muted">—</span>}
+                        <ServicosCell servicos={cliente.servicos} />
+                      </Td>
+                      <Td style={{ textAlign: 'center' }}>
+                        {segmentado ? (
+                          <Layers size={15} className="text-[color:var(--warning)]" style={{ display: 'inline-block' }} aria-label="Segmentado (por loja)" />
+                        ) : (
+                          <span className="text-text-muted">—</span>
+                        )}
+                      </Td>
+                      <Td>
+                        <div className="flex-row" style={{ gap: 5, flexWrap: 'wrap' }}>
+                          <Badge variant={clienteStatusBadge(cliente.status)}>{cliente.status || '—'}</Badge>
+                          {inativo && <Badge variant="danger">Inativo</Badge>}
                         </div>
-                      </Td>
-                      <Td>
-                        {segmentado
-                          ? <Badge variant="warning">Segmentado</Badge>
-                          : <span className="text-text-muted">Unitária</span>}
-                      </Td>
-                      <Td><Badge variant={cliente.estado === 'Ativo' ? 'success' : 'danger'}>{cliente.estado || 'Ativo'}</Badge></Td>
-                      <Td>
-                        <Badge variant={clienteStatusBadge(cliente.status)}>{cliente.status || '—'}</Badge>
                       </Td>
                       <Td className="text-text-muted" style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cliente.observacao || undefined}>
                         {cliente.observacao?.trim() || '—'}
                       </Td>
-                      <Td className="text-text-muted">{ult ? format(ult, 'dd/MM/yyyy') : '—'}</Td>
-                      <Td className="text-text-muted">
-                        {prox ? `${prox.type} - ${format(parseISO(prox.date), 'dd/MM/yyyy')}` : '—'}
+                      <Td className="text-text-muted" style={{ fontSize: '0.8rem', lineHeight: 1.5 }}>
+                        <div>Últ. reunião: {ult ? format(ult, 'dd/MM/yyyy') : '—'}</div>
+                        <div>Próximo: {prox ? `${prox.type} · ${format(parseISO(prox.date), 'dd/MM/yyyy')}` : '—'}</div>
+                        <div>Últ. contato: {ultCData ? format(ultCData, 'dd/MM/yyyy') : '—'}</div>
                       </Td>
-                      <Td className="text-text-muted">{ultCData ? format(ultCData, 'dd/MM/yyyy') : '—'}</Td>
                       <Td>
                         {diasSemContato === null ? (
                           <span className="text-text-muted">—</span>

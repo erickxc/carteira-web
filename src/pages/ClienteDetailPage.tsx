@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
-import { ArrowLeft, Bell as BellIcon, CalendarPlus, Pencil, PhoneIncoming, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, Bell as BellIcon, CalendarPlus, NotebookPen, Pencil, PhoneIncoming, Save, Trash2, Users } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
-import { clienteStatusBadge, isGratuidade } from '../utils/badges';
+import { isGratuidade } from '../utils/badges';
 import { confirmDialog } from '../utils/confirmDialog';
 import { contatosVisiveis, servicosSemResponsavel } from '../utils/contatos';
 import { Dropdown } from '../components/Dropdown';
@@ -19,6 +19,7 @@ import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
 import { AcessosExternosButton } from '../components/cliente/AcessosExternosButton';
 import type { TimelineFiltro, TimelineItem } from '../utils/timelineCliente';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { ModalShell } from '../components/ModalShell';
 import { Badge, Button, Card, Textarea } from '../ui';
 import { CLIENTE_ESTADO_OPCOES, type Contato, type EventoAgenda } from '../types';
 import { buscarCatalogoAlvos } from '../api/client';
@@ -38,6 +39,8 @@ export default function ClienteDetailPage() {
   const [eventoKey, setEventoKey] = useState(0); // muda p/ remontar a modal limpa (fechar o loop)
   const [reminderModalOpen, setReminderModalOpen] = useState(false);
   const [registroContatoOpen, setRegistroContatoOpen] = useState(false);
+  const [contatosOpen, setContatosOpen] = useState(false);
+  const [anotacoesOpen, setAnotacoesOpen] = useState(false);
 
   // Memoizado: sem isso, `cliente` é recalculado (nova referência) a cada
   // render, e o compilador do React não consegue provar que memos que dependem
@@ -201,8 +204,16 @@ export default function ClienteDetailPage() {
       <Card style={{ marginBottom: 24, background: isGratuidade(cliente.status) ? 'var(--gratuidade-pastel-bg)' : undefined }}>
         <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <h1 className="page-title" style={{ marginBottom: 8 }}>{cliente.empresa}</h1>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <h1 className="page-title" style={{ marginBottom: 4 }}>{cliente.empresa}</h1>
+            {cliente.endereco && (
+              <p className="text-text-muted" style={{ fontSize: 13, margin: '0 0 10px' }}>{cliente.endereco}</p>
+            )}
+
+            {/* Seletores (mudam o dado ao trocar) primeiro, juntos — depois as
+                etiquetas só informativas. Antes o Status aparecia duas vezes
+                (dropdown + badge repetindo o mesmo valor), misturado com
+                Monitor/Grupo/Local sem nenhuma ordem. */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ minWidth: 150 }}>
                 <Dropdown
                   label="Status"
@@ -219,8 +230,6 @@ export default function ClienteDetailPage() {
                   onChange={(v) => atualizarCliente(cliente.id, { estado: v as string })}
                 />
               </div>
-              <Badge variant={clienteStatusBadge(cliente.status)}>{cliente.status || '—'}</Badge>
-              {cliente.monitor && <Badge variant="muted">Monitor: {cliente.monitor}</Badge>}
               {/* Suspenso em vez de um badge por serviço — com os serviços novos
                   (Controladoria, OptiMarco, Raptor...) um cliente com vários
                   contratados enchia o cabeçalho de badges soltos. */}
@@ -244,9 +253,11 @@ export default function ClienteDetailPage() {
                   />
                 </div>
               )}
-              {cliente.grupo && (
-                <Badge variant="warning">Grupo: {cliente.grupo}</Badge>
-              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {cliente.monitor && <Badge variant="muted">Monitor: {cliente.monitor}</Badge>}
+              {cliente.grupo && <Badge variant="warning">Grupo: {cliente.grupo}</Badge>}
               {cliente.local && <Badge variant="muted">{cliente.local}</Badge>}
             </div>
           </div>
@@ -274,29 +285,38 @@ export default function ClienteDetailPage() {
         <Button variant="secondary" onClick={() => setRegistroContatoOpen(true)} title="Registrar que o cliente entrou em contato">
           <PhoneIncoming size={15} /> Cliente entrou em contato
         </Button>
+        <Button variant="secondary" onClick={() => setContatosOpen(true)}>
+          <Users size={15} /> Contatos {contatos.length > 0 && `(${contatos.length})`}
+        </Button>
+        <Button variant="secondary" onClick={() => setAnotacoesOpen(true)}>
+          <NotebookPen size={15} /> Anotações
+        </Button>
       </div>
 
-      <ContatosCard
-        cliente={cliente}
-        contatos={contatos}
-        servicosSemContato={servicosSemContato}
-        servicoOpcoes={servicoOpcoes}
-        onWhatsApp={setWaContato}
-        onAlternarEscopo={alternarEscopo}
-        onRemover={removerContato}
-        onIrParaOrigem={(clienteId) => navigate(`/clientes/${clienteId}`, { state: { from: location.pathname, fromLabel: cliente.empresa } })}
-        contatoNome={contatoNome}
-        setContatoNome={setContatoNome}
-        contatoCargo={contatoCargo}
-        setContatoCargo={setContatoCargo}
-        contatoTelefone={contatoTelefone}
-        setContatoTelefone={setContatoTelefone}
-        contatoServicos={contatoServicos}
-        onToggleServico={toggleContatoServico}
-        contatoDoGrupo={contatoDoGrupo}
-        setContatoDoGrupo={setContatoDoGrupo}
-        onAdicionar={adicionarContato}
-      />
+      {contatosOpen && (
+        <ContatosCard
+          onClose={() => setContatosOpen(false)}
+          cliente={cliente}
+          contatos={contatos}
+          servicosSemContato={servicosSemContato}
+          servicoOpcoes={servicoOpcoes}
+          onWhatsApp={setWaContato}
+          onAlternarEscopo={alternarEscopo}
+          onRemover={removerContato}
+          onIrParaOrigem={(clienteId) => navigate(`/clientes/${clienteId}`, { state: { from: location.pathname, fromLabel: cliente.empresa } })}
+          contatoNome={contatoNome}
+          setContatoNome={setContatoNome}
+          contatoCargo={contatoCargo}
+          setContatoCargo={setContatoCargo}
+          contatoTelefone={contatoTelefone}
+          setContatoTelefone={setContatoTelefone}
+          contatoServicos={contatoServicos}
+          onToggleServico={toggleContatoServico}
+          contatoDoGrupo={contatoDoGrupo}
+          setContatoDoGrupo={setContatoDoGrupo}
+          onAdicionar={adicionarContato}
+        />
+      )}
 
       {cliente.grupo && lojasDoGrupo.length > 1 && (
         <Card flat style={{ marginBottom: 24 }}>
@@ -320,27 +340,37 @@ export default function ClienteDetailPage() {
         </Card>
       )}
 
-      <div className="two-col-grid">
-        <Card flat>
-          <div className="section-header"><h3>Anotações</h3></div>
+      <TimelineCard
+        cliente={cliente}
+        timeline={timeline}
+        filtro={filtroTimeline}
+        onFiltroChange={setFiltroTimeline}
+        onEditarEvento={setEventoEditando}
+      />
+
+      {anotacoesOpen && (
+        <ModalShell
+          title="Anotações"
+          onClose={() => setAnotacoesOpen(false)}
+          onSubmit={(e) => e.preventDefault()}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setAnotacoesOpen(false)}>Fechar</Button>
+              <Button variant="primary" onClick={salvarObservacao} disabled={salvandoObs || !obsMudou}>
+                <Save size={14} /> {salvandoObs ? 'Salvando...' : 'Salvar anotação'}
+              </Button>
+            </>
+          }
+        >
           <Textarea
+            tone="modal"
             placeholder="Anotações sobre este cliente..."
             value={observacao}
             onChange={(e) => setObservacao(e.target.value)}
-            style={{ minHeight: 160, marginBottom: 12 }}
+            style={{ minHeight: 220 }}
           />
-          <Button variant="primary" onClick={salvarObservacao} disabled={salvandoObs || !obsMudou}>
-            <Save size={14} /> {salvandoObs ? 'Salvando...' : 'Salvar anotação'}
-          </Button>
-        </Card>
-
-        <TimelineCard
-          timeline={timeline}
-          filtro={filtroTimeline}
-          onFiltroChange={setFiltroTimeline}
-          onEditarEvento={setEventoEditando}
-        />
-      </div>
+        </ModalShell>
+      )}
 
       {editModalOpen && <ClientFormModal initial={cliente} onClose={() => setEditModalOpen(false)} />}
       {eventoEditando && <EventFormModal initial={eventoEditando} onClose={() => setEventoEditando(null)} />}

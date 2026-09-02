@@ -8,6 +8,26 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.11
+
+- **Cadastro do cliente reorganizado de novo.** O cabeçalho não mostra mais o
+  status duas vezes (dropdown + etiqueta repetindo o mesmo valor). A Análise
+  de IA ficou mais estreita e o texto não é mais cortado. Contatos e
+  Anotações viraram botões que abrem um pop-up, em vez de ficar sempre
+  ocupando espaço na tela.
+- **Linha do tempo agora parece uma linha do tempo de verdade**, com um
+  trilho vertical ligando os eventos, e cada reunião ganhou um botão para
+  baixar a ata em PDF direto dali.
+- **Novo campo Endereço** no cadastro do cliente.
+- **Tabela da Carteira mais enxuta:** Estado e Status viraram uma coluna só;
+  Última reunião, Próximo agendamento e Último contato viraram uma única
+  coluna "Cadência"; Análise virou um ícone; e Serviços mostra só 2
+  etiquetas + "+N" (passe o mouse pra ver o resto) — antes uma linha com
+  muitos serviços contratados esticava a tabela inteira.
+- **Grupo referência (G1/G2/G3) agora aparece na hora de registrar a
+  reunião**, junto do cliente final — antes só dava pra configurar em
+  Categorias, mas não tinha onde preencher na prática.
+
 ## 1.4.10
 
 - **Link do PowerBI corrigido**: cliente com mais de um serviço com link

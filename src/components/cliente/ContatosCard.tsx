@@ -1,10 +1,12 @@
 import { AlertTriangle, MessageCircle, Pencil, Trash2, UserPlus, Users2 } from 'lucide-react';
 import { linkWhatsApp } from '../../utils/whatsapp';
 import type { ContatoVisivel } from '../../utils/contatos';
-import { Badge, Button, Card, Chip, Input } from '../../ui';
+import { ModalShell } from '../ModalShell';
+import { Badge, Button, Chip, Input } from '../../ui';
 import type { Cliente, Contato } from '../../types';
 
 interface ContatosCardProps {
+  onClose: () => void;
   cliente: Cliente;
   /** Contatos visíveis (próprios + herdados do grupo). */
   contatos: ContatoVisivel[];
@@ -28,23 +30,26 @@ interface ContatosCardProps {
 }
 
 /**
- * Cartão "Contatos" da ficha do cliente — extraído de ClienteDetailPage.tsx,
- * mesmo comportamento (lista de contatos visíveis + formulário de novo
- * contato). Compartilhar/parar de compartilhar e remover só se aplicam a
+ * Popup "Contatos" da ficha do cliente — antes era um card sempre visível na
+ * página; virou botão + popup por pedido do usuário (o cabeçalho da ficha
+ * estava sobrecarregado de cards permanentes só de leitura ocasional). Mesmo
+ * comportamento de antes (lista de contatos visíveis + formulário de novo
+ * contato); compartilhar/parar de compartilhar e remover só se aplicam a
  * contatos gravados NESTE cliente (não aos herdados do grupo).
  */
 export function ContatosCard({
-  cliente, contatos, servicosSemContato, servicoOpcoes, onWhatsApp, onAlternarEscopo, onRemover, onIrParaOrigem,
+  onClose, cliente, contatos, servicosSemContato, servicoOpcoes, onWhatsApp, onAlternarEscopo, onRemover, onIrParaOrigem,
   contatoNome, setContatoNome, contatoCargo, setContatoCargo, contatoTelefone, setContatoTelefone,
   contatoServicos, onToggleServico, contatoDoGrupo, setContatoDoGrupo, onAdicionar,
 }: ContatosCardProps) {
   return (
-    <Card flat style={{ marginBottom: 24 }}>
-      <div className="section-header">
-        <h3>Contatos</h3>
-        <span className="text-text-muted" style={{ fontSize: 12 }}>{contatos.length}</span>
-      </div>
-
+    <ModalShell
+      title={`Contatos · ${contatos.length}`}
+      onClose={onClose}
+      onSubmit={(e) => e.preventDefault()}
+      size="lg"
+      footer={<Button variant="secondary" onClick={onClose}>Fechar</Button>}
+    >
       {servicosSemContato.length > 0 && (
         <div className="flex-row" style={{ gap: 6, alignItems: 'center', marginBottom: 12, fontSize: 13 }}>
           <AlertTriangle size={14} className="text-[color:var(--warning)] shrink-0" />
@@ -129,13 +134,13 @@ export function ContatosCard({
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
         <div className="flex-row" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
           <div style={{ flex: '1 1 180px' }}>
-            <Input placeholder="Nome" value={contatoNome} onChange={(e) => setContatoNome(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />
+            <Input tone="modal" placeholder="Nome" value={contatoNome} onChange={(e) => setContatoNome(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />
           </div>
           <div style={{ flex: '1 1 140px' }}>
-            <Input placeholder="Cargo" value={contatoCargo} onChange={(e) => setContatoCargo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />
+            <Input tone="modal" placeholder="Cargo" value={contatoCargo} onChange={(e) => setContatoCargo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />
           </div>
           <div style={{ flex: '1 1 140px' }}>
-            <Input placeholder="Telefone (DDD + número)" value={contatoTelefone} onChange={(e) => setContatoTelefone(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />
+            <Input tone="modal" placeholder="Telefone (DDD + número)" value={contatoTelefone} onChange={(e) => setContatoTelefone(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />
           </div>
         </div>
         {servicoOpcoes.length > 0 && (
@@ -163,6 +168,6 @@ export function ContatosCard({
           <UserPlus size={15} /> Adicionar contato
         </Button>
       </div>
-    </Card>
+    </ModalShell>
   );
 }

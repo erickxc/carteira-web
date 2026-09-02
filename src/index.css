@@ -994,6 +994,33 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .history-item-editavel { cursor: pointer; transition: border-color 0.15s, background 0.15s; }
 .history-item-editavel:hover, .history-item-editavel:focus-visible { border-color: var(--accent); background: var(--card); }
 
+/* Linha do tempo vertical (ficha do cliente): trilho contínuo à esquerda +
+   um ponto por item, marcando de fato uma sequência no tempo — antes era só
+   uma pilha de cards sem nenhum indicador visual de linha do tempo. */
+.timeline-rail { position: relative; padding-left: 26px; }
+.timeline-rail::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--border);
+}
+.timeline-rail-item { position: relative; }
+.timeline-rail-item + .timeline-rail-item { margin-top: 0.6rem; }
+.timeline-rail-dot {
+  position: absolute;
+  left: -26px;
+  top: 14px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 2px solid var(--accent);
+}
+.timeline-rail-dot.is-lembrete { border-color: var(--text-muted); }
+
 .attachment-chip {
   display: inline-flex;
   align-items: center;
