@@ -8,6 +8,37 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.15
+
+- **O sistema passa a se atualizar sozinho.** Ele procura versão nova a cada
+  30 minutos e instala automaticamente quando ninguém estiver usando
+  (normalmente à noite). O botão "Atualizar agora" continua ali para quando
+  você não quiser esperar.
+- **Novo campo Linha (Leve / Pesada / Geral)** no cadastro do cliente,
+  editável em Configurações, com gráfico no Dashboard da Carteira.
+- **Coluna Links na tabela de clientes**: os links de Power BI do cliente
+  ficam a um clique, sem abrir o cadastro.
+- **monitorIA agora edita reunião e cadastro de cliente.** Antes ele criava a
+  reunião e, se você pedisse para completar monitor/serviço, respondia que a
+  edição era manual. Também deixou de inventar: se você pedir um status que
+  não existe (ex.: "Rascunho"), ele avisa e sugere o cadastrado mais próximo
+  ("Pendente") em vez de gravar outro e dizer que fez.
+- **monitorIA explica o nível de risco** com os motivos que a análise
+  registrou (antes dizia que "o critério não está explícito" e chutava), e
+  avisa quando a ficha do cliente ficou desatualizada após uma correção no
+  dossiê, oferecendo refazer a análise.
+- **Ata:** a seção "Pauta" (que quase sempre saía vazia) virou um resumo
+  curto, e as tarefas da 2D passam a levar o **nome do monitor** em vez de
+  "[2D]".
+- **Ágil:** a "Frente" foi removida (não estava sendo usada), e reordenar
+  colunas voltou a funcionar mesmo com a primeira raia recolhida.
+- **Relatórios** deixou de ser um módulo próprio e virou um botão dentro do
+  cadastro de cada cliente, já filtrado por aquele cliente.
+- Cobertura por Serviço ganhou o seletor **Coberto/Descoberto**; o card
+  Vencendo ficou mais legível; o Top 10 virou **Top 10 Atendimentos** com
+  filtro Geral/Monitoria/Precificação; e o seletor de tema ficou só com os
+  ícones de sol e lua.
+
 ## 1.4.14
 
 - **Correção: monitorIA (Claude) parado de novo** — inclusive "Gerar ata com
