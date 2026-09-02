@@ -93,8 +93,15 @@ export default function CarteiraDashboardPage() {
           emptyMsg="Nenhum cliente ativo com segmento definido."
           limite={8}
         />
-        <AbrangenciaMapaCard clientes={d.ativos} />
+        <DistribuicaoListCard
+          titulo="Clientes por Linha"
+          subtitulo="Leve · Pesada · Geral"
+          items={d.clientesPorLinha}
+          emptyMsg="Nenhum cliente ativo com linha definida."
+        />
       </div>
+
+      <AbrangenciaMapaCard clientes={d.ativos} />
     </div>
   );
 }

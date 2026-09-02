@@ -293,6 +293,10 @@ export function useDashboardData() {
         // pede ação, então vêm primeiro na lista do card.
         top: topClientes(d.pred),
         descobertos: descobertos.length,
+        // Nomes (não só contagem) — o card alterna entre ver quem ESTÁ coberto
+        // e quem NÃO está (seletor cheio/vazio), então precisa das duas listas.
+        cobertosClientes: cobertos.map((c) => c.empresa).sort((a, b) => a.localeCompare(b)),
+        descobertosClientes: descobertos.map((c) => c.empresa),
       };
     });
     return { servicosDist: dist, totalAtendidos: total };
@@ -369,6 +373,18 @@ export function useDashboardData() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [clientes]
   );
+
+  // Linha de produto (Leve/Pesada/Geral — categoria `linha_cliente`).
+  const clientesPorLinha = useMemo(() => {
+    const contagem = new Map<string, number>();
+    ativos.forEach((c) => {
+      const key = c.linha?.trim() || 'Não informada';
+      contagem.set(key, (contagem.get(key) ?? 0) + 1);
+    });
+    return [...contagem.entries()]
+      .map(([label, n]) => ({ label, n }))
+      .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
+  }, [ativos]);
 
   const clientesPorSegmento = useMemo(() => {
     const contagem = new Map<string, number>();
@@ -591,7 +607,7 @@ export function useDashboardData() {
     linhaPorMes, linhaHighlight,
     // cards
     servicosDist, totalAtendidos, cobertura, aderencia,
-    clientesPorMonitor, clientesPorSegmento, crescimentoCarteira,
+    clientesPorMonitor, clientesPorSegmento, clientesPorLinha, crescimentoCarteira,
     saudeCarteira, profundidadeServicos, mediaServicosPorCliente, novosClientesMes, top10AtendimentosAno,
     vencendo, filtroServicoVencendo, setFiltroServicoVencendo,
     tiposDisponiveis, proximos,

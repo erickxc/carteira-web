@@ -23,6 +23,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const statusOpcoes = [...CLIENTE_STATUS_OPCOES];
   const monitorOpcoes = opcoesPorTipo('monitor');
   const localOpcoes = opcoesPorTipo('local_cliente');
+  const linhaOpcoes = opcoesPorTipo('linha_cliente');
   const editando = !!initial;
 
   const [empresa, setEmpresa] = useState(initial?.empresa ?? '');
@@ -34,6 +35,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const [estado, setEstado] = useState(initial?.estado ?? (/^(ativ|gratuidade)/i.test(initial?.status ?? '') ? 'Ativo' : 'Inativo'));
   const [observacao, setObservacao] = useState(initial?.observacao ?? '');
   const [local, setLocal] = useState(initial?.local ?? '');
+  const [linha, setLinha] = useState(initial?.linha ?? '');
   const [endereco, setEndereco] = useState(initial?.endereco ?? '');
   const [linksServicos, setLinksServicos] = useState<Record<string, string>>(initial?.linksServicos ?? {});
   const [tipoAnalise, setTipoAnalise] = useState<TipoAnalise>(initial?.tipoAnalise ?? 'unitaria');
@@ -93,30 +95,30 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
         const [primeira, ...resto] = lojasFinais;
         await atualizarCliente(initial.id, {
           empresa: `${grupo} - ${primeira}`, grupo, tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, estado, status, observacao, local, endereco, linksServicos, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, relatorioCadencia,
         });
         if (resto.length > 0) {
           const novos: NovoCliente[] = resto.map((nome) => ({
             empresa: `${grupo} - ${nome}`,
             grupo,
             tipoAnalise: 'segmentado',
-            monitor, servicos, servicosIndependentes, estado, status, observacao, local, endereco, linksServicos, relatorioCadencia,
+            monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, relatorioCadencia,
           }));
           await criarClientesEmLote(novos);
         }
       } else if (editando) {
-        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, endereco, linksServicos, tipoAnalise, relatorioCadencia });
+        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, tipoAnalise, relatorioCadencia });
       } else if (tipoAnalise === 'segmentado') {
         if (lojasFinais.length === 0) { toastError('Adicione ao menos uma loja para a análise segmentada.'); setSaving(false); return; }
         const novos: NovoCliente[] = lojasFinais.map((nome) => ({
           empresa: `${base} - ${nome}`,
           grupo: base,
           tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, estado, status, observacao, local, endereco, linksServicos, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, relatorioCadencia,
         }));
         await criarClientesEmLote(novos);
       } else {
-        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, endereco, linksServicos, tipoAnalise: 'unitaria', relatorioCadencia });
+        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, tipoAnalise: 'unitaria', relatorioCadencia });
       }
       onClose();
     } catch (err) {
@@ -174,6 +176,15 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                 <Select tone="modal" value={local} onChange={(e) => setLocal(e.target.value)}>
                   <option value="">Não informado</option>
                   {localOpcoes.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </Select>
+              </Field>
+
+              <Field className="flex-1" label="Linha">
+                <Select tone="modal" value={linha} onChange={(e) => setLinha(e.target.value)}>
+                  <option value="">Não informada</option>
+                  {linhaOpcoes.map((l) => (
                     <option key={l} value={l}>{l}</option>
                   ))}
                 </Select>

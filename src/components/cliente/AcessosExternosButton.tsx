@@ -13,6 +13,10 @@ interface AcessoOpcao {
 
 interface AcessosExternosButtonProps {
   cliente: Cliente;
+  /** `true` na COLUNA da tabela de clientes: botão pequeno, sem o texto
+   *  "Power BI"/nome do serviço (a linha da tabela não tem largura pra isso) —
+   *  o nome do serviço continua no popover e no `title`. */
+  compacto?: boolean;
 }
 
 const Icone = () => <img src={powerbiLogo} alt="" style={{ width: 15, height: 15, objectFit: 'contain' }} />;
@@ -23,7 +27,7 @@ const Icone = () => <img src={powerbiLogo} alt="" style={{ width: 15, height: 15
  * cadastro por um seletor interno: escolhe o serviço, cola o link). Sem
  * nenhum link cadastrado, o botão nem aparece.
  */
-export function AcessosExternosButton({ cliente }: AcessosExternosButtonProps) {
+export function AcessosExternosButton({ cliente, compacto = false }: AcessosExternosButtonProps) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -50,19 +54,21 @@ export function AcessosExternosButton({ cliente }: AcessosExternosButtonProps) {
     };
   }, [open]);
 
-  if (opcoes.length === 0) return null;
+  if (opcoes.length === 0) return compacto ? <span className="text-text-muted">—</span> : null;
 
   function abrir(url: string) {
     window.open(url, '_blank', 'noopener,noreferrer');
     setOpen(false);
   }
 
+  const estiloCompacto = compacto ? { padding: '0.28rem 0.45rem' } : undefined;
+
   // Um único link cadastrado: abre direto, sem popover — menos clique no caso comum.
   if (opcoes.length === 1) {
     const [unica] = opcoes;
     return (
-      <Button variant="secondary" onClick={() => abrir(unica.url)} title={`Abrir ${unica.label}`}>
-        <Icone /> {unica.label}
+      <Button variant="secondary" onClick={() => abrir(unica.url)} title={`Abrir ${unica.label}`} style={estiloCompacto}>
+        <Icone /> {!compacto && unica.label}
       </Button>
     );
   }
@@ -77,8 +83,10 @@ export function AcessosExternosButton({ cliente }: AcessosExternosButtonProps) {
         }}
         aria-haspopup="listbox"
         aria-expanded={open}
+        title={compacto ? `${opcoes.length} links: ${opcoes.map((o) => o.label).join(', ')}` : undefined}
+        style={estiloCompacto}
       >
-        <Icone /> Power BI <ChevronDown size={13} />
+        <Icone /> {compacto ? opcoes.length : 'Power BI'} <ChevronDown size={13} />
       </Button>
       {open && rect && createPortal(
         <div

@@ -325,7 +325,7 @@ const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, 'carteira-snapshot.sqlite');
 // inteira com json_to_sheet(dados, { header }), então qualquer coluna fora
 // dessa lista era apagada de TODAS as linhas a cada save (`sala` é campo ativo,
 // gravado pelo EventFormModal — bug real de perda de dado, não só legado).
-const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'servicosIndependentes', 'contatos', 'observacao', 'estado', 'status', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'lastPricing', 'userId', 'lojas', 'relatorioCadencia', 'local', 'linksServicos', 'endereco'];
+const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'servicosIndependentes', 'contatos', 'observacao', 'estado', 'status', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'lastPricing', 'userId', 'lojas', 'relatorioCadencia', 'local', 'linksServicos', 'endereco', 'linha'];
 // `origem` = de quem partiu a interação ('nos' | 'cliente'). Vazio nos eventos
 // antigos (tratado como não informado, nunca como 'nos') — é o que permite
 // separar contato que NÓS fizemos de contato que o CLIENTE fez.
@@ -489,6 +489,10 @@ const CATEGORIAS_SEED = [
   // editável em Configurações como qualquer outra categoria.
   ['local_cliente', ['Autopeça', 'Oficina', 'Distribuidora', 'Atacado', 'Indústria', 'Varejo']],
   ['grupo_referencia', ['G1 (Grupo 1)', 'G2 (Grupo 2)', 'G3 (Grupo 3)']],
+  // Linha de produto que o cliente trabalha (veículo leve x pesado) — recorte
+  // do negócio de autopeças, usado no cadastro e na composição da carteira.
+  // Editável em Configurações, como as demais.
+  ['linha_cliente', ['Leve', 'Pesada', 'Geral']],
 ];
 
 module.exports = {

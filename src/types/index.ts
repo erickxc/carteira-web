@@ -1,5 +1,5 @@
 // --- Categorias (CRUD editável) ---
-export type CategoriaTipo = 'servico' | 'tipo_evento' | 'status_cliente' | 'status_evento' | 'monitor' | 'tipo_lembrete' | 'sala' | 'prioridade_tarefa' | 'local_cliente' | 'grupo_referencia';
+export type CategoriaTipo = 'servico' | 'tipo_evento' | 'status_cliente' | 'status_evento' | 'monitor' | 'tipo_lembrete' | 'sala' | 'prioridade_tarefa' | 'local_cliente' | 'grupo_referencia' | 'linha_cliente';
 
 export const CATEGORIA_TIPO_LABEL: Record<CategoriaTipo, string> = {
   servico: 'Serviços',
@@ -12,6 +12,7 @@ export const CATEGORIA_TIPO_LABEL: Record<CategoriaTipo, string> = {
   prioridade_tarefa: 'Prioridades de tarefa (Ágil)',
   local_cliente: 'Local do cliente',
   grupo_referencia: 'Grupo Referência',
+  linha_cliente: 'Linha (Leve/Pesada/Geral)',
 };
 
 /** Tipo de link associado a um serviço (só relevante pra `tipo: 'servico'`):
@@ -117,6 +118,13 @@ export interface Cliente {
    * exposto ao agente na conversa.
    */
   local?: string;
+  /**
+   * Linha de produto que o cliente trabalha (Leve / Pesada / Geral — valores
+   * editáveis em Configurações, categoria `linha_cliente`). Recorte de
+   * negócio do setor de autopeças: quem atende veículo leve, pesado ou os
+   * dois. Não confundir com `local` (segmento: autopeça/oficina/indústria).
+   */
+  linha?: string;
   /** Análise unitária (empresa toda) ou segmentada (por loja). */
   tipoAnalise?: TipoAnalise;
   /**

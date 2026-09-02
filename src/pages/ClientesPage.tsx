@@ -14,6 +14,7 @@ import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
 import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
 import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
+import { AcessosExternosButton } from '../components/cliente/AcessosExternosButton';
 import { buscarAnalisesIA } from '../api/client';
 import { calcularPosicaoPopover } from '../utils/popoverPosicao';
 import { corDoServico } from '../utils/corServico';
@@ -465,7 +466,8 @@ export default function ClientesPage() {
                   <Th sortable onClick={() => ordenarPor('empresa')}>Empresa{seta('empresa')}</Th>
                   <Th sortable onClick={() => ordenarPor('monitor')}>Monitor{seta('monitor')}</Th>
                   <Th sortable onClick={() => ordenarPor('servicos')}>Serviços{seta('servicos')}</Th>
-                  <Th sortable onClick={() => ordenarPor('risco')} style={{ textAlign: 'center' }} title="Análise de IA (risco + resumo) deste cliente">IA{seta('risco')}</Th>
+                  <Th style={{ textAlign: 'center' }} title="Links de Power BI cadastrados no cliente">Links</Th>
+                  <Th sortable onClick={() => ordenarPor('risco')} style={{ textAlign: 'center' }} title="Análise do monitorIA (risco + resumo) deste cliente">monitorIA{seta('risco')}</Th>
                   <Th sortable onClick={() => ordenarPor('status')}>Situação{seta('status')}</Th>
                   <Th sortable onClick={() => ordenarPor('anotacoes')}>Anotações{seta('anotacoes')}</Th>
                   <Th>Cadência</Th>
@@ -495,6 +497,9 @@ export default function ClientesPage() {
                       <Td className="text-text-muted">{cliente.monitor || '—'}</Td>
                       <Td>
                         <ServicosCell servicos={cliente.servicos} corPorServico={corPorServico} />
+                      </Td>
+                      <Td style={{ textAlign: 'center' }}>
+                        <AcessosExternosButton cliente={cliente} compacto />
                       </Td>
                       <Td style={{ textAlign: 'center' }}>
                         <AnaliseIACell clienteId={cliente.id} risco={analisesPorCliente.get(cliente.id)?.nivelRisco} />
