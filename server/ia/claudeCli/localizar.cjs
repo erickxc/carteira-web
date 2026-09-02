@@ -3,6 +3,7 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { CLAUDE_CLI_PATH } = require('../../config.cjs');
+const { comandoSpawn } = require('./spawnCli.cjs');
 
 /**
  * Localiza o executável do Claude Code CLI nesta máquina.
@@ -43,9 +44,20 @@ function noPath() {
       encoding: 'utf8', timeout: 5000, windowsHide: true,
       stdio: ['ignore', 'pipe', 'ignore'],
     });
-    // `where` pode devolver várias linhas; a primeira é a que o shell usaria.
-    const primeira = saida.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[0];
-    return primeira && fs.existsSync(primeira) ? primeira : null;
+    const linhas = saida.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    // No Windows, a instalação por npm grava 3 arquivos no mesmo diretório:
+    // `claude` (script Bash, pra Git Bash/WSL), `claude.cmd` (shim do
+    // cmd.exe) e `claude.ps1`. O `where claude` lista os três, e nada garante
+    // que `claude.cmd` vem primeiro — já visto na prática o Bash sem extensão
+    // na frente. `spawn` (sem `shell: true`) não sabe executar um script Bash
+    // direto no Windows: falha com ENOENT mesmo o arquivo existindo no disco.
+    // Por isso prioriza extensão executável reconhecida (.exe/.cmd/.bat);
+    // só cai pra primeira linha crua se nada bater (ex.: ambiente Git Bash
+    // puro, sem where.exe do Windows envolvido).
+    const escolhida = process.platform === 'win32'
+      ? linhas.find((l) => /\.(exe|cmd|bat)$/i.test(l)) || linhas[0]
+      : linhas[0];
+    return escolhida && fs.existsSync(escolhida) ? escolhida : null;
   } catch {
     return null;
   }
@@ -67,11 +79,18 @@ function localizarClaudeCli() {
   return achado;
 }
 
-/** Versão instalada (`claude --version`), ou `null` se não der pra executar. */
+/**
+ * Versão instalada (`claude --version`), ou `null` se não der pra executar.
+ * Passa por `comandoSpawn` (mesma lógica de `cliente.cjs`) porque `bin` pode
+ * ser um shim `.cmd` — sem `shell: true` nesse caso, o Node recusa com
+ * `EINVAL` (Node 20+, CVE-2024-27980) e isto voltaria `null` mesmo com o CLI
+ * instalado e funcional.
+ */
 function versaoClaudeCli(bin = localizarClaudeCli()) {
   if (!bin) return null;
   try {
-    return execFileSync(bin, ['--version'], { encoding: 'utf8', timeout: 15000, windowsHide: true }).trim() || null;
+    const { file, args, opcoes } = comandoSpawn(bin, ['--version']);
+    return execFileSync(file, args, { encoding: 'utf8', timeout: 15000, windowsHide: true, shell: opcoes.shell }).trim() || null;
   } catch {
     return null;
   }
