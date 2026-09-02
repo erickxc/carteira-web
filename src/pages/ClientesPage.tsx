@@ -14,7 +14,6 @@ import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
 import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
 import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
-import { ModalShell } from '../components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
 import { Badge, Button, Card, Td, Th } from '../ui';
 import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
@@ -72,6 +71,38 @@ function ServicosCell({ servicos }: { servicos: string[] }) {
   );
 }
 
+/**
+ * Célula "IA" da tabela: passa o mouse no ícone e o dossiê (risco + resumo)
+ * aparece num popover — sem precisar clicar em botão nenhum (pedido do
+ * usuário). Busca sob demanda a cada hover, igual ao `AnaliseIACard` da
+ * ficha do cliente (mesmo componente, só que num popover em vez de inline).
+ */
+function AnaliseIACell({ clienteId }: { clienteId: string }) {
+  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  return (
+    <span
+      ref={ref}
+      onMouseEnter={() => { setRect(ref.current?.getBoundingClientRect() ?? null); setOpen(true); }}
+      onMouseLeave={() => setOpen(false)}
+      style={{ display: 'inline-flex' }}
+    >
+      <Bot size={16} className="text-text-muted" />
+      {open && rect && createPortal(
+        <div
+          className="filter-pop"
+          style={{ position: 'fixed', top: rect.bottom + 4, right: Math.max(8, window.innerWidth - rect.right), maxHeight: 'none', padding: 8 }}
+        >
+          <AnaliseIACard clienteId={clienteId} />
+        </div>,
+        document.body
+      )}
+    </span>
+  );
+}
+
 export default function ClientesPage() {
   const { clientes, agenda, cadencias, removerCliente, criarClientesEmLote, opcoesPorTipo } = useCarteira();
   const navigate = useNavigate();
@@ -87,7 +118,6 @@ export default function ClientesPage() {
   const [sortBy, setSortBy] = usePersistedState<SortCol>('filtro:clientes:sortBy', 'empresa');
   const [sortDir, setSortDir] = usePersistedState<'asc' | 'desc'>('filtro:clientes:sortDir', 'asc');
   const [modalState, setModalState] = useState<{ editing: Cliente | null } | null>(null);
-  const [dossieAberto, setDossieAberto] = useState<Cliente | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Última reunião por cliente (reunião mais recente que JÁ ACONTECEU). SÓ
@@ -396,14 +426,7 @@ export default function ClientesPage() {
                         <ServicosCell servicos={cliente.servicos} />
                       </Td>
                       <Td style={{ textAlign: 'center' }}>
-                        <Button
-                          variant="secondary"
-                          size="icon"
-                          onClick={() => setDossieAberto(cliente)}
-                          title="Ver análise de IA (risco + resumo) deste cliente"
-                        >
-                          <Bot size={15} />
-                        </Button>
+                        <AnaliseIACell clienteId={cliente.id} />
                       </Td>
                       <Td>
                         <div className="flex-row" style={{ gap: 5, flexWrap: 'wrap' }}>
@@ -453,17 +476,6 @@ export default function ClientesPage() {
 
       {modalState && (
         <ClientFormModal initial={modalState.editing ?? undefined} onClose={() => setModalState(null)} />
-      )}
-
-      {dossieAberto && (
-        <ModalShell
-          title={`Análise de IA · ${dossieAberto.empresa}`}
-          onClose={() => setDossieAberto(null)}
-          onSubmit={(e) => e.preventDefault()}
-          footer={<Button variant="secondary" onClick={() => setDossieAberto(null)}>Fechar</Button>}
-        >
-          <AnaliseIACard clienteId={dossieAberto.id} />
-        </ModalShell>
       )}
     </div>
   );
