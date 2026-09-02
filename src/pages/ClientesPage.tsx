@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { FileUp, LayoutDashboard, Layers, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { Bot, FileUp, LayoutDashboard, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -13,6 +13,8 @@ import { toastError, toastSuccess } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
 import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
+import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
+import { ModalShell } from '../components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
 import { Badge, Button, Card, Td, Th } from '../ui';
 import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
@@ -85,6 +87,7 @@ export default function ClientesPage() {
   const [sortBy, setSortBy] = usePersistedState<SortCol>('filtro:clientes:sortBy', 'empresa');
   const [sortDir, setSortDir] = usePersistedState<'asc' | 'desc'>('filtro:clientes:sortDir', 'asc');
   const [modalState, setModalState] = useState<{ editing: Cliente | null } | null>(null);
+  const [dossieAberto, setDossieAberto] = useState<Cliente | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Última reunião por cliente (reunião mais recente que JÁ ACONTECEU). SÓ
@@ -361,7 +364,7 @@ export default function ClientesPage() {
                   <Th sortable onClick={() => ordenarPor('empresa')}>Empresa{seta('empresa')}</Th>
                   <Th sortable onClick={() => ordenarPor('monitor')}>Monitor{seta('monitor')}</Th>
                   <Th sortable onClick={() => ordenarPor('servicos')}>Serviços{seta('servicos')}</Th>
-                  <Th sortable onClick={() => ordenarPor('analise')} title="Análise unitária ou segmentada por loja">Anál.{seta('analise')}</Th>
+                  <Th style={{ textAlign: 'center' }} title="Análise de IA (risco + resumo) deste cliente">IA</Th>
                   <Th sortable onClick={() => ordenarPor('status')}>Situação{seta('status')}</Th>
                   <Th sortable onClick={() => ordenarPor('anotacoes')}>Anotações{seta('anotacoes')}</Th>
                   <Th>Cadência</Th>
@@ -376,7 +379,6 @@ export default function ClientesPage() {
                   const ultC = ultimoContato.get(cliente.id);
                   const ultCData = ultC ? parseISO(ultC.date) : null;
                   const diasSemContato = ultCData ? differenceInCalendarDays(hoje, ultCData) : null;
-                  const segmentado = cliente.tipoAnalise === 'segmentado' || !!cliente.grupo;
                   const inativo = (cliente.estado || 'Ativo') !== 'Ativo';
                   return (
                     <tr
@@ -394,11 +396,14 @@ export default function ClientesPage() {
                         <ServicosCell servicos={cliente.servicos} />
                       </Td>
                       <Td style={{ textAlign: 'center' }}>
-                        {segmentado ? (
-                          <Layers size={15} className="text-[color:var(--warning)]" style={{ display: 'inline-block' }} aria-label="Segmentado (por loja)" />
-                        ) : (
-                          <span className="text-text-muted">—</span>
-                        )}
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          onClick={() => setDossieAberto(cliente)}
+                          title="Ver análise de IA (risco + resumo) deste cliente"
+                        >
+                          <Bot size={15} />
+                        </Button>
                       </Td>
                       <Td>
                         <div className="flex-row" style={{ gap: 5, flexWrap: 'wrap' }}>
@@ -448,6 +453,17 @@ export default function ClientesPage() {
 
       {modalState && (
         <ClientFormModal initial={modalState.editing ?? undefined} onClose={() => setModalState(null)} />
+      )}
+
+      {dossieAberto && (
+        <ModalShell
+          title={`Análise de IA · ${dossieAberto.empresa}`}
+          onClose={() => setDossieAberto(null)}
+          onSubmit={(e) => e.preventDefault()}
+          footer={<Button variant="secondary" onClick={() => setDossieAberto(null)}>Fechar</Button>}
+        >
+          <AnaliseIACard clienteId={dossieAberto.id} />
+        </ModalShell>
       )}
     </div>
   );

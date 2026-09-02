@@ -190,5 +190,15 @@ export function gerarAtaPdf(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}) {
   }
 
   const nome = `Ata_${sanitize(ev.clientName || '')}_${d ? format(d, 'yyyy-MM-dd') : 'sem-data'}.pdf`;
-  doc.save(nome);
+
+  // Abre numa aba nova em vez de forçar download direto — pedido do usuário:
+  // ele quer LER a ata na hora, não decidir onde salvar um arquivo toda vez.
+  // `setProperties` compensa a perda do nome de arquivo amigável (blob URL
+  // não carrega nome): a maioria dos navegadores usa o título do PDF como
+  // título da aba. Se o navegador bloquear o popup (retorna null), cai pro
+  // download — melhor que a ata simplesmente sumir sem feedback nenhum.
+  doc.setProperties({ title: nome.replace(/\.pdf$/, '') });
+  const blobUrl = doc.output('bloburl').toString();
+  const aba = window.open(blobUrl, '_blank');
+  if (!aba) doc.save(nome);
 }
