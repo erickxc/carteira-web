@@ -31,7 +31,10 @@ interface ProdutosSituacaoFieldProps {
  * o resto do Ecossistema.
  */
 export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDisponiveis = [], tags = [] }: ProdutosSituacaoFieldProps) {
-  const usaTag = ps.modo === 'cliente' && tags.length > 0;
+  // Tag aparece como campo PRÓPRIO e opcional, ao lado da situação — nunca no
+  // lugar dela: situação é o relato do que foi conversado (texto livre), tag é
+  // classificação do cliente final. Só faz sentido quando há cliente final.
+  const mostrarTag = ps.precisaCliente && tags.length > 0;
 
   return (
     <Field
@@ -54,6 +57,7 @@ export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDi
               {it.cliente && it.produto ? ' · ' : null}
               {it.produto && <strong>{it.produto}</strong>}
               {': '}{it.situacao}
+              {it.tag && <Badge variant="muted" style={{ marginLeft: 6 }}>{it.tag}</Badge>}
             </span>
             <Button variant="secondary" size="icon" onClick={() => ps.removeItem(it.id)} aria-label="Remover"><X size={12} /></Button>
           </div>
@@ -89,20 +93,19 @@ export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDi
             opcoes={produtosDisponiveis}
           />
         )}
-        {usaTag ? (
-          <Select tone="modal" style={{ flex: '2 1 200px' }} value={ps.situacao} onChange={(e) => ps.setSituacao(e.target.value)}>
-            <option value="">Situação (tag)...</option>
+        <Input
+          tone="modal"
+          style={{ flex: '2 1 200px' }}
+          placeholder="Situação — o que foi conversado/mudou"
+          value={ps.situacao}
+          onChange={(e) => ps.setSituacao(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ps.addItem(); } }}
+        />
+        {mostrarTag && (
+          <Select tone="modal" style={{ flex: '0 1 170px' }} value={ps.tag} onChange={(e) => ps.setTag(e.target.value)}>
+            <option value="">Tag (opcional)</option>
             {tags.map((t) => <option key={t.id} value={t.rotulo}>{t.rotulo}</option>)}
           </Select>
-        ) : (
-          <Input
-            tone="modal"
-            style={{ flex: '2 1 200px' }}
-            placeholder="Situação (ex.: vendas zeraram em julho)"
-            value={ps.situacao}
-            onChange={(e) => ps.setSituacao(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ps.addItem(); } }}
-          />
         )}
         <Button variant="primary" size="icon" onClick={ps.addItem} disabled={ps.incompleto}><Plus size={16} /></Button>
       </div>
@@ -112,10 +115,9 @@ export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDi
           Ainda sem lista de clientes finais para este cliente (sem dados de venda vinculados). Digite o nome manualmente — a lista passa a aparecer aqui depois da primeira leitura dos dados.
         </span>
       )}
-      {ps.modo === 'cliente' && tags.length > 0 && (
+      {mostrarTag && (
         <span className="text-text-muted" style={{ fontSize: 11, textTransform: 'none', letterSpacing: 'normal', marginTop: 6, display: 'block' }}>
-          Situação vem das tags do Ecossistema:{' '}
-          {tags.map((t) => <Badge key={t.id} variant="muted" style={{ marginRight: 4 }}>{t.rotulo}</Badge>)}
+          A tag classifica o cliente final (vocabulário do Ecossistema) e é opcional — a situação é o relato do que foi conversado.
         </span>
       )}
     </Field>

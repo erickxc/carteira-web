@@ -108,9 +108,38 @@ describe('analiseCliente: textoEvento inclui motivo e histórico de remarcação
       date: '2026-08-20', status: 'Cancelado', motivo: 'Sem verba este mês.', reagendamentos: 3,
       produtosSituacao: [{ produto: 'Kit Amortecedor', situacao: 'zerou' }],
     });
-    const ordem = [texto.indexOf('Motivo:'), texto.indexOf('remarcada'), texto.indexOf('Produtos — situação')];
+    const ordem = [texto.indexOf('Motivo:'), texto.indexOf('remarcada'), texto.indexOf('Registro da monitoria')];
     expect(ordem.every((i) => i !== -1)).toBe(true);
     expect(ordem).toEqual([...ordem].sort((a, b) => a - b));
+  });
+});
+
+describe('analiseCliente: registro da monitoria (cliente final / produto / tag)', () => {
+  it('registro SÓ de cliente final (sem produto) aparece no prompt', () => {
+    const texto = textoEvento({
+      date: '2026-09-01', status: 'Concluído',
+      produtosSituacao: [{ cliente: 'Comac', situacao: 'parou de comprar, migrou pra distribuição direta' }],
+    });
+    expect(texto).toContain('- Comac: parou de comprar, migrou pra distribuição direta');
+  });
+
+  /** Situação e tag são coisas diferentes: a situação é o relato, a tag é
+   *  classificação do cliente final — as duas têm de chegar ao modelo. */
+  it('tag do cliente final entra junto da situação, sem substituí-la', () => {
+    const texto = textoEvento({
+      date: '2026-09-01', status: 'Concluído',
+      produtosSituacao: [{ cliente: 'Comac', situacao: 'sem retorno desde julho', tag: 'Encerrou operação' }],
+    });
+    expect(texto).toContain('sem retorno desde julho');
+    expect(texto).toContain('[tag: Encerrou operação]');
+  });
+
+  it('cliente + produto sai identificado nos dois', () => {
+    const texto = textoEvento({
+      date: '2026-09-01', status: 'Concluído',
+      produtosSituacao: [{ cliente: 'GSM Logística', produto: 'Amortecedor', situacao: 'queda em agosto' }],
+    });
+    expect(texto).toContain('- GSM Logística · Amortecedor: queda em agosto');
   });
 });
 

@@ -192,7 +192,13 @@ export interface ProdutoSituacaoItem {
   id: string;
   produto?: string;
   cliente?: string;
+  /** O que foi conversado/mudou — TEXTO LIVRE. Não confundir com `tag`: a
+   *  situação é o relato ("cliente disse que vai reduzir compra"), a tag é
+   *  classificação do cliente final (vocabulário do Ecossistema). */
   situacao: string;
+  /** Classificação opcional do cliente final (rótulo de `tags.json`:
+   *  Alerta, Inadimplente, Cliente Balcão, Encerrou operação). */
+  tag?: string;
 }
 
 export type ModoProdutoSituacao = 'cliente' | 'cliente_produto' | 'produto';

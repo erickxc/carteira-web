@@ -136,7 +136,7 @@ describe('geracaoAta: montarPromptAta', () => {
       produtosSituacao: [{ produto: 'Kit Amortecedor', cliente: 'Widmen', situacao: 'zerou' }],
     });
     expect(prompt).toContain('Tratar tabela de preços');
-    expect(prompt).toContain('Kit Amortecedor (Widmen): zerou');
+    expect(prompt).toContain('Widmen · Kit Amortecedor: zerou');
   });
 
   it('cai no fallback description quando não há resumo', () => {

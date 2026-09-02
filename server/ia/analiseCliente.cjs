@@ -14,8 +14,14 @@ const DOSSIE_MAX_CHARS = 3000;
 function textoProdutosSituacao(itensRaw) {
   const itens = listaJSON(itensRaw);
   if (itens.length === 0) return '';
-  const linhas = itens.map((i) => `- ${i.produto}${i.cliente ? ` (${i.cliente})` : ''}: ${i.situacao}`);
-  return `\nProdutos — situação registrada na reunião:\n${linhas.join('\n')}`;
+  // `produto` é opcional (registro pode ser só de cliente final) e `tag` é a
+  // classificação do cliente final (vocabulário do Ecossistema) — separada da
+  // situação, que é o relato do que foi conversado.
+  const linhas = itens.map((i) => {
+    const quem = [i.cliente, i.produto].filter(Boolean).join(' · ') || '(sem identificação)';
+    return `- ${quem}: ${i.situacao}${i.tag ? ` [tag: ${i.tag}]` : ''}`;
+  });
+  return `\nRegistro da monitoria (cliente final / produto):\n${linhas.join('\n')}`;
 }
 
 /** Marcadores de produto precificado + margem (tipo de evento Precificação) formatados pro prompt. */

@@ -15,6 +15,11 @@ export function useProdutosSituacao(initial: ProdutoSituacaoItem[] = []) {
   const [produto, setProduto] = useState('');
   const [cliente, setCliente] = useState('');
   const [situacao, setSituacao] = useState('');
+  // Tag é OPCIONAL e separada da situação: situação é o relato do que foi
+  // conversado (texto livre), tag é classificação do cliente final
+  // (vocabulário compartilhado do Ecossistema). Confundir as duas foi um erro
+  // meu — o campo de situação tinha virado um seletor de tag.
+  const [tag, setTag] = useState('');
 
   const precisaProduto = modo !== 'cliente';
   const precisaCliente = modo !== 'produto';
@@ -30,7 +35,7 @@ export function useProdutosSituacao(initial: ProdutoSituacaoItem[] = []) {
     // gravado junto (ex.: trocar pra "só produto" e o cliente digitado antes
     // continuar indo no item).
     if (novo === 'cliente') setProduto('');
-    if (novo === 'produto') setCliente('');
+    if (novo === 'produto') { setCliente(''); setTag(''); }
   }
 
   function addItem() {
@@ -40,17 +45,19 @@ export function useProdutosSituacao(initial: ProdutoSituacaoItem[] = []) {
       produto: precisaProduto ? produto.trim() : undefined,
       cliente: precisaCliente ? cliente.trim() : undefined,
       situacao: situacao.trim(),
+      tag: precisaCliente && tag ? tag : undefined,
     }]);
     setProduto('');
     setCliente('');
     setSituacao('');
+    setTag('');
   }
   const removeItem = (id: string) => setItens((prev) => prev.filter((i) => i.id !== id));
 
   return {
     itens, setItens,
     modo, trocarModo, precisaProduto, precisaCliente, incompleto,
-    produto, setProduto, cliente, setCliente, situacao, setSituacao,
+    produto, setProduto, cliente, setCliente, situacao, setSituacao, tag, setTag,
     addItem, removeItem,
   };
 }
