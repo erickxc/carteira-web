@@ -15,6 +15,10 @@ interface AtendimentoCardProps {
   agenda: EventoAgenda[];
   clientes: Cliente[];
   acoes: Acao[];
+  /** Âncora de "agora" — vem do filtro de mês/ano do Dashboard (ver
+   *  `useDashboardData.dataReferencia`), não mais `new Date()` fixo: sem
+   *  isso, escolher um mês passado no filtro do topo não mudava nada aqui. */
+  agora: Date;
 }
 
 /** Cores semânticas do desfecho — verde/amarelo/vermelho, não a paleta da marca:
@@ -34,15 +38,12 @@ const CORES = {
  *
  * Filtros são botões (não dropdown) porque são poucos e de alternância rápida.
  */
-export function AtendimentoCard({ agenda, clientes, acoes }: AtendimentoCardProps) {
+export function AtendimentoCard({ agenda, clientes, acoes, agora }: AtendimentoCardProps) {
   // Padrão = mês anterior: é o corte fechado que serve pra leitura de
   // fechamento (janela móvel de N dias não fecha com mês nenhum).
   const [periodo, setPeriodo] = useState<PeriodoKey>('mes_anterior');
   const [monitor, setMonitor] = useState<string>('');
 
-  // `agora` fixo por render para início/fim do intervalo e os cálculos usarem
-  // exatamente a mesma referência de tempo.
-  const agora = useMemo(() => new Date(), []);
   const janela = useMemo(() => janelaDe(periodo, agora), [periodo, agora]);
 
   // Só períodos que o histórico cobre: com dados de poucos meses, "Ano" seria

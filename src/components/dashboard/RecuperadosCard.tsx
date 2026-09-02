@@ -10,6 +10,9 @@ import type { Cliente, EventoAgenda } from '../../types';
 interface RecuperadosCardProps {
   clientes: Cliente[];
   agenda: EventoAgenda[];
+  /** Âncora de "agora" — vem do filtro de mês/ano do Dashboard (ver
+   *  `useDashboardData.dataReferencia`), não mais `new Date()` fixo. */
+  agora: Date;
 }
 
 /**
@@ -20,7 +23,7 @@ interface RecuperadosCardProps {
  * voltaram e quanto tempo ficaram parados, não na forma da distribuição. A
  * contagem sozinha não permite agir; a lista, sim.
  */
-export function RecuperadosCard({ clientes, agenda }: RecuperadosCardProps) {
+export function RecuperadosCard({ clientes, agenda, agora }: RecuperadosCardProps) {
   const navigate = useNavigate();
   // Padrão = trimestre: cobre os "últimos 2 meses" pedidos, sem depender de
   // onde estamos no mês corrente (dia 2 do mês, "mês atual" mostraria quase nada).
@@ -28,7 +31,6 @@ export function RecuperadosCard({ clientes, agenda }: RecuperadosCardProps) {
   /** Alterna entre a lista de recuperados e a de quem segue parado. */
   const [aba, setAba] = useState<'recuperados' | 'parados'>('recuperados');
 
-  const agora = useMemo(() => new Date(), []);
   const janela = useMemo(() => janelaDe(periodo, agora), [periodo, agora]);
 
   const periodos = useMemo(() => {

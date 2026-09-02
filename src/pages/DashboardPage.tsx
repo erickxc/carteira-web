@@ -162,8 +162,8 @@ export default function DashboardPage() {
       {/* Atendimento + recuperados lado a lado (metade da tela cada), no mesmo
           grid dos outros pares de cards. Empilham abaixo de 980px. */}
       <div className="dash-two-col">
-        <AtendimentoCard agenda={d.agendaPorMonitor} clientes={d.ativos} acoes={d.acoesPorMonitor} />
-        <RecuperadosCard clientes={d.ativos} agenda={d.agendaPorMonitor} />
+        <AtendimentoCard agenda={d.agendaPorMonitor} clientes={d.ativos} acoes={d.acoesPorMonitor} agora={d.dataReferencia} />
+        <RecuperadosCard clientes={d.ativos} agenda={d.agendaPorMonitor} agora={d.dataReferencia} />
       </div>
 
       {/* Tendência mensal (fim da página) */}

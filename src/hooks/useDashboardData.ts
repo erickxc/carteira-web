@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  addDays, differenceInCalendarDays, eachMonthOfInterval, format, isSameMonth,
+  addDays, differenceInCalendarDays, eachMonthOfInterval, endOfMonth, format, isSameMonth,
   max as maxDate, min as minDate, parseISO, startOfMonth, subMonths,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -33,6 +33,19 @@ export function useDashboardData() {
   const [ano, setAno] = useState(hoje.getFullYear());
   const periodo = new Date(ano, mes, 1);
   const periodoAnterior = subMonths(periodo, 1);
+  /**
+   * Âncora de "agora" pros cálculos "tempo real" (aderência, vencendo,
+   * cobertura por serviço, e os cards de Atendimento/Recuperados) — pedido do
+   * usuário pra respeitarem o filtro de mês/ano do topo, não só o histórico
+   * agregado. No mês corrente é o `hoje` de verdade (comportamento igual a
+   * antes); num mês passado, vira o ÚLTIMO INSTANTE daquele mês, simulando
+   * "como estava a carteira no fim daquele mês" — `calcularRelogio`,
+   * `buildUltimaInteracaoMap` etc. já descartam eventos posteriores a `now`
+   * (`d > now` → ignora), então passar uma âncora no passado já basta pra
+   * excluir tudo que aconteceu depois, sem precisar filtrar `agenda`/`acoes`
+   * à parte.
+   */
+  const dataReferencia = isSameMonth(periodo, hoje) ? hoje : endOfMonth(periodo);
 
   // Opções de filtro derivadas da base (não mostra opção que não existe nos dados).
   const tiposEventoDisponiveis = useMemo(
@@ -68,9 +81,9 @@ export function useDashboardData() {
   // É isto que "acompanhamento" considera — registrar uma ação (Contato/Relatório/
   // Price) conta como contato, não só reunião.
   const ultimaInteracao = useMemo(
-    () => buildUltimaInteracaoMap(agendaAtiva, acoes, { now: hoje, isRelevant: (cid) => ativosIds.has(cid) }),
+    () => buildUltimaInteracaoMap(agendaAtiva, acoes, { now: dataReferencia, isRelevant: (cid) => ativosIds.has(cid) }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agendaAtiva, acoes, ativosIds]
+    [agendaAtiva, acoes, ativosIds, dataReferencia]
   );
 
   const anosDisponiveis = useMemo(() => {
@@ -197,7 +210,7 @@ export function useDashboardData() {
       /^(regular|gratuidade|ativo)$/i.test((c.status || '').trim()) && agendaAtiva.some((a) => {
         if (a.clientId !== c.id || !eventoRealizado(a) || !pred(a)) return false;
         const d = parseISO(a.date);
-        return !isNaN(d.getTime()) && differenceInCalendarDays(hoje, d) >= 0 && differenceInCalendarDays(hoje, d) <= JANELA;
+        return !isNaN(d.getTime()) && differenceInCalendarDays(dataReferencia, d) >= 0 && differenceInCalendarDays(dataReferencia, d) <= JANELA;
       });
     const total = ativos.filter((c) => foiAtendido(c, () => true)).length;
     function topClientes(pred: (a: EventoAgenda) => boolean) {
@@ -205,7 +218,7 @@ export function useDashboardData() {
       agendaAtiva.forEach((a) => {
         if (!eventoRealizado(a) || !pred(a)) return;
         const d = parseISO(a.date);
-        const dias = differenceInCalendarDays(hoje, d);
+        const dias = differenceInCalendarDays(dataReferencia, d);
         if (isNaN(d.getTime()) || dias < 0 || dias > JANELA) return;
         contagem.set(a.clientId, (contagem.get(a.clientId) ?? 0) + 1);
       });
@@ -243,7 +256,7 @@ export function useDashboardData() {
     });
     return { servicosDist: dist, totalAtendidos: total };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ativos, ultimaInteracao, agendaAtiva, clientes]);
+  }, [ativos, ultimaInteracao, agendaAtiva, clientes, dataReferencia]);
 
   /**
    * Serviços cadastrados fora de Monitoria/Price (Controladoria, OptiMarco,
@@ -300,13 +313,13 @@ export function useDashboardData() {
     // `agenda` fica sem filtrar por Tipo de propósito: a cadência de Monitoria/
     // Price tem semântica própria de tipo de evento (reunião/relatório) — filtrar
     // pelo "Tipo" do topo quebraria esse cálculo, não é um filtro que se aplique aqui.
-    const fila = buildFilaCadencia(ativos, agenda, acoes, cadencias, hoje);
+    const fila = buildFilaCadencia(ativos, agenda, acoes, cadencias, dataReferencia);
     const nomes = (arr: typeof fila) => arr.map((f) => f.cliente.empresa).sort((a, b) => a.localeCompare(b));
     // Contato/ligação sem resposta ainda não reflete no relógio do serviço
     // (só reunião/relatório zeram Monitoria/Price) — sem isso, quem acabou de
     // ser contatado (e está dentro do prazo de recontato) aparecia junto com
     // quem ninguém tratou ainda.
-    const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now: hoje });
+    const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now: dataReferencia });
 
     const relevantes = filtroServicoAderencia === 'Todos'
       ? fila
@@ -336,7 +349,7 @@ export function useDashboardData() {
       if (
         ultimoContato
         && contatoRecenteNaoRefletido(f.relogios, ultimoContato)
-        && differenceInCalendarDays(hoje, ultimoContato) <= cadencias.recontato_dias
+        && differenceInCalendarDays(dataReferencia, ultimoContato) <= cadencias.recontato_dias
       ) {
         return 'contato_recente';
       }
@@ -359,7 +372,7 @@ export function useDashboardData() {
       emDiaClientes, agendaMarcadaClientes, contatoRecenteClientes, precisaClientes,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ativos, agenda, acoes, cadencias, filtroServicoAderencia]);
+  }, [ativos, agenda, acoes, cadencias, filtroServicoAderencia, dataReferencia]);
 
   // --- Vencendo (próx. 5 dias, mesma janela do resto do app): só quem está
   // VENCENDO de verdade (Monitoria/Price/Relatório) — nada de "em dia" nem
@@ -371,7 +384,7 @@ export function useDashboardData() {
   // não usa buildFilaCadencia (esse card inclui Relatório pra todo cliente
   // ativo, o que mudaria a fila de Ações se fosse o mesmo cálculo).
   const vencendo = useMemo(() => {
-    const fila = buildVencendoDashboard(ativos, agenda, cadencias, hoje, 5);
+    const fila = buildVencendoDashboard(ativos, agenda, cadencias, dataReferencia, 5);
 
     // `nome`/`servico` separados (não uma string única "Cliente · Serviço") —
     // combinados, o truncamento por ellipsis cortava no meio do nome OU do
@@ -386,13 +399,13 @@ export function useDashboardData() {
         if (filtroServicoVencendo !== 'Todos' && r.servico !== filtroServicoVencendo) continue;
         if (r.status !== 'vencendo') continue;
         const dias = Math.max(0, -r.atraso);
-        itens.push({ nome: f.cliente.empresa, servico: r.servico, data: addDays(hoje, dias), dias });
+        itens.push({ nome: f.cliente.empresa, servico: r.servico, data: addDays(dataReferencia, dias), dias });
       }
     }
     itens.sort((a, b) => a.dias - b.dias || a.nome.localeCompare(b.nome)); // mais urgente primeiro
     return { total: itens.length, itens };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ativos, agenda, cadencias, filtroServicoVencendo]);
+  }, [ativos, agenda, cadencias, filtroServicoVencendo, dataReferencia]);
 
   // --- Próximas agendas (forward-looking) ---
   const tiposDisponiveis = useMemo(() => ['Todos', ...new Set(agendaAtiva.map((a) => a.type).filter(Boolean))], [agendaAtiva]);
@@ -419,7 +432,7 @@ export function useDashboardData() {
   const alertas = ativos
     .map((cliente) => {
       const uc = ultimaInteracao.get(cliente.id);
-      const dias = uc ? differenceInCalendarDays(hoje, uc) : null;
+      const dias = uc ? differenceInCalendarDays(dataReferencia, uc) : null;
       return { cliente, uc, dias };
     })
     .filter((e) => e.dias === null || e.dias >= FOLLOW_UP_THRESHOLD_DAYS)
@@ -435,7 +448,7 @@ export function useDashboardData() {
     // filtros
     filtroTipo, setFiltroTipo, filtroMonitor, setFiltroMonitor, filtroTipoEvento, setFiltroTipoEvento,
     filtroServicoAderencia, setFiltroServicoAderencia,
-    mes, setMes, ano, setAno, periodo,
+    mes, setMes, ano, setAno, periodo, dataReferencia,
     monitoresDisponiveis, tiposEventoDisponiveis, anosDisponiveis, mesesDisponiveis,
     // base
     ativos, agendaPorMonitor, acoesPorMonitor,
