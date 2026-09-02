@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
 import { CalendarClock } from 'lucide-react';
 import { Input } from '../../ui';
+import { calcularPosicaoPopover } from '../../utils/popoverPosicao';
 
 interface ReagendarButtonProps {
   /** Data atual do evento (ISO). */
@@ -51,7 +52,7 @@ export function ReagendarButton({ dataAtual, onReagendar, className }: Reagendar
       {open && rect && createPortal(
         <div
           className="filter-pop"
-          style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, padding: 8 }}
+          style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { alturaEstimativa: 80 }), padding: 8 }}
           onClick={(e) => e.stopPropagation()}
         >
           <Input

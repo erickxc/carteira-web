@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react';
 import powerbiLogo from '../../assets/powerbi-logo.webp';
 import type { Cliente } from '../../types';
 import { Button } from '../../ui';
+import { calcularPosicaoPopover } from '../../utils/popoverPosicao';
 
 interface AcessoOpcao {
   label: string;
@@ -84,7 +85,7 @@ export function AcessosExternosButton({ cliente }: AcessosExternosButtonProps) {
           ref={popRef}
           role="listbox"
           className="filter-pop"
-          style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, minWidth: rect.width }}
+          style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { largura: rect.width }), minWidth: rect.width, overflowY: 'auto' }}
         >
           {opcoes.map((o) => (
             <button type="button" key={o.label} role="option" onClick={() => abrir(o.url)} className="filter-pop-item">

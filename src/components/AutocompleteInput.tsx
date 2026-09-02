@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Input } from '../ui';
+import { calcularPosicaoPopover } from '../utils/popoverPosicao';
 
 interface AutocompleteInputProps {
   value: string;
@@ -74,7 +75,7 @@ export function AutocompleteInput({ value, onChange, opcoes, placeholder, tone, 
           ref={popRef}
           role="listbox"
           className="filter-pop"
-          style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 220) }}
+          style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { largura: Math.max(rect.width, 220) }), width: Math.max(rect.width, 220), overflowY: 'auto' }}
         >
           {filtradas.map((o) => (
             <button

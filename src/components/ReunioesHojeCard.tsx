@@ -4,6 +4,7 @@ import { isToday, parseISO } from 'date-fns';
 import { CalendarClock, User } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { isAtendidoMarco } from '../utils/badges';
+import { calcularPosicaoPopover } from '../utils/popoverPosicao';
 
 /**
  * Pílula "Reuniões de hoje" na barra superior (ao lado de "Base sincronizada"
@@ -80,7 +81,7 @@ export function ReunioesHojeCard() {
         <div
           ref={popRef}
           className="filter-pop reunioes-hoje-pop"
-          style={{ position: 'fixed', top: rect.bottom + 6, left: Math.max(8, rect.right - 320), width: 320 }}
+          style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { largura: 320, alinhar: 'right' }), width: 320 }}
         >
           {hoje.length === 0 ? (
             <div className="empty-state" style={{ padding: '0.75rem' }}>Nenhuma reunião marcada pra hoje.</div>

@@ -15,6 +15,7 @@ import { ClientFormModal } from '../components/ClientFormModal';
 import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
 import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
 import { buscarAnalisesIA } from '../api/client';
+import { calcularPosicaoPopover } from '../utils/popoverPosicao';
 import { Dropdown } from '../components/Dropdown';
 import { Badge, Button, Card, Td, Th } from '../ui';
 import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type AnaliseIA, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
@@ -60,7 +61,7 @@ function ServicosCell({ servicos }: { servicos: string[] }) {
           {open && rect && createPortal(
             <div
               className="filter-pop"
-              style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, display: 'flex', flexDirection: 'column', gap: 5, padding: '8px 10px' }}
+              style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { alturaEstimativa: 150 }), display: 'flex', flexDirection: 'column', gap: 5, padding: '8px 10px', overflowY: 'auto' }}
             >
               {resto.map((s) => <Badge key={s} variant="accent">{s}</Badge>)}
             </div>,
@@ -97,28 +98,15 @@ const COR_RISCO: Record<AnaliseIA['nivelRisco'], string> = {
  */
 function AnaliseIACell({ clienteId, risco }: { clienteId: string; risco?: AnaliseIA['nivelRisco'] }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
+  const [rect, setRect] = useState<DOMRect | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
-
-  function abrir() {
-    const r = ref.current?.getBoundingClientRect();
-    if (!r) return;
-    const espacoAbaixo = window.innerHeight - r.bottom;
-    const espacoAcima = r.top;
-    const abreAbaixo = espacoAbaixo >= 280 || espacoAbaixo >= espacoAcima;
-    setPos({
-      ...(abreAbaixo ? { top: r.bottom + 4 } : { bottom: window.innerHeight - r.top + 4 }),
-      right: Math.max(8, window.innerWidth - r.right),
-    });
-    setOpen(true);
-  }
 
   const cor = risco ? COR_RISCO[risco] : 'var(--border-strong)';
 
   return (
     <span
       ref={ref}
-      onMouseEnter={abrir}
+      onMouseEnter={() => { setRect(ref.current?.getBoundingClientRect() ?? null); setOpen(true); }}
       onMouseLeave={() => setOpen(false)}
       style={{ display: 'inline-flex' }}
       title={risco ? `Risco ${risco === 'medio' ? 'médio' : risco}` : 'Ainda não analisado'}
@@ -131,10 +119,10 @@ function AnaliseIACell({ clienteId, risco }: { clienteId: string; risco?: Analis
       >
         <Bot size={13} style={{ color: cor }} />
       </span>
-      {open && pos && createPortal(
+      {open && rect && createPortal(
         <div
           className="filter-pop"
-          style={{ position: 'fixed', ...pos, maxHeight: '70vh', overflowY: 'auto', padding: 8 }}
+          style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { largura: 300, alinhar: 'right', alturaEstimativa: 320 }), overflowY: 'auto', padding: 8 }}
         >
           <AnaliseIACard clienteId={clienteId} variante="popover" />
         </div>,

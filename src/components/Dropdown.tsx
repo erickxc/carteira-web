@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
+import { calcularPosicaoPopover } from '../utils/popoverPosicao';
 
 export interface DropdownOption {
   value: string;
@@ -97,7 +98,7 @@ export function Dropdown({ label, options, value, onChange, multiple, defaultVal
           role="listbox"
           aria-multiselectable={multiple}
           className="filter-pop"
-          style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width }}
+          style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { largura: rect.width }), width: rect.width, overflowY: 'auto' }}
         >
           {options.length === 0 ? (
             <div className="px-3 py-2 text-[0.8rem] text-text-muted">Sem opções</div>

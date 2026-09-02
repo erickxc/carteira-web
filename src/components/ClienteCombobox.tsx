@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Input } from '../ui';
+import { calcularPosicaoPopover } from '../utils/popoverPosicao';
 
 interface ClienteOption {
   id: string;
@@ -38,6 +39,8 @@ export function ClienteCombobox({ clientes, value, onChange, tone, placeholder =
   const filtrados = query.trim()
     ? ordenados.filter((c) => c.empresa.toLowerCase().includes(query.trim().toLowerCase()))
     : ordenados;
+
+  const pos = rect ? calcularPosicaoPopover(rect, { largura: rect.width, alturaEstimativa: 240 }) : null;
 
   useEffect(() => {
     if (!open) return;
@@ -91,12 +94,12 @@ export function ClienteCombobox({ clientes, value, onChange, tone, placeholder =
         onKeyDown={onKeyDown}
         autoComplete="off"
       />
-      {open && rect && createPortal(
+      {open && rect && pos && createPortal(
         <div
           ref={popRef}
           role="listbox"
           className="filter-pop"
-          style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width, maxHeight: 240, overflowY: 'auto' }}
+          style={{ position: 'fixed', ...pos, width: rect.width, maxHeight: Math.min(240, pos.maxHeight ?? 240), overflowY: 'auto' }}
         >
           {filtrados.length === 0 ? (
             <div className="px-3 py-2 text-[0.8rem] text-text-muted">Nenhum cliente encontrado</div>
