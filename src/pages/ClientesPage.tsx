@@ -16,7 +16,7 @@ import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
 import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
 import { buscarAnalisesIA } from '../api/client';
 import { calcularPosicaoPopover } from '../utils/popoverPosicao';
-import { corDoServico, hexParaRgb } from '../utils/corServico';
+import { corDoServico, corDoServicoBg, corDoServicoBorda } from '../utils/corServico';
 import { Dropdown } from '../components/Dropdown';
 import { Badge, Button, Card, Td, Th } from '../ui';
 import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type AnaliseIA, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
@@ -39,14 +39,18 @@ const PERIODOS = [
  * a linha inteira da tabela.
  */
 /** Badge de serviço com cor própria (configurável em Configurações →
- *  Categorias → Serviço; sem configuração, cai num fallback estável por
- *  nome — ver `corDoServico`). Fundo suave na cor + texto/borda na cor
- *  sólida, mesmo espírito visual dos outros `Badge`, só que por serviço em
- *  vez de semântico (sucesso/atenção/perigo). */
-function BadgeServico({ servico, cor }: { servico: string; cor: string }) {
-  const rgb = hexParaRgb(cor);
+ *  Categorias → Serviço; sem configuração, cai na mesma paleta pastel/
+ *  dessaturada de `--tipo-reserva-*` já usada pros tipos de evento — nada de
+ *  paleta viva genérica). Fundo bem suave (16%) + cor só na borda/texto,
+ *  mesmo espírito visual dos outros `Badge`, só que por serviço em vez de
+ *  semântico (sucesso/atenção/perigo). */
+function BadgeServico({ servico, corConfigurada }: { servico: string; corConfigurada?: string }) {
+  const cor = corDoServico(servico, corConfigurada);
   return (
-    <Badge variant="plain" style={{ background: `rgba(${rgb}, 0.16)`, color: cor, border: `1px solid rgba(${rgb}, 0.4)` }}>
+    <Badge
+      variant="plain"
+      style={{ background: corDoServicoBg(servico, corConfigurada), color: cor, border: `1px solid ${corDoServicoBorda(servico, corConfigurada)}` }}
+    >
       {servico}
     </Badge>
   );
@@ -59,13 +63,12 @@ function ServicosCell({ servicos, corPorServico }: { servicos: string[]; corPorS
 
   if (servicos.length === 0) return <span className="text-text-muted">—</span>;
 
-  const cor = (s: string) => corDoServico(s, corPorServico.get(s));
   const visiveis = servicos.slice(0, 2);
   const resto = servicos.slice(2);
 
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-      {visiveis.map((s) => <BadgeServico key={s} servico={s} cor={cor(s)} />)}
+      {visiveis.map((s) => <BadgeServico key={s} servico={s} corConfigurada={corPorServico.get(s)} />)}
       {resto.length > 0 && (
         <span
           ref={ref}
@@ -79,7 +82,7 @@ function ServicosCell({ servicos, corPorServico }: { servicos: string[]; corPorS
               className="filter-pop"
               style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { alturaEstimativa: 150 }), display: 'flex', flexDirection: 'column', gap: 5, padding: '8px 10px', overflowY: 'auto' }}
             >
-              {resto.map((s) => <BadgeServico key={s} servico={s} cor={cor(s)} />)}
+              {resto.map((s) => <BadgeServico key={s} servico={s} corConfigurada={corPorServico.get(s)} />)}
             </div>,
             document.body
           )}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { corDoServico, hexParaRgb } from './corServico';
+import { corDoServico, corDoServicoBg, corDoServicoBorda } from './corServico';
 
 describe('corDoServico', () => {
   it('usa a cor configurada quando presente', () => {
@@ -10,7 +10,7 @@ describe('corDoServico', () => {
     const a = corDoServico('OptiMarco');
     const b = corDoServico('OptiMarco');
     expect(a).toBe(b);
-    expect(a).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(a).toMatch(/^var\(--tipo-reserva-\d\)$/);
   });
 
   it('nomes diferentes tendem a cair em cores diferentes da paleta', () => {
@@ -18,12 +18,13 @@ describe('corDoServico', () => {
   });
 });
 
-describe('hexParaRgb', () => {
-  it('converte hex pra "r, g, b"', () => {
-    expect(hexParaRgb('#dabb6c')).toBe('218, 187, 108');
+describe('corDoServicoBg / corDoServicoBorda', () => {
+  it('compõem color-mix a partir da cor resolvida', () => {
+    expect(corDoServicoBg('Monitoria', '#dabb6c')).toBe('color-mix(in srgb, #dabb6c 16%, transparent)');
+    expect(corDoServicoBorda('Monitoria', '#dabb6c')).toBe('color-mix(in srgb, #dabb6c 40%, transparent)');
   });
 
-  it('hex inválido cai num cinza neutro, não quebra', () => {
-    expect(hexParaRgb('não-é-hex')).toBe('128, 128, 128');
+  it('funciona igual pro fallback (token var(--tipo-reserva-*))', () => {
+    expect(corDoServicoBg('OptiMarco')).toMatch(/^color-mix\(in srgb, var\(--tipo-reserva-\d\) 16%, transparent\)$/);
   });
 });

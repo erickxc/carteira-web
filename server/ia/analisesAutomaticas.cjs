@@ -6,8 +6,12 @@ const { DOSSIES_DIR } = require('../config.cjs');
 const { gerarAnaliseIA, DOSSIE_MAX_CHARS } = require('./analiseCliente.cjs');
 
 // Mesmos regexes de classificação de status já usados no resto do projeto
-// (ver CLAUDE.md — "Evento de Agenda"): concluído/cancelado/reagendado.
-const EVENTO_RELEVANTE = /conclu|realiz|cancel|reagend/i;
+// (ver CLAUDE.md — "Evento de Agenda"): concluído/cancelado/reagendado, e
+// agora também AGENDADO (pedido do usuário: marcar uma reunião nova também
+// deve atualizar o dossiê — é justamente o sinal de que uma "próxima pauta"
+// sugerida virou ação, ver `server/ia/alertas.cjs`, "Pauta recomendada que
+// morreu"). `agend` sozinho já cobre "Agendado" E "Reagendado" (substring).
+const EVENTO_RELEVANTE = /conclu|realiz|cancel|agend/i;
 
 // Nome do arquivo carrega o clientId (chave estável, usada na busca) e um
 // slug do nome da loja (só para o arquivo ficar legível no disco). Se a loja
@@ -206,4 +210,4 @@ async function gerarAnalisesPendentes(opts = {}) {
   return processados;
 }
 
-module.exports = { gerarAnalisesPendentes, lerDossieCliente, corrigirDossieCliente, eventosParaAnalisar, assinaturaAtas, hashAta };
+module.exports = { gerarAnalisesPendentes, lerDossieCliente, corrigirDossieCliente, eventosParaAnalisar, assinaturaAtas, hashAta, EVENTO_RELEVANTE };

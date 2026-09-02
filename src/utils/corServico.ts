@@ -1,34 +1,38 @@
 /**
  * Cor de referência por Serviço (badges da tabela de Clientes) — configurável
  * em Configurações → Categorias → Serviço (`Categoria.cor`, hex). Sem cor
- * configurada, cai num fallback determinístico (hash do nome → paleta fixa)
- * em vez de tudo virar a mesma cor "accent" — é o que motivou o pedido: dar
- * pra distinguir os serviços de bate-olho na tabela, sem precisar configurar
- * nada antes de já ficar diferenciado.
+ * configurada, cai na MESMA paleta de reserva já usada por `src/utils/tipoCor.ts`
+ * pros tipos de evento (`--tipo-reserva-1..4`, tons dessaturados da marca,
+ * theme-aware) — pedido explícito do usuário: nada de paleta arco-íris
+ * genérica ("cara de IA"), reusa o que já foi desenhado a dedo pro resto do
+ * app. `color-mix()` (não recomputar rgb manualmente) porque já funciona
+ * tanto com os tokens `var(--tipo-reserva-*)` quanto com um hex literal —
+ * mesma função serve pro fallback E pra cor custom escolhida em Configurações.
  */
-const PALETA_FALLBACK = [
-  '#dabb6c', '#68818d', '#cc6300', '#304373', '#8a6fb0',
-  '#4a8f6b', '#c25b5b', '#5c8fc2', '#a3763f', '#7a9e3f',
-];
+const PALETA_RESERVA = ['var(--tipo-reserva-1)', 'var(--tipo-reserva-2)', 'var(--tipo-reserva-3)', 'var(--tipo-reserva-4)'];
 
-function hashSimples(texto: string): number {
+function hash(texto: string): number {
   let h = 0;
-  for (let i = 0; i < texto.length; i++) h = (h * 31 + texto.charCodeAt(i)) >>> 0;
-  return h;
+  for (let i = 0; i < texto.length; i++) h = (h * 31 + texto.charCodeAt(i)) | 0;
+  return Math.abs(h);
 }
 
 /** `corConfigurada` (de `Categoria.cor`) tem prioridade; sem ela, uma cor
- *  estável (mesmo serviço sempre cai na mesma cor da paleta) pelo nome. */
+ *  estável (mesmo serviço sempre cai na mesma cor) da paleta de reserva. */
 export function corDoServico(nome: string, corConfigurada?: string | null): string {
   if (corConfigurada) return corConfigurada;
-  return PALETA_FALLBACK[hashSimples(nome) % PALETA_FALLBACK.length];
+  if (!nome) return PALETA_RESERVA[0];
+  return PALETA_RESERVA[hash(nome) % PALETA_RESERVA.length];
 }
 
-/** #RRGGBB -> "r, g, b", pra compor `rgba(...)` (fundo suave + texto na cor
- *  sólida) sem depender de biblioteca de cor. Cor inválida cai num cinza neutro. */
-export function hexParaRgb(hex: string): string {
-  const m = /^#([0-9a-fA-F]{6})$/.exec(hex);
-  if (!m) return '128, 128, 128';
-  const n = parseInt(m[1], 16);
-  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+/** Fundo translúcido (16%, mesmo tom pastel de `tipoCor.corTipoBg`) pra usar
+ *  atrás do badge do serviço. */
+export function corDoServicoBg(nome: string, corConfigurada?: string | null): string {
+  return `color-mix(in srgb, ${corDoServico(nome, corConfigurada)} 16%, transparent)`;
+}
+
+/** Borda um pouco mais opaca que o fundo — mesmo espírito visual dos badges
+ *  semânticos (success/warning/danger) do resto do app. */
+export function corDoServicoBorda(nome: string, corConfigurada?: string | null): string {
+  return `color-mix(in srgb, ${corDoServico(nome, corConfigurada)} 40%, transparent)`;
 }

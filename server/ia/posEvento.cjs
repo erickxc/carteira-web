@@ -1,4 +1,5 @@
 const { isClient } = require('../modo.cjs');
+const { EVENTO_RELEVANTE } = require('./analisesAutomaticas.cjs');
 
 /**
  * O que roda DEPOIS de um evento virar concluído/reagendado/cancelado:
@@ -19,8 +20,6 @@ const { isClient } = require('../modo.cjs');
  * CLAUDE.md, "IA e máquinas cliente"), e o espelho do catálogo depende de ler
  * o arquivo de vendas, que também é papel do servidor.
  */
-const EVENTO_RELEVANTE = /conclu|realiz|cancel|reagend/i;
-
 function relevante(status) {
   return EVENTO_RELEVANTE.test(String(status || ''));
 }

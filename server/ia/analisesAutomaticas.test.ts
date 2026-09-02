@@ -79,15 +79,32 @@ describe('analisesAutomaticas: gerarAnalisesPendentes', () => {
     expect(processados).toBe(0);
   });
 
-  it('ignora eventos que não são conclusão/cancelamento/reagendamento (ex.: Agendado)', async () => {
+  it('ignora eventos que não são conclusão/cancelamento/reagendamento/agendamento (ex.: Pendente)', async () => {
+    const repo = repoMemoria({
+      Clientes: [{ id: 'c1', empresa: 'Empresa Teste' }],
+      Agenda: [{ id: 'e1', clientId: 'c1', date: '2026-08-01T10:00:00.000Z', status: 'Pendente', ata: '' }],
+      AnalisesIA: [],
+    });
+
+    const processados = await gerarAnalisesPendentes({ repo, ollama: ollamaFake({}) });
+    expect(processados).toBe(0);
+  });
+
+  /**
+   * Pedido do usuário: agendar uma reunião NOVA também deve forçar a
+   * atualização do dossiê — é o sinal de que uma "próxima pauta" sugerida
+   * virou ação (ver `server/ia/alertas.cjs`, "Pauta recomendada que morreu").
+   * Antes só concluir/cancelar/reagendar contava.
+   */
+  it('conta reunião recém-agendada (status Agendado) como evento relevante', async () => {
     const repo = repoMemoria({
       Clientes: [{ id: 'c1', empresa: 'Empresa Teste' }],
       Agenda: [{ id: 'e1', clientId: 'c1', date: '2026-08-01T10:00:00.000Z', status: 'Agendado', ata: '' }],
       AnalisesIA: [],
     });
 
-    const processados = await gerarAnalisesPendentes({ repo, ollama: ollamaFake({}) });
-    expect(processados).toBe(0);
+    const processados = await gerarAnalisesPendentes({ repo, ollama: ollamaFake({ nivelRisco: 'baixo', resumo: '', fatores: [], sugestaoProximaPauta: '', dossieAtualizado: '### Perfil\nX\n\n### Pontos de Atenção\n— nenhum registro\n\n### Oportunidades\n— nenhum registro\n\n### Pendências\n— nenhum registro\n\n### Próxima pauta\n—' }) });
+    expect(processados).toBe(1);
   });
 
   it('isola erro de um cliente sem interromper os demais', async () => {
