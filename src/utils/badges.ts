@@ -31,6 +31,24 @@ export function isAtendidoMarco(status: string | undefined): boolean {
   return /marco/i.test((status || '').trim());
 }
 
+/** Cor sólida (CSS var) correspondente à variante de `clienteStatusBadge` —
+ *  usada em barras/gráficos de composição, onde a cor precisa ser um fill
+ *  sólido, não a classe do badge (fundo pastel + texto). Sem borda: nunca
+ *  combinar fundo pastel com borda da mesma cor (lê como "gerado por IA"). */
+const COR_POR_VARIANTE_BADGE: Record<BadgeVariant, string> = {
+  success: 'var(--success)',
+  danger: 'var(--danger)',
+  warning: 'var(--warning)',
+  gratuidade: 'var(--gratuidade)',
+  accent: 'var(--accent)',
+  muted: 'var(--text-muted)',
+  plain: 'var(--text-muted)',
+};
+
+export function clienteStatusCor(status: string): string {
+  return COR_POR_VARIANTE_BADGE[clienteStatusBadge(status)];
+}
+
 export function eventoStatusBadge(status: string): BadgeVariant {
   const s = (status || '').toLowerCase();
   if (/(conclu|realiz|feito)/.test(s)) return 'success';

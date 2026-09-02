@@ -8,7 +8,7 @@ import { useCarteira } from '../context/CarteiraContext';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { truthy } from '../utils/formatters';
-import { clienteStatusBadge, isGratuidade } from '../utils/badges';
+import { clienteStatusCor, isGratuidade } from '../utils/badges';
 import { toastError, toastSuccess } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
@@ -16,7 +16,7 @@ import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
 import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
 import { buscarAnalisesIA } from '../api/client';
 import { calcularPosicaoPopover } from '../utils/popoverPosicao';
-import { corDoServico, corDoServicoBg, corDoServicoBorda } from '../utils/corServico';
+import { corDoServico } from '../utils/corServico';
 import { Dropdown } from '../components/Dropdown';
 import { Badge, Button, Card, Td, Th } from '../ui';
 import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type AnaliseIA, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
@@ -38,21 +38,18 @@ const PERIODOS = [
  * precisar clicar. Evita que um cliente com 5-6 serviços contratados alargue
  * a linha inteira da tabela.
  */
-/** Badge de serviço com cor própria (configurável em Configurações →
- *  Categorias → Serviço; sem configuração, cai na mesma paleta pastel/
- *  dessaturada de `--tipo-reserva-*` já usada pros tipos de evento — nada de
- *  paleta viva genérica). Fundo bem suave (16%) + cor só na borda/texto,
- *  mesmo espírito visual dos outros `Badge`, só que por serviço em vez de
- *  semântico (sucesso/atenção/perigo). */
+/** Serviço com cor própria (configurável em Configurações → Categorias →
+ *  Serviço; sem configuração, cai na mesma paleta dessaturada de
+ *  `--tipo-reserva-*` já usada pros tipos de evento). Indicador é um PONTO
+ *  colorido ao lado de texto neutro — nunca um badge com fundo pastel (lê
+ *  como "gerado por IA"; pedido explícito do usuário). */
 function BadgeServico({ servico, corConfigurada }: { servico: string; corConfigurada?: string }) {
   const cor = corDoServico(servico, corConfigurada);
   return (
-    <Badge
-      variant="plain"
-      style={{ background: corDoServicoBg(servico, corConfigurada), color: cor, border: `1px solid ${corDoServicoBorda(servico, corConfigurada)}` }}
-    >
-      {servico}
-    </Badge>
+    <span className="inline-flex items-center gap-2" style={{ fontSize: '0.8rem' }}>
+      <i style={{ width: 9, height: 9, borderRadius: '50%', background: cor, display: 'inline-block', flexShrink: 0, boxShadow: `0 0 0 1px color-mix(in srgb, ${cor} 55%, transparent)` }} />
+      <span className="text-text-primary" style={{ fontWeight: 500 }}>{servico}</span>
+    </span>
   );
 }
 
@@ -503,9 +500,22 @@ export default function ClientesPage() {
                         <AnaliseIACell clienteId={cliente.id} risco={analisesPorCliente.get(cliente.id)?.nivelRisco} />
                       </Td>
                       <Td>
-                        <div className="flex-row" style={{ gap: 5, flexWrap: 'wrap' }}>
-                          <Badge variant={clienteStatusBadge(cliente.status)}>{cliente.status || '—'}</Badge>
-                          {inativo && <Badge variant="danger">Inativo</Badge>}
+                        <div className="flex-row" style={{ gap: 12, flexWrap: 'wrap' }}>
+                          <span className="inline-flex items-center gap-2" style={{ fontSize: '0.8rem' }}>
+                            <i style={{
+                              width: 9, height: 9, borderRadius: '50%', display: 'inline-block', flexShrink: 0,
+                              background: clienteStatusCor(cliente.status),
+                              boxShadow: `0 0 0 1px color-mix(in srgb, ${clienteStatusCor(cliente.status)} 55%, transparent)`,
+                            }}
+                            />
+                            <span className="text-text-primary" style={{ fontWeight: 500 }}>{cliente.status || '—'}</span>
+                          </span>
+                          {inativo && (
+                            <span className="inline-flex items-center gap-2" style={{ fontSize: '0.8rem' }}>
+                              <i style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--danger)', display: 'inline-block', flexShrink: 0, boxShadow: '0 0 0 1px color-mix(in srgb, var(--danger) 55%, transparent)' }} />
+                              <span style={{ color: 'var(--danger)', fontWeight: 600 }}>Inativo</span>
+                            </span>
+                          )}
                         </div>
                       </Td>
                       <Td className="text-text-muted" style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cliente.observacao || undefined}>
