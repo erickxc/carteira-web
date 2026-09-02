@@ -7,6 +7,7 @@ import { ptBR } from 'date-fns/locale';
 import { useCarteira } from '../context/CarteiraContext';
 import { usePersistedState } from './usePersistedState';
 import { isClienteAtivo } from '../utils/formatters';
+import { clienteStatusCor } from '../utils/badges';
 import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
 import { buildFilaCadencia, buildVencendoDashboard, contatoRecenteNaoRefletido, type ServicoCad } from '../utils/cadenciaServico';
 import { mesesComDados } from '../utils/periodo';
@@ -22,7 +23,7 @@ const FOLLOW_UP_THRESHOLD_DAYS = 30;
 export function useDashboardData() {
   // `filtroMonitor` vem do Context — é o filtro GLOBAL ("quem sou eu"),
   // compartilhado com o header e com o monitorIA, não mais local desta tela.
-  const { clientes, agenda, acoes, lembretes, cadencias, filtroMonitor, setFiltroMonitor, monitoresDisponiveis, opcoesPorTipo } = useCarteira();
+  const { clientes, agenda, acoes, lembretes, cadencias, filtroMonitor, setFiltroMonitor, monitoresDisponiveis } = useCarteira();
   const [filtroTipo, setFiltroTipo] = usePersistedState<string>('filtro:dash:tipo', 'Todos');
   const [filtroTipoEvento, setFiltroTipoEvento] = usePersistedState<string>('filtro:dash:tipoEvento', 'Todos');
   const [filtroServicoAderencia, setFiltroServicoAderencia] = usePersistedState<ServicoCad | 'Todos'>('filtro:dash:servicoAderencia', 'Todos');
@@ -137,6 +138,35 @@ export function useDashboardData() {
   // soma `concluídas + isso`. Usar `agendada` ali contaria a concluída 2x
   // (bug real: card certo em 28, gráfico mostrando 42 no mesmo mês).
   const planejadaNaoConcluida = (a: EventoAgenda) => agendada(a) && !concluida(a);
+
+  // --- Top 10 clientes por ATENDIMENTOS (reunião OU relatório) CONCLUÍDOS no
+  // ANO selecionado (topo da tela) — substitui o mapa de abrangência nessa
+  // fileira de gauges (pedido do usuário: mapa foi pro Dashboard da Carteira).
+  // Ano, não mês/período — é um ranking anual, não segue o corte mensal do
+  // resto do dashboard. Usa `agenda`/`ativosIds` direto (não `reunioesAtivas`,
+  // que é só tipo Reunião e alimenta os KPIs/gráfico mensal — mudar o
+  // significado dali quebraria esses outros cards).
+  const top10AtendimentosAno = useMemo(() => {
+    const contagem = new Map<string, number>();
+    // Amplitude real dos atendimentos contados (nem todo ano tem atendimento
+    // de jan a dez) — o card mostra esse intervalo, não só o ano inteiro, pra
+    // não sugerir cobertura que a base não tem.
+    let inicio: Date | null = null;
+    let fim: Date | null = null;
+    agenda.forEach((a) => {
+      if (!ativosIds.has(a.clientId) || !/reuni|relat/i.test(a.type || '') || !concluida(a)) return;
+      const d = parseISO(a.date);
+      if (isNaN(d.getTime()) || d.getFullYear() !== ano) return;
+      contagem.set(a.clientId, (contagem.get(a.clientId) ?? 0) + 1);
+      if (!inicio || d < inicio) inicio = d;
+      if (!fim || d > fim) fim = d;
+    });
+    const itens = [...contagem.entries()]
+      .map(([clientId, n]) => ({ label: clientes.find((c) => c.id === clientId)?.empresa ?? '—', n }))
+      .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label))
+      .slice(0, 10);
+    return { itens, inicio, fim };
+  }, [agenda, ativosIds, ano, clientes]);
 
   // --- KPIs (escopo do período, base de ativos) ---
   const reunioesConcluidasMes = reunioesAtivas.filter((a) => concluida(a) && isSameMonth(parseISO(a.date), periodo)).length;
@@ -269,21 +299,115 @@ export function useDashboardData() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativos, ultimaInteracao, agendaAtiva, clientes, dataReferencia]);
 
-  /**
-   * Serviços cadastrados fora de Monitoria/Price (Controladoria, OptiMarco,
-   * AutoTech, Book Fiscal, Raptor, Protocolo GPS, e qualquer outro que for
-   * cadastrado depois em Configurações → Categorias) — decisão do usuário:
-   * eles NÃO entram na métrica de cadência/aderência de `servicosDist` acima
-   * (não têm regra de "atendido em 30 dias"), só contagem simples de quantos
-   * clientes ativos têm cada um contratado. Lista dinâmica (não hardcoded)
-   * pra um serviço novo aparecer aqui sozinho, sem precisar mexer em código.
-   */
-  const outrosServicosDist = useMemo(() => {
-    const outros = opcoesPorTipo('servico').filter((s) => !/monitor|price|prec/i.test(s));
-    return outros
-      .map((label) => ({ label, n: ativos.filter((c) => (c.servicos ?? []).includes(label)).length }))
+  // --- Composição da carteira (Dashboard da Carteira) — recortes direto do
+  // CADASTRO de cliente, sem depender de agenda/ações. Cada distribuição
+  // devolve {label, n} ordenado por contagem desc, pra virar barra de %.
+  const clientesPorMonitor = useMemo(() => {
+    const contagem = new Map<string, number>();
+    ativos.forEach((c) => {
+      const key = c.monitor?.trim() || 'Sem monitor';
+      contagem.set(key, (contagem.get(key) ?? 0) + 1);
+    });
+    return [...contagem.entries()]
+      .map(([label, n]) => ({ label, n }))
       .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
-  }, [ativos, opcoesPorTipo]);
+  }, [ativos]);
+
+  // "Saúde da carteira" — composição por STATUS, carteira INTEIRA (não só
+  // `ativos`, que já filtra por status "em atendimento") — senão Suspenso/
+  // Atendido pelo Marco/Problemas Externos nunca apareceriam aqui, justamente
+  // os que essa distribuição existe pra mostrar. Cor = mesma classificação
+  // semântica do badge (`clienteStatusCor`) — aqui é um fill sólido pra
+  // barra empilhada de parte-do-todo, não o badge em si.
+  const saudeCarteira = useMemo(() => {
+    const contagem = new Map<string, number>();
+    clientes.forEach((c) => {
+      const key = c.status?.trim() || 'Regular';
+      contagem.set(key, (contagem.get(key) ?? 0) + 1);
+    });
+    const total = clientes.length;
+    return [...contagem.entries()]
+      .map(([label, n]) => ({ label, n, pct: total > 0 ? Math.round((n / total) * 100) : 0, color: clienteStatusCor(label) }))
+      .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
+  }, [clientes]);
+
+  // Profundidade de serviços contratados por cliente ATIVO — quantos têm 1,
+  // 2 ou 3+ serviços (cross-sell). Categorias ORDENADAS (não nominais), por
+  // isso a cor é uma rampa de um hue só (mais escuro = mais serviços), nunca
+  // uma cor por categoria nominal.
+  const profundidadeServicos = useMemo(() => {
+    const baldes = [
+      { label: '1 serviço', min: 1, max: 1, cor: 'color-mix(in srgb, var(--accent) 45%, var(--card-hover))' },
+      { label: '2 serviços', min: 2, max: 2, cor: 'color-mix(in srgb, var(--accent) 70%, var(--card-hover))' },
+      { label: '3+ serviços', min: 3, max: Infinity, cor: 'var(--accent)' },
+    ];
+    const semServico = ativos.filter((c) => (c.servicos ?? []).length === 0).length;
+    const dist = baldes
+      .map((b) => ({
+        label: b.label,
+        n: ativos.filter((c) => { const q = (c.servicos ?? []).length; return q >= b.min && q <= b.max; }).length,
+        color: b.cor,
+      }));
+    if (semServico > 0) dist.unshift({ label: 'Nenhum serviço', n: semServico, color: 'var(--text-muted)' });
+    const total = ativos.length;
+    return dist
+      .filter((d) => d.n > 0)
+      .map((d) => ({ ...d, pct: total > 0 ? Math.round((d.n / total) * 100) : 0 }));
+  }, [ativos]);
+
+  const mediaServicosPorCliente = useMemo(() => {
+    if (ativos.length === 0) return 0;
+    const soma = ativos.reduce((s, c) => s + (c.servicos ?? []).length, 0);
+    return soma / ativos.length;
+  }, [ativos]);
+
+  // Novos clientes cadastrados no MÊS CORRENTE (não segue o filtro mês/ano do
+  // topo, que é sobre agenda — aqui é sempre "hoje", pra virar um KPI de
+  // "carteira está crescendo agora", não histórico.
+  const novosClientesMes = useMemo(
+    () => clientes.filter((c) => { const d = parseISO(c.createdAt || ''); return !isNaN(d.getTime()) && isSameMonth(d, hoje); }).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [clientes]
+  );
+
+  const clientesPorSegmento = useMemo(() => {
+    const contagem = new Map<string, number>();
+    ativos.forEach((c) => {
+      const key = c.local?.trim() || 'Não informado';
+      contagem.set(key, (contagem.get(key) ?? 0) + 1);
+    });
+    return [...contagem.entries()]
+      .map(([label, n]) => ({ label, n }))
+      .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
+  }, [ativos]);
+
+  // --- Crescimento da carteira: total de clientes cadastrados (acumulado) mês
+  // a mês, desde o primeiro `createdAt`. Cliente legado sem `createdAt`
+  // válido não entra na série (não há como posicioná-lo no tempo), mas
+  // continua contando nas demais distribuições acima.
+  const crescimentoCarteira = useMemo(() => {
+    const datas = clientes
+      .map((c) => parseISO(c.createdAt || ''))
+      .filter((d) => !isNaN(d.getTime()))
+      .sort((a, b) => a.getTime() - b.getTime());
+    if (datas.length === 0) return [];
+    const inicio = startOfMonth(datas[0]);
+    const fim = startOfMonth(maxDate([datas[datas.length - 1], hoje]));
+    let meses = eachMonthOfInterval({ start: inicio, end: fim });
+    if (meses.length > 24) meses = meses.slice(meses.length - 24); // mesmo teto de segurança da tendência de reuniões
+    let acumulado = 0;
+    let ponteiro = 0;
+    return meses.map((m, i) => {
+      const fimMes = endOfMonth(m);
+      while (ponteiro < datas.length && datas[ponteiro] <= fimMes) { acumulado++; ponteiro++; }
+      return {
+        label: m.getMonth() === 0 || i === 0 ? format(m, 'MMM/yy', { locale: ptBR }).replace('.', '') : format(m, 'MMM', { locale: ptBR }).replace('.', ''),
+        full: format(m, "MMMM 'de' yyyy", { locale: ptBR }),
+        value: acumulado,
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientes]);
 
   // --- Cobertura da carteira no período: clientes ativos com >= 1 reunião ou
   // relatório nos ÚLTIMOS 2 MESES (mês selecionado + anterior, não só o
@@ -466,7 +590,9 @@ export function useDashboardData() {
     // gráfico
     linhaPorMes, linhaHighlight,
     // cards
-    servicosDist, totalAtendidos, outrosServicosDist, cobertura, aderencia,
+    servicosDist, totalAtendidos, cobertura, aderencia,
+    clientesPorMonitor, clientesPorSegmento, crescimentoCarteira,
+    saudeCarteira, profundidadeServicos, mediaServicosPorCliente, novosClientesMes, top10AtendimentosAno,
     vencendo, filtroServicoVencendo, setFiltroServicoVencendo,
     tiposDisponiveis, proximos,
     alertas, alertasProgramados,

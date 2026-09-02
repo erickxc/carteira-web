@@ -1,19 +1,31 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Layers, TrendingUp, UserCheck, UserX } from 'lucide-react';
 import { useDashboardData } from '../hooks/useDashboardData';
-import { OutrosServicosCard } from '../components/dashboard/OutrosServicosCard';
+import { DistribuicaoListCard } from '../components/dashboard/DistribuicaoListCard';
+import { StackedBarCard } from '../components/dashboard/StackedBarCard';
+import { CrescimentoCarteiraCard } from '../components/dashboard/CrescimentoCarteiraCard';
+import { AbrangenciaMapaCard } from '../components/dashboard/AbrangenciaMapaCard';
+import { StatCard } from '../components/StatCard';
+import { useCarteira } from '../context/CarteiraContext';
 import { Button } from '../ui';
 
 /**
  * Dashboard dedicado à Carteira (não ao app inteiro — isso é a Visão Geral em
  * "/"). Pedido do usuário: um lugar próprio pra métricas/composição da
- * carteira em si (por enquanto, distribuição de "Outros Serviços" — fora de
- * Monitoria/Price, sem entrar na cadência), sem misturar no dashboard
- * principal. Acessado por um botão em `/clientes` (ClientesPage).
+ * carteira em si, direto do CADASTRO de cliente (monitor, status, serviços,
+ * segmento, abrangência geográfica, crescimento) — sem misturar no dashboard
+ * principal, que é sobre agenda/cadência. Acessado por um botão em
+ * `/clientes` (ClientesPage). O mapa de Abrangência morava na Visão Geral;
+ * mudou pra cá por ser sobre COMPOSIÇÃO da carteira, não sobre agenda — a
+ * Visão Geral ganhou o ranking Top 10 de reuniões no lugar.
  */
 export default function CarteiraDashboardPage() {
   const navigate = useNavigate();
+  const { clientes } = useCarteira();
   const d = useDashboardData();
+
+  const totalAtivos = d.ativos.length;
+  const totalInativos = clientes.length - totalAtivos;
 
   return (
     <div className="page-container">
@@ -23,10 +35,66 @@ export default function CarteiraDashboardPage() {
 
       <div style={{ marginBottom: 20 }}>
         <h1 className="page-title" style={{ marginBottom: 4 }}>Dashboard da Carteira</h1>
-        <p className="page-subtitle" style={{ margin: 0 }}>Composição e serviços da carteira de clientes</p>
+        <p className="page-subtitle" style={{ margin: 0 }}>Composição, saúde e crescimento da carteira de clientes</p>
       </div>
 
-      <OutrosServicosCard outrosServicosDist={d.outrosServicosDist} />
+      <div className="stat-grid dash-stats" style={{ marginBottom: '1.5rem' }}>
+        <StatCard title="Clientes ativos" value={totalAtivos} icon={UserCheck} onClick={() => navigate('/clientes')} />
+        <StatCard title="Clientes inativos" value={totalInativos} icon={UserX} />
+        <StatCard
+          title="Novos clientes no mês"
+          value={d.novosClientesMes}
+          icon={TrendingUp}
+        />
+        <StatCard
+          title="Serviços por cliente ativo"
+          value={d.mediaServicosPorCliente.toFixed(1)}
+          icon={Layers}
+        />
+      </div>
+
+      <CrescimentoCarteiraCard pontos={d.crescimentoCarteira} />
+
+      <StackedBarCard
+        titulo="Profundidade de Serviços"
+        subtitulo="quantos serviços cada cliente ativo contratou"
+        segmentos={d.profundidadeServicos}
+        emptyMsg="Nenhum cliente ativo cadastrado."
+        insight={(() => {
+          const multiplos = d.profundidadeServicos.filter((s) => /^(2|3\+)/.test(s.label)).reduce((s, i) => s + i.pct, 0);
+          return multiplos > 0 ? `${multiplos}% dos clientes ativos contratam mais de um serviço.` : undefined;
+        })()}
+      />
+
+      <div className="dash-two-col">
+        <StackedBarCard
+          titulo="Saúde da Carteira"
+          subtitulo="por status · ativos + inativos"
+          segmentos={d.saudeCarteira}
+          emptyMsg="Nenhum cliente cadastrado."
+          insight={(() => {
+            const regular = d.saudeCarteira.find((s) => /^regular$/i.test(s.label));
+            return regular ? `${regular.pct}% da carteira está com status Regular.` : undefined;
+          })()}
+        />
+        <DistribuicaoListCard
+          titulo="Concentração por Monitor"
+          subtitulo="clientes ativos"
+          items={d.clientesPorMonitor}
+          emptyMsg="Nenhum cliente ativo com monitor definido."
+        />
+      </div>
+
+      <div className="dash-two-col">
+        <DistribuicaoListCard
+          titulo="Clientes por Segmento"
+          subtitulo="clientes ativos"
+          items={d.clientesPorSegmento}
+          emptyMsg="Nenhum cliente ativo com segmento definido."
+          limite={8}
+        />
+        <AbrangenciaMapaCard clientes={d.ativos} />
+      </div>
     </div>
   );
 }

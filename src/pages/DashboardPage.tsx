@@ -14,7 +14,7 @@ import { ProximasAgendasCard } from '../components/dashboard/ProximasAgendasCard
 import { AlertasSemAcompanhamentoCard } from '../components/dashboard/AlertasSemAcompanhamentoCard';
 import { AlertasProgramadosCard } from '../components/dashboard/AlertasProgramadosCard';
 import { TendenciaMensalCard } from '../components/dashboard/TendenciaMensalCard';
-import { AbrangenciaMapaCard } from '../components/dashboard/AbrangenciaMapaCard';
+import { Top10AtendimentosCard } from '../components/dashboard/Top10AtendimentosCard';
 import { AtendimentoCard } from '../components/dashboard/AtendimentoCard';
 import { RecuperadosCard } from '../components/dashboard/RecuperadosCard';
 import { ReminderFormModal } from '../components/ReminderFormModal';
@@ -126,7 +126,7 @@ export default function DashboardPage() {
           filtroServico={d.filtroServicoVencendo}
           onFiltroServico={d.setFiltroServicoVencendo}
         />
-        <AbrangenciaMapaCard clientes={d.ativos} />
+        <Top10AtendimentosCard itens={d.top10AtendimentosAno.itens} inicio={d.top10AtendimentosAno.inicio} fim={d.top10AtendimentosAno.fim} ano={d.ano} />
       </div>
 
       {/* Serviços + próximas agendas */}
