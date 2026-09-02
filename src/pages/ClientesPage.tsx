@@ -95,7 +95,7 @@ function AnaliseIACell({ clienteId }: { clienteId: string }) {
           className="filter-pop"
           style={{ position: 'fixed', top: rect.bottom + 4, right: Math.max(8, window.innerWidth - rect.right), maxHeight: 'none', padding: 8 }}
         >
-          <AnaliseIACard clienteId={clienteId} />
+          <AnaliseIACard clienteId={clienteId} variante="popover" />
         </div>,
         document.body
       )}

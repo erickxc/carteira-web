@@ -11,6 +11,12 @@ const RISCO_VARIANT: Record<AnaliseIA['nivelRisco'], BadgeVariant> = { baixo: 's
 
 interface AnaliseIACardProps {
   clienteId: string;
+  /** `true` quando renderizada DENTRO de outro popover (ex.: hover na tabela
+   *  de clientes) — nesse caso não faz sentido ter Card+borda própria (fica
+   *  caixa dentro de caixa) nem o "ver mais" (clicar exige mover o mouse pro
+   *  botão sem perder o hover, interação ruim dentro de algo que já fecha
+   *  sozinho): sem moldura, fatores/sugestão sempre visíveis. */
+  variante?: 'padrao' | 'popover';
 }
 
 /**
@@ -31,11 +37,15 @@ interface AnaliseIACardProps {
  * "texto cortado"; estreito + quebra de linha resolve sem truncar nada.
  * Fatores/sugestão de pauta (o conteúdo mais longo) ficam atrás de "Ver mais".
  */
-export function AnaliseIACard({ clienteId }: AnaliseIACardProps) {
+export function AnaliseIACard({ clienteId, variante = 'padrao' }: AnaliseIACardProps) {
   // `undefined` até a busca deste `clienteId` terminar — evita um segundo
   // estado boolean de loading só pra isso.
   const [analise, setAnalise] = useState<AnaliseIA | null | undefined>(undefined);
-  const [expandido, setExpandido] = useState(false);
+  // No popover o detalhe já vem sempre aberto — não faz sentido ter "ver
+  // mais" escondido atrás de um clique que exige mover o mouse dentro de
+  // algo que fecha sozinho ao tirar o hover.
+  const [expandido, setExpandido] = useState(variante === 'popover');
+  const popover = variante === 'popover';
 
   useEffect(() => {
     let cancelado = false;
@@ -47,8 +57,8 @@ export function AnaliseIACard({ clienteId }: AnaliseIACardProps) {
 
   const temDetalhe = Boolean(analise && (analise.fatores.length > 0 || analise.sugestaoProximaPauta));
 
-  return (
-    <Card flat style={{ marginBottom: 24, padding: '0.85rem 1rem', maxWidth: 420, width: 'fit-content', minWidth: 280 }}>
+  const conteudo = (
+    <>
       {analise === undefined ? (
         <p className="text-[0.82rem] text-text-muted" style={{ margin: 0 }}>
           <Bot size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Carregando análise de IA...
@@ -64,7 +74,7 @@ export function AnaliseIACard({ clienteId }: AnaliseIACardProps) {
               <Bot size={14} className="text-text-muted shrink-0" />
               <Badge variant={RISCO_VARIANT[analise.nivelRisco]}>{RISCO_LABEL[analise.nivelRisco]}</Badge>
             </div>
-            {temDetalhe && (
+            {temDetalhe && !popover && (
               <Button variant="secondary" size="icon" onClick={() => setExpandido((e) => !e)} title={expandido ? 'Ver menos' : 'Ver mais'} style={{ flexShrink: 0 }}>
                 {expandido ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </Button>
@@ -88,6 +98,14 @@ export function AnaliseIACard({ clienteId }: AnaliseIACardProps) {
           )}
         </div>
       )}
+    </>
+  );
+
+  if (popover) return <div style={{ minWidth: 260, maxWidth: 340 }}>{conteudo}</div>;
+
+  return (
+    <Card flat style={{ marginBottom: 24, padding: '0.85rem 1rem', maxWidth: 420, width: 'fit-content', minWidth: 280 }}>
+      {conteudo}
     </Card>
   );
 }
