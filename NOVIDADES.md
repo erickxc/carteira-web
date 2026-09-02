@@ -8,6 +8,24 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.14
+
+- **Correção: monitorIA (Claude) parado de novo** — inclusive "Gerar ata com
+  IA" e a análise automática de risco. Uma reinstalação recente do Claude
+  Code deixava o sistema tentando rodar o arquivo errado nos bastidores.
+  Corrigido.
+- **Dashboard da Carteira reformulado**: agora mostra saúde da carteira por
+  status, quantos serviços cada cliente contratou (cross-sell), concentração
+  por monitor, distribuição por segmento, crescimento acumulado de clientes
+  e o mapa de abrangência (que mudou de lugar, veio da Visão Geral).
+- **Visão Geral**: o mapa de abrangência deu lugar a um ranking dos 10
+  clientes com mais atendimentos (reunião ou relatório) no ano.
+- **Tabela de Clientes**: os indicadores de Serviço e Situação ficaram mais
+  legíveis (ponto colorido + texto, sem fundo colorido atrás).
+- **Ficha do cliente**: as tarefas do Ágil ainda pendentes aparecem ao lado
+  da Análise de IA, e ganhou um botão "Vamos falar sobre isso?" que já abre
+  o monitorIA perguntando sobre aquele cliente.
+
 ## 1.4.13
 
 - **Correção urgente: o sistema caía ao abrir Configurações → Sistema.**
