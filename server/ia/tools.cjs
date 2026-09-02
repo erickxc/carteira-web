@@ -50,7 +50,16 @@ function resolverOpcao(repo, tipo, valor, campo) {
   throw new Error(`${campo}: "${valor}" não existe. Valores válidos: ${opcoes.join(', ')}.`);
 }
 
-const resolverLista = (repo, tipo, valores, campo) => (valores ?? []).map((v) => resolverOpcao(repo, tipo, v, campo));
+/**
+ * Resolve cada valor contra o cadastro E remove repetição DEPOIS de resolver —
+ * é aí que o duplicado nasce: `["Erick", "Erick Cardoso"]` resolve os dois pro
+ * mesmo monitor e gravava "Erick Cardoso, Erick Cardoso" na reunião (visto num
+ * evento real). Deduplicar antes não pegaria, porque os textos de entrada são
+ * diferentes; o que tem de ser único é o valor final do cadastro.
+ */
+const resolverLista = (repo, tipo, valores, campo) => [
+  ...new Set((valores ?? []).map((v) => resolverOpcao(repo, tipo, v, campo))),
+];
 
 /** Mesma conversão de `server/routes/cadencias.cjs` (chave/valor -> objeto). */
 function lerCadencias(repo) {

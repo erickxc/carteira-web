@@ -75,6 +75,22 @@ describe('criar_evento: resolve antes de gravar', () => {
     expect(criado.type).toBe('Reunião');
   });
 
+  /**
+   * Bug real: o agente criou uma reunião com `["Erick", "Erick Cardoso"]` — os
+   * dois resolvem pro MESMO monitor, e a reunião ficava com ele duplicado
+   * ("Monitores: Erick Cardoso, Erick Cardoso" na ata). Deduplicar tem de ser
+   * DEPOIS de resolver: os textos de entrada são diferentes, o valor final não.
+   */
+  it('não duplica o monitor quando dois textos resolvem pro mesmo cadastro', () => {
+    const repo = repoComCliente();
+    const criado = F('criar_evento').executar(repo, {
+      clientId: 'c1', type: 'Reunião', date: '2026-09-10',
+      monitores: ['Erick', 'Erick Cardoso'], servicos: ['monitoria', 'Monitoria'],
+    });
+    expect(criado.monitores).toEqual(['Erick Cardoso']);
+    expect(criado.servicos).toEqual(['Monitoria']);
+  });
+
   it('falha ANTES de gravar quando o monitor não existe — não cria evento com dado ruim', () => {
     const repo = repoComCliente();
     expect(() => F('criar_evento').executar(repo, {
