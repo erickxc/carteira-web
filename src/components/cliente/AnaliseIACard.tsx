@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Bot } from 'lucide-react';
+import { Bot, ChevronDown, ChevronUp } from 'lucide-react';
 import { buscarAnaliseIA } from '../../api/client';
 import { toastError } from '../../utils/toast';
-import { Badge, Card } from '../../ui';
+import { Badge, Button, Card } from '../../ui';
 import type { BadgeVariant } from '../../ui';
 import type { AnaliseIA } from '../../types';
 
@@ -21,11 +21,18 @@ interface AnaliseIACardProps {
  * puramente o resultado da análise automática deste cliente. Busca sob
  * demanda (não entra no estado global do CarteiraContext): puxar isso pra
  * todos os clientes no boot do app custaria caro sem necessidade.
+ *
+ * Compacto de propósito (pedido do usuário): risco + resumo cabem numa
+ * linha/duas, sempre visíveis, logo abaixo do cabeçalho da ficha — é
+ * provavelmente a informação mais útil antes de ligar pro cliente, e antes
+ * ficava sozinha no rodapé da página, exigindo rolar a tela inteira.
+ * Fatores/sugestão de pauta (o conteúdo mais longo) ficam atrás de "Ver mais".
  */
 export function AnaliseIACard({ clienteId }: AnaliseIACardProps) {
   // `undefined` até a busca deste `clienteId` terminar — evita um segundo
   // estado boolean de loading só pra isso.
   const [analise, setAnalise] = useState<AnaliseIA | null | undefined>(undefined);
+  const [expandido, setExpandido] = useState(false);
 
   useEffect(() => {
     let cancelado = false;
@@ -35,29 +42,46 @@ export function AnaliseIACard({ clienteId }: AnaliseIACardProps) {
     return () => { cancelado = true; };
   }, [clienteId]);
 
-  return (
-    <Card flat style={{ marginBottom: 24 }}>
-      <div className="section-header">
-        <h3><Bot size={16} style={{ marginRight: 6, verticalAlign: -3 }} /> Análise de IA</h3>
-      </div>
+  const temDetalhe = Boolean(analise && (analise.fatores.length > 0 || analise.sugestaoProximaPauta));
 
+  return (
+    <Card flat style={{ marginBottom: 24, padding: '0.85rem 1rem' }}>
       {analise === undefined ? (
-        <p className="text-[0.82rem] text-text-muted">Carregando análise...</p>
+        <p className="text-[0.82rem] text-text-muted" style={{ margin: 0 }}>
+          <Bot size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Carregando análise de IA...
+        </p>
       ) : !analise ? (
-        <p className="text-[0.82rem] text-text-muted">Este cliente ainda não foi analisado — a análise roda automaticamente após a próxima reunião concluída, cancelada ou reagendada.</p>
+        <p className="text-[0.82rem] text-text-muted" style={{ margin: 0 }}>
+          <Bot size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Ainda não analisado — a análise roda automaticamente após a próxima reunião concluída, cancelada ou reagendada.
+        </p>
       ) : (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <Badge variant={RISCO_VARIANT[analise.nivelRisco]}>{RISCO_LABEL[analise.nivelRisco]}</Badge>
+        <div>
+          <div className="flex-between" style={{ gap: 10, flexWrap: 'wrap' }}>
+            <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
+              <Bot size={14} className="text-text-muted shrink-0" />
+              <Badge variant={RISCO_VARIANT[analise.nivelRisco]}>{RISCO_LABEL[analise.nivelRisco]}</Badge>
+              <p className="text-[0.85rem] text-text-primary" style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandido ? 'normal' : 'nowrap' }}>
+                {analise.resumo}
+              </p>
+            </div>
+            {temDetalhe && (
+              <Button variant="secondary" size="icon" onClick={() => setExpandido((e) => !e)} title={expandido ? 'Ver menos' : 'Ver mais'} style={{ flexShrink: 0 }}>
+                {expandido ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </Button>
+            )}
           </div>
-          <p className="text-[0.85rem] text-text-primary">{analise.resumo}</p>
-          {analise.fatores.length > 0 && (
-            <ul className="text-[0.82rem] text-text-secondary" style={{ paddingLeft: 18, margin: 0 }}>
-              {analise.fatores.map((f, i) => <li key={i}>{f}</li>)}
-            </ul>
-          )}
-          {analise.sugestaoProximaPauta && (
-            <p className="text-[0.82rem] text-text-secondary"><strong>Sugestão de pauta:</strong> {analise.sugestaoProximaPauta}</p>
+
+          {expandido && (
+            <div className="flex flex-col gap-2" style={{ marginTop: 10 }}>
+              {analise.fatores.length > 0 && (
+                <ul className="text-[0.82rem] text-text-secondary" style={{ paddingLeft: 18, margin: 0 }}>
+                  {analise.fatores.map((f, i) => <li key={i}>{f}</li>)}
+                </ul>
+              )}
+              {analise.sugestaoProximaPauta && (
+                <p className="text-[0.82rem] text-text-secondary" style={{ margin: 0 }}><strong>Sugestão de pauta:</strong> {analise.sugestaoProximaPauta}</p>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -221,7 +221,29 @@ export default function ClienteDetailPage() {
               </div>
               <Badge variant={clienteStatusBadge(cliente.status)}>{cliente.status || '—'}</Badge>
               {cliente.monitor && <Badge variant="muted">Monitor: {cliente.monitor}</Badge>}
-              {cliente.servicos.map((s) => <Badge key={s} variant="accent">{s}</Badge>)}
+              {/* Suspenso em vez de um badge por serviço — com os serviços novos
+                  (Controladoria, OptiMarco, Raptor...) um cliente com vários
+                  contratados enchia o cabeçalho de badges soltos. */}
+              {servicoOpcoes.length > 0 && (
+                <div style={{ minWidth: 140 }}>
+                  <Dropdown
+                    label="Serviços"
+                    multiple
+                    options={servicoOpcoes.map((s) => ({ value: s, label: s }))}
+                    value={cliente.servicos}
+                    onChange={(v) => {
+                      const novos = v as string[];
+                      atualizarCliente(cliente.id, {
+                        servicos: novos,
+                        // Desmarcar aqui também limpa a independência (mesma
+                        // regra do ClientFormModal) — não faz sentido "Precificação
+                        // independente" sobrar depois de remover Precificação.
+                        servicosIndependentes: (cliente.servicosIndependentes ?? []).filter((s) => novos.includes(s)),
+                      });
+                    }}
+                  />
+                </div>
+              )}
               {cliente.grupo && (
                 <Badge variant="warning">Grupo: {cliente.grupo}</Badge>
               )}
@@ -239,6 +261,8 @@ export default function ClienteDetailPage() {
           </div>
         </div>
       </Card>
+
+      <AnaliseIACard clienteId={cliente.id} />
 
       <div className="flex-row" style={{ marginBottom: 24 }}>
         <Button variant="primary" onClick={() => setEventModalOpen(true)}>
@@ -317,8 +341,6 @@ export default function ClienteDetailPage() {
           onEditarEvento={setEventoEditando}
         />
       </div>
-
-      <AnaliseIACard clienteId={cliente.id} />
 
       {editModalOpen && <ClientFormModal initial={cliente} onClose={() => setEditModalOpen(false)} />}
       {eventoEditando && <EventFormModal initial={eventoEditando} onClose={() => setEventoEditando(null)} />}

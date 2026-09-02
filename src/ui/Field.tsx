@@ -4,9 +4,13 @@ import clsx from 'clsx';
 
 /**
  * Campo de formulário (label + controle) — equivale à antiga `.field` do
- * index.css. É `group` para que o hover no label também destaque o controle
- * filho (antes: regra `.field:hover > .field-input`): o label fica dourado/
- * negrito e o input ganha borda + brilho.
+ * index.css.
+ *
+ * O label NÃO fica dourado/negrito ao passar o mouse (tirado por pedido do
+ * usuário — "separe as cores", ficava feio, principalmente em campos que já
+ * mostram um valor/nome, tipo o seletor de Cliente). O controle filho
+ * (input/select/textarea) já tem o próprio destaque de hover/foco em
+ * `control` abaixo — o label não precisa duplicar isso.
  */
 export function Field({
   label,
@@ -28,7 +32,7 @@ export function Field({
   return (
     <Tag
       className={clsx(
-        'group flex flex-col gap-[0.35rem] mb-4 text-[0.8rem] font-medium text-text-secondary transition-colors duration-150 hover:text-accent hover:font-bold',
+        'group flex flex-col gap-[0.35rem] mb-4 text-[0.8rem] font-medium text-text-secondary',
         className
       )}
     >
