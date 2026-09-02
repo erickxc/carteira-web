@@ -33,8 +33,56 @@ describe('gerarAta: sem seções de IA (comportamento original preservado)', () 
 describe('gerarAta: com seções de IA', () => {
   it('substitui "o que foi tratado" pelo texto da IA', () => {
     const texto = gerarAta(evBase, {}, { oQueFoiTratado: 'Texto gerado pela IA a partir da transcrição.' });
-    expect(texto).toContain('Texto gerado pela IA a partir da transcrição.');
-    expect(texto).not.toContain('Conversamos sobre o estoque parado de amortecedores.');
+    const secao2 = texto.split('2. O QUE FOI TRATADO')[1].split('3. DECISÕES')[0];
+    expect(secao2).toContain('Texto gerado pela IA a partir da transcrição.');
+    // O resumo do monitor não entra mais aqui — ele virou o mini resumo da
+    // seção 1 (antes "1. PAUTA"), então só não pode aparecer NESTA seção.
+    expect(secao2).not.toContain('Conversamos sobre o estoque parado de amortecedores.');
+  });
+
+  it('seção 1 é um mini resumo (o do monitor), não a pauta', () => {
+    const texto = gerarAta(evBase, {}, { oQueFoiTratado: 'Narrativa da IA.' });
+    expect(texto).toContain('1. RESUMO');
+    expect(texto).not.toContain('1. PAUTA');
+    expect(texto).not.toContain('(sem pauta registrada)');
+    const secao1 = texto.split('1. RESUMO')[1].split('2. O QUE FOI TRATADO')[0];
+    expect(secao1).toContain('Conversamos sobre o estoque parado de amortecedores.');
+  });
+
+  it('sem resumo do monitor, o mini resumo usa a primeira linha da IA', () => {
+    const texto = gerarAta({ ...evBase, resumo: '' }, {}, { oQueFoiTratado: 'Primeira linha.\nSegunda linha.' });
+    const secao1 = texto.split('1. RESUMO')[1].split('2. O QUE FOI TRATADO')[0];
+    expect(secao1).toContain('Primeira linha.');
+    expect(secao1).not.toContain('Segunda linha.');
+  });
+
+  it('tarefa interna nos próximos passos leva o nome do monitor, não "[2D]"', () => {
+    const texto = gerarAta(
+      { ...evBase, monitores: ['Erick Cardoso'] },
+      {},
+      { proximosPassos: '[Negócios 2D] confirmar acesso ao Pregão' }
+    );
+    const secao4 = texto.split('4. PRÓXIMOS PASSOS')[1];
+    // Tanto o pendente do checklist quanto a linha que a IA marcou como "2D"
+    // passam a sair no nome do monitor.
+    expect(secao4).toContain('[Erick Cardoso]      Falar sobre tabela de preços');
+    expect(secao4).toContain('[Erick Cardoso] confirmar acesso ao Pregão');
+    expect(secao4).not.toContain('[2D]');
+    expect(secao4).not.toContain('[Negócios 2D]');
+  });
+
+  it('responsável de outra pessoa que a IA identificou é preservado', () => {
+    const texto = gerarAta(
+      { ...evBase, monitores: ['Erick Cardoso'] },
+      {},
+      { proximosPassos: '[Ivaldo Ítalo] subir alterações de preço' }
+    );
+    expect(texto).toContain('[Ivaldo Ítalo] subir alterações de preço');
+  });
+
+  it('sem monitor no evento, tarefa interna cai em "[2D]"', () => {
+    const texto = gerarAta(evBase, {}, { proximosPassos: '[2D] confirmar acesso ao Pregão' });
+    expect(texto.split('4. PRÓXIMOS PASSOS')[1]).toContain('[2D]');
   });
 
   it('usa as decisões da IA em vez da heurística por regex', () => {

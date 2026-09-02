@@ -68,17 +68,20 @@ function gerarAta(ev, ctx = {}, ia) {
     participantes.forEach((p) => L.push(`  ${TRACO} ${p}`));
   }
 
+  // Espelha `src/utils/ata.ts`: a seção 1 é um RESUMO curto, não a pauta
+  // (item de pauta é preparação; o que não foi cumprido reaparece na seção 4).
   const checklist = ev.checklist ?? [];
-  L.push('', '1. PAUTA');
-  if (checklist.length === 0) {
-    L.push('   (sem pauta registrada)');
-  } else {
-    checklist.forEach((i) => L.push(`   [${i.done ? 'x' : ' '}] ${i.text}${i.done ? '' : '   (não tratado)'}`));
-  }
+  const resumoMonitor = (ev.resumo && ev.resumo.trim()) || '';
+  const primeiraLinhaIA = (ia && ia.oQueFoiTratado && ia.oQueFoiTratado.trim().split('\n')[0].trim()) || '';
+  const miniResumo = resumoMonitor || primeiraLinhaIA;
+  L.push('', '1. RESUMO');
+  if (miniResumo) miniResumo.split('\n').forEach((l) => L.push(`   ${l.trim()}`));
+  else L.push('   (a preencher)');
 
   L.push('', '2. O QUE FOI TRATADO');
-  const relato = (ev.resumo && ev.resumo.trim()) || (ev.description && ev.description.trim()) || '';
-  const relatoFinal = (ia && ia.oQueFoiTratado && ia.oQueFoiTratado.trim()) || relato;
+  const relato = resumoMonitor || (ev.description && ev.description.trim()) || '';
+  const relatoFinal = (ia && ia.oQueFoiTratado && ia.oQueFoiTratado.trim())
+    || (resumoMonitor ? ((ev.description && ev.description.trim()) || '') : relato);
   if (relatoFinal) relatoFinal.split('\n').forEach((l) => L.push(`   ${l.trim()}`));
   else L.push('   (a preencher)');
 
@@ -106,10 +109,18 @@ function gerarAta(ev, ctx = {}, ia) {
   const extrasIA = (ia && ia.proximosPassos && ia.proximosPassos.trim())
     ? ia.proximosPassos.trim().split('\n').map((l) => l.trim()).filter(Boolean)
     : [];
+  // Tarefa do lado da 2D leva o NOME DO MONITOR, não "[2D]"/"[Negócios 2D]" —
+  // espelha `src/utils/ata.ts`.
+  const responsavelInterno = monitores[0] || '2D';
   L.push('', '4. PRÓXIMOS PASSOS');
   if (pendentes.length + extrasIA.length > 0) {
-    pendentes.forEach((p) => L.push(`   [2D]      ${p}`));
-    extrasIA.forEach((p) => L.push(`   ${/^\[.+?\]/.test(p) ? p : `[2D]      ${p}`}`));
+    pendentes.forEach((p) => L.push(`   [${responsavelInterno}]      ${p}`));
+    extrasIA.forEach((p) => {
+      const comResponsavel = /^\[.+?\]/.test(p)
+        ? p.replace(/^\[\s*(neg[óo]cios\s+)?2d\s*\]/i, `[${responsavelInterno}]`)
+        : `[${responsavelInterno}]      ${p}`;
+      L.push(`   ${comResponsavel}`);
+    });
   } else {
     L.push('   (a preencher)');
   }

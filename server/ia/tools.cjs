@@ -441,6 +441,9 @@ async function redigirAtaReuniao(repo, { eventId, instrucaoPersonalizada, salvar
   const secoes = await gerarAtaIA({
     subject: ev.subject, resumo: ev.resumo, description: ev.description,
     checklist: ev.checklist, produtosSituacao: ev.produtosSituacao, transcricao: transcricaoComInstrucao,
+    // Nome do monitor vai pro prompt: é o responsável das tarefas internas em
+    // "próximos passos" (a IA escrevia "[2D]"/"[Negócios 2D]" sem isso).
+    monitores: ev.monitores,
     produtosCatalogo, clientesCatalogo, repo,
   });
 

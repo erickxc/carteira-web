@@ -46,8 +46,12 @@ function textoCatalogo(produtos = [], clientes = []) {
 NOMES CADASTRADOS NO ARQUIVO DE VENDAS DESTE CLIENTE (use-os para corrigir grafia da transcrição):${lista('Produtos', produtos)}${lista('Clientes finais', clientes)}`;
 }
 
-function montarPromptAta({ subject, resumo, description, checklist, produtosSituacao, transcricao, produtosCatalogo = [], clientesCatalogo = [] } = {}) {
+function montarPromptAta({ subject, resumo, description, checklist, produtosSituacao, transcricao, produtosCatalogo = [], clientesCatalogo = [], monitores = [] } = {}) {
   const relato = resumo?.trim() || description?.trim() || '(nenhum resumo escrito pelo monitor)';
+  // Nome de quem responde pelo lado da 2D. O modelo escrevia "[2D]" /
+  // "[Negócios 2D]" nas tarefas internas, e o usuário quer o NOME da pessoa —
+  // "2D" é a própria casa, não identifica responsável.
+  const responsavelInterno = (Array.isArray(monitores) ? monitores.filter(Boolean) : []).join(', ') || '2D';
   const transcricaoTrim = transcricao?.trim();
   const temRegistros = Array.isArray(produtosSituacao) && produtosSituacao.length > 0;
 
@@ -84,7 +88,7 @@ Responda em JSON com exatamente estes campos:
 Regras:
 - Não invente fato que não está nas fontes acima.
 - "proximosPassos" não deve repetir itens já listados na PAUTA — só compromissos novos que apareceram na conversa/resumo.
-- Em "proximosPassos", comece CADA linha com o responsável entre colchetes, exatamente como a fonte indica: "[Luiz Guilherme] acompanhar ...", "[Daniel] verificar ...", "[2D] enviar ...". Use "[2D]" só quando a tarefa é da 2D/do monitor. Sem responsável identificável na fonte, escreva "[a definir]" — nunca atribua à 2D por padrão.
+- Em "proximosPassos", comece CADA linha com o responsável entre colchetes, exatamente como a fonte indica: "[Luiz Guilherme] acompanhar ...", "[Daniel] verificar ...". Quando a tarefa é do lado da 2D (do monitor da reunião), escreva o NOME DO MONITOR: "[${responsavelInterno}] enviar ...". NUNCA escreva "[2D]", "[Negócios 2D]", "[Monitoria]" ou qualquer nome de área — sempre o nome de uma pessoa. Sem responsável identificável na fonte, escreva "[a definir]" — nunca atribua ao monitor por padrão.
 - Transcrição automática erra nome de produto e de empresa. Quando um termo da transcrição for claramente uma variação de um NOME CADASTRADO acima, use o nome cadastrado (ex.: ouviu "queijo de embreagem" e o cadastro tem "Kit Embreagem" → escreva "Kit Embreagem"). Não force: se não houver correspondência plausível, mantenha o termo como veio.
 - Cada linha é uma frase direta — nada de parágrafo longo dentro de uma linha.`;
 }
@@ -100,8 +104,8 @@ function normalizarSecao(valor) {
  * resultado estruturado (mesmo padrão de `analiseCliente.gerarAnaliseIA`,
  * testável sem provedor de IA de verdade).
  */
-async function gerarAtaIA({ subject, resumo, description, checklist, produtosSituacao, transcricao, produtosCatalogo, clientesCatalogo, llm = clienteLLM(), repo } = {}) {
-  const prompt = montarPromptAta({ subject, resumo, description, checklist, produtosSituacao, transcricao, produtosCatalogo, clientesCatalogo });
+async function gerarAtaIA({ subject, resumo, description, checklist, produtosSituacao, transcricao, produtosCatalogo, clientesCatalogo, monitores, llm = clienteLLM(), repo } = {}) {
+  const prompt = montarPromptAta({ subject, resumo, description, checklist, produtosSituacao, transcricao, produtosCatalogo, clientesCatalogo, monitores });
   // Medição: sem isto a geração de ata gastava tokens (pagos, no provedor
   // Claude) sem aparecer no painel de consumo — só o chat era medido.
   const uso = {};

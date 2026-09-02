@@ -167,10 +167,21 @@ describe('geracaoAta: montarPromptAta', () => {
     expect(prompt).not.toContain('NOMES CADASTRADOS');
   });
 
-  it('instrui a atribuir o responsável real em cada próximo passo, nunca "2D" por padrão', () => {
+  it('instrui a atribuir o responsável real em cada próximo passo, nunca por padrão', () => {
     const prompt = montarPromptAta({ subject: 'Reunião mensal' });
     expect(prompt).toMatch(/\[Luiz Guilherme\]/);
-    expect(prompt).toMatch(/nunca atribua à 2D por padrão/i);
+    expect(prompt).toMatch(/nunca atribua ao monitor por padrão/i);
+  });
+
+  it('tarefa interna leva o NOME do monitor, não "[2D]"', () => {
+    const prompt = montarPromptAta({ subject: 'Reunião mensal', monitores: ['Erick Cardoso'] });
+    expect(prompt).toContain('[Erick Cardoso]');
+    expect(prompt).toMatch(/NUNCA escreva "\[2D\]"/);
+  });
+
+  it('sem monitor no evento, cai em "2D" em vez de ficar sem responsável', () => {
+    const prompt = montarPromptAta({ subject: 'Reunião mensal', monitores: [] });
+    expect(prompt).toContain('[2D] enviar');
   });
 
   it('instrui a quebrar "o que foi tratado" em uma linha por tópico, não parágrafo único', () => {

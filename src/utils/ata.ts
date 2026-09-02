@@ -94,21 +94,27 @@ export function gerarAta(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}, ia?: 
     participantes.forEach((p) => L.push(`  ${TRACO} ${p}`));
   }
 
-  // --- 1. Pauta (checklist) ---
+  // --- 1. Resumo (mini) ---
+  // Era "1. PAUTA" (o checklist), que na prática saía "(sem pauta registrada)"
+  // quase sempre — item de pauta é preparação, não registro, e o que não foi
+  // cumprido já reaparece em "4. PRÓXIMOS PASSOS". No lugar entra um resumo
+  // curto: o que o monitor escreveu, ou a primeira linha do que a IA redigiu.
   const checklist = ev.checklist ?? [];
-  L.push('', '1. PAUTA');
-  if (checklist.length === 0) {
-    L.push('   (sem pauta registrada)');
-  } else {
-    checklist.forEach((i) => L.push(`   [${i.done ? 'x' : ' '}] ${i.text}${i.done ? '' : '   (não tratado)'}`));
-  }
+  const resumoMonitor = ev.resumo?.trim() ?? '';
+  const primeiraLinhaIA = ia?.oQueFoiTratado?.trim().split('\n')[0]?.trim() ?? '';
+  const miniResumo = resumoMonitor || primeiraLinhaIA;
+  L.push('', '1. RESUMO');
+  if (miniResumo) miniResumo.split('\n').forEach((l) => L.push(`   ${l.trim()}`));
+  else L.push('   (a preencher)');
 
   // --- 2. O que foi tratado ---
   // IA (transcrição/resumo) tem prioridade sobre o resumo cru quando informada
-  // pelo botão "Gerar ata com IA" — senão cai na heurística de sempre.
+  // pelo botão "Gerar ata com IA" — senão cai na heurística de sempre. Quando
+  // o resumo do monitor já virou o mini resumo da seção 1, aqui fica só a
+  // descrição (senão o mesmo texto apareceria duas vezes seguidas).
   L.push('', '2. O QUE FOI TRATADO');
-  const relato = ev.resumo?.trim() || ev.description?.trim() || '';
-  const relatoFinal = ia?.oQueFoiTratado?.trim() || relato;
+  const relato = resumoMonitor || ev.description?.trim() || '';
+  const relatoFinal = ia?.oQueFoiTratado?.trim() || (resumoMonitor ? (ev.description?.trim() ?? '') : relato);
   if (relatoFinal) relatoFinal.split('\n').forEach((l) => L.push(`   ${l.trim()}`));
   else L.push('   (a preencher)');
 
@@ -153,12 +159,23 @@ export function gerarAta(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}, ia?: 
   const extrasIA = ia?.proximosPassos?.trim()
     ? ia.proximosPassos.trim().split('\n').map((l) => l.trim()).filter(Boolean)
     : [];
+  // Tarefa do lado da 2D leva o NOME DO MONITOR, não "[2D]"/"[Negócios 2D]"
+  // (pedido do usuário): "2D" é a própria casa — quem responde pela tarefa é a
+  // pessoa. Sem monitor no evento, cai em "2D" só pra não ficar sem responsável.
+  const responsavelInterno = monitores[0] ?? '2D';
   L.push('', '4. PRÓXIMOS PASSOS');
   if (pendentes.length + extrasIA.length > 0) {
-    pendentes.forEach((p) => L.push(`   [2D]      ${p}`));
-    // Só prefixa "[2D]" se a IA não mandou responsável — evita duplicar
-    // colchete quando a linha já vem como "[Luiz Guilherme] acompanhar...".
-    extrasIA.forEach((p) => L.push(`   ${/^\[.+?\]/.test(p) ? p : `[2D]      ${p}`}`));
+    pendentes.forEach((p) => L.push(`   [${responsavelInterno}]      ${p}`));
+    // Só prefixa o responsável se a IA não mandou um — evita duplicar colchete
+    // quando a linha já vem como "[Luiz Guilherme] acompanhar...". Quando a IA
+    // devolve "[2D]"/"[Negócios 2D]" (o modelo insiste, mesmo instruído), troca
+    // pelo nome do monitor na hora de escrever a ata.
+    extrasIA.forEach((p) => {
+      const comResponsavel = /^\[.+?\]/.test(p)
+        ? p.replace(/^\[\s*(neg[óo]cios\s+)?2d\s*\]/i, `[${responsavelInterno}]`)
+        : `[${responsavelInterno}]      ${p}`;
+      L.push(`   ${comResponsavel}`);
+    });
   } else {
     L.push('   (a preencher)');
   }

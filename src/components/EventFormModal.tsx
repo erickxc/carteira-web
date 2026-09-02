@@ -209,6 +209,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         clientId, subject, resumo, description, checklist: ck.checklist,
         produtosSituacao: ehMonitoriaServico ? ps.itens : [],
         transcricao,
+        // Sem isto a IA não sabe o nome de quem responde pelo lado da 2D e
+        // volta a escrever "[2D]"/"[Negócios 2D]" nos próximos passos.
+        monitores,
       });
       const novaAta = gerarAta(
         {

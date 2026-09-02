@@ -87,7 +87,7 @@ router.post('/chat', async (req, res) => {
  * de `clientId`: não lê nada do repositório, é um completion isolado.
  */
 router.post('/gerar-ata', async (req, res) => {
-  const { clientId, subject, resumo, description, checklist, produtosSituacao, transcricao } = req.body ?? {};
+  const { clientId, subject, resumo, description, checklist, produtosSituacao, transcricao, monitores } = req.body ?? {};
   // Catálogo do cliente vai pro prompt pra IA corrigir grafia da transcrição
   // (caso real: "queijo de embreagem" onde o cadastro tem "Kit Embreagem").
   // Sem `aquecer`: com cache frio vem do espelho persistido, e sem catálogo o
@@ -106,7 +106,7 @@ router.post('/gerar-ata', async (req, res) => {
   try {
     const secoes = await gerarAtaIA({
       subject, resumo, description, checklist, produtosSituacao, transcricao,
-      produtosCatalogo, clientesCatalogo, repo,
+      produtosCatalogo, clientesCatalogo, monitores, repo,
     });
     res.json(secoes);
   } catch (err) {

@@ -446,6 +446,9 @@ export const gerarAtaComIA = (payload: {
   checklist?: ChecklistItem[];
   produtosSituacao?: ProdutoSituacaoItem[];
   transcricao?: string;
+  /** Monitores do evento — a IA usa o nome deles como responsável das tarefas
+   *  internas em "próximos passos", em vez de "[2D]". */
+  monitores?: string[];
 }) => request<SecoesAtaIA>('/ia/gerar-ata', { method: 'POST', body: JSON.stringify(payload) });
 
 
