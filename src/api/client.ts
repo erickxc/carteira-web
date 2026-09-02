@@ -55,6 +55,16 @@ export interface StatusAtualizacao {
   novidades: string[];
   /** O que mudou na versão INSTALADA (arquivo local) — é o que sobra pra ver depois de atualizar. */
   novidadesInstalada: string[];
+  /** Estado da atualização automática (server/autoAtualizacao.cjs). Ausente
+   *  em versões antigas do backend. */
+  auto?: {
+    ligada: boolean;
+    versaoPendente: string | null;
+    aguardandoOcioso: boolean;
+    ociosoSegundos: number;
+    ociosoNecessarioSegundos: number;
+    requisicoesEmVoo: number;
+  };
 }
 
 export const verificarStatusAtualizacao = () => request<StatusAtualizacao>('/atualizacao/status');

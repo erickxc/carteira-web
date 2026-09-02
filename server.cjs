@@ -9,6 +9,7 @@ const { APP_MODE, isServer, isClient } = require('./server/modo.cjs');
 const { initDbSqlite } = require('./server/dbSqlite.cjs');
 const { backupDiario } = require('./server/backup.cjs');
 const { rodarBackupSqlite } = require('./server/backupSqlite.cjs');
+const { middlewareAtividade, iniciarAutoAtualizacao } = require('./server/autoAtualizacao.cjs');
 const { registerUploads } = require('./server/routes/uploads.cjs');
 const { gerarRelatoriosPendentes } = require('./server/relatoriosAutomaticos.cjs');
 const { materializarTudo } = require('./server/agendaSeries.cjs');
@@ -44,6 +45,10 @@ app.use(cors({
   }
 }));
 app.use(express.json());
+
+// Rastreia atividade da API pra auto-atualização (`server/autoAtualizacao.cjs`)
+// só reiniciar quando ninguém estiver usando. Precisa vir ANTES das rotas.
+app.use(middlewareAtividade);
 
 app.get('/api/status/base', (_req, res) => {
   // Em modo cliente (Etapa 2+) nunca existe um SQLITE_FILE local de verdade
@@ -188,6 +193,10 @@ if (fs.existsSync(DIST_DIR)) {
 app.listen(PORT, HOST, () => {
   console.log(`Server running on http://${HOST}:${PORT} (acesso pela intranet)`);
   console.log(`Dados salvos em: ${DATA_DIR}`);
+  // Procura versão nova sozinho e reinicia pra instalar quando ninguém
+  // estiver usando — o botão "Atualizar agora" continua existindo pra quem
+  // não quiser esperar a ociosidade. Só age quando o app subiu pelo `.exe`.
+  iniciarAutoAtualizacao();
 });
 
 // Cadência de relatório por cliente: mantém sempre 1 relatório futuro pendente

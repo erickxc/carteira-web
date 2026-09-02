@@ -483,7 +483,13 @@ function AtualizacaoCard() {
       <p className="text-text-secondary" style={{ fontSize: '0.85rem', margin: '0 0 12px' }}>
         {!status && 'Consultando...'}
         {status && !temNova && 'O sistema já está na versão mais recente.'}
-        {temNova && status?.podeAplicar && 'Ao atualizar, o sistema fecha e abre sozinho — leva poucos segundos.'}
+        {temNova && status?.podeAplicar && (
+          status.auto?.ligada
+            // Com a auto-atualização ligada, o botão deixa de ser a única
+            // saída: ele serve pra não esperar a ociosidade.
+            ? `A atualização é aplicada sozinha quando ninguém estiver usando o sistema (${Math.round((status.auto.ociosoNecessarioSegundos ?? 600) / 60)} min sem uso) — normalmente à noite. Use o botão se quiser atualizar agora.`
+            : 'Ao atualizar, o sistema fecha e abre sozinho — leva poucos segundos.'
+        )}
         {temNova && !status?.podeAplicar && (
           <>
             Esta tela foi aberta pela rede (ou em desenvolvimento), então a atualização não pode ser aplicada daqui.

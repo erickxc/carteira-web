@@ -20,6 +20,7 @@ const path = require('path');
 const express = require('express');
 const { novidadesDaVersao } = require('../novidades.cjs');
 const { BACKUP_ONEDRIVE_DIR } = require('../config.cjs');
+const { statusAuto } = require('../autoAtualizacao.cjs');
 
 const RELEASES_DIR = path.join(BACKUP_ONEDRIVE_DIR, 'releases');
 
@@ -108,6 +109,11 @@ router.get('/status', (req, res) => {
     // "disponível".
     novidades: release?.novidades ?? [],
     novidadesInstalada: novidadesDaVersao(instalada),
+    // Estado da atualização AUTOMÁTICA (ver server/autoAtualizacao.cjs) — a
+    // tela usa isso pra dizer que a versão nova já está a caminho e que o
+    // reinício acontece sozinho quando ninguém estiver usando, em vez de
+    // parecer que só existe o botão manual.
+    auto: statusAuto(),
   });
 });
 
