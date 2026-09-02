@@ -8,6 +8,7 @@ import {
   verificarIniciarComWindows, definirIniciarComWindows, type StatusIniciarComWindows,
 } from '../api/client';
 import { Badge, Button, Card, Field, Input, Select, Textarea } from '../ui';
+import { corDoServico } from '../utils/corServico';
 import ProvedorIACard from '../components/config/ProvedorIACard';
 import LimiteContaCard from '../components/config/LimiteContaCard';
 import McpClaudeCard from '../components/config/McpClaudeCard';
@@ -237,6 +238,12 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
     });
   }
 
+  /** Cor de referência do serviço (badges da tabela de Clientes) — mesmo
+   *  padrão inline do tipo de link, salva na hora ao escolher no seletor. */
+  async function definirCorInline(cat: Categoria, cor: string) {
+    await atualizarCategoria(cat.id, cat.valor, { cor: cor || null });
+  }
+
   async function excluir(id: string, valor: string) {
     const uso = contarUso(valor);
     const impacto = uso > 0
@@ -279,7 +286,15 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div className="flex-between">
-                  <span>{cat.valor}</span>
+                  <span className="flex-row" style={{ gap: 8, alignItems: 'center' }}>
+                    {tipo === 'servico' && (
+                      <span
+                        title="Cor de referência (Serviços da tabela de Clientes)"
+                        style={{ width: 12, height: 12, borderRadius: '50%', background: corDoServico(cat.valor, cat.cor), flexShrink: 0, display: 'inline-block' }}
+                      />
+                    )}
+                    {cat.valor}
+                  </span>
                   <div className="flex-row">
                     <Button
                       variant="secondary"
@@ -301,7 +316,20 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
                     ficava escondido antes, e ninguém achava. */}
                 {tipo === 'servico' && (
                   <div className="flex-row" style={{ gap: 8, alignItems: 'center' }}>
-                    <span className="text-text-muted" style={{ fontSize: 11, textTransform: 'none', letterSpacing: 'normal', flexShrink: 0 }}>Tipo de link:</span>
+                    <span className="text-text-muted" style={{ fontSize: 11, textTransform: 'none', letterSpacing: 'normal', flexShrink: 0 }}>Cor:</span>
+                    <input
+                      type="color"
+                      value={corDoServico(cat.valor, cat.cor)}
+                      onChange={(e) => definirCorInline(cat, e.target.value)}
+                      title="Cor de referência deste serviço na tabela de Clientes"
+                      style={{ width: 28, height: 28, padding: 0, border: '1px solid var(--border-strong)', borderRadius: 6, cursor: 'pointer', background: 'none' }}
+                    />
+                    {cat.cor && (
+                      <Button variant="secondary" size="icon" onClick={() => definirCorInline(cat, '')} title="Voltar pra cor automática">
+                        <X size={12} />
+                      </Button>
+                    )}
+                    <span className="text-text-muted" style={{ fontSize: 11, textTransform: 'none', letterSpacing: 'normal', flexShrink: 0, marginLeft: 8 }}>Tipo de link:</span>
                     <Select
                       value={cat.tipoLink ?? ''}
                       onChange={(e) => definirTipoLinkInline(cat, e.target.value as '' | TipoLinkServico)}

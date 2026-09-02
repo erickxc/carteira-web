@@ -16,6 +16,7 @@ import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
 import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
 import { buscarAnalisesIA } from '../api/client';
 import { calcularPosicaoPopover } from '../utils/popoverPosicao';
+import { corDoServico, hexParaRgb } from '../utils/corServico';
 import { Dropdown } from '../components/Dropdown';
 import { Badge, Button, Card, Td, Th } from '../ui';
 import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type AnaliseIA, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
@@ -37,19 +38,34 @@ const PERIODOS = [
  * precisar clicar. Evita que um cliente com 5-6 serviços contratados alargue
  * a linha inteira da tabela.
  */
-function ServicosCell({ servicos }: { servicos: string[] }) {
+/** Badge de serviço com cor própria (configurável em Configurações →
+ *  Categorias → Serviço; sem configuração, cai num fallback estável por
+ *  nome — ver `corDoServico`). Fundo suave na cor + texto/borda na cor
+ *  sólida, mesmo espírito visual dos outros `Badge`, só que por serviço em
+ *  vez de semântico (sucesso/atenção/perigo). */
+function BadgeServico({ servico, cor }: { servico: string; cor: string }) {
+  const rgb = hexParaRgb(cor);
+  return (
+    <Badge variant="plain" style={{ background: `rgba(${rgb}, 0.16)`, color: cor, border: `1px solid rgba(${rgb}, 0.4)` }}>
+      {servico}
+    </Badge>
+  );
+}
+
+function ServicosCell({ servicos, corPorServico }: { servicos: string[]; corPorServico: Map<string, string> }) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
 
   if (servicos.length === 0) return <span className="text-text-muted">—</span>;
 
+  const cor = (s: string) => corDoServico(s, corPorServico.get(s));
   const visiveis = servicos.slice(0, 2);
   const resto = servicos.slice(2);
 
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-      {visiveis.map((s) => <Badge key={s} variant="accent">{s}</Badge>)}
+      {visiveis.map((s) => <BadgeServico key={s} servico={s} cor={cor(s)} />)}
       {resto.length > 0 && (
         <span
           ref={ref}
@@ -63,7 +79,7 @@ function ServicosCell({ servicos }: { servicos: string[] }) {
               className="filter-pop"
               style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { alturaEstimativa: 150 }), display: 'flex', flexDirection: 'column', gap: 5, padding: '8px 10px', overflowY: 'auto' }}
             >
-              {resto.map((s) => <Badge key={s} variant="accent">{s}</Badge>)}
+              {resto.map((s) => <BadgeServico key={s} servico={s} cor={cor(s)} />)}
             </div>,
             document.body
           )}
@@ -133,7 +149,7 @@ function AnaliseIACell({ clienteId, risco }: { clienteId: string; risco?: Analis
 }
 
 export default function ClientesPage() {
-  const { clientes, agenda, cadencias, removerCliente, criarClientesEmLote, opcoesPorTipo } = useCarteira();
+  const { clientes, agenda, cadencias, removerCliente, criarClientesEmLote, opcoesPorTipo, categoriasPorTipo } = useCarteira();
   const navigate = useNavigate();
   const hoje = new Date();
 
@@ -221,6 +237,13 @@ export default function ClientesPage() {
     [clientes]
   );
   const servicoOpcoes = useMemo(() => opcoesPorTipo('servico'), [opcoesPorTipo]);
+  // Cor de referência por serviço (Configurações → Categorias → Serviço) —
+  // pra colorir os badges da coluna Serviços sem cada célula precisar
+  // filtrar a lista de categorias por conta própria.
+  const corPorServico = useMemo(
+    () => new Map(categoriasPorTipo('servico').filter((c) => c.cor).map((c) => [c.valor, c.cor as string])),
+    [categoriasPorTipo]
+  );
   const statusOpcoes = useMemo(() => ['Todos', ...CLIENTE_STATUS_OPCOES], []);
 
   const filtrosAtivos =
@@ -471,7 +494,7 @@ export default function ClientesPage() {
                       </Td>
                       <Td className="text-text-muted">{cliente.monitor || '—'}</Td>
                       <Td>
-                        <ServicosCell servicos={cliente.servicos} />
+                        <ServicosCell servicos={cliente.servicos} corPorServico={corPorServico} />
                       </Td>
                       <Td style={{ textAlign: 'center' }}>
                         <AnaliseIACell clienteId={cliente.id} risco={analisesPorCliente.get(cliente.id)?.nivelRisco} />

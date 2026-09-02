@@ -279,7 +279,7 @@ export const removerLembrete = (id: string) => request<{ success: boolean }>(`/r
 export const listarCategorias = () => request<Categoria[]>('/categorias');
 export const criarCategoria = (tipo: string, valor: string, extra?: ExtraLinkServico) =>
   request<Categoria>('/categorias', { method: 'POST', body: JSON.stringify({ tipo, valor, ...extra }) });
-export const atualizarCategoria = (id: string, data: Partial<Omit<Categoria, 'tipoLink' | 'urlAplicacao'>> & ExtraLinkServico) =>
+export const atualizarCategoria = (id: string, data: Partial<Omit<Categoria, 'tipoLink' | 'urlAplicacao' | 'cor'>> & ExtraLinkServico) =>
   request<Categoria>(`/categorias/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const removerCategoria = (id: string) => request<{ success: boolean }>(`/categorias/${id}`, { method: 'DELETE' });
 

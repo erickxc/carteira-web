@@ -20,12 +20,16 @@ export const CATEGORIA_TIPO_LABEL: Record<CategoriaTipo, string> = {
  *  aparece na sidebar junto de PRISMA/Price, não no cadastro de cliente). */
 export type TipoLinkServico = 'powerbi' | 'aplicacao';
 
-/** Patch de tipoLink/urlAplicacao — `null` limpa o campo de propósito (diferente
- *  de `undefined`, que o JSON.stringify descarta e o backend nunca vê, então
- *  nunca limparia um valor já gravado ao voltar pra "Nenhum"). */
+/** Patch de tipoLink/urlAplicacao/cor — `null` limpa o campo de propósito
+ *  (diferente de `undefined`, que o JSON.stringify descarta e o backend nunca
+ *  vê, então nunca limparia um valor já gravado ao voltar pra "Nenhum"). */
 export interface ExtraLinkServico {
   tipoLink?: TipoLinkServico | null;
   urlAplicacao?: string | null;
+  /** Cor de referência do serviço (hex, ex.: "#dabb6c") — usada nos badges de
+   *  Serviços da tabela de clientes, pra distinguir visualmente cada serviço
+   *  sem precisar ler o texto. `null` volta pro fallback automático. */
+  cor?: string | null;
 }
 
 export interface Categoria {
@@ -37,6 +41,8 @@ export interface Categoria {
   tipoLink?: TipoLinkServico;
   /** URL global — só preenchida quando `tipoLink === 'aplicacao'`. */
   urlAplicacao?: string;
+  /** Só relevante pra `tipo: 'servico'` — ver `ExtraLinkServico.cor`. */
+  cor?: string;
 }
 
 // --- Cliente ---

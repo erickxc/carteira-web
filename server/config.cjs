@@ -331,7 +331,7 @@ const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', '
 // separar contato que NÓS fizemos de contato que o CLIENTE fez.
 const AGENDA_HEADERS = ['id', 'createdAt', 'clientId', 'clientName', 'type', 'subject', 'date', 'time', 'duracao', 'description', 'status', 'motivo', 'monitores', 'sala', 'origem', 'reagendamentos', 'datasAnteriores', 'servicos', 'checklist', 'preAnalise', 'ata', 'resumo', 'transcricao', 'serie', 'attachments', 'userId', 'notifiedDay', 'notes', 'produtosSituacao', 'precificacoes'];
 const LEMBRETES_HEADERS = ['id', 'createdAt', 'title', 'datetime', 'description', 'status', 'clientId', 'eventId', 'recurrence', 'type', 'userId'];
-const CATEGORIAS_HEADERS = ['id', 'tipo', 'valor', 'ordem', 'createdAt', 'tipoLink', 'urlAplicacao'];
+const CATEGORIAS_HEADERS = ['id', 'tipo', 'valor', 'ordem', 'createdAt', 'tipoLink', 'urlAplicacao', 'cor'];
 const ACOES_HEADERS = ['id', 'clientId', 'tipo', 'segmento', 'status', 'servico', 'monitor', 'notes', 'dueAt', 'createdAt', 'updatedAt'];
 const MODELOS_HEADERS = ['id', 'segmento', 'titulo', 'conteudo', 'createdAt'];
 const CADENCIAS_HEADERS = ['chave', 'valor'];
