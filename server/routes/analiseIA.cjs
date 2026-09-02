@@ -18,6 +18,18 @@ router.get('/clientes/:id/analise', (req, res) => {
 });
 
 /**
+ * Todas as análises de uma vez — usado pela tabela de clientes pra colorir o
+ * ícone "IA" por nível de risco e permitir ordenar a coluna, sem precisar
+ * passar o mouse linha por linha só pra saber o risco de cada uma. Uma
+ * chamada só no mount da tela (não por linha) — leve o suficiente mesmo
+ * numa carteira de centenas de clientes, ao contrário de repetir isso no
+ * boot do CarteiraContext (que atenderia TODA tela, não só esta).
+ */
+router.get('/analises', (_req, res) => {
+  res.json(repo.get('AnalisesIA'));
+});
+
+/**
  * Alertas conversáveis da tela do monitorIA. Recalculados a cada chamada (são
  * derivados de cliente/agenda/análise, que mudam o tempo todo) — nada é
  * gravado, então não há estado de alerta pra ficar obsoleto.

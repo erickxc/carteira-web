@@ -411,6 +411,11 @@ export async function buscarAnaliseIA(clienteId: string): Promise<AnaliseIA | nu
   return tratarResposta<AnaliseIA>(res);
 }
 
+/** Todas as análises de uma vez — usado pela tabela de clientes pra colorir
+ *  o ícone "IA" por risco e ordenar a coluna sem precisar passar o mouse
+ *  linha por linha. Uma chamada só no mount da tela. */
+export const buscarAnalisesIA = () => request<AnaliseIA[]>('/ia/analises');
+
 export interface MensagemChatIA {
   role: 'user' | 'assistant';
   content: string;

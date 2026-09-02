@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
@@ -14,11 +14,12 @@ import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
 import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
 import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
+import { buscarAnalisesIA } from '../api/client';
 import { Dropdown } from '../components/Dropdown';
 import { Badge, Button, Card, Td, Th } from '../ui';
-import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
+import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type AnaliseIA, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
 
-type SortCol = 'empresa' | 'monitor' | 'servicos' | 'analise' | 'estado' | 'status' | 'anotacoes' | 'ultimaReuniao' | 'proximo' | 'ultimoContato' | 'diasSemContato';
+type SortCol = 'empresa' | 'monitor' | 'servicos' | 'analise' | 'risco' | 'estado' | 'status' | 'anotacoes' | 'ultimaReuniao' | 'proximo' | 'ultimoContato' | 'diasSemContato';
 
 const PERIODOS = [
   { valor: 'Todos', label: 'Últ. reunião: todas' },
@@ -71,11 +72,22 @@ function ServicosCell({ servicos }: { servicos: string[] }) {
   );
 }
 
+/** Cor do círculo por nível de risco — mesma paleta semântica dos badges
+ *  (verde/amarelo/vermelho); sem análise ainda = contorno neutro, não cor
+ *  nenhuma (evita sugerir "baixo risco" pra quem simplesmente não foi
+ *  analisado ainda). */
+const COR_RISCO: Record<AnaliseIA['nivelRisco'], string> = {
+  baixo: 'var(--success)',
+  medio: 'var(--warning)',
+  alto: 'var(--danger)',
+};
+
 /**
- * Célula "IA" da tabela: passa o mouse no ícone e o dossiê (risco + resumo)
- * aparece num popover — sem precisar clicar em botão nenhum (pedido do
- * usuário). Busca sob demanda a cada hover, igual ao `AnaliseIACard` da
- * ficha do cliente (mesmo componente, só que num popover em vez de inline).
+ * Célula "IA" da tabela: o ícone já vem com um círculo colorido pelo nível
+ * de risco (verde/amarelo/vermelho) da última análise automática — dá pra
+ * escanear a carteira toda sem passar o mouse em cada linha. O dossiê
+ * completo (resumo + fatores) continua aparecendo num popover ao hover, sem
+ * precisar clicar em botão nenhum.
  *
  * Posicionamento "inteligente": abre pra CIMA quando não há espaço embaixo
  * (linha perto do fim da tabela/tela) — calculado na hora de abrir, com o
@@ -83,7 +95,7 @@ function ServicosCell({ servicos }: { servicos: string[] }) {
  * rolagem própria é a rede de segurança pro caso de um dossiê muito longo
  * (muitos fatores) mesmo assim não estourar a tela.
  */
-function AnaliseIACell({ clienteId }: { clienteId: string }) {
+function AnaliseIACell({ clienteId, risco }: { clienteId: string; risco?: AnaliseIA['nivelRisco'] }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
@@ -101,14 +113,24 @@ function AnaliseIACell({ clienteId }: { clienteId: string }) {
     setOpen(true);
   }
 
+  const cor = risco ? COR_RISCO[risco] : 'var(--border-strong)';
+
   return (
     <span
       ref={ref}
       onMouseEnter={abrir}
       onMouseLeave={() => setOpen(false)}
       style={{ display: 'inline-flex' }}
+      title={risco ? `Risco ${risco === 'medio' ? 'médio' : risco}` : 'Ainda não analisado'}
     >
-      <Bot size={16} className="text-text-muted" />
+      <span
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 24, height: 24, borderRadius: '50%', border: `1.5px solid ${cor}`,
+        }}
+      >
+        <Bot size={13} style={{ color: cor }} />
+      </span>
       {open && pos && createPortal(
         <div
           className="filter-pop"
@@ -138,6 +160,18 @@ export default function ClientesPage() {
   const [sortDir, setSortDir] = usePersistedState<'asc' | 'desc'>('filtro:clientes:sortDir', 'asc');
   const [modalState, setModalState] = useState<{ editing: Cliente | null } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Uma chamada só, no mount da tela — não por linha — pra colorir o ícone
+  // "IA" pelo risco e permitir ordenar a coluna. `Map` por clientId: leitura
+  // O(1) por linha ao renderizar a tabela inteira.
+  const [analisesPorCliente, setAnalisesPorCliente] = useState<Map<string, AnaliseIA>>(new Map());
+  useEffect(() => {
+    let cancelado = false;
+    buscarAnalisesIA()
+      .then((lista) => { if (!cancelado) setAnalisesPorCliente(new Map(lista.map((a) => [a.clientId, a]))); })
+      .catch(() => { /* coluna cai pra "sem análise" em todo mundo — não é crítico pra tela funcionar */ });
+    return () => { cancelado = true; };
+  }, []);
 
   // Última reunião por cliente (reunião mais recente que JÁ ACONTECEU). SÓ
   // conta eventos do tipo Reunião — Contato/Relatório são eventos de agenda
@@ -216,6 +250,13 @@ export default function ClientesPage() {
       case 'monitor': return (c.monitor || '').toLowerCase();
       case 'servicos': return (c.servicos ?? []).join(', ').toLowerCase();
       case 'analise': return c.tipoAnalise === 'segmentado' || !!c.grupo ? 1 : 0;
+      case 'risco': {
+        const nivel = analisesPorCliente.get(c.id)?.nivelRisco;
+        // Sem análise fica no início (mais baixo que "baixo") — não é risco
+        // baixo de verdade, é ausência de informação, e não deve se misturar
+        // com quem foi analisado e está OK.
+        return nivel === 'alto' ? 3 : nivel === 'medio' ? 2 : nivel === 'baixo' ? 1 : 0;
+      }
       case 'estado': return (c.estado || '').toLowerCase();
       case 'status': return (c.status || '').toLowerCase();
       case 'anotacoes': return (c.observacao || '').toLowerCase();
@@ -265,7 +306,7 @@ export default function ClientesPage() {
         return sortDir === 'asc' ? r : -r;
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientes, debouncedSearch, fMonitores, fTipoAnalise, fServicos, fEstado, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir]);
+  }, [clientes, debouncedSearch, fMonitores, fTipoAnalise, fServicos, fEstado, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir, analisesPorCliente]);
 
   async function handleDelete(cliente: Cliente) {
     if (!(await confirmDialog(`Excluir o cliente "${cliente.empresa}"? Isso também remove os eventos de agenda vinculados.`, { danger: true, confirmLabel: 'Excluir' }))) return;
@@ -413,7 +454,7 @@ export default function ClientesPage() {
                   <Th sortable onClick={() => ordenarPor('empresa')}>Empresa{seta('empresa')}</Th>
                   <Th sortable onClick={() => ordenarPor('monitor')}>Monitor{seta('monitor')}</Th>
                   <Th sortable onClick={() => ordenarPor('servicos')}>Serviços{seta('servicos')}</Th>
-                  <Th style={{ textAlign: 'center' }} title="Análise de IA (risco + resumo) deste cliente">IA</Th>
+                  <Th sortable onClick={() => ordenarPor('risco')} style={{ textAlign: 'center' }} title="Análise de IA (risco + resumo) deste cliente">IA{seta('risco')}</Th>
                   <Th sortable onClick={() => ordenarPor('status')}>Situação{seta('status')}</Th>
                   <Th sortable onClick={() => ordenarPor('anotacoes')}>Anotações{seta('anotacoes')}</Th>
                   <Th>Cadência</Th>
@@ -445,7 +486,7 @@ export default function ClientesPage() {
                         <ServicosCell servicos={cliente.servicos} />
                       </Td>
                       <Td style={{ textAlign: 'center' }}>
-                        <AnaliseIACell clienteId={cliente.id} />
+                        <AnaliseIACell clienteId={cliente.id} risco={analisesPorCliente.get(cliente.id)?.nivelRisco} />
                       </Td>
                       <Td>
                         <div className="flex-row" style={{ gap: 5, flexWrap: 'wrap' }}>
