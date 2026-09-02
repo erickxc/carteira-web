@@ -8,6 +8,17 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.6
+
+- O dossiê não prende mais a tela: ao concluir/cancelar/reagendar, o evento
+  salva na hora e a atualização do dossiê roda em segundo plano no servidor.
+  (Antes o modal ficava travado em "Atualizando dossiê..." — e a mensagem
+  aparecia nos três botões ao mesmo tempo.)
+- Corrigido: o botão "Cancelar evento" cancelava sem pedir o motivo. Agora ele
+  pede a justificativa antes de salvar, igual ao reagendamento.
+- O painel de consumo de IA passa a incluir a geração de ata e a análise
+  automática — antes só o chat aparecia, e essas duas gastavam sem registro.
+
 ## 1.4.5
 
 - Corrigido (importante): gerar a ata com IA agora **salva na hora**. Antes o
