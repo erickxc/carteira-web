@@ -8,6 +8,17 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.7
+
+- "Serviços tratados" na reunião voltou a mostrar só Monitoria e Precificação.
+  Os outros serviços (Controladoria, OptiMarco, Raptor, Protocolo GPS, Apura,
+  Book Fiscal) são informacionais: seguem no cadastro do cliente e no Dashboard
+  da Carteira, mas não são tratados numa reunião.
+- Corrigido no Registro da Monitoria: no modo "Cliente × Situação" não dava pra
+  escrever o que foi conversado, porque o campo de situação tinha virado um
+  seletor de tag. Agora situação é texto livre e a tag é um campo separado e
+  opcional (e as duas informações chegam ao dossiê e à ata).
+
 ## 1.4.6
 
 - O dossiê não prende mais a tela: ao concluir/cancelar/reagendar, o evento
