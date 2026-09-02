@@ -4,7 +4,7 @@ import { useCarteira } from '../context/CarteiraContext';
 import { toastError } from '../utils/toast';
 import { ModalShell } from './ModalShell';
 import { DIAS_SEMANA } from '../utils/diasSemana';
-import { Badge, Button, Chip, Field, Input, Select, Textarea } from '../ui';
+import { Badge, Button, Chip, Field, Input, SecaoLabel, Select, Textarea } from '../ui';
 import {
   TIPO_ANALISE_LABEL, UNIDADE_CADENCIA_LABEL, CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES,
   type Cliente, type NovoCliente, type RelatorioCadencia, type TipoAnalise, type UnidadeCadenciaRelatorio,
@@ -150,6 +150,8 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
               </div>
             )}
 
+            <SecaoLabel>Identificação</SecaoLabel>
+
             <Field label={segmentadoNovo ? 'Empresa / grupo (rede)' : 'Empresa'}>
               <Input tone="modal" autoFocus value={empresa} onChange={(e) => setEmpresa(e.target.value)} required />
             </Field>
@@ -162,6 +164,17 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                 ))}
               </Select>
             </Field>
+
+            <Field label="Local">
+              <Select tone="modal" value={local} onChange={(e) => setLocal(e.target.value)}>
+                <option value="">Não informado</option>
+                {localOpcoes.map((l) => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
+              </Select>
+            </Field>
+
+            <SecaoLabel>Situação</SecaoLabel>
 
             <Field label="Status">
               <Select tone="modal" value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -177,16 +190,9 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
               </Select>
             </Field>
 
-            <Field label="Local">
-              <Select tone="modal" value={local} onChange={(e) => setLocal(e.target.value)}>
-                <option value="">Não informado</option>
-                {localOpcoes.map((l) => (
-                  <option key={l} value={l}>{l}</option>
-                ))}
-              </Select>
-            </Field>
+            <SecaoLabel>Serviços</SecaoLabel>
 
-            <Field as="div" label="Serviços">
+            <Field as="div" label="Serviços contratados">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
                 {servicoOpcoes.length === 0 && (
                   <span className="text-text-muted" style={{ fontSize: 13, textTransform: 'none' }}>
@@ -207,6 +213,8 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                 ))}
               </div>
             </Field>
+
+            <SecaoLabel>Estrutura</SecaoLabel>
 
             <Field label="Tipo de análise">
               <Select tone="modal" value={tipoAnalise} onChange={(e) => setTipoAnalise(e.target.value as TipoAnalise)}>
@@ -255,6 +263,8 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
               </Field>
             )}
 
+            <SecaoLabel>Notas e links</SecaoLabel>
+
             <Field label="Observação">
               <Textarea tone="modal" value={observacao} onChange={(e) => setObservacao(e.target.value)} />
             </Field>
@@ -292,6 +302,8 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                 </Field>
               );
             })()}
+
+            <SecaoLabel>Automação</SecaoLabel>
 
             <Field as="div" label="Relatório automático">
               <label className="check-row" style={{ margin: '0.25rem 0' }}>

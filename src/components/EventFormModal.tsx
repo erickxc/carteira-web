@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { format, isValid, parse, setHours, setMinutes } from 'date-fns';
 import { AlertTriangle, Ban, Bot, Check, FileText, Loader2 } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
@@ -23,19 +23,8 @@ import { RecorrenciaFields } from './eventForm/RecorrenciaFields';
 import { AnexosField } from './eventForm/AnexosField';
 import { ProdutosSituacaoField } from './eventForm/ProdutosSituacaoField';
 import { PrecificacaoField } from './eventForm/PrecificacaoField';
-import { Badge, Button, Chip, Field, Input, Select, Textarea } from '../ui';
+import { Badge, Button, Chip, Field, Input, SecaoLabel, Select, Textarea } from '../ui';
 import { ORIGEM_LABEL, type EventoAgenda, type OrigemEvento } from '../types';
-
-/** Separador de etapa dentro do bloco de reunião ("Antes"/"Depois"). O bloco
- *  era uma pilha plana de cinco campos de texto/lista com papéis parecidos;
- *  agrupar por momento é o que torna óbvio o que preencher quando. */
-function SecaoLabel({ children }: { children: ReactNode }) {
-  return (
-    <div className="text-[0.66rem] font-bold uppercase tracking-[0.06em] text-text-muted mt-2 mb-2 pb-1 border-b border-border">
-      {children}
-    </div>
-  );
-}
 
 interface EventFormModalProps {
   initial?: EventoAgenda;

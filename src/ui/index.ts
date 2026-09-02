@@ -8,3 +8,4 @@ export type { CardProps } from './Card';
 export { Chip } from './Chip';
 export type { ChipProps } from './Chip';
 export { Th, Td } from './Table';
+export { SecaoLabel } from './SecaoLabel';
