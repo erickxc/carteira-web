@@ -125,16 +125,29 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
         </span>
       </div>
 
-      {/* Linha 2: título + avatar do responsável */}
+      {/* Linha 2: título + avatares dos responsáveis (até 3, "+N" se houver mais) */}
       <div className="flex items-start gap-2">
         <span className="flex-1 text-[0.8rem] font-semibold text-text-primary leading-[1.35] break-words">{tarefa.titulo}</span>
-        {tarefa.responsavel && (
-          <span
-            className="shrink-0 flex items-center justify-center w-[21px] h-[21px] rounded-full bg-accent-soft text-[color:var(--accent-fg)] text-[0.58rem] font-bold leading-none ring-1 ring-border"
-            title={tarefa.responsavel}
-          >
-            {iniciais(tarefa.responsavel)}
-          </span>
+        {tarefa.responsaveis && tarefa.responsaveis.length > 0 && (
+          <div className="shrink-0 flex items-center -space-x-1">
+            {tarefa.responsaveis.slice(0, 3).map((r) => (
+              <span
+                key={r}
+                className="flex items-center justify-center w-[21px] h-[21px] rounded-full bg-accent-soft text-[color:var(--accent-fg)] text-[0.58rem] font-bold leading-none ring-1 ring-border ring-offset-1 ring-offset-card"
+                title={r}
+              >
+                {iniciais(r)}
+              </span>
+            ))}
+            {tarefa.responsaveis.length > 3 && (
+              <span
+                className="flex items-center justify-center w-[21px] h-[21px] rounded-full bg-bg text-text-secondary text-[0.55rem] font-bold leading-none ring-1 ring-border ring-offset-1 ring-offset-card"
+                title={tarefa.responsaveis.slice(3).join(', ')}
+              >
+                +{tarefa.responsaveis.length - 3}
+              </span>
+            )}
+          </div>
         )}
       </div>
 

@@ -558,7 +558,7 @@ describe('buscar_lembretes_cliente', () => {
 });
 
 describe('buscar_tarefas_cliente', () => {
-  const tarefa = (over: Record<string, unknown> = {}) => ({ id: 't1', clientId: 'c1', boardId: 'b1', colunaId: 'col1', titulo: 'Revisar preço', responsavel: 'Erick Cardoso', ...over });
+  const tarefa = (over: Record<string, unknown> = {}) => ({ id: 't1', clientId: 'c1', boardId: 'b1', colunaId: 'col1', titulo: 'Revisar preço', responsaveis: ['Erick Cardoso'], ...over });
   const agilBase = { AgilBoards: [{ id: 'b1', nome: 'Tarefas Diárias' }], AgilColunas: [{ id: 'col1', titulo: 'Em andamento' }] };
 
   it('70. exige clientId', () => {

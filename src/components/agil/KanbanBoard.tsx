@@ -17,9 +17,9 @@ import type { AgilBoard, AgilColuna, AgilSwimlane, AgilTarefa } from '../../type
 
 /** Largura mínima por coluna: acima disso as colunas esticam para ocupar a
  *  janela toda (1fr); abaixo, o board ganha rolagem horizontal. */
-const LARGURA_MIN = 168;
+const LARGURA_MIN = 196;
 const LARGURA_COLAPSADA = 36;
-const ALTURA_LINHA_CABECALHO = 30;
+const ALTURA_LINHA_CABECALHO = 34;
 /** Linhas de grid reservadas por swimlane: rótulo da swimlane + 2 de
  *  cabeçalho de coluna (grupo/sub-coluna) + 1 de células. */
 const LINHAS_POR_SWIMLANE = 4;
@@ -150,7 +150,7 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
 
   return (
     <div className="mt-4">
-      <div className="flex items-center gap-2 mb-2.5">
+      <div className="flex items-center gap-2 mb-3 px-2.5 py-2 rounded border border-border bg-card-hover">
         <Button variant="secondary" onClick={() => setColunaModal({})}>
           <Columns3 size={14} /> Coluna
         </Button>
@@ -160,7 +160,7 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
         <Button variant="secondary" onClick={() => setFrentesModalAberto(true)}>
           <Flag size={14} /> Frente
         </Button>
-        <span className="ml-auto text-[0.72rem] text-text-muted">
+        <span className="ml-auto text-[0.72rem] font-medium text-text-muted tabular-nums">
           {tarefas.length} tarefa(s) · {folhas.length} coluna(s) · {swimlanes.length} swimlane(s)
         </span>
       </div>
@@ -201,7 +201,7 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
                         {/* Rótulo da swimlane — atravessa todas as colunas, sticky no
                             topo da própria seção ao rolar. */}
                         <div
-                          className="group sticky top-0 z-30 flex items-center gap-1.5 px-2.5 py-1.5 bg-card-hover border-b-2 border-t border-border shadow-sm"
+                          className="group sticky top-0 z-30 flex items-center gap-1.5 px-3 py-2 bg-card-hover border-b-2 border-t border-border shadow-sm"
                           style={{ gridRow: linhaRotulo, gridColumn: '1 / -1' }}
                         >
                           <button

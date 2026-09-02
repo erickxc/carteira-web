@@ -841,7 +841,7 @@ function buscarTarefasCliente(repo, { clientId }) {
       titulo: t.titulo,
       board: boards.get(String(t.boardId)) ?? null,
       coluna: colunas.get(String(t.colunaId)) ?? null,
-      responsavel: t.responsavel || null,
+      responsaveis: Array.isArray(t.responsaveis) && t.responsaveis.length > 0 ? t.responsaveis : null,
       prioridade: t.prioridade || null,
       dueAt: t.dueAt || null,
       bloqueado: Boolean(t.bloqueado),

@@ -16,6 +16,7 @@ import { WhatsAppMensagemModal } from '../components/WhatsAppMensagemModal';
 import { ContatosCard } from '../components/cliente/ContatosCard';
 import { TimelineCard } from '../components/cliente/TimelineCard';
 import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
+import { AgilTarefasCard } from '../components/cliente/AgilTarefasCard';
 import { AcessosExternosButton } from '../components/cliente/AcessosExternosButton';
 import type { TimelineFiltro, TimelineItem } from '../utils/timelineCliente';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -274,6 +275,8 @@ export default function ClienteDetailPage() {
       </Card>
 
       <AnaliseIACard clienteId={cliente.id} />
+
+      <AgilTarefasCard cliente={cliente} />
 
       <div className="flex-row" style={{ marginBottom: 24 }}>
         <Button variant="primary" onClick={() => setEventModalOpen(true)}>

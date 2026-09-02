@@ -360,7 +360,7 @@ const AGIL_COLUNAS_HEADERS = ['id', 'boardId', 'parentId', 'titulo', 'ordem', 'w
 // falar do card) — o uuid não serve pra isso.
 // iniciativaId: opcional — id de uma tarefa do board de Iniciativas vinculado
 // ao board desta tarefa (ver AgilBoards.iniciativasBoardId).
-const AGIL_TAREFAS_HEADERS = ['id', 'numero', 'boardId', 'colunaId', 'swimlaneId', 'frenteId', 'iniciativaId', 'titulo', 'descricao', 'ordem', 'prioridade', 'labels', 'responsavel', 'dueAt', 'clientId', 'bloqueado', 'motivoBloqueio', 'createdAt', 'updatedAt'];
+const AGIL_TAREFAS_HEADERS = ['id', 'numero', 'boardId', 'colunaId', 'swimlaneId', 'frenteId', 'iniciativaId', 'titulo', 'descricao', 'ordem', 'prioridade', 'labels', 'responsaveis', 'dueAt', 'clientId', 'bloqueado', 'motivoBloqueio', 'createdAt', 'updatedAt'];
 // Série recorrente de agenda: guarda a REGRA (aberta, sem "durante N meses") +
 // o molde do evento. As ocorrências do mês são materializadas pelo servidor
 // (server/agendaSeries.cjs) — mesmo padrão de relatoriosAutomaticos.cjs.

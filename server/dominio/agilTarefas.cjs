@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-function criar(repo, payload) {
+function criar(repo, payload, opts = {}) {
   const data = repo.get('AgilTarefas');
   // Ordem é por CÉLULA (coluna + swimlane), não só por coluna: duas swimlanes
   // da mesma coluna têm filas independentes.
@@ -13,7 +13,7 @@ function criar(repo, payload) {
     .filter((t) => String(t.boardId) === String(payload.boardId))
     .reduce((max, t) => Math.max(max, Number(t.numero) || 0), 0) + 1;
   const now = new Date().toISOString();
-  const nova = { ordem, numero, ...payload, id: crypto.randomUUID(), createdAt: now, updatedAt: now };
+  const nova = { ordem, numero, ...payload, id: opts.id ?? crypto.randomUUID(), createdAt: now, updatedAt: now };
   data.push(nova);
   repo.save('AgilTarefas', data);
   return nova;

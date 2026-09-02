@@ -25,10 +25,10 @@ function criarColunasEswimlanePadrao(repo, boardId, now) {
  * ganha o seu próprio companheiro). Chamadas normais (rotas HTTP) nunca
  * passam isso.
  */
-function criar(repo, payload) {
+function criar(repo, payload, opts = {}) {
   const data = repo.get('AgilBoards');
   const now = new Date().toISOString();
-  const novo = { ...payload, id: crypto.randomUUID(), createdAt: now };
+  const novo = { ...payload, id: opts.id ?? crypto.randomUUID(), createdAt: now };
   data.push(novo);
   repo.save('AgilBoards', data);
   criarColunasEswimlanePadrao(repo, novo.id, now);

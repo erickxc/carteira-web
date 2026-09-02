@@ -1,10 +1,10 @@
 const crypto = require('crypto');
 const agilBoards = require('./agilBoards.cjs');
 
-function criar(repo, payload) {
+function criar(repo, payload, opts = {}) {
   const data = repo.get('AgilWorkspaces');
   const ordem = data.length;
-  const nova = { descricao: '', ordem, ...payload, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+  const nova = { descricao: '', ordem, ...payload, id: opts.id ?? crypto.randomUUID(), createdAt: new Date().toISOString() };
   data.push(nova);
   repo.save('AgilWorkspaces', data);
   return nova;

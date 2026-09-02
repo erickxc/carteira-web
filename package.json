@@ -1,7 +1,7 @@
 {
   "name": "carteira-web",
   "private": true,
-  "version": "1.4.11",
+  "version": "1.4.12",
   "type": "module",
   "scripts": {
     "start": "concurrently \"node server.cjs\" \"vite\"",

@@ -44,7 +44,7 @@ export function KanbanCell({
       ref={setNodeRef}
       style={style}
       className={clsx(
-        'group/cell flex flex-col gap-2 p-2 border-b border-border min-h-[72px] transition-colors duration-150',
+        'group/cell flex flex-col gap-2.5 p-2.5 border-b border-border min-h-[76px] transition-colors duration-150',
         !ultimaColuna && 'border-r',
         isOver ? 'bg-accent-soft' : wipExcedido ? 'bg-[var(--danger-bg)]' : 'bg-bg'
       )}

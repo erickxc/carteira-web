@@ -635,8 +635,8 @@ export interface AgilTarefa {
   /** Valor livre, editável via CRUD de Categorias (tipo 'prioridade_tarefa'). */
   prioridade?: string;
   labels: string[];
-  /** Monitor responsável, vindo do CRUD de monitores (mesma lista de EventoAgenda). */
-  responsavel?: string;
+  /** Monitores responsáveis, vindos do CRUD de monitores (mesma lista de EventoAgenda) — múltiplos, mesmo padrão de EventoAgenda.monitores. */
+  responsaveis?: string[];
   /** Data de prazo (yyyy-MM-dd). */
   dueAt?: string;
   /** Cliente vinculado (opcional). */

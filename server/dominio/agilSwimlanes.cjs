@@ -1,9 +1,9 @@
 const crypto = require('crypto');
 
-function criar(repo, payload) {
+function criar(repo, payload, opts = {}) {
   const data = repo.get('AgilSwimlanes');
   const ordem = data.filter((s) => String(s.boardId) === String(payload.boardId)).length;
-  const nova = { ordem, ...payload, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+  const nova = { ordem, ...payload, id: opts.id ?? crypto.randomUUID(), createdAt: new Date().toISOString() };
   data.push(nova);
   repo.save('AgilSwimlanes', data);
   return nova;

@@ -2,14 +2,14 @@ const crypto = require('crypto');
 
 const paiDe = (coluna) => String(coluna.parentId || '');
 
-function criar(repo, payload) {
+function criar(repo, payload, opts = {}) {
   const data = repo.get('AgilColunas');
   const parentId = String(payload.parentId || '');
   // Ordem é entre IRMÃS (mesmo pai), não entre todas as colunas do board.
   const ordem = data.filter(
     (c) => String(c.boardId) === String(payload.boardId) && paiDe(c) === parentId
   ).length;
-  const nova = { ordem, ...payload, parentId, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+  const nova = { ordem, ...payload, parentId, id: opts.id ?? crypto.randomUUID(), createdAt: new Date().toISOString() };
   data.push(nova);
   repo.save('AgilColunas', data);
 

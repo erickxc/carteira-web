@@ -8,6 +8,18 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.12
+
+- **Módulo Ágil (Kanban) agora funciona em qualquer máquina**, não só na
+  principal — as tarefas passaram a usar a mesma fila das outras telas, que
+  já resolve conflito quando mais de uma máquina mexe ao mesmo tempo.
+- **Tarefa do Ágil aceita mais de um responsável** (antes só um monitor por
+  tarefa), escolhido na mesma lista de monitores cadastrados.
+- **Novo card de tarefas Ágil na ficha do cliente**, mostrando as tarefas
+  vinculadas àquele cliente sem precisar abrir o quadro Kanban.
+- Ajustes visuais no quadro Ágil (breadcrumb de navegação e espaçamento das
+  colunas).
+
 ## 1.4.11
 
 - **Cadastro do cliente reorganizado de novo.** O cabeçalho não mostra mais o

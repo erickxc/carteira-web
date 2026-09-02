@@ -6,7 +6,7 @@ import { useCarteira } from '../../context/CarteiraContext';
 import { toastError } from '../../utils/toast';
 import { confirmDialog } from '../../utils/confirmDialog';
 import { ModalShell } from '../ModalShell';
-import { Badge, Button, Field, Input, Select, Textarea } from '../../ui';
+import { Badge, Button, Chip, Field, Input, Select, Textarea } from '../../ui';
 import type { AgilColuna, AgilSwimlane, AgilTarefa } from '../../types';
 import { SubtarefasTab } from './SubtarefasTab';
 import { ComentariosTab } from './ComentariosTab';
@@ -56,7 +56,7 @@ export function TaskDetailModal({ boardId, colunas, swimlanes, initial, initialC
   const [frenteId, setFrenteId] = useState(initial?.frenteId ?? '');
   const [iniciativaId, setIniciativaId] = useState(initial?.iniciativaId ?? '');
   const [prioridade, setPrioridade] = useState(initial?.prioridade ?? '');
-  const [responsavel, setResponsavel] = useState(initial?.responsavel ?? '');
+  const [responsaveis, setResponsaveis] = useState<string[]>(initial?.responsaveis ?? []);
   const [dueAt, setDueAt] = useState(initial?.dueAt ?? '');
   const [clientId, setClientId] = useState(initial?.clientId ?? '');
   const [labels, setLabels] = useState<string[]>(initial?.labels ?? []);
@@ -71,6 +71,10 @@ export function TaskDetailModal({ boardId, colunas, swimlanes, initial, initialC
   const frenteSelecionada = frentes.find((f) => f.id === frenteId);
   const corCabecalho = frenteSelecionada?.cor ?? PRIORIDADE_COR[prioridade] ?? undefined;
   const corTextoCabecalho = corCabecalho ? corContrastante(frenteSelecionada?.cor ?? '#8a8a92') : undefined;
+
+  function toggleResponsavel(m: string) {
+    setResponsaveis((prev) => (prev.includes(m) ? prev.filter((r) => r !== m) : [...prev, m]));
+  }
 
   function addLabel() {
     const v = labelInput.trim();
@@ -95,7 +99,7 @@ export function TaskDetailModal({ boardId, colunas, swimlanes, initial, initialC
         frenteId: frenteId || undefined,
         iniciativaId: iniciativaId || undefined,
         prioridade: prioridade || undefined,
-        responsavel: responsavel || undefined,
+        responsaveis: responsaveis.length > 0 ? responsaveis : undefined,
         dueAt: dueAt || undefined,
         clientId: clientId || undefined,
         labels,
@@ -207,11 +211,16 @@ export function TaskDetailModal({ boardId, colunas, swimlanes, initial, initialC
             </Select>
           </Field>
 
-          <Field label="Responsável">
-            <Select tone="modal" value={responsavel} onChange={(e) => setResponsavel(e.target.value)}>
-              <option value="">Nenhum</option>
-              {monitorOpcoes.map((m) => <option key={m} value={m}>{m}</option>)}
-            </Select>
+          <Field as="div" label="Responsável(is)">
+            {monitorOpcoes.length === 0 ? (
+              <p className="text-text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>Nenhum monitor cadastrado — adicione em Configurações.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {monitorOpcoes.map((m) => (
+                  <Chip variant="toggle" key={m} active={responsaveis.includes(m)} onClick={() => toggleResponsavel(m)}>{m}</Chip>
+                ))}
+              </div>
+            )}
           </Field>
 
           <Field label="Prazo">

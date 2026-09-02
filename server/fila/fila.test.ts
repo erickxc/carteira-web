@@ -203,6 +203,57 @@ describe('fila/mutacao: executarMutacao', () => {
     expect(executarMutacao('clientes', 'delete', { id: 'nao-existe' })).toBeNull();
     expect(fs.existsSync(PENDENTES_DIR) ? fs.readdirSync(PENDENTES_DIR) : []).toHaveLength(0);
   });
+
+  // Módulo Ágil: as 8 entidades entraram na fila depois (mesmo bug já visto em
+  // AcoesIA/UsoIA/MemoriaIA — rotas chamando o domínio direto sobre
+  // repoPlanilha(), sem passar por executarMutacao/isClient). `agilTarefas` é
+  // representativa: `criar()` usa `opts.id` (contrato exigido pelo cálculo
+  // otimista em modo cliente) e tem campos extra (numero/ordem) calculados
+  // pelo próprio domínio.
+  it('em modo client, agilTarefas.create não grava no SQLite local e escreve na fila', () => {
+    process.env.APP_MODE = 'client';
+    limparCaches();
+    const { executarMutacao } = carregar<typeof import('./mutacao.cjs')>('./mutacao.cjs');
+    const dbSqlite = carregar<typeof import('../dbSqlite.cjs')>('../dbSqlite.cjs');
+    const { PENDENTES_DIR } = carregar<typeof import('./caminhos.cjs')>('./caminhos.cjs');
+
+    const criada = executarMutacao('agilTarefas', 'create', {
+      payload: { boardId: 'b1', colunaId: 'c1', swimlaneId: 's1', titulo: 'Tarefa via fila' },
+    });
+    expect(criada.titulo).toBe('Tarefa via fila');
+    expect(typeof criada.id).toBe('string');
+    expect(criada.numero).toBe(1);
+
+    expect(dbSqlite.getSheetData('AgilTarefas')).toHaveLength(0);
+    expect(fs.readdirSync(PENDENTES_DIR).filter((f) => f.endsWith('.json'))).toHaveLength(1);
+  });
+
+  it('em modo client, agilTarefas.update encadeado vê o create pendente anterior (overlay)', () => {
+    process.env.APP_MODE = 'client';
+    limparCaches();
+    const { executarMutacao } = carregar<typeof import('./mutacao.cjs')>('./mutacao.cjs');
+
+    const criada = executarMutacao('agilTarefas', 'create', {
+      payload: { boardId: 'b1', colunaId: 'c1', swimlaneId: 's1', titulo: 'Tarefa' },
+    });
+    const atualizada = executarMutacao('agilTarefas', 'update', { id: criada.id, patch: { titulo: 'Tarefa editada' } });
+
+    expect(atualizada).not.toBeNull();
+    expect(atualizada.titulo).toBe('Tarefa editada');
+  });
+
+  it('em modo server, agilTarefas.create grava de verdade no SQLite', () => {
+    process.env.APP_MODE = 'server';
+    limparCaches();
+    const { executarMutacao } = carregar<typeof import('./mutacao.cjs')>('./mutacao.cjs');
+    const dbSqlite = carregar<typeof import('../dbSqlite.cjs')>('../dbSqlite.cjs');
+
+    const criada = executarMutacao('agilTarefas', 'create', {
+      payload: { boardId: 'b1', colunaId: 'c1', swimlaneId: 's1', titulo: 'Tarefa servidor' },
+    });
+    expect(criada.titulo).toBe('Tarefa servidor');
+    expect(dbSqlite.getSheetData('AgilTarefas')).toHaveLength(1);
+  });
 });
 
 describe('fila/status: statusFila', () => {

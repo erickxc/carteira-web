@@ -1,19 +1,36 @@
-import { useMemo, useState } from 'react';
-import { Briefcase, Plus, Settings } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Briefcase, ChevronRight, Plus, Settings } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { KanbanBoard } from '../components/agil/KanbanBoard';
 import { BoardFormModal } from '../components/agil/BoardFormModal';
 import { WorkspaceFormModal } from '../components/agil/WorkspaceFormModal';
-import { Button, Select } from '../ui';
+import { Dropdown } from '../components/Dropdown';
+import { Button } from '../ui';
 import type { AgilBoard, AgilWorkspace } from '../types';
 
 export default function AgilPage() {
   const { agilWorkspaces, agilBoards } = useCarteira();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [workspaceId, setWorkspaceId] = usePersistedState<string>('agil:workspaceId', '');
   const [boardId, setBoardId] = usePersistedState<string>('agil:boardId', '');
   const [workspaceModal, setWorkspaceModal] = useState<'nova' | AgilWorkspace | null>(null);
   const [boardModal, setBoardModal] = useState<'novo' | AgilBoard | null>(null);
+
+  // Navegação vinda de outra tela (ex.: card de tarefas Ágil na ficha do
+  // cliente) já chega com workspace/board escolhidos. Depende de `location.key`
+  // (não de `[]`) — senão clicar duas vezes numa tarefa do mesmo board, com a
+  // página já montada, não dispararia de novo (mesmo bug já visto na Agenda).
+  useEffect(() => {
+    const state = location.state as { agilWorkspaceId?: string; agilBoardId?: string } | null;
+    if (!state?.agilWorkspaceId && !state?.agilBoardId) return;
+    if (state.agilWorkspaceId) setWorkspaceId(state.agilWorkspaceId);
+    if (state.agilBoardId) setBoardId(state.agilBoardId);
+    navigate(location.pathname, { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
 
   const workspace = useMemo(
     () => agilWorkspaces.find((w) => w.id === workspaceId) ?? agilWorkspaces[0],
@@ -40,48 +57,58 @@ export default function AgilPage() {
 
   return (
     <div className="page-container">
-      {/* Linha 1: área de trabalho — só aparece quando há mais de uma, pra não
-          adicionar um nível de navegação a quem usa só o padrão "Geral". */}
-      <div className="flex items-center gap-2 mb-2.5 flex-wrap">
-        <span className="text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-text-muted">Ágil</span>
-        {agilWorkspaces.length > 1 && (
-          <>
-            <span className="text-text-muted">·</span>
-            <Select value={workspace?.id ?? ''} onChange={(e) => { setWorkspaceId(e.target.value); setBoardId(''); }} style={{ minWidth: 160, height: 28, fontSize: '0.78rem' }} title="Trocar de área de trabalho">
-              {agilWorkspaces.map((w) => <option key={w.id} value={w.id}>{w.nome}</option>)}
-            </Select>
-          </>
-        )}
-        {workspace && (
-          <button
-            onClick={() => setWorkspaceModal(workspace)}
-            className="flex items-center justify-center w-6 h-6 rounded-sm text-text-muted bg-transparent border-none cursor-pointer hover:bg-card-hover hover:text-text-primary"
-            title="Editar área de trabalho"
-          >
-            <Settings size={13} />
-          </button>
-        )}
-        <button
-          onClick={() => setWorkspaceModal('nova')}
-          className="flex items-center gap-1 text-[0.74rem] text-text-muted bg-transparent border-none cursor-pointer hover:text-accent"
-          title="Nova área de trabalho"
-        >
-          <Briefcase size={13} /> Nova área de trabalho
-        </button>
-      </div>
+      {/* Cabeçalho único: breadcrumb clicável (Ágil › [Workspace] › Board) à
+          esquerda, ações à direita — um só nível visual em vez de duas linhas
+          soltas (rótulo pequeno + board grande) que antes exigiam o olho pular
+          entre dois pesos tipográficos bem diferentes pra entender "onde estou". */}
+      <div className="flex items-start justify-between gap-4 flex-wrap mb-1">
+        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+          <Briefcase size={15} className="shrink-0 text-text-muted" />
+          <span className="text-[0.78rem] font-semibold text-text-muted">Ágil</span>
 
-      {/* Linha 2: board — o destaque real da tela. */}
-      <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-        <div style={{ minWidth: 0 }}>
-          <h1 className="page-title truncate">{board?.nome ?? 'Nenhum board'}</h1>
-          {board?.descricao && <p className="page-subtitle" style={{ margin: 0 }}>{board.descricao}</p>}
-        </div>
-        <div className="flex-row" style={{ gap: '0.6rem', flexShrink: 0 }}>
-          {boardsDaWorkspace.length > 1 && (
-            <Select value={board?.id ?? ''} onChange={(e) => setBoardId(e.target.value)} style={{ minWidth: 180 }} title="Trocar de board">
-              {boardsDaWorkspace.map((b) => <option key={b.id} value={b.id}>{b.nome}</option>)}
-            </Select>
+          {agilWorkspaces.length > 1 && (
+            <>
+              <ChevronRight size={13} className="shrink-0 text-text-muted" />
+              <Dropdown
+                label="Área de trabalho"
+                value={workspace?.id ?? ''}
+                onChange={(v) => { setWorkspaceId(v as string); setBoardId(''); }}
+                options={agilWorkspaces.map((w) => ({ value: w.id, label: w.nome }))}
+              />
+            </>
           )}
+          {workspace && (
+            <button
+              onClick={() => setWorkspaceModal(workspace)}
+              className="flex items-center justify-center w-6 h-6 rounded-sm text-text-muted bg-transparent border-none cursor-pointer hover:bg-card-hover hover:text-text-primary"
+              title="Editar área de trabalho"
+            >
+              <Settings size={13} />
+            </button>
+          )}
+
+          <ChevronRight size={13} className="shrink-0 text-text-muted" />
+          {boardsDaWorkspace.length > 1 ? (
+            <Dropdown
+              label="Board"
+              value={board?.id ?? ''}
+              onChange={(v) => setBoardId(v as string)}
+              options={boardsDaWorkspace.map((b) => ({ value: b.id, label: b.nome }))}
+            />
+          ) : (
+            <h1 className="page-title truncate" style={{ margin: 0, fontSize: '1.15rem' }}>{board?.nome ?? 'Nenhum board'}</h1>
+          )}
+
+          <button
+            onClick={() => setWorkspaceModal('nova')}
+            className="flex items-center gap-1 text-[0.72rem] text-text-muted bg-transparent border-none cursor-pointer hover:text-accent"
+            title="Nova área de trabalho"
+          >
+            <Plus size={12} /> Área de trabalho
+          </button>
+        </div>
+
+        <div className="flex-row" style={{ gap: '0.6rem', flexShrink: 0 }}>
           {board && (
             <Button variant="secondary" onClick={() => setBoardModal(board)} title="Editar board">
               <Settings size={16} />
@@ -94,6 +121,9 @@ export default function AgilPage() {
           )}
         </div>
       </div>
+      {board?.descricao && (
+        <p className="page-subtitle" style={{ margin: '0 0 0.25rem' }}>{board.descricao}</p>
+      )}
 
       {!workspace ? (
         <div className="empty-state" style={{ padding: '3rem', textAlign: 'center' }}>

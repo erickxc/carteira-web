@@ -316,7 +316,11 @@ function serializeAgilTarefa(t: NovaAgilTarefa | Partial<AgilTarefa>): Record<st
   return { ...t };
 }
 function deserializeAgilTarefa(raw: Record<string, unknown>): AgilTarefa {
-  return { ...(raw as unknown as AgilTarefa), labels: parseListaJSON<string>(raw.labels) };
+  return {
+    ...(raw as unknown as AgilTarefa),
+    labels: parseListaJSON<string>(raw.labels),
+    responsaveis: raw.responsaveis == null ? undefined : parseListaJSON<string>(raw.responsaveis),
+  };
 }
 
 export const listarAgilWorkspaces = () => request<AgilWorkspace[]>('/agil/workspaces');
