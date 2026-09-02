@@ -4,6 +4,7 @@ import { AlertTriangle, Ban, Bot, Check, FileText, Loader2 } from 'lucide-react'
 import { useCarteira } from '../context/CarteiraContext';
 import { gerarAta } from '../utils/ata';
 import { registrarRemarcacao } from '../utils/reagendamento';
+import { ehServicoDeReuniao } from '../utils/cadenciaServico';
 import { gerarAtaPdf } from '../utils/ataPdf';
 import {
   gerarAtaComIA, buscarCatalogoAlvos, buscarTagsClienteFinal,
@@ -56,7 +57,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const { clientes, agenda, criarEvento, atualizarEvento, enviarAnexoEvento, removerAnexoEvento, criarLembrete, criarAgendaSerie, opcoesPorTipo } = useCarteira();
   const tipoOpcoes = opcoesPorTipo('tipo_evento');
   const statusOpcoes = opcoesPorTipo('status_evento');
-  const servicoOpcoes = opcoesPorTipo('servico');
+  // "Serviços tratados" de um evento é só Monitoria/Precificação — os outros
+  // serviços do cadastro são informacionais (ver `ehServicoDeReuniao`).
+  const servicoOpcoes = opcoesPorTipo('servico').filter(ehServicoDeReuniao);
   const monitorOpcoes = opcoesPorTipo('monitor');
   const salaOpcoes = opcoesPorTipo('sala');
   const editando = !!initial;
@@ -79,7 +82,10 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   });
   const toggleMonitor = (m: string) =>
     setMonitores((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
-  const [servicos, setServicos] = useState<string[]>(initial?.servicos ?? []);
+  // Filtra também o que já estava GRAVADO: um serviço informacional marcado
+  // antes desta regra ficaria invisível nos chips e seria regravado a cada
+  // Salvar (mesma armadilha do monitor fora do cadastro).
+  const [servicos, setServicos] = useState<string[]>((initial?.servicos ?? []).filter(ehServicoDeReuniao));
   const [sala, setSala] = useState(initial?.sala ?? '');
   // Contato/Ligação criados aqui são, por definição, iniciativa nossa (quem
   // registra é o monitor). Contato recebido do cliente entra pelo

@@ -49,6 +49,18 @@ function ehIndependente(c: Cliente, re: RegExp): boolean {
 
 const naoCancelado = (a: EventoAgenda) => !/cancel|reagend/i.test(a.status || '');
 
+/**
+ * Serviços que são TRATADOS numa reunião — só Monitoria e Precificação, que
+ * são também os únicos com régua de cadência aqui.
+ *
+ * Os outros serviços do cadastro (Controladoria, OptiMarco, AutoTech, Book
+ * Fiscal, Raptor, Protocolo GPS, Apura...) são INFORMACIONAIS: decisão do
+ * usuário — existem no cadastro do cliente e no Dashboard da Carteira, mas não
+ * aparecem em "Serviços tratados" de um evento e não entram em métrica de
+ * monitoria. Mesma dupla de regex já usada no resto deste módulo.
+ */
+export const ehServicoDeReuniao = (nome: string) => /monitor|price|prec/i.test(nome);
+
 // Zera o relógio de MONITORIA (histórico — o que já foi feito): reunião com
 // serviço Monitoria OU sem serviço marcado (legado/monitoria-only presume
 // Monitoria — todo histórico de price era tipo Precificação, migrado já
