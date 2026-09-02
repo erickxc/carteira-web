@@ -109,7 +109,7 @@ Responda em JSON com exatamente estes campos:
 {
   "nivelRisco": "baixo" | "medio" | "alto",
   "resumo": "2-3 frases em prosa: contexto do cliente e o que mudou nas reuniões novas — não uma lista",
-  "fatores": ["cada item cita um fato concreto observado (data/reunião) e por que ele pesa no nível de risco — nunca uma afirmação vaga sem evidência"],
+  "fatores": ["no máximo 4 itens, só os mais relevantes pro nível de risco — cada item cita um fato concreto observado (data/reunião) e por que ele pesa; nunca uma afirmação vaga sem evidência"],
   "sugestaoProximaPauta": "1-2 frases objetivas: o que tratar na próxima reunião e por quê",
   "dossieAtualizado": "o CORPO do dossiê em markdown, seguindo EXATAMENTE este template (mesmos títulos de seção, nesta ordem — não adicione nem remova seção, não escreva um título de cabeçalho com o nome do cliente, isso já é adicionado por fora):\\n\\n${TEMPLATE_DOSSIE}"
 }
@@ -120,6 +120,7 @@ Regras:
 - Se não houver sinal de risco, "nivelRisco" é "baixo" e "fatores" pode ser uma lista vazia — não force um fator artificial pra preencher.
 - Reunião marcada como "Motivo:" (cancelamento) ou "já foi remarcada Nx" (ver texto de cada reunião abaixo) é sinal de desengajamento, não detalhe operacional — trate 2+ ocorrências disso no MESMO cliente (nesta rodada ou já registradas no dossiê anterior) como padrão, cite o motivo concreto em "Pontos de Atenção" (ex.: "reunião já foi cancelada 2x — motivo alegado: agenda do responsável"), e pese isso no "nivelRisco" como faria com queda de venda repetida. Uma única ocorrência isolada, sem repetição, não sustenta "alto" sozinha.
 - Cada bullet é 1 linha, direto ao ponto — nada de parágrafo dentro de bullet, mas também nada de fórmula mecânica repetida ("fato → consequência" em todo item soa como log, não como análise). Varie a construção da frase como um analista de verdade escreveria, mantendo evidência (data/fonte) e clareza do porquê importa. Seção sem conteúdo real fica com "— nenhum registro" em vez de bullet inventado.
+- Se VÁRIAS reuniões mostram o MESMO padrão (ex.: 3 reuniões seguidas sem pauta/decisão), isso é UM fator só, citando as datas juntas ("28/05, 02/07 e 31/07: reuniões sem pauta nem decisão registrada") — não um fator por reunião. Listar cada ocorrência separada quando o padrão é repetitivo é log, não análise, e é o que mais infla "fatores" além do limite de 4.
 - "dossieAtualizado" tem um limite de espaço: no máximo ${DOSSIE_MAX_CHARS} caracteres no total. Isso significa CONSOLIDAR a cada rodada, não empilhar: remova pendência já entregue, remova ponto de atenção já resolvido, mantenha só o que ainda importa para decisão futura. Nunca cole a ata da reunião nova no dossiê — extraia dela só o que é memória duradoura.`;
 }
 

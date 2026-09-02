@@ -76,24 +76,43 @@ function ServicosCell({ servicos }: { servicos: string[] }) {
  * aparece num popover — sem precisar clicar em botão nenhum (pedido do
  * usuário). Busca sob demanda a cada hover, igual ao `AnaliseIACard` da
  * ficha do cliente (mesmo componente, só que num popover em vez de inline).
+ *
+ * Posicionamento "inteligente": abre pra CIMA quando não há espaço embaixo
+ * (linha perto do fim da tabela/tela) — calculado na hora de abrir, com o
+ * espaço disponível de cada lado, não sempre para baixo. `maxHeight` com
+ * rolagem própria é a rede de segurança pro caso de um dossiê muito longo
+ * (muitos fatores) mesmo assim não estourar a tela.
  */
 function AnaliseIACell({ clienteId }: { clienteId: string }) {
   const [open, setOpen] = useState(false);
-  const [rect, setRect] = useState<DOMRect | null>(null);
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
+
+  function abrir() {
+    const r = ref.current?.getBoundingClientRect();
+    if (!r) return;
+    const espacoAbaixo = window.innerHeight - r.bottom;
+    const espacoAcima = r.top;
+    const abreAbaixo = espacoAbaixo >= 280 || espacoAbaixo >= espacoAcima;
+    setPos({
+      ...(abreAbaixo ? { top: r.bottom + 4 } : { bottom: window.innerHeight - r.top + 4 }),
+      right: Math.max(8, window.innerWidth - r.right),
+    });
+    setOpen(true);
+  }
 
   return (
     <span
       ref={ref}
-      onMouseEnter={() => { setRect(ref.current?.getBoundingClientRect() ?? null); setOpen(true); }}
+      onMouseEnter={abrir}
       onMouseLeave={() => setOpen(false)}
       style={{ display: 'inline-flex' }}
     >
       <Bot size={16} className="text-text-muted" />
-      {open && rect && createPortal(
+      {open && pos && createPortal(
         <div
           className="filter-pop"
-          style={{ position: 'fixed', top: rect.bottom + 4, right: Math.max(8, window.innerWidth - rect.right), maxHeight: 'none', padding: 8 }}
+          style={{ position: 'fixed', ...pos, maxHeight: '70vh', overflowY: 'auto', padding: 8 }}
         >
           <AnaliseIACard clienteId={clienteId} variante="popover" />
         </div>,
