@@ -12,7 +12,7 @@ import ProvedorIACard from '../components/config/ProvedorIACard';
 import LimiteContaCard from '../components/config/LimiteContaCard';
 import McpClaudeCard from '../components/config/McpClaudeCard';
 import UsoIACard from '../components/config/UsoIACard';
-import { CATEGORIA_TIPO_LABEL, SEGMENTO_LABEL, type Cadencias, type CategoriaTipo, type Modelo, type Segmento, type TipoLinkServico } from '../types';
+import { CATEGORIA_TIPO_LABEL, SEGMENTO_LABEL, type Cadencias, type Categoria, type CategoriaTipo, type Modelo, type Segmento, type TipoLinkServico } from '../types';
 
 const TIPOS: CategoriaTipo[] = ['servico', 'tipo_evento', 'status_cliente', 'status_evento', 'monitor', 'tipo_lembrete', 'sala', 'local_cliente', 'grupo_referencia'];
 
@@ -198,8 +198,6 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
   const [salvando, setSalvando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [editValor, setEditValor] = useState('');
-  const [editTipoLink, setEditTipoLink] = useState<'' | TipoLinkServico>('');
-  const [editUrlAplicacao, setEditUrlAplicacao] = useState('');
 
   async function adicionar() {
     const valor = novoValor.trim();
@@ -222,10 +220,21 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
   async function salvarEdicao(id: string) {
     const valor = editValor.trim();
     if (!valor) return;
-    await atualizarCategoria(id, valor, tipo === 'servico'
-      ? { tipoLink: editTipoLink || null, urlAplicacao: editTipoLink === 'aplicacao' ? editUrlAplicacao.trim() : null }
-      : undefined);
+    await atualizarCategoria(id, valor);
     setEditandoId(null);
+  }
+
+  /**
+   * Tipo de link direto na linha, sem precisar entrar em modo de edição —
+   * nada na tela avisava que "editar" (lápis) escondia essa configuração,
+   * e foi confundido com "onde marco o tipo do serviço" (relatado pelo
+   * usuário). Salva na hora, ao trocar a opção — independente de renomear.
+   */
+  async function definirTipoLinkInline(cat: Categoria, tipoLink: '' | TipoLinkServico, urlAplicacao?: string) {
+    await atualizarCategoria(cat.id, cat.valor, {
+      tipoLink: tipoLink || null,
+      urlAplicacao: tipoLink === 'aplicacao' ? (urlAplicacao ?? cat.urlAplicacao ?? '') : null,
+    });
   }
 
   async function excluir(id: string, valor: string) {
@@ -243,69 +252,76 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
         <h3>{CATEGORIA_TIPO_LABEL[tipo]}</h3>
         <span className="text-text-muted" style={{ fontSize: 12 }}>{itens.length}</span>
       </div>
+      {tipo === 'servico' && (
+        <p className="text-text-muted" style={{ fontSize: 11, textTransform: 'none', letterSpacing: 'normal', marginTop: -6, marginBottom: 10 }}>
+          "Tipo de link" é opcional: PowerBI dá a cada cliente um link próprio (no cadastro dele); Aplicação é um link único, igual pra todo mundo, e aparece na sidebar.
+        </p>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
         {itens.length === 0 && <div className="empty-state">Nenhum item.</div>}
         {itens.map((cat) => (
           <div key={cat.id} style={{ padding: '0.5rem 0.65rem', borderRadius: 6, background: 'var(--card-hover)', border: '1px solid var(--border)' }}>
             {editandoId === cat.id ? (
+              <div className="flex-between">
+                <Input
+                  value={editValor}
+                  autoFocus
+                  onChange={(e) => setEditValor(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && salvarEdicao(cat.id)}
+                  style={{ marginRight: 8 }}
+                />
+                <div className="flex-row">
+                  <Button variant="secondary" size="icon" onClick={() => salvarEdicao(cat.id)}><Check size={14} /></Button>
+                  <Button variant="secondary" size="icon" onClick={() => setEditandoId(null)}><X size={14} /></Button>
+                </div>
+              </div>
+            ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div className="flex-between">
-                  <Input
-                    value={editValor}
-                    autoFocus
-                    onChange={(e) => setEditValor(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && salvarEdicao(cat.id)}
-                    style={{ marginRight: 8 }}
-                  />
+                  <span>{cat.valor}</span>
                   <div className="flex-row">
-                    <Button variant="secondary" size="icon" onClick={() => salvarEdicao(cat.id)}><Check size={14} /></Button>
-                    <Button variant="secondary" size="icon" onClick={() => setEditandoId(null)}><X size={14} /></Button>
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      onClick={() => {
+                        setEditandoId(cat.id);
+                        setEditValor(cat.valor);
+                      }}
+                      title="Renomear"
+                    >
+                      <Pencil size={13} />
+                    </Button>
+                    <Button variant="danger" size="icon" onClick={() => excluir(cat.id, cat.valor)}>
+                      <Trash2 size={13} />
+                    </Button>
                   </div>
                 </div>
+                {/* Sempre visível, sem precisar entrar em "editar" — era aí que
+                    ficava escondido antes, e ninguém achava. */}
                 {tipo === 'servico' && (
-                  <div className="flex-row" style={{ gap: 8 }}>
-                    <Select value={editTipoLink} onChange={(e) => setEditTipoLink(e.target.value as '' | TipoLinkServico)} style={{ maxWidth: 160 }}>
+                  <div className="flex-row" style={{ gap: 8, alignItems: 'center' }}>
+                    <span className="text-text-muted" style={{ fontSize: 11, textTransform: 'none', letterSpacing: 'normal', flexShrink: 0 }}>Tipo de link:</span>
+                    <Select
+                      value={cat.tipoLink ?? ''}
+                      onChange={(e) => definirTipoLinkInline(cat, e.target.value as '' | TipoLinkServico)}
+                      style={{ maxWidth: 170 }}
+                    >
                       <option value="">Sem link</option>
                       <option value="powerbi">PowerBI (por cliente)</option>
                       <option value="aplicacao">Aplicação (link único)</option>
                     </Select>
-                    {editTipoLink === 'aplicacao' && (
+                    {cat.tipoLink === 'aplicacao' && (
                       <Input
                         type="url"
                         placeholder="URL da aplicação (sidebar)"
-                        value={editUrlAplicacao}
-                        onChange={(e) => setEditUrlAplicacao(e.target.value)}
+                        defaultValue={cat.urlAplicacao ?? ''}
+                        onBlur={(e) => definirTipoLinkInline(cat, 'aplicacao', e.target.value)}
                         style={{ flex: 1 }}
                       />
                     )}
                   </div>
                 )}
-              </div>
-            ) : (
-              <div className="flex-between">
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {cat.valor}
-                  {cat.tipoLink === 'powerbi' && <Badge variant="muted">PowerBI</Badge>}
-                  {cat.tipoLink === 'aplicacao' && <Badge variant="muted">{cat.urlAplicacao ? 'Aplicação' : 'Aplicação · sem URL'}</Badge>}
-                </span>
-                <div className="flex-row">
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    onClick={() => {
-                      setEditandoId(cat.id);
-                      setEditValor(cat.valor);
-                      setEditTipoLink(cat.tipoLink ?? '');
-                      setEditUrlAplicacao(cat.urlAplicacao ?? '');
-                    }}
-                  >
-                    <Pencil size={13} />
-                  </Button>
-                  <Button variant="danger" size="icon" onClick={() => excluir(cat.id, cat.valor)}>
-                    <Trash2 size={13} />
-                  </Button>
-                </div>
               </div>
             )}
           </div>
