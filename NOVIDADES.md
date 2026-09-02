@@ -8,6 +8,20 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.10
+
+- **Link do PowerBI corrigido**: cliente com mais de um serviço com link
+  (ex.: Monitoria + OptiMarco) agora mostra um campo de link para CADA
+  serviço, todos visíveis ao mesmo tempo — antes só dava pra editar um dos
+  dois por vez, escondido atrás de um seletor.
+- **Ficha do cliente reorganizada**: a Análise de IA (risco + resumo) subiu
+  para logo abaixo do cabeçalho, num quadro pequeno — antes ficava sozinha
+  no fim da página. Os serviços do cliente agora ficam num único botão
+  ("Serviços") em vez de uma fileira de etiquetas que só crescia.
+- Tirado o efeito de deixar o texto do rótulo dourado ao passar o mouse nos
+  campos dos formulários — estava feio, principalmente no campo de escolher
+  o cliente.
+
 ## 1.4.9
 
 - **Cadastro do cliente reorganizado.** Os campos estavam meio soltos, sem
