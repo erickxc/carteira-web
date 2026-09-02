@@ -147,6 +147,28 @@ function normalizar(texto) {
 }
 
 /**
+ * Forma "n\u00facleo" do nome, pra busca TOLERANTE: sem acento, sem pontua\u00e7\u00e3o, sem
+ * espa\u00e7o e com plural simples desfeito. Existe por um caso real: o usu\u00e1rio
+ * perguntou por "Pe\u00e7as.com" (plural) e o agente respondeu que o cliente "n\u00e3o
+ * est\u00e1 cadastrado na carteira" \u2014 o cadastro \u00e9 "Pe\u00e7a.com", e `includes` de
+ * substring nunca casaria ("pecas.com" n\u00e3o est\u00e1 contido em "peca.com").
+ *
+ * S\u00f3 \u00e9 usado como SEGUNDA tentativa (ver `buscarClientes`): a busca por
+ * substring exata continua valendo primeiro, pra n\u00e3o trocar um acerto preciso
+ * por um palpite mais frouxo.
+ */
+function nucleoNome(texto) {
+  return normalizar(texto)
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    // S\u00f3 palavra com mais de 3 letras perde o "s" final: evita transformar
+    // "gps"/"sos" e afins em outra coisa.
+    .map((p) => (p.length > 3 ? p.replace(/s$/, '') : p))
+    .join('');
+}
+
+/**
  * Escopo do "filtro universal de monitor" (CarteiraContext.filtroMonitor, "quem
  * sou eu nesta máquina") aplicado às ferramentas que olham a carteira INTEIRA
  * — não as que já recebem `clientId` explícito, essas continuam abertas
@@ -179,7 +201,9 @@ function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo
   // de texto livre tipo `grupo`.
   const localBusca = normalizar(local);
 
-  return clientes
+  // `casaNome` é parametrizado pra permitir a segunda passada tolerante
+  // (plural/pontuação) quando a busca exata não achou nada — ver `nucleoNome`.
+  const filtrar = (casaNome) => clientes
     .map((c) => ({ cliente: c, analise: analisePorCliente.get(String(c.id)) }))
     .filter(({ cliente }) => !status || cliente.status === status)
     // `estado` (Ativo/Inativo) e `status` (Regular/Suspenso/...) são campos
@@ -194,7 +218,7 @@ function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo
     // Nome casa contra `empresa` (que já inclui a rede quando há: "Rede - Loja"),
     // então funciona tanto pra "27 de setembro" quanto pra "recreio" ou
     // "altese recreio".
-    .filter(({ cliente }) => !nomeBusca || normalizar(cliente.empresa).includes(nomeBusca))
+    .filter(({ cliente }) => casaNome(cliente))
     .map(({ cliente, analise }) => ({
       id: cliente.id,
       ...identidadeCliente(cliente),
@@ -202,6 +226,18 @@ function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo
       estado: cliente.estado || null,
       nivelRisco: analise?.nivelRisco ?? null,
     }));
+
+  const exato = filtrar((cliente) => !nomeBusca || normalizar(cliente.empresa).includes(nomeBusca));
+  if (exato.length > 0 || !nomeBusca) return exato;
+
+  // Segunda tentativa: núcleo do nome, nas duas direções — "Peças.com" acha
+  // "Peça.com", e "Altese" acha "Altese - Recreio".
+  const nucleoBusca = nucleoNome(nome);
+  if (!nucleoBusca) return exato;
+  return filtrar((cliente) => {
+    const alvo = nucleoNome(cliente.empresa);
+    return alvo.includes(nucleoBusca) || nucleoBusca.includes(alvo);
+  });
 }
 
 /**
@@ -868,6 +904,11 @@ function buscarHistoricoEventos(repo, { clientId, limite }) {
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, teto)
     .map((a) => ({
+      // `id` do evento: sem ele o agente não tinha como chamar
+      // `gerar_ata_pdf`/`redigir_ata_reuniao` depois de achar a reunião aqui —
+      // caso real, ele respondeu "não consegui obter o ID do evento no formato
+      // esperado" e mandou o usuário gerar o PDF à mão na tela.
+      id: a.id,
       date: a.date, time: a.time || null, type: a.type, status: a.status,
       subject: a.subject || '', resumo: a.resumo || '',
       // TEXTO COMPLETO da ata — não é resumo nem indicador de existência.

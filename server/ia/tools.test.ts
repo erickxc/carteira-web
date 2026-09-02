@@ -1145,3 +1145,56 @@ describe('escopo por filtro de monitor (ctx.monitor)', () => {
     expect(r.empresa).toBe('Loja do Yan');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Busca tolerante de nome + id do evento no histórico — dois defeitos vistos
+// numa conversa real de produção:
+//  - "Peças.com" (plural) fez o agente afirmar que o cliente "não está
+//    cadastrado na carteira"; o cadastro é "Peça.com".
+//  - pedir a ata em PDF falhou porque `buscar_historico_eventos` não devolvia
+//    o `id` do evento, que `gerar_ata_pdf` exige.
+// ---------------------------------------------------------------------------
+describe('buscar_clientes: nome tolerante a plural e pontuação', () => {
+  const repoPeca = () => repoBase({ Clientes: [clienteBase({ id: 'p1', empresa: 'Peça.com' })] });
+
+  it('acha com o nome exato', () => {
+    expect(exec('buscar_clientes', repoPeca(), { nome: 'Peça.com' })).toHaveLength(1);
+  });
+
+  it('acha escrito no plural ("Peças.com")', () => {
+    expect(exec('buscar_clientes', repoPeca(), { nome: 'Peças.com' })).toHaveLength(1);
+  });
+
+  it('acha sem a pontuação ("pecas com")', () => {
+    expect(exec('buscar_clientes', repoPeca(), { nome: 'pecas com' })).toHaveLength(1);
+  });
+
+  it('substring exata continua tendo prioridade sobre a busca tolerante', () => {
+    const repo = repoBase({
+      Clientes: [
+        clienteBase({ id: 'a1', empresa: 'Altese - Recreio' }),
+        clienteBase({ id: 'a2', empresa: 'Altese - Barra' }),
+      ],
+    });
+    expect(exec('buscar_clientes', repo, { nome: 'recreio' })).toHaveLength(1);
+    expect(exec('buscar_clientes', repo, { nome: 'altese' })).toHaveLength(2);
+  });
+
+  it('nome que não existe continua devolvendo vazio (a tolerância não vira palpite)', () => {
+    expect(exec('buscar_clientes', repoPeca(), { nome: 'Mecânica do Zé' })).toHaveLength(0);
+  });
+});
+
+describe('buscar_historico_eventos: expõe o id do evento', () => {
+  it('devolve `id` em cada evento (necessário pra gerar_ata_pdf)', () => {
+    const repo = repoBase({
+      Agenda: [{
+        id: 'ev-42', clientId: 'c1', clientName: 'Loja Teste', date: '2026-08-28T00:00:00.000Z',
+        type: 'Reunião', status: 'Concluído', subject: 'Análise de precificação',
+        ata: 'ATA DE REUNIÃO', attachments: [], servicos: [], monitores: [],
+      }],
+    });
+    const r = exec('buscar_historico_eventos', repo, { clientId: 'c1' });
+    expect(r.eventos[0].id).toBe('ev-42');
+  });
+});

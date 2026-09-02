@@ -309,25 +309,41 @@ export default function AssistenteIAPage() {
               mensagens.map((m, i) => (
                 <div
                   key={i}
-                  className={`px-3.5 py-2.5 text-[0.85rem] break-words${m.role === 'user' ? ' whitespace-pre-wrap' : ''}`}
-                  style={{
-                    alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                    maxWidth: '85%',
-                    background: m.role === 'user' ? 'var(--accent-soft)' : 'var(--bg)',
-                    // Sem borda na bolha do assistente (só fundo) e canto
-                    // "mordido" no lado de quem fala — é o que faz ler como
-                    // chat em vez de card empilhado.
-                    border: m.role === 'user' ? '1px solid var(--border)' : '1px solid transparent',
-                    borderRadius: m.role === 'user' ? '10px 10px 2px 10px' : '10px 10px 10px 2px',
-                  }}
+                  className="flex items-start gap-2"
+                  style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}
                 >
-                  {/* Fala do agente passa pelo renderizador de markdown: os
-                      modelos devolvem `**negrito**` e bullets, que apareciam
-                      crus (linhas de asterisco no meio da resposta). A fala do
-                      usuário fica texto puro — ele escreveu o que escreveu, e
-                      interpretar markdown do lado dele só mudaria o que ele vê
-                      de volta. */}
-                  {m.role === 'assistant' ? <RespostaIA texto={m.content} /> : m.content}
+                  {/* Ícone do monitorIA ao lado da bolha dele (a logo da 2D,
+                      mesmo arquivo do favicon) — identifica de quem é a fala
+                      sem depender só do alinhamento/cor da bolha. */}
+                  {m.role === 'assistant' && (
+                    <img
+                      src="/favicon.svg?v=2"
+                      alt="monitorIA"
+                      title="monitorIA"
+                      className="shrink-0"
+                      style={{ width: 22, height: 22, marginTop: 2, opacity: 0.9 }}
+                    />
+                  )}
+                  <div
+                    className={`px-3.5 py-2.5 text-[0.85rem] break-words${m.role === 'user' ? ' whitespace-pre-wrap' : ''}`}
+                    style={{
+                      minWidth: 0,
+                      background: m.role === 'user' ? 'var(--accent-soft)' : 'var(--bg)',
+                      // Sem borda na bolha do assistente (só fundo) e canto
+                      // "mordido" no lado de quem fala — é o que faz ler como
+                      // chat em vez de card empilhado.
+                      border: m.role === 'user' ? '1px solid var(--border)' : '1px solid transparent',
+                      borderRadius: m.role === 'user' ? '10px 10px 2px 10px' : '10px 10px 10px 2px',
+                    }}
+                  >
+                    {/* Fala do agente passa pelo renderizador de markdown: os
+                        modelos devolvem `**negrito**` e bullets, que apareciam
+                        crus (linhas de asterisco no meio da resposta). A fala do
+                        usuário fica texto puro — ele escreveu o que escreveu, e
+                        interpretar markdown do lado dele só mudaria o que ele vê
+                        de volta. */}
+                    {m.role === 'assistant' ? <RespostaIA texto={m.content} /> : m.content}
+                  </div>
                 </div>
               ))
             )}
