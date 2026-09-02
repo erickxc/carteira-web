@@ -147,6 +147,23 @@ export default function AssistenteIAPage() {
   // espera. Cada ferramenta nova que aparece no log entra na lista; some
   // quando a resposta final chega.
   const [passosEmAndamento, setPassosEmAndamento] = useState<AcaoIA[]>([]);
+  /**
+   * Segundos desde o envio da pergunta. Existe porque não há streaming: a
+   * resposta chega inteira no fim, e enquanto o agente não chama a primeira
+   * ferramenta não há NADA pra mostrar — a tela ficava com um "pensando..."
+   * estático, que o usuário leu como travado. O relógio é a informação
+   * honesta disponível (não inventa etapa que não aconteceu).
+   */
+  const [segundosEsperando, setSegundosEsperando] = useState(0);
+
+  // O contador só ANDA aqui; quem zera é `enviarPergunta` (event handler) —
+  // zerar dentro do efeito seria setState síncrono no corpo do efeito, que o
+  // React Compiler acusa como render em cascata.
+  useEffect(() => {
+    if (!enviando) return;
+    const timer = setInterval(() => setSegundosEsperando((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, [enviando]);
 
   async function handleEnviar(e: FormEvent) {
     e.preventDefault();
@@ -173,6 +190,7 @@ export default function AssistenteIAPage() {
     setTexto('');
     setEnviando(true);
     setPassosEmAndamento([]);
+    setSegundosEsperando(0);
     const historico = mensagens;
     setMensagens((prev) => [...prev, { role: 'user' as const, content: pergunta }].slice(-MAX_MENSAGENS));
 
@@ -224,7 +242,7 @@ export default function AssistenteIAPage() {
     <div className="page-container">
       <h1 className="page-title" style={{ marginBottom: 4 }}><Bot size={22} style={{ marginRight: 8, verticalAlign: -4 }} /> monitorIA</h1>
       <p className="text-text-muted" style={{ marginBottom: 20, fontSize: '0.85rem' }}>
-        Converse sobre qualquer cliente ou produto da carteira. O agente pode consultar dossiês/análises, corrigir o dossiê de um cliente quando você apontar um erro, e criar evento/lembrete — nunca edita ou exclui Cliente, Agenda ou Lembrete.
+        Converse sobre qualquer cliente ou produto da carteira. O agente pode consultar dossiês/análises, corrigir o dossiê, criar evento/lembrete e editar evento ou cadastro de cliente quando você pedir — nunca exclui nada, e criar cliente novo continua sendo feito na tela.
       </p>
 
       {/* Fora do card da conversa, de propósito: um alerta não pode sumir só
@@ -352,22 +370,45 @@ export default function AssistenteIAPage() {
                 segundos) — sem isso a tela ficava sem nenhum feedback durante
                 a espera, parecendo travada. */}
             {enviando && (
-              <div
-                className="p-2.5 rounded text-[0.85rem] flex flex-col gap-1.5 text-text-muted"
-                style={{ alignSelf: 'flex-start', maxWidth: '85%', background: 'var(--bg)', border: '1px solid var(--border)' }}
-              >
-                {passosEmAndamento.length === 0 ? (
-                  <span className="flex items-center gap-2"><Loader2 size={13} className="animate-spin" /> monitorIA está pensando...</span>
-                ) : (
-                  passosEmAndamento.map((a, i) => (
-                    <span key={a.id} className="flex items-center gap-2">
-                      {i === passosEmAndamento.length - 1
-                        ? <Loader2 size={13} className="animate-spin shrink-0" />
-                        : <Check size={13} className="shrink-0" style={{ color: 'var(--success-fg)' }} />}
-                      {legendaAcao(a)}
+              <div className="flex items-start gap-2" style={{ alignSelf: 'flex-start', maxWidth: '85%' }}>
+                <img
+                  src="/favicon.svg?v=2"
+                  alt="monitorIA"
+                  className="shrink-0"
+                  style={{ width: 22, height: 22, marginTop: 2, opacity: 0.9 }}
+                />
+                <div
+                  className="p-2.5 rounded text-[0.85rem] flex flex-col gap-1.5 text-text-muted"
+                  style={{ minWidth: 0, background: 'var(--bg)', border: '1px solid var(--border)' }}
+                >
+                  {passosEmAndamento.length === 0 ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 size={13} className="animate-spin shrink-0" />
+                      {/* Cronômetro: sem streaming, a única informação honesta
+                          durante a espera do primeiro passo é quanto tempo já
+                          passou. Antes ficava só "pensando...", sem nada mudando
+                          na tela — indistinguível de travado (queixa real). */}
+                      Analisando sua pergunta<span className="tabular-nums">{segundosEsperando > 0 ? ` · ${segundosEsperando}s` : ''}</span>
                     </span>
-                  ))
-                )}
+                  ) : (
+                    <>
+                      {passosEmAndamento.map((a, i) => (
+                        <span key={a.id} className="flex items-center gap-2">
+                          {i === passosEmAndamento.length - 1
+                            ? <Loader2 size={13} className="animate-spin shrink-0" />
+                            : <Check size={13} className="shrink-0" style={{ color: 'var(--success-fg)' }} />}
+                          {legendaAcao(a)}
+                        </span>
+                      ))}
+                      {/* Quantos passos já foram + tempo: numa pergunta que
+                          encadeia várias ferramentas, é o que mostra que está
+                          avançando e não repetindo em loop. */}
+                      <span className="text-[0.75rem]" style={{ opacity: 0.75 }}>
+                        {passosEmAndamento.length} {passosEmAndamento.length === 1 ? 'consulta' : 'consultas'} · {segundosEsperando}s
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             )}
             <div ref={fimListaRef} />

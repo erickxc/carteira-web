@@ -121,8 +121,8 @@ function escreverDossie(clientId: string, slug: string, corpo: string) {
 // 1-8: catálogo e contrato geral das ferramentas
 // ---------------------------------------------------------------------------
 describe('catálogo de ferramentas', () => {
-  it('1. expõe exatamente as 35 ferramentas esperadas', () => {
-    expect(FERRAMENTAS).toHaveLength(35);
+  it('1. expõe exatamente as 37 ferramentas esperadas', () => {
+    expect(FERRAMENTAS).toHaveLength(37);
   });
 
   it('2. nenhum nome de ferramenta duplicado', () => {
@@ -165,14 +165,25 @@ describe('catálogo de ferramentas', () => {
    * verdade (não só o nome). E só escrevem quando `salvar`/`anexar` vem
    * explicitamente `true` (o agente só deve mandar isso após confirmação).
    */
-  it('7. as ferramentas de edição por nome são só as de memória do agente', () => {
+  /**
+   * A lista de ferramentas de edição é fechada de propósito: cada uma aqui
+   * grava dado que o usuário vê na tela. `atualizar_evento`/`atualizar_cliente`
+   * entraram por pedido explícito do usuário — antes o agente criava a reunião
+   * e, ao ser pedido pra completar monitor/serviço, respondia "a edição de
+   * agenda é manual no sistema", deixando o evento incompleto que ele mesmo
+   * havia criado. Ampliar esta lista é decisão de produto, não detalhe de
+   * implementação — por isso o teste falha ao adicionar uma nova.
+   */
+  it('7. a lista de ferramentas de edição é a esperada', () => {
     const edicao = FERRAMENTAS.filter((f) => /^(corrigir|atualizar|editar|remover|excluir|deletar)/.test(f.name));
-    expect(edicao.map((f) => f.name).sort()).toEqual(['corrigir_dossie_cliente', 'remover_memoria']);
+    expect(edicao.map((f) => f.name).sort()).toEqual([
+      'atualizar_cliente', 'atualizar_evento', 'corrigir_dossie_cliente', 'remover_memoria',
+    ]);
   });
 
-  it('7b. nenhuma ferramenta edita ou apaga Cliente, Agenda ou Lembrete', () => {
+  it('7b. nenhuma ferramenta APAGA Cliente, Agenda ou Lembrete (editar sim, excluir não)', () => {
     const proibidas = FERRAMENTAS.filter((f) => /(cliente|evento|lembrete|agenda)$/.test(f.name)
-      && /^(atualizar|editar|remover|excluir|deletar)/.test(f.name));
+      && /^(remover|excluir|deletar)/.test(f.name));
     expect(proibidas.map((f) => f.name)).toEqual([]);
   });
 
@@ -1196,5 +1207,166 @@ describe('buscar_historico_eventos: expõe o id do evento', () => {
     });
     const r = exec('buscar_historico_eventos', repo, { clientId: 'c1' });
     expect(r.eventos[0].id).toBe('ev-42');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Edição de evento/cliente — criadas depois de um caso real: o agente criou
+// uma reunião sem monitor/serviço, sem hora, com `date` em formato diferente
+// do resto da base e status "Agendado" enquanto AFIRMAVA ter criado um
+// rascunho; e ao ser pedido pra completar, respondeu que "a edição de agenda
+// é manual no sistema".
+// ---------------------------------------------------------------------------
+describe('criar_evento: status e formato de data', () => {
+  const statusCadastrados = () => ({
+    Categorias: [
+      { id: 'k1', tipo: 'status_evento', valor: 'Agendado', ordem: 1 },
+      { id: 'k2', tipo: 'status_evento', valor: 'Pendente', ordem: 2 },
+    ],
+  });
+
+  it('grava `date` em ISO completo mesmo recebendo data pura (AAAA-MM-DD)', () => {
+    const repo = repoBase();
+    const ev = exec('criar_evento', repo, { clientId: 'c1', type: 'Reunião', date: '2026-09-08', subject: 'x' });
+    expect(ev.date).toMatch(/^2026-09-08T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    // O dia civil não escorrega: é o mesmo 08/09 em qualquer fuso do Brasil.
+    expect(ev.date.slice(0, 10)).toBe('2026-09-08');
+  });
+
+  it('aceita `status` do cadastro em vez de fixar "Agendado"', () => {
+    const repo = repoBase(statusCadastrados());
+    const ev = exec('criar_evento', repo, { clientId: 'c1', type: 'Reunião', date: '2026-09-08', status: 'Pendente' });
+    expect(ev.status).toBe('Pendente');
+  });
+
+  it('status inexistente ERRA com a lista válida — não grava torto nem finge sucesso', () => {
+    const repo = repoBase(statusCadastrados());
+    expect(() => exec('criar_evento', repo, { clientId: 'c1', type: 'Reunião', date: '2026-09-08', status: 'Rascunho' }))
+      .toThrow(/Rascunho.*não existe.*Agendado, Pendente/s);
+  });
+
+  it('sem `status`, continua "Agendado" (comportamento anterior preservado)', () => {
+    const ev = exec('criar_evento', repoBase(), { clientId: 'c1', type: 'Reunião', date: '2026-09-08' });
+    expect(ev.status).toBe('Agendado');
+  });
+});
+
+describe('atualizar_evento', () => {
+  /**
+   * A ferramenta LÊ pelo repo injetado e ESCREVE por `executarMutacao`, que
+   * usa o repo real (`repoPlanilha`) e ignora o argumento — assimetria já
+   * documentada no CLAUDE.md. Em produção os dois são o mesmo banco; no teste
+   * é preciso semear os DOIS lados, senão a leitura acha e a escrita não (ou
+   * o contrário).
+   */
+  const EVENTO = {
+    id: 'ev1', clientId: 'c1', clientName: 'Loja Teste', date: '2026-09-08T12:00:00.000Z',
+    time: '', duracao: undefined, type: 'Reunião', status: 'Agendado', subject: '', description: '',
+    servicos: [], monitores: [], sala: '', attachments: [], checklist: [],
+    createdAt: '2026-09-02T00:00:00.000Z',
+  };
+
+  const CATEGORIAS = [
+    { id: 'k1', tipo: 'monitor', valor: 'Erick Cardoso', ordem: 1 },
+    { id: 'k2', tipo: 'servico', valor: 'Precificação', ordem: 1 },
+    { id: 'k3', tipo: 'sala', valor: 'Paris', ordem: 1 },
+    { id: 'k4', tipo: 'status_evento', valor: 'Agendado', ordem: 1 },
+    { id: 'k5', tipo: 'tipo_evento', valor: 'Reunião', ordem: 1 },
+  ];
+
+  /** Semeia o evento nos dois repos e devolve o repo em memória. */
+  function preparar(over: Record<string, unknown> = {}) {
+    const evento = { ...EVENTO, ...over };
+    dbSqlite.saveSheetData('Clientes', [clienteBase()]);
+    dbSqlite.saveSheetData('Agenda', [evento]);
+    return repoBase({ Agenda: [evento], Categorias: CATEGORIAS });
+  }
+
+  const lista = (v: unknown) => (typeof v === 'string' ? JSON.parse(v) : v);
+
+  it('completa monitor e serviço de um evento já criado', () => {
+    const r = exec('atualizar_evento', preparar(), {
+      eventId: 'ev1', monitores: ['Erick'], servicos: ['Precificação'],
+    });
+    // "Erick" resolve pro nome cadastrado, igual em criar_evento.
+    expect(lista(r.monitores)).toEqual(['Erick Cardoso']);
+    expect(lista(r.servicos)).toEqual(['Precificação']);
+  });
+
+  it('só altera o que foi informado — o resto do evento fica intacto', () => {
+    const r = exec('atualizar_evento', preparar({ subject: 'Original', sala: 'Paris' }), {
+      eventId: 'ev1', time: '15:00',
+    });
+    expect(r.time).toBe('15:00');
+    expect(r.subject).toBe('Original');
+    expect(r.sala).toBe('Paris');
+  });
+
+  it('valor fora do cadastro erra com a lista válida', () => {
+    expect(() => exec('atualizar_evento', preparar(), { eventId: 'ev1', monitores: ['Fulano'] }))
+      .toThrow(/Fulano.*não existe/s);
+  });
+
+  it('evento inexistente erra explicitamente', () => {
+    expect(() => exec('atualizar_evento', preparar(), { eventId: 'nada', time: '10:00' }))
+      .toThrow(/"nada" não encontrado/);
+  });
+
+  it('sem nenhum campo pra mudar, erra em vez de gravar patch vazio', () => {
+    expect(() => exec('atualizar_evento', preparar(), { eventId: 'ev1' }))
+      .toThrow(/nenhum campo pra alterar/);
+  });
+
+  it('não conflita consigo mesmo ao mudar só a sala', () => {
+    const r = exec('atualizar_evento', preparar({ time: '15:00', monitores: ['Erick Cardoso'] }), {
+      eventId: 'ev1', sala: 'Paris',
+    });
+    expect(r.sala).toBe('Paris');
+  });
+
+  it('conflito de sala com OUTRO evento no mesmo horário continua sendo barrado', () => {
+    const outro = {
+      ...EVENTO, id: 'ev2', clientName: 'Outra Loja', time: '15:00', sala: 'Paris', monitores: [],
+    };
+    dbSqlite.saveSheetData('Clientes', [clienteBase()]);
+    dbSqlite.saveSheetData('Agenda', [{ ...EVENTO, time: '15:00' }, outro]);
+    const repo = repoBase({ Agenda: [{ ...EVENTO, time: '15:00' }, outro], Categorias: CATEGORIAS });
+    expect(() => exec('atualizar_evento', repo, { eventId: 'ev1', sala: 'Paris' }))
+      .toThrow(/sala "Paris" já está ocupada/);
+  });
+});
+
+describe('atualizar_cliente', () => {
+  const CATEGORIAS = [
+    { id: 'k1', tipo: 'monitor', valor: 'Erick Cardoso', ordem: 1 },
+    { id: 'k2', tipo: 'status_cliente', valor: 'Suspenso', ordem: 1 },
+    { id: 'k3', tipo: 'linha_cliente', valor: 'Pesada', ordem: 1 },
+  ];
+
+  /** Mesmo motivo do bloco acima: semeia nos dois repos. */
+  function preparar() {
+    dbSqlite.saveSheetData('Clientes', [clienteBase()]);
+    return repoBase({ Categorias: CATEGORIAS });
+  }
+
+  it('altera status e linha resolvendo contra o cadastro', () => {
+    const r = exec('atualizar_cliente', preparar(), { clientId: 'c1', status: 'Suspenso', linha: 'Pesada' });
+    expect(r.status).toBe('Suspenso');
+    expect(r.linha).toBe('Pesada');
+  });
+
+  it('estado aceita só Ativo/Inativo', () => {
+    expect(exec('atualizar_cliente', preparar(), { clientId: 'c1', estado: 'inativo' }).estado).toBe('Inativo');
+    expect(() => exec('atualizar_cliente', preparar(), { clientId: 'c1', estado: 'Pausado' }))
+      .toThrow(/estado "Pausado" inválido/);
+  });
+
+  it('cliente inexistente erra explicitamente', () => {
+    expect(() => exec('atualizar_cliente', preparar(), { clientId: 'zzz', status: 'Suspenso' }))
+      .toThrow(/"zzz" não encontrado/);
+  });
+
+  it('sem nenhum campo pra mudar, erra em vez de gravar patch vazio', () => {
+    expect(() => exec('atualizar_cliente', preparar(), { clientId: 'c1' })).toThrow(/nenhum campo pra alterar/);
   });
 });

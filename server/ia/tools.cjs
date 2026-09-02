@@ -566,9 +566,32 @@ function conflitoAgenda(repo, { type, date, time, monitores, sala, excluirId }) 
   return null;
 }
 
+/**
+ * Normaliza a data do evento pro MESMO formato que o resto da base usa: ISO
+ * completo. O agente gravou "2026-09-08" (data pura) num evento real, enquanto
+ * todos os outros da mesma cliente estavam como "2026-08-28T03:00:00.000Z" —
+ * data pura é lida como meia-noite UTC e escorrega um dia pra trás em fuso
+ * negativo (ver CLAUDE.md, "Cuidado com datas type=date"). Já vindo com hora,
+ * mantém como está.
+ */
+function normalizarDataEvento(date, campo) {
+  const texto = String(date ?? '').trim();
+  const soData = /^\d{4}-\d{2}-\d{2}$/.exec(texto);
+  if (soData) {
+    // Meio-dia UTC: qualquer fuso entre -11 e +11 continua no MESMO dia
+    // civil, então a data não escorrega nem pra frente nem pra trás.
+    const d = new Date(`${texto}T12:00:00.000Z`);
+    if (isNaN(d.getTime())) throw new Error(`${campo}: data "${texto}" inválida.`);
+    return d.toISOString();
+  }
+  const d = new Date(texto);
+  if (isNaN(d.getTime())) throw new Error(`${campo}: data "${texto}" inválida (use AAAA-MM-DD).`);
+  return d.toISOString();
+}
+
 function criarEvento(repo, args) {
-  const { clientId, date, time, subject, description } = args;
-  if (!clientId || !args.type || !date) throw new Error('criar_evento: "clientId", "type" e "date" são obrigatórios.');
+  const { clientId, time, subject, description } = args;
+  if (!clientId || !args.type || !args.date) throw new Error('criar_evento: "clientId", "type" e "date" são obrigatórios.');
   const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
   if (!cliente) throw new Error(`criar_evento: cliente "${clientId}" não encontrado.`);
 
@@ -578,11 +601,17 @@ function criarEvento(repo, args) {
   const servicos = resolverLista(repo, 'servico', args.servicos, 'criar_evento: servicos');
   const monitores = resolverLista(repo, 'monitor', args.monitores, 'criar_evento: monitores');
   const sala = args.sala ? resolverOpcao(repo, 'sala', args.sala, 'criar_evento: sala') : args.sala;
+  // `status` agora é PARÂMETRO validado: era fixo em "Agendado", então pedir
+  // "cria como rascunho" fazia o agente responder que criou um rascunho e
+  // gravar "Agendado" (caso real). Se o status pedido não existe no cadastro,
+  // `resolverOpcao` erra com a lista válida e o modelo corrige — em vez de
+  // afirmar algo que não aconteceu.
+  const status = args.status ? resolverOpcao(repo, 'status_evento', args.status, 'criar_evento: status') : 'Agendado';
+  const date = normalizarDataEvento(args.date, 'criar_evento: date');
 
-  // `date` só carrega o DIA (meia-noite UTC, placeholder) — a hora real é o
-  // campo `time` (HH:mm), sempre separado, mesma convenção do resto do app
-  // (ver CLAUDE.md, "Cuidado com datas type=date"). Sem `time`, Reunião ainda
-  // pode ser criada, só não dá pra checar conflito de horário.
+  // A hora real é o campo `time` (HH:mm), sempre separado de `date`, mesma
+  // convenção do resto do app. Sem `time`, Reunião ainda pode ser criada, só
+  // não dá pra checar conflito de horário.
   const conflito = conflitoAgenda(repo, { type, date, time, monitores, sala });
   if (conflito) throw new Error(`criar_evento: conflito de agenda — ${conflito}`);
 
@@ -591,10 +620,94 @@ function criarEvento(repo, args) {
       clientId, clientName: cliente.empresa, type, date, time,
       subject: subject || '', description: description || '',
       servicos: servicos || [], monitores: monitores || [], sala: sala || undefined,
-      status: 'Agendado', checklist: [], attachments: [],
+      status, checklist: [], attachments: [],
       createdAt: new Date().toISOString(),
     },
   });
+}
+
+/**
+ * Edita um evento JÁ EXISTENTE. Antes não existia: o agente criava a reunião,
+ * o usuário pedia pra preencher monitor/serviço depois e a resposta era "a
+ * edição de agenda é manual no sistema, você vai precisar abrir o evento" —
+ * com o evento incompleto que ele mesmo tinha criado.
+ *
+ * Só mexe no que vem no argumento (patch parcial); campo ausente fica como
+ * está. Todo valor de cadastro passa pela mesma validação de `criar_evento`,
+ * então "Erick" continua virando "Erick Cardoso" e status inexistente falha
+ * com a lista válida em vez de gravar torto.
+ */
+function atualizarEvento(repo, args) {
+  const { eventId } = args;
+  if (!eventId) throw new Error('atualizar_evento: "eventId" é obrigatório.');
+  const evento = repo.get('Agenda').find((a) => String(a.id) === String(eventId));
+  if (!evento) throw new Error(`atualizar_evento: evento "${eventId}" não encontrado.`);
+
+  const patch = {};
+  if (args.type !== undefined) patch.type = resolverOpcao(repo, 'tipo_evento', args.type, 'atualizar_evento: type');
+  if (args.status !== undefined) patch.status = resolverOpcao(repo, 'status_evento', args.status, 'atualizar_evento: status');
+  if (args.sala !== undefined) patch.sala = args.sala ? resolverOpcao(repo, 'sala', args.sala, 'atualizar_evento: sala') : '';
+  if (args.servicos !== undefined) patch.servicos = resolverLista(repo, 'servico', args.servicos, 'atualizar_evento: servicos') || [];
+  if (args.monitores !== undefined) patch.monitores = resolverLista(repo, 'monitor', args.monitores, 'atualizar_evento: monitores') || [];
+  if (args.date !== undefined) patch.date = normalizarDataEvento(args.date, 'atualizar_evento: date');
+  if (args.time !== undefined) patch.time = args.time || '';
+  if (args.duracao !== undefined) patch.duracao = Number(args.duracao) || undefined;
+  if (args.subject !== undefined) patch.subject = String(args.subject);
+  if (args.description !== undefined) patch.description = String(args.description);
+  if (args.resumo !== undefined) patch.resumo = String(args.resumo);
+
+  if (Object.keys(patch).length === 0) {
+    throw new Error('atualizar_evento: nenhum campo pra alterar — informe ao menos um (date, time, duracao, type, status, subject, description, resumo, sala, servicos, monitores).');
+  }
+
+  // Conflito é checado com o estado RESULTANTE (o que muda + o que fica),
+  // senão mudar só a sala não veria o horário atual do evento. O próprio
+  // evento sai da checagem (`excluirId`) — senão ele conflitaria consigo mesmo.
+  const futuro = {
+    type: patch.type ?? evento.type,
+    date: patch.date ?? evento.date,
+    time: patch.time ?? evento.time,
+    monitores: patch.monitores ?? listaJSON(evento.monitores),
+    sala: patch.sala ?? evento.sala,
+  };
+  const conflito = conflitoAgenda(repo, { ...futuro, excluirId: eventId });
+  if (conflito) throw new Error(`atualizar_evento: conflito de agenda — ${conflito}`);
+
+  return executarMutacao('agenda', 'update', { id: eventId, patch });
+}
+
+/**
+ * Edita o CADASTRO de um cliente (patch parcial). Não cria nem exclui cliente
+ * — criar/excluir cliente segue sendo ação humana na tela, porque exclusão faz
+ * cascade em agenda/lembretes/ações e criação duplicada é difícil de desfazer.
+ */
+function atualizarCliente(repo, args) {
+  const { clientId } = args;
+  if (!clientId) throw new Error('atualizar_cliente: "clientId" é obrigatório.');
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
+  if (!cliente) throw new Error(`atualizar_cliente: cliente "${clientId}" não encontrado.`);
+
+  const patch = {};
+  if (args.monitor !== undefined) patch.monitor = args.monitor ? resolverOpcao(repo, 'monitor', args.monitor, 'atualizar_cliente: monitor') : '';
+  if (args.status !== undefined) patch.status = resolverOpcao(repo, 'status_cliente', args.status, 'atualizar_cliente: status');
+  if (args.local !== undefined) patch.local = args.local ? resolverOpcao(repo, 'local_cliente', args.local, 'atualizar_cliente: local') : '';
+  if (args.linha !== undefined) patch.linha = args.linha ? resolverOpcao(repo, 'linha_cliente', args.linha, 'atualizar_cliente: linha') : '';
+  if (args.servicos !== undefined) patch.servicos = resolverLista(repo, 'servico', args.servicos, 'atualizar_cliente: servicos') || [];
+  if (args.estado !== undefined) {
+    const alvo = semAcento(args.estado);
+    const valido = ['ativo', 'inativo'].find((e) => e === alvo);
+    if (!valido) throw new Error(`atualizar_cliente: estado "${args.estado}" inválido. Valores válidos: Ativo, Inativo.`);
+    patch.estado = valido === 'ativo' ? 'Ativo' : 'Inativo';
+  }
+  if (args.observacao !== undefined) patch.observacao = String(args.observacao);
+  if (args.endereco !== undefined) patch.endereco = String(args.endereco);
+  if (args.grupo !== undefined) patch.grupo = String(args.grupo);
+
+  if (Object.keys(patch).length === 0) {
+    throw new Error('atualizar_cliente: nenhum campo pra alterar — informe ao menos um (monitor, status, estado, local, linha, servicos, observacao, endereco, grupo).');
+  }
+
+  return executarMutacao('clientes', 'update', { id: clientId, patch });
 }
 
 function criarLembrete(repo, args) {
@@ -1389,10 +1502,55 @@ const FERRAMENTAS = [
         servicos: { type: 'array', items: { type: 'string' }, description: 'Serviços tratados no evento, exatamente como cadastrados (ex.: "Monitoria").' },
         monitores: { type: 'array', items: { type: 'string' }, description: 'Nome COMPLETO do monitor, como cadastrado (ex.: "Erick Cardoso", não "Erick").' },
         sala: { type: 'string', description: 'Sala, como cadastrada.' },
+        status: { type: 'string', description: 'Status do evento, como cadastrado (ex.: "Agendado", "Pendente"). Padrão "Agendado". Se o usuário pedir um status que não existe no cadastro, a ferramenta erra com a lista válida — NÃO diga que criou com esse status.' },
       },
       required: ['clientId', 'type', 'date'],
     },
     executar: criarEvento,
+  },
+  {
+    name: 'atualizar_evento',
+    description: 'Altera campos de um evento JÁ EXISTENTE da agenda (data, hora, duração, tipo, status, assunto, descrição, resumo, sala, serviços, monitores). Só mexe no que você informar — o resto fica como está. Use quando o usuário pedir pra corrigir/completar uma reunião (ex.: "põe o monitor Erick e serviço Precificação nessa agenda"). Pegue o `eventId` em buscar_historico_eventos. GRAVA DADO: só chame depois de o usuário confirmar o que deve mudar.',
+    parameters: {
+      type: 'object',
+      properties: {
+        eventId: { type: 'string', description: 'Id do evento (campo "id" de buscar_historico_eventos).' },
+        date: { type: 'string', description: 'Nova data (dia) — a hora vai em "time".' },
+        time: { type: 'string', description: 'Nova hora local HH:mm. String vazia limpa a hora.' },
+        duracao: { type: 'number', description: 'Duração em minutos.' },
+        type: { type: 'string', description: 'Tipo, como cadastrado.' },
+        status: { type: 'string', description: 'Status, como cadastrado. Status inexistente devolve erro com a lista válida.' },
+        subject: { type: 'string' },
+        description: { type: 'string' },
+        resumo: { type: 'string' },
+        sala: { type: 'string', description: 'Sala, como cadastrada. String vazia limpa a sala.' },
+        servicos: { type: 'array', items: { type: 'string' } },
+        monitores: { type: 'array', items: { type: 'string' }, description: 'Nome COMPLETO do monitor, como cadastrado.' },
+      },
+      required: ['eventId'],
+    },
+    executar: atualizarEvento,
+  },
+  {
+    name: 'atualizar_cliente',
+    description: 'Altera o CADASTRO de um cliente (monitor, status, estado Ativo/Inativo, local/segmento, linha, serviços contratados, observação, endereço, grupo). Só mexe no que você informar. NÃO cria nem exclui cliente — isso continua sendo feito na tela. GRAVA DADO: só chame depois de o usuário confirmar.',
+    parameters: {
+      type: 'object',
+      properties: {
+        clientId: { type: 'string' },
+        monitor: { type: 'string', description: 'Nome COMPLETO do monitor, como cadastrado. String vazia remove o monitor.' },
+        status: { type: 'string', description: 'Status do cliente, como cadastrado (ex.: "Regular", "Suspenso").' },
+        estado: { type: 'string', description: 'Ativo | Inativo — liga/desliga o cliente das contas de cadência e do dashboard.' },
+        local: { type: 'string', description: 'Segmento (Autopeça, Oficina, ...), como cadastrado.' },
+        linha: { type: 'string', description: 'Linha de produto (Leve, Pesada, Geral), como cadastrada.' },
+        servicos: { type: 'array', items: { type: 'string' }, description: 'Serviços contratados, como cadastrados. Substitui a lista inteira.' },
+        observacao: { type: 'string' },
+        endereco: { type: 'string' },
+        grupo: { type: 'string', description: 'Grupo/rede do cliente (análise segmentada).' },
+      },
+      required: ['clientId'],
+    },
+    executar: atualizarCliente,
   },
   {
     name: 'criar_lembrete',
