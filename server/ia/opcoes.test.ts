@@ -101,9 +101,15 @@ describe('criar_evento: resolve antes de gravar', () => {
 });
 
 describe('buscar_opcoes_evento', () => {
-  it('devolve os cinco tipos de categoria usados na criação de evento/lembrete', () => {
+  it('devolve as categorias usadas na criação/edição de evento, lembrete e cliente', () => {
     const repo = repoMemoria({
-      Categorias: [...CATEGORIAS, { id: '9', tipo: 'tipo_lembrete', valor: 'Contato' }],
+      Categorias: [
+        ...CATEGORIAS,
+        { id: '9', tipo: 'tipo_lembrete', valor: 'Contato' },
+        { id: '10', tipo: 'status_evento', valor: 'Agendado' },
+        { id: '11', tipo: 'status_evento', valor: 'Pendente' },
+        { id: '12', tipo: 'status_cliente', valor: 'Regular' },
+      ],
     });
     expect(F('buscar_opcoes_evento').executar(repo)).toEqual({
       monitor: ['Yann Cruz', 'Erick Cardoso', 'Karol Santana'],
@@ -111,6 +117,18 @@ describe('buscar_opcoes_evento', () => {
       sala: ['Nova Iorque', 'Paris'],
       tipo_evento: ['Reunião'],
       tipo_lembrete: ['Contato'],
+      // `status_evento` faltava aqui, e o agente ficava sem saber que
+      // "Rascunho" não existe (nem que "Pendente" é o equivalente) — criou
+      // evento como "Agendado" afirmando ter criado um rascunho.
+      status_evento: ['Agendado', 'Pendente'],
+      status_cliente: ['Regular'],
     });
+  });
+
+  it('categoria sem valor cadastrado vem como lista vazia, não quebra', () => {
+    const repo = repoMemoria({ Categorias: [...CATEGORIAS] });
+    const r = F('buscar_opcoes_evento').executar(repo) as Record<string, string[]>;
+    expect(r.status_evento).toEqual([]);
+    expect(r.status_cliente).toEqual([]);
   });
 });

@@ -282,6 +282,13 @@ function buscarOpcoesEvento(repo) {
     sala: opcoesDe(repo, 'sala'),
     tipo_evento: opcoesDe(repo, 'tipo_evento'),
     tipo_lembrete: opcoesDe(repo, 'tipo_lembrete'),
+    // `status_evento` FALTAVA aqui, e isso teve consequência real: o usuário
+    // pediu uma agenda "como rascunho", o agente não tinha como saber que
+    // "Rascunho" não existe (nem que o equivalente cadastrado é "Pendente"),
+    // então criou com "Agendado" e AFIRMOU ter criado um rascunho. Sem a
+    // lista, ele não consegue corrigir o usuário — só errar ou adivinhar.
+    status_evento: opcoesDe(repo, 'status_evento'),
+    status_cliente: opcoesDe(repo, 'status_cliente'),
   };
 }
 
@@ -409,7 +416,22 @@ function corrigirDossie(repo, { clientId, dossie }) {
   // sincronização secundária é pulada em cliente em vez de derrubar tudo.
   if (analise && !isClient) repo.update('AnalisesIA', analise.id, { sugestaoProximaPauta: extrairProximaPauta(dossie) });
 
-  return { ok: true, empresa: cliente.empresa };
+  // Aviso explícito de que a correção NÃO alcançou `resumo`/`fatores`/
+  // `nivelRisco` — que é justamente o que a ficha do cliente e o dashboard
+  // mostram. Caso real: o usuário corrigiu o motivo de duas reuniões, o
+  // agente confirmou "removido o termo genérico", e a ficha continuou
+  // dizendo "padrão de desalinhamento" porque lê o outro registro. Sem este
+  // campo no retorno, o agente não tinha como saber que ficou pela metade.
+  return {
+    ok: true,
+    empresa: cliente.empresa,
+    analiseDesatualizada: Boolean(analise) && {
+      motivo: 'O dossiê foi corrigido, mas resumo, fatores e nível de risco da ficha do cliente vêm da análise automática e continuam com o texto antigo.',
+      nivelRiscoAtual: analise?.nivelRisco ?? null,
+      resumoAtual: analise?.resumo ?? '',
+      comoResolver: 'Ofereça reanalisar_cliente pra refazer resumo/fatores/risco a partir do dossiê corrigido — só chame se o usuário aceitar.',
+    },
+  };
 }
 
 /** Catálogo de vendas do cliente (produtos/clientes finais), pra IA corrigir
@@ -1272,7 +1294,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'reanalisar_cliente',
-    description: 'Recalcula a análise de risco e o dossiê de UM cliente lendo as atas do zero. Use quando a ata foi escrita/corrigida DEPOIS da reunião e o dossiê ficou defasado — o caso mais comum, já que a ata costuma ser preenchida ao final. Custa uma chamada ao modelo por cliente, então rode a pedido, um de cada vez, nunca a carteira toda de uma vez.',
+    description: 'Recalcula a análise de risco (nível, resumo e fatores) e o dossiê de UM cliente lendo as atas do zero. Use quando a ata foi escrita/corrigida DEPOIS da reunião e o dossiê ficou defasado — o caso mais comum, já que a ata costuma ser preenchida ao final — E TAMBÉM depois de corrigir_dossie_cliente, pra que resumo/fatores/nível da ficha do cliente deixem de mostrar o texto antigo (o retorno daquela ferramenta avisa isso em `analiseDesatualizada`). Custa uma chamada ao modelo por cliente: ofereça e rode só a pedido, um de cada vez, nunca a carteira toda.',
     parameters: { type: 'object', properties: { clientId: { type: 'string' } }, required: ['clientId'] },
     executar: reanalisarCliente,
   },
@@ -1306,7 +1328,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_dossie_cliente',
-    description: 'Devolve o dossiê (memória acumulada de análises) e a última análise de risco de um cliente específico.',
+    description: 'Devolve o dossiê (memória acumulada de análises) e a última análise de risco de um cliente específico. `ultimaAnalise.fatores` é a JUSTIFICATIVA do nível de risco (os motivos que a análise registrou) e `ultimaAnalise.resumo` é o texto que aparece na ficha do cliente — se perguntarem por que o risco é alto/médio/baixo, a resposta está nesses campos; nunca diga que o critério não está explícito quando eles vierem preenchidos.',
     parameters: { type: 'object', properties: { clientId: { type: 'string' } }, required: ['clientId'] },
     executar: buscarDossieCliente,
   },

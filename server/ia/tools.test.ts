@@ -805,6 +805,34 @@ describe('corrigir_dossie_cliente: sincroniza AnalisesIA.sugestaoProximaPauta', 
     const repo = repoBase({ AnalisesIA: [] });
     expect(() => exec('corrigir_dossie_cliente', repo, { clientId: 'c1', dossie: DOSSIE('nova pauta') })).not.toThrow();
   });
+
+  /**
+   * Caso real: o usuário corrigiu no dossiê o motivo de duas reuniões, o
+   * agente confirmou a correção, e a FICHA do cliente continuou mostrando
+   * "padrão de desalinhamento" — porque resumo/fatores/risco vêm da análise
+   * automática, outro registro. O retorno agora carrega esse aviso pro
+   * agente ter como avisar e oferecer a reanálise.
+   */
+  it('avisa que resumo/fatores/risco da ficha continuam desatualizados', () => {
+    const repo = repoBase({
+      AnalisesIA: [{
+        id: 'a1', clientId: 'c1', nivelRisco: 'medio',
+        resumo: 'histórico recente de desalinhamento', fatores: ['padrão de desalinhamento operacional'],
+        sugestaoProximaPauta: 'pauta antiga',
+      }],
+    });
+    const r = exec('corrigir_dossie_cliente', repo, { clientId: 'c1', dossie: DOSSIE('nova pauta') });
+    expect(r.analiseDesatualizada).toBeTruthy();
+    expect(r.analiseDesatualizada.nivelRiscoAtual).toBe('medio');
+    expect(r.analiseDesatualizada.resumoAtual).toContain('desalinhamento');
+    expect(r.analiseDesatualizada.comoResolver).toMatch(/reanalisar_cliente/);
+  });
+
+  it('cliente sem análise não recebe aviso de desatualizado (não há o que reanalisar)', () => {
+    const repo = repoBase({ AnalisesIA: [] });
+    const r = exec('corrigir_dossie_cliente', repo, { clientId: 'c1', dossie: DOSSIE('nova pauta') });
+    expect(r.analiseDesatualizada).toBe(false);
+  });
 });
 
 describe('redigir_ata_reuniao / gerar_ata_pdf: agente especialista de ata', () => {
