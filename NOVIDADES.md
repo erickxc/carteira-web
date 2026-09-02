@@ -8,6 +8,15 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.9
+
+- **Cadastro do cliente reorganizado.** Os campos estavam meio soltos, sem
+  nenhuma lógica visível de agrupamento. Agora estão em blocos com título
+  (Identificação, Situação, Serviços, Estrutura, Notas e links, Automação),
+  os campos curtos (Monitor/Local, Status/Estado) ficam lado a lado em vez de
+  ocupar uma linha inteira cada, e "Serviços contratados" virou uma grade de
+  botões — mais rápido de marcar do que a lista de caixinhas de antes.
+
 ## 1.4.8
 
 - **Ata com IA usa os produtos e clientes cadastrados de verdade.** A
