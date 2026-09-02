@@ -28,7 +28,6 @@ const NAV_ITEMS = [
   { to: '/contatos', label: 'Contatos', icon: Contact, end: false },
   { to: '/acoes', label: 'Ações', icon: Target, end: false },
   { to: '/agil', label: 'Ágil', icon: Kanban, end: false },
-  { to: '/relatorios', label: 'Relatórios', icon: FileSpreadsheet, end: false },
   { to: '/assistente', label: 'monitorIA', icon: Bot, end: false },
 ];
 

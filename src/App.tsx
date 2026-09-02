@@ -28,7 +28,6 @@ import AgendaPage from './pages/AgendaPage';
 import AcoesPage from './pages/AcoesPage';
 import AgilPage from './pages/AgilPage';
 import ContatosPage from './pages/ContatosPage';
-import RelatoriosPage from './pages/RelatoriosPage';
 import AssistenteIAPage from './pages/AssistenteIAPage';
 import ConfiguracoesPage from './pages/ConfiguracoesPage';
 
@@ -155,7 +154,6 @@ function AppRoutes() {
         <Route path="/acoes" element={<AcoesPage />} />
         <Route path="/agil" element={<AgilPage />} />
         <Route path="/contatos" element={<ContatosPage />} />
-        <Route path="/relatorios" element={<RelatoriosPage />} />
         <Route path="/assistente" element={<AssistenteIAPage />} />
         <Route path="/config" element={<ConfiguracoesPage />} />
       </Routes>

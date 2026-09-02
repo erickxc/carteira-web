@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
-import { ArrowLeft, Bell as BellIcon, CalendarPlus, NotebookPen, Pencil, PhoneIncoming, Save, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Bell as BellIcon, CalendarPlus, FileSpreadsheet, NotebookPen, Pencil, PhoneIncoming, Save, Trash2, Users } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { isGratuidade } from '../utils/badges';
 import { confirmDialog } from '../utils/confirmDialog';
@@ -17,6 +17,7 @@ import { ContatosCard } from '../components/cliente/ContatosCard';
 import { TimelineCard } from '../components/cliente/TimelineCard';
 import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
 import { AgilTarefasCard } from '../components/cliente/AgilTarefasCard';
+import { RelatoriosClienteModal } from '../components/cliente/RelatoriosClienteModal';
 import { AcessosExternosButton } from '../components/cliente/AcessosExternosButton';
 import type { TimelineFiltro, TimelineItem } from '../utils/timelineCliente';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -42,6 +43,7 @@ export default function ClienteDetailPage() {
   const [registroContatoOpen, setRegistroContatoOpen] = useState(false);
   const [contatosOpen, setContatosOpen] = useState(false);
   const [anotacoesOpen, setAnotacoesOpen] = useState(false);
+  const [relatoriosOpen, setRelatoriosOpen] = useState(false);
 
   // Memoizado: sem isso, `cliente` é recalculado (nova referência) a cada
   // render, e o compilador do React não consegue provar que memos que dependem
@@ -292,6 +294,9 @@ export default function ClienteDetailPage() {
         <Button variant="secondary" onClick={() => setContatosOpen(true)}>
           <Users size={15} /> Contatos {contatos.length > 0 && `(${contatos.length})`}
         </Button>
+        <Button variant="secondary" onClick={() => setRelatoriosOpen(true)} title="Relatórios deste cliente (prévia + exportar Excel)">
+          <FileSpreadsheet size={15} /> Relatórios
+        </Button>
         <Button variant="secondary" onClick={() => setAnotacoesOpen(true)}>
           <NotebookPen size={15} /> Anotações
         </Button>
@@ -351,6 +356,10 @@ export default function ClienteDetailPage() {
         onFiltroChange={setFiltroTimeline}
         onEditarEvento={setEventoEditando}
       />
+
+      {relatoriosOpen && (
+        <RelatoriosClienteModal cliente={cliente} onClose={() => setRelatoriosOpen(false)} />
+      )}
 
       {anotacoesOpen && (
         <ModalShell
