@@ -143,4 +143,37 @@ describe('geracaoAta: montarPromptAta', () => {
     const prompt = montarPromptAta({ subject: 'Reunião mensal', description: 'Descrição antiga do evento.' });
     expect(prompt).toContain('Descrição antiga do evento.');
   });
+
+  /**
+   * Caso real: transcrição automática ouviu "queijo de embreagem" onde o
+   * cadastro tinha "Kit Embreagem" — sem o catálogo no prompt a IA não tem
+   * contra o que conferir e repete o erro na ata (e depois no dossiê).
+   */
+  it('inclui o catálogo de produtos/clientes e instrui a corrigir grafia da transcrição por ele', () => {
+    const prompt = montarPromptAta({
+      subject: 'Reunião mensal',
+      transcricao: 'Falamos do queijo de embreagem.',
+      produtosCatalogo: ['Kit Embreagem', 'Filtro Ar'],
+      clientesCatalogo: ['GSM Logística'],
+    });
+    expect(prompt).toContain('Kit Embreagem, Filtro Ar');
+    expect(prompt).toContain('GSM Logística');
+    expect(prompt).toMatch(/corrigir grafia da transcrição/);
+  });
+
+  it('sem catálogo (cliente sem Dados Alvos), não menciona nomes cadastrados — não quebra', () => {
+    const prompt = montarPromptAta({ subject: 'Reunião mensal', transcricao: 'x' });
+    expect(prompt).not.toContain('NOMES CADASTRADOS');
+  });
+
+  it('instrui a atribuir o responsável real em cada próximo passo, nunca "2D" por padrão', () => {
+    const prompt = montarPromptAta({ subject: 'Reunião mensal' });
+    expect(prompt).toMatch(/\[Luiz Guilherme\]/);
+    expect(prompt).toMatch(/nunca atribua à 2D por padrão/i);
+  });
+
+  it('instrui a quebrar "o que foi tratado" em uma linha por tópico, não parágrafo único', () => {
+    const prompt = montarPromptAta({ subject: 'Reunião mensal' });
+    expect(prompt).toMatch(/UMA LINHA POR TÓPICO/);
+  });
 });

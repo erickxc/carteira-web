@@ -4,6 +4,7 @@ const { conversar } = require('../ia/provider.cjs');
 const { montarSystemPrompt } = require('../ia/agente.cjs');
 const { gerarAlertas, gerarPadroesCarteira } = require('../ia/alertas.cjs');
 const { gerarAtaIA } = require('../ia/geracaoAta.cjs');
+const { catalogoDoCliente } = require('../alvos/consulta.cjs');
 const { gerarAnalisesPendentes } = require('../ia/analisesAutomaticas.cjs');
 
 const router = express.Router();
@@ -74,9 +75,27 @@ router.post('/chat', async (req, res) => {
  * de `clientId`: não lê nada do repositório, é um completion isolado.
  */
 router.post('/gerar-ata', async (req, res) => {
-  const { subject, resumo, description, checklist, produtosSituacao, transcricao } = req.body ?? {};
+  const { clientId, subject, resumo, description, checklist, produtosSituacao, transcricao } = req.body ?? {};
+  // Catálogo do cliente vai pro prompt pra IA corrigir grafia da transcrição
+  // (caso real: "queijo de embreagem" onde o cadastro tem "Kit Embreagem").
+  // Sem `aquecer`: com cache frio vem do espelho persistido, e sem catálogo o
+  // prompt só não tem contra o que conferir — nunca falha por isso.
+  let produtosCatalogo = [];
+  let clientesCatalogo = [];
+  if (clientId) {
+    try {
+      const cat = catalogoDoCliente(clientId);
+      produtosCatalogo = cat.produtos ?? [];
+      clientesCatalogo = cat.clientes ?? [];
+    } catch (err) {
+      console.warn(`gerar-ata: catálogo indisponível para "${clientId}" — ${err.message}`);
+    }
+  }
   try {
-    const secoes = await gerarAtaIA({ subject, resumo, description, checklist, produtosSituacao, transcricao, repo });
+    const secoes = await gerarAtaIA({
+      subject, resumo, description, checklist, produtosSituacao, transcricao,
+      produtosCatalogo, clientesCatalogo, repo,
+    });
     res.json(secoes);
   } catch (err) {
     res.status(502).json({ error: err.message });

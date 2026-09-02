@@ -217,7 +217,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     setGerandoAtaIA(true);
     try {
       const secoes = await gerarAtaComIA({
-        subject, resumo, description, checklist: ck.checklist,
+        clientId, subject, resumo, description, checklist: ck.checklist,
         produtosSituacao: ehMonitoriaServico ? ps.itens : [],
         transcricao,
       });

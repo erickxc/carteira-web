@@ -59,4 +59,46 @@ describe('gerarAta: com seções de IA', () => {
     const secao = texto.slice(texto.indexOf('4. PRÓXIMOS PASSOS'));
     expect(secao).toContain('(a preencher)');
   });
+
+  /**
+   * Bug real: "[2D]" era prefixado em TODO próximo passo, inclusive quando a
+   * IA já identificou o responsável de verdade na transcrição (o cliente, ou
+   * um terceiro citado) — a ata atribuía à 2D tarefa que não era dela.
+   */
+  it('não duplica "[2D]" quando a IA já manda o responsável real na linha', () => {
+    const texto = gerarAta(evBase, {}, { proximosPassos: '[Luiz Guilherme] acompanhar a Cooperativa em setembro\n[Daniel] verificar o registro de 45 bandejas' });
+    expect(texto).toContain('[Luiz Guilherme] acompanhar a Cooperativa em setembro');
+    expect(texto).toContain('[Daniel] verificar o registro de 45 bandejas');
+    expect(texto).not.toContain('[2D]      [Luiz Guilherme]');
+  });
+
+  it('próximo passo da IA sem responsável identificado ainda cai no "[2D]" (linha sem colchete)', () => {
+    const texto = gerarAta(evBase, {}, { proximosPassos: 'Enviar relatório do mês' });
+    expect(texto).toContain('[2D]      Enviar relatório do mês');
+  });
+});
+
+describe('gerarAta: Registro da Monitoria (produtosSituacao) vira seção própria', () => {
+  it('sem registros, a seção não aparece', () => {
+    const texto = gerarAta(evBase);
+    expect(texto).not.toContain('REGISTRO DA MONITORIA');
+  });
+
+  it('registro com cliente + produto + tag', () => {
+    const texto = gerarAta({
+      ...evBase,
+      produtosSituacao: [{ id: '1', cliente: 'GSM Logística', produto: 'Amortecedor', situacao: 'queda em agosto', tag: 'Alerta' }],
+    });
+    expect(texto).toContain('REGISTRO DA MONITORIA');
+    expect(texto).toContain('— GSM Logística · Amortecedor: queda em agosto [Alerta]');
+  });
+
+  it('registro só de cliente final (sem produto) não imprime "undefined"', () => {
+    const texto = gerarAta({
+      ...evBase,
+      produtosSituacao: [{ id: '1', cliente: 'Comac', situacao: 'encerrou operação' }],
+    });
+    expect(texto).toContain('— Comac: encerrou operação');
+    expect(texto).not.toContain('undefined');
+  });
 });

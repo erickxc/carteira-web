@@ -31,7 +31,21 @@ function textoProdutosSituacao(itens) {
  * estruturados, não há motivo pra IA "reescrever" cliente/data/monitor e
  * arriscar inventar algo ali).
  */
-function montarPromptAta({ subject, resumo, description, checklist, produtosSituacao, transcricao } = {}) {
+/**
+ * Nomes REAIS do arquivo de vendas, pra IA corrigir o que a transcrição ouviu
+ * errado. Caso real: o transcritor escreveu "queijo de embreagem" (e "gosto"
+ * onde era "agosto") — sem a lista do cadastro, a IA não tem contra o que
+ * conferir e repete o erro na ata e depois no dossiê.
+ */
+function textoCatalogo(produtos = [], clientes = []) {
+  if (produtos.length === 0 && clientes.length === 0) return '';
+  const lista = (t, xs) => (xs.length ? `\n${t}: ${xs.slice(0, 200).join(', ')}` : '');
+  return `
+
+NOMES CADASTRADOS NO ARQUIVO DE VENDAS DESTE CLIENTE (use-os para corrigir grafia da transcrição):${lista('Produtos', produtos)}${lista('Clientes finais', clientes)}`;
+}
+
+function montarPromptAta({ subject, resumo, description, checklist, produtosSituacao, transcricao, produtosCatalogo = [], clientesCatalogo = [] } = {}) {
   const relato = resumo?.trim() || description?.trim() || '(nenhum resumo escrito pelo monitor)';
   const transcricaoTrim = transcricao?.trim();
 
@@ -46,13 +60,13 @@ RESUMO ESCRITO PELO MONITOR:
 ${relato}${textoProdutosSituacao(produtosSituacao)}
 
 TRANSCRIÇÃO DA REUNIÃO${transcricaoTrim ? ':' : ' (não fornecida)'}
-${transcricaoTrim || ''}
+${transcricaoTrim || ''}${textoCatalogo(produtosCatalogo, clientesCatalogo)}
 
 A partir dessas fontes, gere o CONTEÚDO de três seções de uma ata formal. Priorize a TRANSCRIÇÃO quando ela existir — é o registro mais fiel do que foi dito; use resumo/pauta como apoio, ou como única fonte quando não houver transcrição.
 
 Responda em JSON com exatamente estes campos:
 {
-  "oQueFoiTratado": "prosa objetiva do que foi discutido — pode ter múltiplas linhas, sem numeração",
+  "oQueFoiTratado": "UMA LINHA POR TÓPICO tratado (quebre com \\n). Cada linha é uma frase objetiva e independente — NÃO devolva um parágrafo único longo",
   "decisoes": "uma linha por decisão tomada explicitamente, sem marcador (o código adiciona) — string vazia se não houve decisão",
   "proximosPassos": "uma linha por compromisso/próximo passo NOVO identificado na transcrição/resumo que NÃO está já coberto pelos itens de pauta acima — string vazia se não houver nenhum"
 }
@@ -60,6 +74,8 @@ Responda em JSON com exatamente estes campos:
 Regras:
 - Não invente fato que não está nas fontes acima.
 - "proximosPassos" não deve repetir itens já listados na PAUTA — só compromissos novos que apareceram na conversa/resumo.
+- Em "proximosPassos", comece CADA linha com o responsável entre colchetes, exatamente como a fonte indica: "[Luiz Guilherme] acompanhar ...", "[Daniel] verificar ...", "[2D] enviar ...". Use "[2D]" só quando a tarefa é da 2D/do monitor. Sem responsável identificável na fonte, escreva "[a definir]" — nunca atribua à 2D por padrão.
+- Transcrição automática erra nome de produto e de empresa. Quando um termo da transcrição for claramente uma variação de um NOME CADASTRADO acima, use o nome cadastrado (ex.: ouviu "queijo de embreagem" e o cadastro tem "Kit Embreagem" → escreva "Kit Embreagem"). Não force: se não houver correspondência plausível, mantenha o termo como veio.
 - Cada linha é uma frase direta — nada de parágrafo longo dentro de uma linha.`;
 }
 
@@ -74,8 +90,8 @@ function normalizarSecao(valor) {
  * resultado estruturado (mesmo padrão de `analiseCliente.gerarAnaliseIA`,
  * testável sem provedor de IA de verdade).
  */
-async function gerarAtaIA({ subject, resumo, description, checklist, produtosSituacao, transcricao, llm = clienteLLM(), repo } = {}) {
-  const prompt = montarPromptAta({ subject, resumo, description, checklist, produtosSituacao, transcricao });
+async function gerarAtaIA({ subject, resumo, description, checklist, produtosSituacao, transcricao, produtosCatalogo, clientesCatalogo, llm = clienteLLM(), repo } = {}) {
+  const prompt = montarPromptAta({ subject, resumo, description, checklist, produtosSituacao, transcricao, produtosCatalogo, clientesCatalogo });
   // Medição: sem isto a geração de ata gastava tokens (pagos, no provedor
   // Claude) sem aparecer no painel de consumo — só o chat era medido.
   const uso = {};

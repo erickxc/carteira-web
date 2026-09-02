@@ -430,6 +430,7 @@ export interface SecoesAtaIA {
  * continuam montados no frontend (`gerarAta`), sempre determinísticos.
  */
 export const gerarAtaComIA = (payload: {
+  clientId?: string;
   subject?: string;
   resumo?: string;
   description?: string;

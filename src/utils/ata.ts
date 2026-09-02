@@ -112,6 +112,21 @@ export function gerarAta(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}, ia?: 
   if (relatoFinal) relatoFinal.split('\n').forEach((l) => L.push(`   ${l.trim()}`));
   else L.push('   (a preencher)');
 
+  // --- Registro da Monitoria (produto/cliente final) ---
+  // Preenchido manualmente pelo monitor (`ProdutosSituacaoField`) — vinha
+  // ficando só no evento, sem virar documento; agora entra na ata igual ao
+  // resto. Cliente/produto omitido quando o modo de registro não usou aquele
+  // campo (ver `ProdutoSituacaoItem`).
+  const registros = ev.produtosSituacao ?? [];
+  if (registros.length > 0) {
+    L.push('', 'REGISTRO DA MONITORIA');
+    registros.forEach((r) => {
+      const quem = [r.cliente, r.produto].filter(Boolean).join(' · ') || '(sem identificação)';
+      const tag = r.tag ? ` [${r.tag}]` : '';
+      L.push(`   ${TRACO} ${quem}: ${r.situacao}${tag}`);
+    });
+  }
+
   // --- 3. Decisões ---
   // Sem IA: heurística deliberadamente simples — linhas do relato que começam
   // com um marcador de decisão. Nada de "adivinhar" decisão em texto corrido
@@ -126,10 +141,13 @@ export function gerarAta(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}, ia?: 
   }
 
   // --- 4. Próximos passos ---
-  // Item de pauta não cumprido é, por definição, pendência: vira próximo passo
-  // automaticamente em vez de só ficar desmarcado na seção 1. Compromissos
-  // novos que a IA identificou na transcrição/resumo (não cobertos pela
-  // pauta) somam-se aos pendentes, nunca os substituem.
+  // Item de pauta não cumprido é, por definição, pendência do lado 2D: vira
+  // próximo passo automaticamente em vez de só ficar desmarcado na seção 1.
+  // Compromissos que a IA identificou na transcrição/resumo já vêm com o
+  // responsável real (o prompt exige "[Nome] ..." em cada linha, ver
+  // `geracaoAta.cjs`) — bug real corrigido: "[2D]" fixo em TODO próximo passo
+  // atribuía à 2D tarefa que era do cliente ("Luiz Guilherme acompanhar X") ou
+  // de terceiro citado na ata ("Daniel verificar Y").
   const pendentes = checklist.filter((i) => !i.done).map((i) => i.text);
   const extrasIA = ia?.proximosPassos?.trim()
     ? ia.proximosPassos.trim().split('\n').map((l) => l.trim()).filter(Boolean)
@@ -137,7 +155,9 @@ export function gerarAta(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}, ia?: 
   L.push('', '4. PRÓXIMOS PASSOS');
   if (pendentes.length + extrasIA.length > 0) {
     pendentes.forEach((p) => L.push(`   [2D]      ${p}`));
-    extrasIA.forEach((p) => L.push(`   [2D]      ${p}`));
+    // Só prefixa "[2D]" se a IA não mandou responsável — evita duplicar
+    // colchete quando a linha já vem como "[Luiz Guilherme] acompanhar...".
+    extrasIA.forEach((p) => L.push(`   ${/^\[.+?\]/.test(p) ? p : `[2D]      ${p}`}`));
   } else {
     L.push('   (a preencher)');
   }
