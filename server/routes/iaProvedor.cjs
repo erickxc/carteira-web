@@ -9,6 +9,7 @@ const { FERRAMENTAS } = require('../ia/tools.cjs');
 const { registrarAcao } = require('../ia/orquestrador.cjs');
 const { conversar } = require('../ia/provider.cjs');
 const { montarSystemPrompt } = require('../ia/agente.cjs');
+const { consultarLimiteConta } = require('../ia/claudeCli/limiteConta.cjs');
 
 // Quais ferramentas MUDAM dado — a tela marca essas, porque o agente executa
 // sem confirmação prévia (decisão do usuário) e quem configura precisa ver o

@@ -8,6 +8,13 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.13
+
+- **Correção urgente: o sistema caía ao abrir Configurações → Sistema.**
+  Um import que faltava numa rota interna (consulta do limite da conta
+  Claude) fazia o servidor inteiro derrubar sempre que essa tela era
+  aberta. Corrigido.
+
 ## 1.4.12
 
 - **Módulo Ágil (Kanban) agora funciona em qualquer máquina**, não só na
