@@ -26,8 +26,8 @@ function atualizar(repo, id, patch) {
 /**
  * Cascade delete: subtarefas e comentários da tarefa também são removidos.
  * Se esta tarefa era a Iniciativa de outras (Fase B), elas NÃO são apagadas —
- * só perdem o vínculo (`iniciativaId`), mesmo padrão não-destrutivo já usado
- * em `agilFrentes.cjs::remover`.
+ * só perdem o vínculo (`iniciativaId`): remover o agrupador não pode destruir
+ * o trabalho agrupado.
  */
 function remover(repo, id) {
   const found = repo.delete('AgilTarefas', id);

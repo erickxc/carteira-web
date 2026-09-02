@@ -32,10 +32,9 @@ const PRIORIDADE_COR: Record<string, string> = {
 };
 
 export function TaskDetailModal({ boardId, colunas, swimlanes, initial, initialColunaId, initialSwimlaneId, onClose }: TaskDetailModalProps) {
-  const { clientes, agilFrentes, agilBoards, agilTarefas, criarAgilTarefa, atualizarAgilTarefa, removerAgilTarefa, opcoesPorTipo } = useCarteira();
+  const { clientes, agilBoards, agilTarefas, criarAgilTarefa, atualizarAgilTarefa, removerAgilTarefa, opcoesPorTipo } = useCarteira();
   const prioridadeOpcoes = opcoesPorTipo('prioridade_tarefa');
   const monitorOpcoes = opcoesPorTipo('monitor');
-  const frentes = useMemo(() => agilFrentes.filter((f) => f.boardId === boardId).sort((a, b) => a.ordem - b.ordem), [agilFrentes, boardId]);
   const board = agilBoards.find((b) => b.id === boardId);
   const boardNome = board?.nome ?? '';
   // Candidatas a "Iniciativa": tarefas do quadro de Iniciativas vinculado a
@@ -53,7 +52,6 @@ export function TaskDetailModal({ boardId, colunas, swimlanes, initial, initialC
   const [descricao, setDescricao] = useState(initial?.descricao ?? '');
   const [colunaId, setColunaId] = useState(initial?.colunaId ?? initialColunaId ?? folhas[0]?.id ?? '');
   const [swimlaneId, setSwimlaneId] = useState(initial?.swimlaneId ?? initialSwimlaneId ?? swimlanes[0]?.id ?? '');
-  const [frenteId, setFrenteId] = useState(initial?.frenteId ?? '');
   const [iniciativaId, setIniciativaId] = useState(initial?.iniciativaId ?? '');
   const [prioridade, setPrioridade] = useState(initial?.prioridade ?? '');
   const [responsaveis, setResponsaveis] = useState<string[]>(initial?.responsaveis ?? []);
@@ -65,12 +63,12 @@ export function TaskDetailModal({ boardId, colunas, swimlanes, initial, initialC
   const [motivoBloqueio, setMotivoBloqueio] = useState(initial?.motivoBloqueio ?? '');
   const [saving, setSaving] = useState(false);
 
-  // Cor do cabeçalho: a Frente escolhida manda; sem Frente, cai na cor de
-  // prioridade (mesma lógica visual do card); sem nenhuma das duas, cabeçalho
-  // padrão do tema (sem override) — igual aos outros modais do app.
-  const frenteSelecionada = frentes.find((f) => f.id === frenteId);
-  const corCabecalho = frenteSelecionada?.cor ?? PRIORIDADE_COR[prioridade] ?? undefined;
-  const corTextoCabecalho = corCabecalho ? corContrastante(frenteSelecionada?.cor ?? '#8a8a92') : undefined;
+  // Cor do cabeçalho: a da prioridade (mesma lógica visual do card); sem
+  // prioridade, cabeçalho padrão do tema (sem override) — igual aos outros
+  // modais do app. Antes a Frente escolhida tinha prioridade aqui, mas Frente
+  // foi removida do Ágil (não era usada).
+  const corCabecalho = PRIORIDADE_COR[prioridade] ?? undefined;
+  const corTextoCabecalho = corCabecalho ? corContrastante(corCabecalho) : undefined;
 
   function toggleResponsavel(m: string) {
     setResponsaveis((prev) => (prev.includes(m) ? prev.filter((r) => r !== m) : [...prev, m]));
@@ -96,7 +94,6 @@ export function TaskDetailModal({ boardId, colunas, swimlanes, initial, initialC
     try {
       const payload = {
         boardId, colunaId, swimlaneId, titulo, descricao,
-        frenteId: frenteId || undefined,
         iniciativaId: iniciativaId || undefined,
         prioridade: prioridade || undefined,
         responsaveis: responsaveis.length > 0 ? responsaveis : undefined,
@@ -243,13 +240,6 @@ export function TaskDetailModal({ boardId, colunas, swimlanes, initial, initialC
           <Field label="Swimlane">
             <Select tone="modal" value={swimlaneId} onChange={(e) => setSwimlaneId(e.target.value)} required>
               {swimlanes.map((s) => <option key={s.id} value={s.id}>{s.titulo}</option>)}
-            </Select>
-          </Field>
-
-          <Field label="Frente">
-            <Select tone="modal" value={frenteId} onChange={(e) => setFrenteId(e.target.value)}>
-              <option value="">Nenhuma</option>
-              {frentes.map((f) => <option key={f.id} value={f.id}>{f.titulo}</option>)}
             </Select>
           </Field>
 

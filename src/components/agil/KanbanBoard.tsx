@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
-import { ChevronDown, ChevronRight, Columns3, Flag, Pencil, Rows3 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Columns3, Pencil, Rows3 } from 'lucide-react';
 import { useCarteira } from '../../context/CarteiraContext';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { montarHierarquiaColunas } from '../../utils/agilColunas';
@@ -10,7 +10,6 @@ import { KanbanGroupHeader } from './KanbanGroupHeader';
 import { KanbanCell } from './KanbanCell';
 import { ColumnFormModal } from './ColumnFormModal';
 import { SwimlaneFormModal } from './SwimlaneFormModal';
-import { FrentesManagerModal } from './FrentesManagerModal';
 import { TaskDetailModal } from './TaskDetailModal';
 import { Button } from '../../ui';
 import type { AgilBoard, AgilColuna, AgilSwimlane, AgilTarefa } from '../../types';
@@ -32,7 +31,6 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
   const { agilColunas, agilSwimlanes, agilTarefas, reordenarAgilColunas, moverAgilTarefas } = useCarteira();
   const [colunaModal, setColunaModal] = useState<{ initial?: AgilColuna; parentId?: string } | null>(null);
   const [swimlaneModal, setSwimlaneModal] = useState<'nova' | AgilSwimlane | null>(null);
-  const [frentesModalAberto, setFrentesModalAberto] = useState(false);
   const [tarefaModal, setTarefaModal] = useState<{ initial?: AgilTarefa; colunaId?: string; swimlaneId?: string } | null>(null);
   // Ids são únicos globalmente, então uma única lista serve para todos os boards.
   const [colunasColapsadas, setColunasColapsadas] = usePersistedState<string[]>('agil:colunasColapsadas', []);
@@ -168,9 +166,6 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
         </Button>
         <Button variant="secondary" onClick={() => setSwimlaneModal('nova')}>
           <Rows3 size={14} /> Swimlane
-        </Button>
-        <Button variant="secondary" onClick={() => setFrentesModalAberto(true)}>
-          <Flag size={14} /> Frente
         </Button>
         <span className="ml-auto text-[0.72rem] font-medium text-text-muted tabular-nums">
           {tarefas.length} tarefa(s) · {folhas.length} coluna(s) · {swimlanes.length} swimlane(s)
@@ -348,10 +343,6 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
           initial={swimlaneModal === 'nova' ? undefined : swimlaneModal}
           onClose={() => setSwimlaneModal(null)}
         />
-      )}
-
-      {frentesModalAberto && (
-        <FrentesManagerModal boardId={board.id} onClose={() => setFrentesModalAberto(false)} />
       )}
 
       {tarefaModal && (

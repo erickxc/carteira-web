@@ -5,7 +5,7 @@ const {
   DB_FILE, HEADERS_BY_SHEET,
   CLIENTES_HEADERS, AGENDA_HEADERS, LEMBRETES_HEADERS, CATEGORIAS_HEADERS, ACOES_HEADERS, MODELOS_HEADERS, CADENCIAS_HEADERS,
   AGENDA_SERIES_HEADERS,
-  AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_SWIMLANES_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS, AGIL_FRENTES_HEADERS,
+  AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_SWIMLANES_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS,
   CADENCIAS_SEED, MODELOS_SEED, CATEGORIAS_SEED,
 } = require('./config.cjs');
 
@@ -203,7 +203,6 @@ function initDB() {
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_COLUNAS_HEADERS }), 'AgilColunas');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_TAREFAS_HEADERS }), 'AgilTarefas');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_SWIMLANES_HEADERS }), 'AgilSwimlanes');
-    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_FRENTES_HEADERS }), 'AgilFrentes');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_SUBTAREFAS_HEADERS }), 'AgilSubtarefas');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_COMENTARIOS_HEADERS }), 'AgilComentarios');
     gravarWorkbook(wb);
@@ -260,7 +259,6 @@ function initDB() {
       { nome: 'AgilColunas', header: AGIL_COLUNAS_HEADERS, rows: [] },
       { nome: 'AgilTarefas', header: AGIL_TAREFAS_HEADERS, rows: [] },
       { nome: 'AgilSwimlanes', header: AGIL_SWIMLANES_HEADERS, rows: [] },
-      { nome: 'AgilFrentes', header: AGIL_FRENTES_HEADERS, rows: [] },
       { nome: 'AgilSubtarefas', header: AGIL_SUBTAREFAS_HEADERS, rows: [] },
       { nome: 'AgilComentarios', header: AGIL_COMENTARIOS_HEADERS, rows: [] },
     ];

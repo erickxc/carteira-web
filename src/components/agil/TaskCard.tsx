@@ -5,7 +5,6 @@ import { differenceInCalendarDays, format, isPast, isToday, parse, parseISO, sta
 import { AlertTriangle, ArrowUp, CalendarClock, Clock, ListChecks, Plus } from 'lucide-react';
 import clsx from 'clsx';
 import { useCarteira } from '../../context/CarteiraContext';
-import { corContrastante } from '../../utils/cor';
 import type { AgilTarefa } from '../../types';
 
 /** Barra de prioridade (idioma `stat-card-accent-bar` do app) — junto do
@@ -33,8 +32,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ tarefa, onClick }: TaskCardProps) {
-  const { clientes, agilFrentes, agilColunas, agilTarefas, agilSubtarefas, criarAgilSubtarefa, atualizarAgilSubtarefa } = useCarteira();
-  const frente = tarefa.frenteId ? agilFrentes.find((f) => f.id === tarefa.frenteId) : undefined;
+  const { clientes, agilColunas, agilTarefas, agilSubtarefas, criarAgilSubtarefa, atualizarAgilSubtarefa } = useCarteira();
   // Iniciativas → Tarefas (Fase B): puramente derivado do dado, sem precisar
   // saber "em qual grid" o card está sendo renderizado.
   // - Se OUTRAS tarefas apontam pra esta (`iniciativaId === tarefa.id`), esta é
@@ -106,20 +104,11 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
         className={clsx('absolute left-0 top-0 bottom-0 w-[3px]', PRIORIDADE_BARRA[tarefa.prioridade ?? ''] ?? 'bg-border')}
       />
 
-      {/* Linha 1: número do card + Frente (categoria colorida) + prioridade */}
+      {/* Linha 1: número do card + prioridade */}
       <div className="flex items-center gap-1.5">
         <span className="px-1.5 rounded-[4px] bg-bg border border-border text-[0.62rem] font-semibold text-text-secondary leading-[1.5] tabular-nums">
           {tarefa.numero ? `#${tarefa.numero}` : '—'}
         </span>
-        {frente && (
-          <span
-            className="px-1.5 rounded-full text-[0.6rem] font-semibold leading-[1.5] truncate max-w-[110px]"
-            style={{ background: frente.cor, color: corContrastante(frente.cor) }}
-            title={frente.titulo}
-          >
-            {frente.titulo}
-          </span>
-        )}
         <span className={clsx('ml-auto text-[0.63rem] font-medium truncate shrink-0', PRIORIDADE_TEXTO[tarefa.prioridade ?? ''] ?? 'text-text-muted')}>
           {tarefa.prioridade || 'Nenhum'}
         </span>

@@ -134,18 +134,6 @@ const agilSwimlaneUpdateSchema = z.object({
 }).passthrough();
 const agilReorderSwimlaneItemSchema = z.object({ id: textoObrigatorio('id'), ordem: z.number() });
 
-const agilFrenteCreateSchema = z.object({
-  boardId: textoObrigatorio('boardId'),
-  titulo: textoObrigatorio('titulo'),
-  cor: corOpcional(),
-}).passthrough();
-const agilFrenteUpdateSchema = z.object({
-  boardId: textoObrigatorio('boardId').optional(),
-  titulo: textoObrigatorio('titulo').optional(),
-  cor: corOpcional(),
-}).passthrough();
-const agilReorderFrenteItemSchema = z.object({ id: textoObrigatorio('id'), ordem: z.number() });
-
 const agilSubtarefaCreateSchema = z.object({
   tarefaId: textoObrigatorio('tarefaId'),
   titulo: textoObrigatorio('titulo'),
@@ -208,7 +196,6 @@ module.exports = {
   agilColunaCreateSchema, agilColunaUpdateSchema, agilReorderColunaItemSchema,
   agilTarefaCreateSchema, agilTarefaUpdateSchema, agilReorderTarefaItemSchema,
   agilSwimlaneCreateSchema, agilSwimlaneUpdateSchema, agilReorderSwimlaneItemSchema,
-  agilFrenteCreateSchema, agilFrenteUpdateSchema, agilReorderFrenteItemSchema,
   agilSubtarefaCreateSchema, agilSubtarefaUpdateSchema,
   agilComentarioCreateSchema,
 };

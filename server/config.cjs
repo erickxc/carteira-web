@@ -360,7 +360,7 @@ const AGIL_COLUNAS_HEADERS = ['id', 'boardId', 'parentId', 'titulo', 'ordem', 'w
 // falar do card) — o uuid não serve pra isso.
 // iniciativaId: opcional — id de uma tarefa do board de Iniciativas vinculado
 // ao board desta tarefa (ver AgilBoards.iniciativasBoardId).
-const AGIL_TAREFAS_HEADERS = ['id', 'numero', 'boardId', 'colunaId', 'swimlaneId', 'frenteId', 'iniciativaId', 'titulo', 'descricao', 'ordem', 'prioridade', 'labels', 'responsaveis', 'dueAt', 'clientId', 'bloqueado', 'motivoBloqueio', 'createdAt', 'updatedAt'];
+const AGIL_TAREFAS_HEADERS = ['id', 'numero', 'boardId', 'colunaId', 'swimlaneId', 'iniciativaId', 'titulo', 'descricao', 'ordem', 'prioridade', 'labels', 'responsaveis', 'dueAt', 'clientId', 'bloqueado', 'motivoBloqueio', 'createdAt', 'updatedAt'];
 // Série recorrente de agenda: guarda a REGRA (aberta, sem "durante N meses") +
 // o molde do evento. As ocorrências do mês são materializadas pelo servidor
 // (server/agendaSeries.cjs) — mesmo padrão de relatoriosAutomaticos.cjs.
@@ -370,7 +370,6 @@ const AGIL_SWIMLANES_HEADERS = ['id', 'boardId', 'titulo', 'ordem', 'createdAt']
 // Frente: categoria colorida da tarefa (ex.: Bug/Correção/Implementação),
 // gerenciável pelo próprio usuário — lista de opções + cor, por board (cada
 // board tem seu próprio conjunto, como colunas e swimlanes).
-const AGIL_FRENTES_HEADERS = ['id', 'boardId', 'titulo', 'cor', 'ordem', 'createdAt'];
 const AGIL_SUBTAREFAS_HEADERS = ['id', 'tarefaId', 'titulo', 'concluida', 'ordem', 'createdAt'];
 const AGIL_COMENTARIOS_HEADERS = ['id', 'tarefaId', 'autor', 'texto', 'createdAt'];
 // fatores é string[] serializado como JSON (mesmo padrão de servicos/labels
@@ -443,7 +442,6 @@ const HEADERS_BY_SHEET = {
   AgilColunas: AGIL_COLUNAS_HEADERS,
   AgilTarefas: AGIL_TAREFAS_HEADERS,
   AgilSwimlanes: AGIL_SWIMLANES_HEADERS,
-  AgilFrentes: AGIL_FRENTES_HEADERS,
   AgilSubtarefas: AGIL_SUBTAREFAS_HEADERS,
   AgilComentarios: AGIL_COMENTARIOS_HEADERS,
   AnalisesIA: ANALISES_IA_HEADERS,
@@ -506,7 +504,7 @@ module.exports = {
   CLAUDE_CLI_TIMEOUT_MS, CLAUDE_CLI_CWD, CLAUDE_MCP_SERVER,
   CLIENTES_HEADERS, AGENDA_HEADERS, LEMBRETES_HEADERS, CATEGORIAS_HEADERS, ACOES_HEADERS, MODELOS_HEADERS, CADENCIAS_HEADERS,
   AGENDA_SERIES_HEADERS,
-  AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_SWIMLANES_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS, AGIL_FRENTES_HEADERS,
+  AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_SWIMLANES_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS,
   ANALISES_IA_HEADERS, ACOES_IA_HEADERS, MEMORIA_IA_HEADERS, USO_IA_HEADERS,
   HEADERS_BY_SHEET,
   CADENCIAS_SEED, MODELOS_SEED, CATEGORIAS_SEED,

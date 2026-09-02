@@ -618,19 +618,6 @@ export interface AgilSwimlane {
 }
 export type NovaAgilSwimlane = Omit<AgilSwimlane, 'id' | 'ordem' | 'createdAt'>;
 
-/** Categoria colorida da tarefa (ex.: Bug/Correção/Implementação) — lista
- *  gerenciada pelo próprio usuário, por board (cada board tem seu conjunto). */
-export interface AgilFrente {
-  id: string;
-  boardId: string;
-  titulo: string;
-  /** Hex #RRGGBB — cor livre escolhida pelo usuário. */
-  cor: string;
-  ordem: number;
-  createdAt: string;
-}
-export type NovaAgilFrente = Omit<AgilFrente, 'id' | 'ordem' | 'createdAt'> & { cor?: string };
-
 export interface AgilTarefa {
   id: string;
   /** Id curto sequencial por board (o "#12" exibido no card). */
@@ -638,8 +625,6 @@ export interface AgilTarefa {
   boardId: string;
   colunaId: string;
   swimlaneId: string;
-  /** Categoria colorida (Bug/Correção/...), opcional — vem de AgilFrente. */
-  frenteId?: string;
   /** Opcional — id de uma tarefa do board de Iniciativas vinculado ao board
    *  desta tarefa (ver AgilBoard.iniciativasBoardId). Essa tarefa é a "Iniciativa". */
   iniciativaId?: string;

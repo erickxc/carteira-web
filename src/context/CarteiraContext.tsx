@@ -11,7 +11,6 @@ import type {
   AgilColuna,
   AgilComentario,
   AgilSubtarefa,
-  AgilFrente,
   AgilSwimlane,
   AgilTarefa,
   Anexo,
@@ -27,7 +26,6 @@ import type {
   NovaAgendaSerie,
   NovaAgilColuna,
   NovaAgilSubtarefa,
-  NovaAgilFrente,
   NovaAgilWorkspace,
   NovaAgilSwimlane,
   NovaAgilTarefa,
@@ -78,7 +76,6 @@ interface CarteiraContextValue {
   agilBoards: AgilBoard[];
   agilColunas: AgilColuna[];
   agilSwimlanes: AgilSwimlane[];
-  agilFrentes: AgilFrente[];
   agilTarefas: AgilTarefa[];
   agilSubtarefas: AgilSubtarefa[];
   agilComentarios: AgilComentario[];
@@ -151,10 +148,6 @@ interface CarteiraContextValue {
   removerAgilSwimlane: (id: string) => Promise<void>;
   reordenarAgilSwimlanes: (itens: { id: string; ordem: number }[]) => Promise<void>;
 
-  criarAgilFrente: (data: NovaAgilFrente) => Promise<AgilFrente>;
-  atualizarAgilFrente: (id: string, data: Partial<AgilFrente>) => Promise<void>;
-  removerAgilFrente: (id: string) => Promise<void>;
-  reordenarAgilFrentes: (itens: { id: string; ordem: number }[]) => Promise<void>;
 
   criarAgilTarefa: (data: NovaAgilTarefa) => Promise<AgilTarefa>;
   atualizarAgilTarefa: (id: string, data: Partial<AgilTarefa>) => Promise<void>;
@@ -197,7 +190,6 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
   const [agilBoards, setAgilBoards] = useState<AgilBoard[]>([]);
   const [agilColunas, setAgilColunas] = useState<AgilColuna[]>([]);
   const [agilSwimlanes, setAgilSwimlanes] = useState<AgilSwimlane[]>([]);
-  const [agilFrentes, setAgilFrentes] = useState<AgilFrente[]>([]);
   const [agilTarefas, setAgilTarefas] = useState<AgilTarefa[]>([]);
   const [agilSubtarefas, setAgilSubtarefas] = useState<AgilSubtarefa[]>([]);
   const [agilComentarios, setAgilComentarios] = useState<AgilComentario[]>([]);
@@ -222,7 +214,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
   const buscarTudo = useCallback(async () => {
     const [
       clientesData, agendaData, agendaSeriesData, lembretesData, categoriasData, acoesData, modelosData, cadenciasData,
-      agilWorkspacesData, agilBoardsData, agilColunasData, agilSwimlanesData, agilFrentesData, agilTarefasData, agilSubtarefasData, agilComentariosData,
+      agilWorkspacesData, agilBoardsData, agilColunasData, agilSwimlanesData, agilTarefasData, agilSubtarefasData, agilComentariosData,
     ] = await Promise.all([
       api.listarClientes(),
       api.listarAgenda(),
@@ -236,14 +228,13 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       api.listarAgilBoards(),
       api.listarAgilColunas(),
       api.listarAgilSwimlanes(),
-      api.listarAgilFrentes(),
       api.listarAgilTarefas(),
       api.listarAgilSubtarefas(),
       api.listarAgilComentarios(),
     ]);
     return {
       clientesData, agendaData, agendaSeriesData, lembretesData, categoriasData, acoesData, modelosData, cadenciasData,
-      agilWorkspacesData, agilBoardsData, agilColunasData, agilSwimlanesData, agilFrentesData, agilTarefasData, agilSubtarefasData, agilComentariosData,
+      agilWorkspacesData, agilBoardsData, agilColunasData, agilSwimlanesData, agilTarefasData, agilSubtarefasData, agilComentariosData,
     };
   }, []);
 
@@ -260,7 +251,6 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     setAgilBoards(d.agilBoardsData);
     setAgilColunas(d.agilColunasData);
     setAgilSwimlanes(d.agilSwimlanesData);
-    setAgilFrentes(d.agilFrentesData);
     setAgilTarefas(d.agilTarefasData);
     setAgilSubtarefas(d.agilSubtarefasData);
     setAgilComentarios(d.agilComentariosData);
@@ -558,7 +548,6 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     setAgilBoards((prev) => prev.filter((b) => !idsBoards.has(b.id)));
     setAgilColunas((prev) => prev.filter((c) => !idsBoards.has(c.boardId)));
     setAgilSwimlanes((prev) => prev.filter((s) => !idsBoards.has(s.boardId)));
-    setAgilFrentes((prev) => prev.filter((f) => !idsBoards.has(f.boardId)));
     setAgilTarefas((prev) => prev.filter((t) => !idsBoards.has(t.boardId)));
     setAgilSubtarefas((prev) => prev.filter((s) => !idsTarefas.has(s.tarefaId)));
     setAgilComentarios((prev) => prev.filter((c) => !idsTarefas.has(c.tarefaId)));
@@ -594,14 +583,13 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     // cascade (não só limpa o vínculo) — replicar isso localmente exigiria
     // conhecer qual board era o companheiro antes de remover; mais simples e
     // sempre correto é só recarregar tudo do Ágil.
-    const [boards, colunas, swimlanes, frentes, tarefas, subtarefas, comentarios] = await Promise.all([
-      api.listarAgilBoards(), api.listarAgilColunas(), api.listarAgilSwimlanes(), api.listarAgilFrentes(),
+    const [boards, colunas, swimlanes, tarefas, subtarefas, comentarios] = await Promise.all([
+      api.listarAgilBoards(), api.listarAgilColunas(), api.listarAgilSwimlanes(),
       api.listarAgilTarefas(), api.listarAgilSubtarefas(), api.listarAgilComentarios(),
     ]);
     setAgilBoards(boards);
     setAgilColunas(colunas);
     setAgilSwimlanes(swimlanes);
-    setAgilFrentes(frentes);
     setAgilTarefas(tarefas);
     setAgilSubtarefas(subtarefas);
     setAgilComentarios(comentarios);
@@ -664,31 +652,6 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     const porId = new Map(itens.map((i) => [i.id, i.ordem]));
     setAgilSwimlanes((prev) => prev.map((s) => (porId.has(s.id) ? { ...s, ordem: porId.get(s.id)! } : s)));
     await api.reordenarAgilSwimlanes(itens);
-  }, []);
-
-  const criarAgilFrenteFn = useCallback(async (data: NovaAgilFrente) => {
-    const nova = await api.criarAgilFrente(data);
-    setAgilFrentes((prev) => [...prev, nova]);
-    return nova;
-  }, []);
-
-  const atualizarAgilFrenteFn = useCallback(async (id: string, data: Partial<AgilFrente>) => {
-    const salva = await api.atualizarAgilFrente(id, data);
-    setAgilFrentes((prev) => prev.map((f) => (f.id === id ? salva : f)));
-  }, []);
-
-  const removerAgilFrenteFn = useCallback(async (id: string) => {
-    await api.removerAgilFrente(id);
-    // Frente é só etiqueta — remover NÃO apaga tarefas, só limpa a marcação
-    // (mesmo cascade não-destrutivo do servidor).
-    setAgilFrentes((prev) => prev.filter((f) => f.id !== id));
-    setAgilTarefas((prev) => prev.map((t) => (t.frenteId === id ? { ...t, frenteId: undefined } : t)));
-  }, []);
-
-  const reordenarAgilFrentesFn = useCallback(async (itens: { id: string; ordem: number }[]) => {
-    const porId = new Map(itens.map((i) => [i.id, i.ordem]));
-    setAgilFrentes((prev) => prev.map((f) => (porId.has(f.id) ? { ...f, ordem: porId.get(f.id)! } : f)));
-    await api.reordenarAgilFrentes(itens);
   }, []);
 
   const criarAgilTarefaFn = useCallback(async (data: NovaAgilTarefa) => {
@@ -763,7 +726,6 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       agilBoards,
       agilColunas,
       agilSwimlanes,
-      agilFrentes,
       agilTarefas,
       agilSubtarefas,
       agilComentarios,
@@ -813,10 +775,6 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       atualizarAgilSwimlane: atualizarAgilSwimlaneFn,
       removerAgilSwimlane: removerAgilSwimlaneFn,
       reordenarAgilSwimlanes: reordenarAgilSwimlanesFn,
-      criarAgilFrente: criarAgilFrenteFn,
-      atualizarAgilFrente: atualizarAgilFrenteFn,
-      removerAgilFrente: removerAgilFrenteFn,
-      reordenarAgilFrentes: reordenarAgilFrentesFn,
       criarAgilTarefa: criarAgilTarefaFn,
       atualizarAgilTarefa: atualizarAgilTarefaFn,
       removerAgilTarefa: removerAgilTarefaFn,
@@ -829,7 +787,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     }),
     [
       clientes, filtroMonitor, definirFiltroMonitor, monitoresDisponiveis, agenda, agendaSeries, lembretes, categorias, acoes, modelos, cadencias,
-      agilWorkspaces, agilBoards, agilColunas, agilSwimlanes, agilFrentes, agilTarefas, agilSubtarefas, agilComentarios,
+      agilWorkspaces, agilBoards, agilColunas, agilSwimlanes, agilTarefas, agilSubtarefas, agilComentarios,
       loading, error, recarregar, ceoAgenda, opcoesPorTipo, categoriasPorTipo,
       criarCliente, criarClientesEmLote, atualizarClienteFn, removerClienteFn,
       criarEventoFn, atualizarEventoFn, removerEventoFn, enviarAnexoEvento, removerAnexoEvento,
@@ -841,7 +799,6 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       criarAgilBoardFn, atualizarAgilBoardFn, removerAgilBoardFn,
       criarAgilColunaFn, atualizarAgilColunaFn, removerAgilColunaFn, reordenarAgilColunasFn,
       criarAgilSwimlaneFn, atualizarAgilSwimlaneFn, removerAgilSwimlaneFn, reordenarAgilSwimlanesFn,
-      criarAgilFrenteFn, atualizarAgilFrenteFn, removerAgilFrenteFn, reordenarAgilFrentesFn,
       criarAgilTarefaFn, atualizarAgilTarefaFn, removerAgilTarefaFn, moverAgilTarefasFn,
       criarAgilSubtarefaFn, atualizarAgilSubtarefaFn, removerAgilSubtarefaFn,
       criarAgilComentarioFn, removerAgilComentarioFn,

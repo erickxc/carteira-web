@@ -72,7 +72,6 @@ function remover(repo, id) {
     .filter((t) => String(t.boardId) !== String(id))
     .map((t) => (tarefasRemovidasSet.has(String(t.iniciativaId)) ? { ...t, iniciativaId: '' } : t)));
   repo.save('AgilSwimlanes', repo.get('AgilSwimlanes').filter((s) => String(s.boardId) !== String(id)));
-  repo.save('AgilFrentes', repo.get('AgilFrentes').filter((f) => String(f.boardId) !== String(id)));
   repo.save('AgilSubtarefas', repo.get('AgilSubtarefas').filter((s) => !tarefasRemovidasSet.has(String(s.tarefaId))));
   repo.save('AgilComentarios', repo.get('AgilComentarios').filter((c) => !tarefasRemovidasSet.has(String(c.tarefaId))));
   repo.save('AgilBoards', repo.get('AgilBoards').map((b) => (String(b.iniciativasBoardId) === String(id) ? { ...b, iniciativasBoardId: '' } : b)));
