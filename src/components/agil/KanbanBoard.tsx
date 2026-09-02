@@ -73,6 +73,18 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
     return m;
   }, [tarefas, topo, filhosPorPai]);
 
+  /**
+   * Swimlane que carrega os cabeçalhos ARRASTÁVEIS de coluna. Era fixo na
+   * primeira (`i === 0`), mas o cabeçalho só é renderizado quando a swimlane
+   * está expandida — então recolher a primeira raia tirava a única alça de
+   * arrastar e reordenar coluna deixava de funcionar (bug relatado). Agora é
+   * a primeira raia VISÍVEL.
+   */
+  const swimlaneArrastavelId = useMemo(
+    () => swimlanes.find((s) => !swimlanesColapsadas.includes(s.id))?.id,
+    [swimlanes, swimlanesColapsadas]
+  );
+
   const totalPorSwimlane = useMemo(() => {
     const m = new Map<string, number>();
     tarefas.forEach((t) => m.set(t.swimlaneId, (m.get(t.swimlaneId) ?? 0) + 1));
@@ -185,11 +197,11 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
                 <SortableContext items={idsOrdenaveis} strategy={horizontalListSortingStrategy}>
                   {swimlanes.map((swimlane, i) => {
                     const recolhida = swimlanesColapsadas.includes(swimlane.id);
-                    // Reordenar colunas só é permitido pela 1ª swimlane — as
-                    // demais mostram uma CÓPIA visual do mesmo cabeçalho (as
-                    // colunas são do board, não da swimlane), sem registrar o
-                    // id da coluna de novo no dnd-kit.
-                    const arrastavel = i === 0;
+                    // Reordenar colunas só é permitido pela 1ª swimlane VISÍVEL
+                    // — as demais mostram uma CÓPIA visual do mesmo cabeçalho
+                    // (as colunas são do board, não da swimlane), sem registrar
+                    // o id da coluna de novo no dnd-kit. Ver `swimlaneArrastavelId`.
+                    const arrastavel = swimlane.id === swimlaneArrastavelId;
                     const base = i * LINHAS_POR_SWIMLANE;
                     const linhaRotulo = base + 1;
                     const linhaCabecalho1 = base + 2;
