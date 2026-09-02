@@ -11,16 +11,17 @@ function textoChecklist(checklist) {
   return itens.map((i) => `- [${i?.done ? 'x' : ' '}] ${i?.text ?? ''}`).join('\n');
 }
 
-/** Mesmo formato de `analiseCliente.textoProdutosSituacao`, sem depender de
- *  `listaJSON` (aqui os itens já chegam como array do corpo da requisição,
- *  não como coluna serializada de planilha). */
+/** Uma linha por registro (cliente final/produto/situação) — sem cabeçalho
+ *  próprio, quem chama decide o título da seção no prompt. Mesmo formato de
+ *  `analiseCliente.textoProdutosSituacao`, sem depender de `listaJSON` (aqui
+ *  os itens já chegam como array do corpo da requisição, não como coluna
+ *  serializada de planilha). */
 function textoProdutosSituacao(itens) {
-  if (!Array.isArray(itens) || itens.length === 0) return '';
-  const linhas = itens.map((i) => {
+  if (!Array.isArray(itens) || itens.length === 0) return '(nenhum)';
+  return itens.map((i) => {
     const quem = [i?.cliente, i?.produto].filter(Boolean).join(' · ') || '(sem identificação)';
     return `- ${quem}: ${i?.situacao ?? ''}${i?.tag ? ` [tag: ${i.tag}]` : ''}${i?.grupo ? ` [grupo: ${i.grupo}]` : ''}`;
-  });
-  return `\n\nRegistro da monitoria (cliente final / produto):\n${linhas.join('\n')}`;
+  }).join('\n');
 }
 
 /**
@@ -48,6 +49,7 @@ NOMES CADASTRADOS NO ARQUIVO DE VENDAS DESTE CLIENTE (use-os para corrigir grafi
 function montarPromptAta({ subject, resumo, description, checklist, produtosSituacao, transcricao, produtosCatalogo = [], clientesCatalogo = [] } = {}) {
   const relato = resumo?.trim() || description?.trim() || '(nenhum resumo escrito pelo monitor)';
   const transcricaoTrim = transcricao?.trim();
+  const temRegistros = Array.isArray(produtosSituacao) && produtosSituacao.length > 0;
 
   return `Você ajuda um monitor da 2D Consultores a redigir trechos da ata de uma reunião de monitoria. Escreva em português do Brasil, revisado, sem erros de ortografia/gramática.
 
@@ -56,13 +58,21 @@ ASSUNTO DA REUNIÃO: ${subject?.trim() || '(não informado)'}
 PAUTA (o que estava planejado tratar):
 ${textoChecklist(checklist)}
 
+REGISTROS ESTRUTURADOS DA MONITORIA${temRegistros ? ' (o monitor já apurou e confirmou estes fatos, cliente final/produto por produto — trate como VERDADE ESTABELECIDA, não como algo a confirmar de novo)' : ' (nenhum registrado nesta reunião)'}:
+${textoProdutosSituacao(produtosSituacao)}
+
 RESUMO ESCRITO PELO MONITOR:
-${relato}${textoProdutosSituacao(produtosSituacao)}
+${relato}
 
 TRANSCRIÇÃO DA REUNIÃO${transcricaoTrim ? ':' : ' (não fornecida)'}
 ${transcricaoTrim || ''}${textoCatalogo(produtosCatalogo, clientesCatalogo)}
 
-A partir dessas fontes, gere o CONTEÚDO de três seções de uma ata formal. Priorize a TRANSCRIÇÃO quando ela existir — é o registro mais fiel do que foi dito; use resumo/pauta como apoio, ou como única fonte quando não houver transcrição.
+Você tem três fontes. Antes de escrever, CRUZE-AS — não trate como blocos independentes a colar em sequência:
+1. Os REGISTROS ESTRUTURADOS são o fato confirmado pra cada cliente final/produto (o monitor já verificou isso, é a fonte de maior confiança sobre O QUE aconteceu com aquele cliente/produto específico).
+2. A TRANSCRIÇÃO é o registro mais fiel de COMO/POR QUE aquilo foi discutido — use-a pra dar contexto e nuance ao mesmo fato, não pra repeti-lo.
+3. Se um cliente final/produto aparece TANTO num registro estruturado QUANTO na transcrição, funda as duas informações numa linha SÓ em "oQueFoiTratado" (o fato do registro + o contexto/motivo da transcrição) — nunca escreva a mesma informação duas vezes (uma vinda do registro, outra "descoberta" de novo na transcrição). Onde não há registro estruturado, use resumo/transcrição normalmente.
+
+A partir dessas fontes já cruzadas, gere o CONTEÚDO de três seções de uma ata formal.
 
 Responda em JSON com exatamente estes campos:
 {

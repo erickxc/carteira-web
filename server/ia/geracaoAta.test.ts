@@ -114,14 +114,15 @@ describe('geracaoAta: gerarAtaIA', () => {
 });
 
 describe('geracaoAta: montarPromptAta', () => {
-  it('inclui a transcrição e instrui a priorizá-la sobre o resumo', () => {
+  it('inclui a transcrição e instrui a cruzá-la com o registro estruturado em vez de só concatenar', () => {
     const prompt = montarPromptAta({
       subject: 'Reunião mensal',
       resumo: 'Resumo curto.',
       transcricao: 'Cliente disse que vai reduzir compra de pneus.',
     });
     expect(prompt).toContain('Cliente disse que vai reduzir compra de pneus.');
-    expect(prompt).toMatch(/[Pp]riorize a TRANSCRIÇÃO/);
+    expect(prompt).toMatch(/CRUZE-AS/);
+    expect(prompt).toMatch(/funda as duas informações numa linha SÓ/);
   });
 
   it('sinaliza transcrição não fornecida quando ausente, sem inventar conteúdo', () => {
