@@ -13,6 +13,29 @@ function sanitize(s: string) {
 }
 
 /**
+ * `ev.ata` (quando já foi gerada — automática ou por IA, ver `gerarAta` em
+ * `src/utils/ata.ts`) já traz as seções 2/3/4 prontas e corretas, inclusive
+ * com o que a IA identificou. Extrai o texto de uma seção pelo cabeçalho
+ * literal que `gerarAta` sempre usa (linhas indentadas com 3 espaços, até o
+ * próximo cabeçalho em maiúsculas ou o fim do texto).
+ *
+ * Bug que isso corrige: o PDF tinha sua PRÓPRIA lógica (mais fraca, sem IA)
+ * pra reconstruir "O que foi tratado"/Decisões/Próximos passos a partir do
+ * `resumo` cru — resultado: o resumo inteiro (às vezes vários parágrafos
+ * emendados) caía como um bloco só na seção 2, ignorando a ata que já estava
+ * certa na tela. Ler direto da ata elimina essa segunda fonte de verdade.
+ */
+function extrairSecaoAta(ata: string, cabecalho: string): string[] | null {
+  const linhas = ata.split('\n');
+  const inicio = linhas.findIndex((l) => l.trim() === cabecalho);
+  if (inicio === -1) return null;
+  const resto = linhas.slice(inicio + 1);
+  const fimRel = resto.findIndex((l) => /^[A-ZÀ-Ú0-9][A-ZÀ-Ú0-9 .çÇ]*$/.test(l.trim()) && l.trim().length > 0);
+  const corpo = fimRel === -1 ? resto : resto.slice(0, fimRel);
+  return corpo.map((l) => l.trim()).filter(Boolean);
+}
+
+/**
  * Gera e baixa a Ata da reunião em PDF, com a marca da 2D Consultores.
  *
  * As seções seguem a MESMA estrutura de `gerarAta` (utils/ata.ts): antes o PDF
@@ -106,35 +129,53 @@ export function gerarAtaPdf(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}) {
   if (cl.length === 0) par('(sem pauta registrada)', 3);
   else cl.forEach((i) => par(`${i.done ? '[x]' : '[ ]'} ${i.text}${i.done ? '' : '  (não tratado)'}`, 3));
 
+  // --- 2/3/4: extraídas da própria `ev.ata` quando ela já foi gerada (tem a
+  // estrutura de `gerarAta`, com IA ou não) — é a fonte de verdade correta,
+  // já vista na tela. Só cai na heurística própria (resumo cru) pra atas
+  // antigas/manuais que não têm esse formato.
+  const ataTexto = ev.ata?.trim() ?? '';
+  const secaoTratado = extrairSecaoAta(ataTexto, '2. O QUE FOI TRATADO');
+  const secaoDecisoes = extrairSecaoAta(ataTexto, '3. DECISÕES');
+  const secaoProximosPassos = extrairSecaoAta(ataTexto, '4. PRÓXIMOS PASSOS');
+
+  const relato = ev.resumo?.trim() || ev.description?.trim() || '';
+
   // --- 2. O que foi tratado ---
   h2('2. O que foi tratado');
-  const relato = ev.resumo?.trim() || ev.description?.trim() || '';
-  par(relato || '(a preencher)', 3);
+  if (secaoTratado) secaoTratado.forEach((l) => par(l, 3));
+  else par(relato || '(a preencher)', 3);
 
-  // --- 3. Decisões / 4. Próximos passos ---
-  // Mesma heurística da ata em texto (linha que começa com marcador de decisão).
-  const linhasRelato = relato
-    .split('\n')
-    .map((l) => l.replace(/^\s*(?:[-*•—]|\d+[.)])\s*/, '').trim())
-    .filter(Boolean);
-  const decisoes = linhasRelato.filter((l) => /^(decis|decidid|ficou\s+(definido|acordado)|acordad)/i.test(l));
+  // --- 3. Decisões ---
   h2('3. Decisões');
-  if (decisoes.length > 0) decisoes.forEach((x) => par(`— ${x}`, 3));
-  else par('(a preencher)', 3);
+  if (secaoDecisoes) {
+    secaoDecisoes.forEach((l) => par(l, 3));
+  } else {
+    // Mesma heurística de `gerarAta` pra ata sem esse formato: linha do
+    // relato que começa com marcador de decisão.
+    const decisoes = relato
+      .split('\n')
+      .map((l) => l.replace(/^\s*(?:[-*•—]|\d+[.)])\s*/, '').trim())
+      .filter((l) => /^(decis|decidid|ficou\s+(definido|acordado)|acordad)/i.test(l));
+    if (decisoes.length > 0) decisoes.forEach((x) => par(`— ${x}`, 3));
+    else par('(a preencher)', 3);
+  }
 
-  const pendentes = cl.filter((i) => !i.done).map((i) => i.text);
+  // --- 4. Próximos passos ---
   h2('4. Próximos passos');
-  if (pendentes.length > 0) pendentes.forEach((p) => par(`[2D] ${p}`, 3));
-  else par('(a preencher)', 3);
+  if (secaoProximosPassos) {
+    secaoProximosPassos.forEach((l) => par(l, 3));
+  } else {
+    const pendentes = cl.filter((i) => !i.done).map((i) => i.text);
+    if (pendentes.length > 0) pendentes.forEach((p) => par(`[2D] ${p}`, 3));
+    else par('(a preencher)', 3);
+  }
 
   // --- Ata editada à mão ---
-  // Só entra se o usuário escreveu algo que NÃO é a ata gerada (senão o PDF
-  // repetiria as seções acima dentro de um bloco de observações — era o que
-  // acontecia antes, quando a ata inteira caía numa seção "Observações").
-  const ataManual = ev.ata?.trim();
-  if (ataManual && !/^ATA (DE REUNIÃO|—)/i.test(ataManual)) {
+  // Só entra se `ev.ata` NÃO segue o formato de `gerarAta` (já extraído acima)
+  // — senão o PDF repetiria o conteúdo das seções 2-4 de novo aqui embaixo.
+  if (ataTexto && !secaoTratado) {
     h2('Observações');
-    par(ataManual, 3);
+    par(ataTexto, 3);
   }
 
   // --- Rodapé em todas as páginas ---

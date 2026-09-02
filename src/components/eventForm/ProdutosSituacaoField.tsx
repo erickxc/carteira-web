@@ -1,4 +1,5 @@
-import { Plus, X } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import { Badge, Button, Chip, Field, Input, Select } from '../../ui';
 import { AutocompleteInput } from '../AutocompleteInput';
 import { MODO_PRODUTO_SITUACAO_LABEL, type ModoProdutoSituacao } from '../../types';
@@ -41,6 +42,12 @@ export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDi
   // Grupo referência (G1/G2/G3) também é do CLIENTE FINAL — mesma regra da tag.
   const mostrarGrupo = ps.precisaCliente && gruposReferencia.length > 0;
 
+  // Recolhido por padrão quando já há vários registros (edição de reunião
+  // antiga, ex.: 14 linhas) — a lista inteira dominava o formulário mesmo
+  // quando o monitor só queria adicionar um item novo. Poucos registros
+  // (o caso comum, reunião nova) já aparece aberto, sem precisar de clique.
+  const [expandido, setExpandido] = useState(ps.itens.length <= 3);
+
   return (
     <Field
       as="div"
@@ -53,22 +60,44 @@ export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDi
         </>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 4, marginBottom: 8 }}>
-        {ps.itens.length === 0 && <span className="text-text-muted" style={{ fontSize: 13, textTransform: 'none' }}>Nenhum registro.</span>}
-        {ps.itens.map((it) => (
-          <div key={it.id} className="check-item">
-            <span style={{ flex: 1 }}>
-              {it.cliente && <strong>{it.cliente}</strong>}
-              {it.cliente && it.produto ? ' · ' : null}
-              {it.produto && <strong>{it.produto}</strong>}
-              {': '}{it.situacao}
-              {it.tag && <Badge variant="muted" style={{ marginLeft: 6 }}>{it.tag}</Badge>}
-              {it.grupo && <Badge variant="warning" style={{ marginLeft: 6 }}>{it.grupo}</Badge>}
-            </span>
-            <Button variant="secondary" size="icon" onClick={() => ps.removeItem(it.id)} aria-label="Remover"><X size={12} /></Button>
-          </div>
-        ))}
-      </div>
+      {ps.itens.length === 0 ? (
+        <span className="text-text-muted" style={{ fontSize: 13, textTransform: 'none', display: 'block', marginTop: 4, marginBottom: 8 }}>
+          Nenhum registro.
+        </span>
+      ) : (
+        <div style={{ marginTop: 4, marginBottom: 8 }}>
+          <button
+            type="button"
+            onClick={() => setExpandido((e) => !e)}
+            className="text-text-muted"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, textTransform: 'none',
+              letterSpacing: 'normal', fontWeight: 600, background: 'none', border: 'none', padding: '2px 0',
+              cursor: 'pointer', marginBottom: expandido ? 6 : 0,
+            }}
+          >
+            {expandido ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            {ps.itens.length} registro{ps.itens.length > 1 ? 's' : ''}
+          </button>
+          {expandido && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 260, overflowY: 'auto', paddingRight: 2 }}>
+              {ps.itens.map((it) => (
+                <div key={it.id} className="check-item">
+                  <span style={{ flex: 1 }}>
+                    {it.cliente && <strong>{it.cliente}</strong>}
+                    {it.cliente && it.produto ? ' · ' : null}
+                    {it.produto && <strong>{it.produto}</strong>}
+                    {': '}{it.situacao}
+                    {it.tag && <Badge variant="muted" style={{ marginLeft: 6 }}>{it.tag}</Badge>}
+                    {it.grupo && <Badge variant="warning" style={{ marginLeft: 6 }}>{it.grupo}</Badge>}
+                  </span>
+                  <Button variant="secondary" size="icon" onClick={() => ps.removeItem(it.id)} aria-label="Remover"><X size={12} /></Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2" style={{ marginBottom: 8 }}>
         {MODOS.map((m) => (
