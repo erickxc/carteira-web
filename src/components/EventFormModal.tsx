@@ -6,10 +6,10 @@ import { gerarAta } from '../utils/ata';
 import { registrarRemarcacao } from '../utils/reagendamento';
 import { gerarAtaPdf } from '../utils/ataPdf';
 import {
-  gerarAtaComIA, atualizarDossieIA, buscarCatalogoAlvos, buscarTagsClienteFinal,
+  gerarAtaComIA, buscarCatalogoAlvos, buscarTagsClienteFinal,
   type CatalogoAlvosCliente, type TagClienteFinal,
 } from '../api/client';
-import { toastError, toastSuccess } from '../utils/toast';
+import { toastError, toastInfo, toastSuccess } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ModalShell } from './ModalShell';
 import { ClienteCombobox } from './ClienteCombobox';
@@ -97,7 +97,6 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [gerandoAtaIA, setGerandoAtaIA] = useState(false);
-  const [atualizandoDossie, setAtualizandoDossie] = useState(false);
   const [catalogoAlvos, setCatalogoAlvos] = useState<{ clientId: string; catalogo: CatalogoAlvosCliente | null } | null>(null);
   const [tagsClienteFinal, setTagsClienteFinal] = useState<TagClienteFinal[]>([]);
 
@@ -346,21 +345,10 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         const salvo = await criarEvento({ ...comum, date: iso, checklist: ck.checklist, ata: ataDe(iso, ck.checklist), produtosSituacao, precificacoes });
         await lembretesPara(salvo.id, baseData);
       }
-      // Reunião concluída/reagendada/cancelada: a ata pode ter conteúdo novo
-      // pro dossiê refletir — dispara a mesma reanálise do cron/boot, síncrona,
-      // com animação (só quando o hash da ata realmente mudou é que custa uma
-      // chamada de IA de verdade, ver `eventosParaAnalisar`). Falha aqui não
-      // desfaz o salvamento, que já aconteceu — só avisa.
-      if (!rec.recorrente && /conclu|realiz|cancel|reagend/i.test(statusFinal)) {
-        setAtualizandoDossie(true);
-        try {
-          await atualizarDossieIA(clientId);
-        } catch (err) {
-          toastError(err instanceof Error ? `Evento salvo, mas o dossiê não atualizou: ${err.message}` : 'Evento salvo, mas o dossiê não atualizou.');
-        } finally {
-          setAtualizandoDossie(false);
-        }
-      }
+      // Dossiê e catálogo NÃO são atualizados aqui: quem dispara é o backend, ao
+      // gravar o evento (`server/ia/posEvento.cjs`), em segundo plano. Antes
+      // isto era uma chamada síncrona daqui e o modal ficava travado em
+      // "Atualizando dossiê..." esperando análise + leitura de xlsx.
       // Fechar o loop: virou concluída agora (não estava concluída antes) → oferece
       // agendar o próximo evento pro mesmo cliente.
       const virouConcluido = /conclu|realiz/i.test(statusFinal) && !/conclu|realiz/i.test(initial?.status || '');
@@ -376,20 +364,22 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     }
   }
 
+  /**
+   * "Cancelar evento" NÃO cancela direto: motivo é obrigatório no cancelamento
+   * (o dossiê precisa poder dizer "cancelou 2x por tal motivo"), e este botão
+   * gravava status Cancelado sem perguntar nada — o cancelamento entrava no
+   * histórico sem justificativa (reportado pelo usuário). Agora ele coloca o
+   * formulário em modo cancelamento: o campo Motivo aparece obrigatório (mesma
+   * validação do Salvar), o usuário justifica e salva.
+   */
   async function handleDelete() {
     if (!initial) return;
-    // Soft delete: em vez de apagar, marca como Cancelado (preserva o histórico).
-    if (!(await confirmDialog('Cancelar este evento? Ele fica no histórico marcado como Cancelado (não é apagado).', { danger: true, confirmLabel: 'Sim, cancelar', cancelLabel: 'Voltar' }))) return;
-    await atualizarEvento(initial.id, { status: statusCancelado });
-    setAtualizandoDossie(true);
-    try {
-      await atualizarDossieIA(initial.clientId);
-    } catch (err) {
-      toastError(err instanceof Error ? `Evento cancelado, mas o dossiê não atualizou: ${err.message}` : 'Evento cancelado, mas o dossiê não atualizou.');
-    } finally {
-      setAtualizandoDossie(false);
-    }
-    onClose();
+    if (!(await confirmDialog(
+      'Cancelar este evento? Ele fica no histórico marcado como Cancelado (não é apagado) — você precisa informar o motivo.',
+      { danger: true, confirmLabel: 'Sim, informar motivo', cancelLabel: 'Voltar' },
+    ))) return;
+    setStatus(statusCancelado);
+    toastInfo('Informe o motivo do cancelamento e clique em Salvar.');
   }
 
   async function handleFilesSelected(files: FileList | null) {
@@ -412,15 +402,15 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         <>
           {editando && (
             <Button variant="danger" onClick={handleDelete} disabled={saving} style={{ marginRight: 'auto' }}>
-              {atualizandoDossie ? (<><Loader2 size={13} className="animate-spin" /> Atualizando dossiê...</>) : (<><Ban size={15} /> Cancelar evento</>)}
+              <Ban size={15} /> Cancelar evento
             </Button>
           )}
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
           <Button variant="success" onClick={handleConcluir} disabled={saving || clientes.length === 0} title="Salvar marcando a reunião como concluída">
-            {atualizandoDossie ? (<><Loader2 size={13} className="animate-spin" /> Atualizando dossiê...</>) : (<><Check size={15} /> Concluir</>)}
+            <Check size={15} /> Concluir
           </Button>
           <Button type="submit" variant="primary" disabled={saving || clientes.length === 0}>
-            {atualizandoDossie ? (<><Loader2 size={13} className="animate-spin" /> Atualizando dossiê...</>) : saving ? 'Salvando...' : rec.recorrente && !editando ? 'Salvar recorrência' : 'Salvar'}
+            {saving ? 'Salvando...' : rec.recorrente && !editando ? 'Salvar recorrência' : 'Salvar'}
           </Button>
         </>
       }

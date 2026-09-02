@@ -167,7 +167,7 @@ async function gerarAnalisesPendentes(opts = {}) {
       if (eventosNovos.length === 0) continue;
 
       const dossieAnterior = lerDossieCliente(cliente.id);
-      const resultado = await gerarAnaliseIA({ cliente, eventosNovos, dossieAnterior, ollama: opts.ollama });
+      const resultado = await gerarAnaliseIA({ cliente, eventosNovos, dossieAnterior, ollama: opts.ollama, repo });
 
       // Data do evento mais recente CONHECIDO (não só dos reprocessados): se
       // a reanálise foi disparada por uma ata antiga, manter a data do evento

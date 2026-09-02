@@ -344,11 +344,15 @@ async function conversar({ mensagens, origem = 'chat', repo, monitor }) {
  * ferramenta de escrita pra um passo automático que roda em lote por cliente
  * (`analisesAutomaticas.cjs`) é convite pra estrago silencioso.
  */
-async function gerarJSON(prompt) {
+async function gerarJSON(prompt, { coletarUso } = {}) {
   const dados = await rodarCli(`${prompt}\n\nResponda APENAS com o JSON pedido, sem texto em volta e sem cercas de código.`, {
     systemPrompt: 'Você devolve exclusivamente JSON válido, sem comentário, sem explicação e sem cercas de código.',
   });
   const texto = String(dados.result ?? '');
+  // Acumulador mutável, mesmo contrato do `coletarUso` do Ollama: é o que faz
+  // geração de ata e análise automática aparecerem no painel de consumo (antes
+  // gastavam tokens PAGOS de forma invisível — só o chat era medido).
+  if (coletarUso) Object.assign(coletarUso, extrairUsoCli(dados), { resposta: texto });
   try {
     return JSON.parse(extrairJSON(texto));
   } catch (err) {

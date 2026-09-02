@@ -66,8 +66,16 @@ async function chamarComFallback(path, body, modelos) {
  * streaming). Usado pra extração estruturada (análise de risco). Não valida
  * schema em profundidade — quem chama confere os campos que precisa.
  */
-async function gerarJSON(prompt, { modelos = OLLAMA_MODELS } = {}) {
+async function gerarJSON(prompt, { modelos = OLLAMA_MODELS, coletarUso } = {}) {
   const data = await chamarComFallback('/api/generate', { prompt, format: 'json', stream: false }, modelos);
+  // Mesmo acumulador mutável de `chat` — sem isto, geração de ata e análise
+  // automática gastavam tokens sem aparecer no painel de consumo.
+  if (coletarUso) {
+    coletarUso.modelo = data.model || coletarUso.modelo;
+    coletarUso.inputTokens = (coletarUso.inputTokens || 0) + (data.prompt_eval_count || 0);
+    coletarUso.outputTokens = (coletarUso.outputTokens || 0) + (data.eval_count || 0);
+    coletarUso.resposta = String(data.response ?? '');
+  }
   try {
     return JSON.parse(extrairJSON(data.response));
   } catch (err) {

@@ -76,7 +76,7 @@ router.post('/chat', async (req, res) => {
 router.post('/gerar-ata', async (req, res) => {
   const { subject, resumo, description, checklist, produtosSituacao, transcricao } = req.body ?? {};
   try {
-    const secoes = await gerarAtaIA({ subject, resumo, description, checklist, produtosSituacao, transcricao });
+    const secoes = await gerarAtaIA({ subject, resumo, description, checklist, produtosSituacao, transcricao, repo });
     res.json(secoes);
   } catch (err) {
     res.status(502).json({ error: err.message });
@@ -100,20 +100,6 @@ router.post('/atualizar-dossie/:clientId', async (req, res) => {
     res.json({ processados });
   } catch (err) {
     res.status(502).json({ error: err.message });
-    return;
-  }
-
-  // Concluir/cancelar reunião é também quando o catálogo de produtos/clientes
-  // finais deve ser reatualizado (pedido do usuário: a lista não pode
-  // envelhecer nem sumir). Roda DEPOIS de responder e sem `await` no caminho da
-  // resposta: a leitura do xlsx pode custar ~20s e não deve segurar a tela —
-  // o que importa é o espelho (`catalogoSnapshot`) estar fresco na próxima vez
-  // que o formulário abrir.
-  try {
-    const { catalogoDoCliente } = require('../alvos/consulta.cjs');
-    catalogoDoCliente(req.params.clientId, { aquecer: true });
-  } catch (err) {
-    console.warn(`atualizar-dossie: catálogo de Alvos não atualizou para "${cliente.empresa}" — ${err.message}`);
   }
 });
 

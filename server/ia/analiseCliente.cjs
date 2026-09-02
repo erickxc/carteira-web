@@ -125,9 +125,26 @@ Regras:
  */
 // `ollama` mantido como nome do parametro (injecao usada em teste); o default
 // e o provedor ATIVO, que pode ser o Ollama ou o Claude Code CLI.
-async function gerarAnaliseIA({ cliente, eventosNovos, dossieAnterior, ollama = clienteLLM() }) {
+async function gerarAnaliseIA({ cliente, eventosNovos, dossieAnterior, ollama = clienteLLM(), repo }) {
   const prompt = montarPrompt({ cliente, eventosNovos, dossieAnterior });
-  const saida = await ollama.gerarJSON(prompt);
+  // Medição: a análise automática (boot + cron semanal + reanálise sob pedido)
+  // é provavelmente o maior consumidor de tokens do sistema e não aparecia no
+  // painel de consumo — só o chat era medido. `repo` ausente (testes) só não mede.
+  const uso = {};
+  const t0 = Date.now();
+  const saida = await ollama.gerarJSON(prompt, { coletarUso: uso });
+  if (repo) {
+    const crypto = require('crypto');
+    const { registrarUso } = require('./uso.cjs');
+    const { provedorAtivo } = require('./provider.cjs');
+    registrarUso(repo, {
+      origem: 'analise', provedor: provedorAtivo(), modelo: uso.modelo, turnId: crypto.randomUUID(),
+      inputTokens: uso.inputTokens, outputTokens: uso.outputTokens,
+      cacheCreationTokens: uso.cacheCreationTokens, cacheReadTokens: uso.cacheReadTokens,
+      custoUsd: uso.custoUsd ?? 0, duracaoMs: Date.now() - t0,
+      pergunta: `análise automática — ${cliente.empresa}`, resposta: uso.resposta ?? '',
+    });
+  }
 
   const nivelRisco = NIVEIS_RISCO.includes(saida.nivelRisco) ? saida.nivelRisco : 'baixo';
   const fatores = Array.isArray(saida.fatores) ? saida.fatores.filter((f) => typeof f === 'string') : [];

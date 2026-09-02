@@ -438,14 +438,6 @@ export const gerarAtaComIA = (payload: {
   transcricao?: string;
 }) => request<SecoesAtaIA>('/ia/gerar-ata', { method: 'POST', body: JSON.stringify(payload) });
 
-/**
- * Dispara a reanálise do cliente (mesmo mecanismo do agendamento/cron/tool de
- * chat `reanalisar_cliente`) de forma síncrona — usado ao salvar um evento
- * como concluído/reagendado/cancelado, pra o dossiê refletir a ata nova sem
- * esperar o próximo boot/segunda-feira.
- */
-export const atualizarDossieIA = (clientId: string) =>
-  request<{ processados: number }>(`/ia/atualizar-dossie/${clientId}`, { method: 'POST' });
 
 // --- Provedor de IA / conta Claude (Claude Code CLI) ---
 

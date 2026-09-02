@@ -1,9 +1,78 @@
-import { describe, expect, it } from 'vitest';
+import { createRequire } from 'module';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { gerarAtaIA, montarPromptAta } from './geracaoAta.cjs';
+
+const require = createRequire(import.meta.url);
 
 function llmFake(resposta: unknown) {
   return { gerarJSON: async () => resposta, chat: async () => '' };
 }
+
+/** Fake que preenche o acumulador de uso, como os provedores reais fazem. */
+function llmComUso(resposta: unknown, uso: Record<string, unknown>) {
+  return {
+    gerarJSON: async (_prompt: string, opts?: { coletarUso?: Record<string, unknown> }) => {
+      if (opts?.coletarUso) Object.assign(opts.coletarUso, uso);
+      return resposta;
+    },
+    chat: async () => '',
+  };
+}
+
+let tmpOneDrive: string;
+let tmpSqlite: string;
+
+beforeEach(() => {
+  tmpOneDrive = fs.mkdtempSync(path.join(os.tmpdir(), 'carteira-ata-od-'));
+  tmpSqlite = fs.mkdtempSync(path.join(os.tmpdir(), 'carteira-ata-sq-'));
+  process.env.ONEDRIVE_ROOT = tmpOneDrive;
+  process.env.SQLITE_DIR = tmpSqlite;
+});
+
+afterEach(() => {
+  delete process.env.ONEDRIVE_ROOT;
+  delete process.env.SQLITE_DIR;
+  fs.rmSync(tmpOneDrive, { recursive: true, force: true });
+  fs.rmSync(tmpSqlite, { recursive: true, force: true });
+});
+
+describe('geracaoAta: mede consumo (painel de uso)', () => {
+  /**
+   * Bug real: gerar ata chamava o modelo por um caminho que NÃO passava pelo
+   * `registrarUso` — gastava tokens (pagos, no provedor Claude) de forma
+   * invisível no painel de consumo, ao contrário do chat.
+   */
+  it('registra uma linha em UsoIA com origem "ata"', async () => {
+    const { repoMemoria } = require('../dominio/repo.cjs');
+    const repo = repoMemoria({ UsoIA: [] });
+
+    await gerarAtaIA({
+      subject: 'Reunião mensal',
+      llm: llmComUso(
+        { oQueFoiTratado: 'Tudo tratado.', decisoes: '', proximosPassos: '' },
+        { modelo: 'claude-haiku-4-5', inputTokens: 1200, outputTokens: 300, custoUsd: 0.004 },
+      ),
+      repo,
+    });
+
+    const linhas = repo.get('UsoIA');
+    expect(linhas).toHaveLength(1);
+    expect(linhas[0]).toMatchObject({
+      origem: 'ata', modelo: 'claude-haiku-4-5', inputTokens: 1200, outputTokens: 300, custoUsd: 0.004,
+    });
+  });
+
+  it('sem repo (uso avulso/teste), não tenta medir e não quebra', async () => {
+    const r = await gerarAtaIA({
+      subject: 'x',
+      llm: llmComUso({ oQueFoiTratado: 'ok', decisoes: '', proximosPassos: '' }, { inputTokens: 10 }),
+    });
+    expect(r.oQueFoiTratado).toBe('ok');
+  });
+});
 
 describe('geracaoAta: gerarAtaIA', () => {
   it('devolve as 3 seções já normalizadas (trim, string)', async () => {

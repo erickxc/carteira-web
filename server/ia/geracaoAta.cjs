@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { clienteLLM } = require('./provider.cjs');
 
 // Mesmo espírito de DOSSIE_MAX_CHARS (analiseCliente.cjs): rede de segurança,
@@ -70,9 +71,24 @@ function normalizarSecao(valor) {
  * resultado estruturado (mesmo padrão de `analiseCliente.gerarAnaliseIA`,
  * testável sem provedor de IA de verdade).
  */
-async function gerarAtaIA({ subject, resumo, description, checklist, produtosSituacao, transcricao, llm = clienteLLM() } = {}) {
+async function gerarAtaIA({ subject, resumo, description, checklist, produtosSituacao, transcricao, llm = clienteLLM(), repo } = {}) {
   const prompt = montarPromptAta({ subject, resumo, description, checklist, produtosSituacao, transcricao });
-  const saida = await llm.gerarJSON(prompt);
+  // Medição: sem isto a geração de ata gastava tokens (pagos, no provedor
+  // Claude) sem aparecer no painel de consumo — só o chat era medido.
+  const uso = {};
+  const t0 = Date.now();
+  const saida = await llm.gerarJSON(prompt, { coletarUso: uso });
+  if (repo) {
+    const { registrarUso } = require('./uso.cjs');
+    const { provedorAtivo } = require('./provider.cjs');
+    registrarUso(repo, {
+      origem: 'ata', provedor: provedorAtivo(), modelo: uso.modelo, turnId: crypto.randomUUID(),
+      inputTokens: uso.inputTokens, outputTokens: uso.outputTokens,
+      cacheCreationTokens: uso.cacheCreationTokens, cacheReadTokens: uso.cacheReadTokens,
+      custoUsd: uso.custoUsd ?? 0, duracaoMs: Date.now() - t0,
+      pergunta: prompt, resposta: uso.resposta ?? '',
+    });
+  }
   return {
     oQueFoiTratado: normalizarSecao(saida.oQueFoiTratado),
     decisoes: normalizarSecao(saida.decisoes),

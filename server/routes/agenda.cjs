@@ -5,6 +5,7 @@ const { gravarReuniaoJson, REUNIOES_DIR } = require('../reunioesJson.cjs');
 const { isClient } = require('../modo.cjs');
 const { aplicarOverlay } = require('../fila/pendentes.cjs');
 const { executarMutacao } = require('../fila/mutacao.cjs');
+const { dispararPosEvento } = require('../ia/posEvento.cjs');
 
 const router = express.Router();
 const repo = repoPlanilha();
@@ -15,7 +16,9 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', validar(agendaCreateSchema), (req, res) => {
-  res.json(executarMutacao('agenda', 'create', { payload: req.body }));
+  const criado = executarMutacao('agenda', 'create', { payload: req.body });
+  res.json(criado);
+  dispararPosEvento(repo, criado?.clientId, criado?.status);
 });
 
 // Bulk (série recorrente antiga) e o backfill de export-json não passam pela
@@ -39,6 +42,9 @@ router.put('/:id', validar(agendaUpdateSchema), (req, res) => {
   const updated = executarMutacao('agenda', 'update', { id: req.params.id, patch: req.body });
   if (!updated) return res.status(404).json({ error: 'Evento não encontrado.' });
   res.json(updated);
+  // Dossiê + catálogo em segundo plano (ver `ia/posEvento.cjs`): responde
+  // primeiro, atualiza depois — a tela não espera.
+  dispararPosEvento(repo, updated.clientId, updated.status);
 });
 
 router.delete('/:id', (req, res) => {
