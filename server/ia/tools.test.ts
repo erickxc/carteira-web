@@ -27,9 +27,11 @@ let tmpSqlite: string;
 let repoMemoria: typeof import('../dominio/repo.cjs').repoMemoria;
 let FERRAMENTAS: { name: string; description: string; parameters: unknown; executar: (repo: unknown, args?: unknown) => unknown }[];
 let DOSSIES_DIR: string;
+let UPLOADS_DIR: string;
+let dbSqlite: typeof import('../dbSqlite.cjs');
 
 const MODULOS = [
-  '../config.cjs', '../modo.cjs', '../dominio/repo.cjs', '../dominio/cadenciaServico.cjs',
+  '../config.cjs', '../dbSqlite.cjs', '../modo.cjs', '../dominio/repo.cjs', '../dominio/cadenciaServico.cjs',
   '../dominio/sugestaoAgenda.cjs', '../dominio/feriados.cjs', '../ceoAgenda.cjs',
   './tools.cjs', './analisesAutomaticas.cjs', './analiseCliente.cjs', './ollamaClient.cjs',
   '../fila/mutacao.cjs', '../dominio/agenda.cjs', '../dominio/lembretes.cjs',
@@ -65,10 +67,17 @@ beforeEach(() => {
   limparCaches();
   ({ repoMemoria } = require('../dominio/repo.cjs'));
   ({ FERRAMENTAS } = require('./tools.cjs'));
-  ({ DOSSIES_DIR } = require('../config.cjs'));
+  ({ DOSSIES_DIR, UPLOADS_DIR } = require('../config.cjs'));
+  dbSqlite = require('../dbSqlite.cjs');
 });
 
 afterEach(() => {
+  // Fecha a conexão SQLite ANTES de apagar a pasta temp — sem isso, o
+  // handle do arquivo fica aberto (Windows não deixa remover), e o próximo
+  // teste que reabrisse o MESMO caminho (improvável, é um tmpdir novo por
+  // teste, mas o processo do Node mantém o handle preso mesmo assim) vazava
+  // entre testes. Mesmo padrão de `dbSqlite.test.ts`.
+  dbSqlite._fecharParaTestes();
   delete process.env.ONEDRIVE_ROOT;
   delete process.env.SQLITE_DIR;
   delete process.env.ALVOS_DIR;
@@ -112,8 +121,8 @@ function escreverDossie(clientId: string, slug: string, corpo: string) {
 // 1-8: catálogo e contrato geral das ferramentas
 // ---------------------------------------------------------------------------
 describe('catálogo de ferramentas', () => {
-  it('1. expõe exatamente as 33 ferramentas esperadas', () => {
-    expect(FERRAMENTAS).toHaveLength(33);
+  it('1. expõe exatamente as 35 ferramentas esperadas', () => {
+    expect(FERRAMENTAS).toHaveLength(35);
   });
 
   it('2. nenhum nome de ferramenta duplicado', () => {
@@ -147,12 +156,16 @@ describe('catálogo de ferramentas', () => {
 
   /**
    * A intenção original ("só uma ferramenta de edição") era garantir que o
-   * agente não edita Cliente/Agenda/Lembrete. Isso continua valendo: as
-   * ferramentas de escrita que existem hoje atuam sobre memória do agente
-   * (dossiê e regras do processo) e sobre CRIAÇÃO de evento/lembrete — nenhuma
-   * altera ou apaga cadastro existente.
+   * agente não edita Cliente/Agenda/Lembrete. Isso segue valendo pro NOME —
+   * o filtro por prefixo (atualizar/editar/remover/...) continua achando só
+   * dossiê e memória. A exceção deliberada (pedido do usuário — "especialista
+   * de ata" que o monitorIA usa) é `redigir_ata_reuniao`/`gerar_ata_pdf`: elas
+   * ATUALIZAM um evento existente, mas só os campos `ata`/`attachments`, nunca
+   * date/status/monitor/clientId — ver "8b" abaixo, que testa esse limite de
+   * verdade (não só o nome). E só escrevem quando `salvar`/`anexar` vem
+   * explicitamente `true` (o agente só deve mandar isso após confirmação).
    */
-  it('7. as ferramentas de edição são só as de memória do agente', () => {
+  it('7. as ferramentas de edição por nome são só as de memória do agente', () => {
     const edicao = FERRAMENTAS.filter((f) => /^(corrigir|atualizar|editar|remover|excluir|deletar)/.test(f.name));
     expect(edicao.map((f) => f.name).sort()).toEqual(['corrigir_dossie_cliente', 'remover_memoria']);
   });
@@ -780,6 +793,77 @@ describe('corrigir_dossie_cliente: sincroniza AnalisesIA.sugestaoProximaPauta', 
   it('cliente sem AnalisesIA (nunca analisado) não quebra a correção do dossiê', () => {
     const repo = repoBase({ AnalisesIA: [] });
     expect(() => exec('corrigir_dossie_cliente', repo, { clientId: 'c1', dossie: DOSSIE('nova pauta') })).not.toThrow();
+  });
+});
+
+describe('redigir_ata_reuniao / gerar_ata_pdf: agente especialista de ata', () => {
+  function eventoBase(over: Record<string, unknown> = {}) {
+    return {
+      id: 'e1', clientId: 'c1', clientName: 'Loja Teste', type: 'Reunião', status: 'Concluído',
+      date: '2026-09-01T00:00:00.000Z', time: '10:00', subject: 'Reunião mensal',
+      resumo: 'Falamos sobre o estoque.', ata: '', checklist: [], monitores: ['Erick Cardoso'],
+      servicos: [], attachments: [], ...over,
+    };
+  }
+
+  it('redigir_ata_reuniao: exige eventId', async () => {
+    const repo = repoBase();
+    await expect(exec('redigir_ata_reuniao', repo, {})).rejects.toThrow(/eventId/);
+  });
+
+  it('redigir_ata_reuniao: falha claro quando o evento não existe', async () => {
+    const repo = repoBase({ Agenda: [eventoBase()] });
+    await expect(exec('redigir_ata_reuniao', repo, { eventId: 'inexistente' })).rejects.toThrow(/não encontrado/);
+  });
+
+  it('gerar_ata_pdf: exige eventId', () => {
+    const repo = repoBase();
+    expect(() => exec('gerar_ata_pdf', repo, {})).toThrow(/eventId/);
+  });
+
+  it('gerar_ata_pdf: falha claro quando o evento não existe', () => {
+    const repo = repoBase({ Agenda: [eventoBase()] });
+    expect(() => exec('gerar_ata_pdf', repo, { eventId: 'inexistente' })).toThrow(/não encontrado/);
+  });
+
+  it('gerar_ata_pdf: gera um PDF de verdade em UPLOADS_DIR e devolve a URL, sem anexar por padrão', () => {
+    const evento = eventoBase({ ata: 'ATA DE REUNIÃO — Loja Teste\n\n2. O QUE FOI TRATADO\n   Estoque revisado.' });
+    const repo = repoBase({ Agenda: [evento] });
+    const resultado = exec('gerar_ata_pdf', repo, { eventId: 'e1' });
+
+    expect(resultado.anexado).toBe(false);
+    expect(resultado.url).toMatch(/^\/uploads\/.+\.pdf$/);
+    const arquivo = path.join(UPLOADS_DIR, resultado.url.replace('/uploads/', ''));
+    const bytes = fs.readFileSync(arquivo);
+    expect(bytes.subarray(0, 4).toString()).toBe('%PDF');
+    // Sem anexar=true, o evento no repo não muda em nada.
+    expect(repo.get('Agenda')[0].attachments).toEqual([]);
+  });
+
+  it('gerar_ata_pdf: com anexar=true, adiciona o PDF aos attachments SEM tocar em mais nada do evento', () => {
+    const evento = eventoBase();
+    const repo = repoBase({ Agenda: [evento] });
+    const resultado = exec('gerar_ata_pdf', repo, { eventId: 'e1', anexar: true });
+
+    expect(resultado.anexado).toBe(true);
+    const atualizado = repo.get('Agenda')[0];
+    expect(atualizado.attachments).toHaveLength(1);
+    expect(atualizado.attachments[0]).toMatchObject({ originalName: resultado.nomeArquivo });
+    // Escopo estreito da exceção de edição (ver teste "7" acima): só
+    // `attachments` muda — status/date/clientId/subject continuam os mesmos.
+    expect(atualizado.status).toBe(evento.status);
+    expect(atualizado.date).toBe(evento.date);
+    expect(atualizado.clientId).toBe(evento.clientId);
+    expect(atualizado.subject).toBe(evento.subject);
+  });
+
+  it('gerar_ata_pdf: funciona com produtosSituacao/checklist/monitores duplamente serializados (dado sujo do banco real)', () => {
+    const evento = eventoBase({
+      checklist: JSON.stringify([{ id: '1', text: 'Rever preços', done: true }]),
+      monitores: JSON.stringify(['Erick Cardoso']),
+    });
+    const repo = repoBase({ Agenda: [evento] });
+    expect(() => exec('gerar_ata_pdf', repo, { eventId: 'e1' })).not.toThrow();
   });
 });
 

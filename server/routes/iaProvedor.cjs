@@ -14,7 +14,13 @@ const { consultarLimiteConta } = require('../ia/claudeCli/limiteConta.cjs');
 // Quais ferramentas MUDAM dado — a tela marca essas, porque o agente executa
 // sem confirmação prévia (decisão do usuário) e quem configura precisa ver o
 // que está entregando na mão dele.
-const FERRAMENTAS_ESCRITA = new Set(['criar_evento', 'criar_lembrete', 'corrigir_dossie_cliente', 'registrar_memoria', 'remover_memoria']);
+const FERRAMENTAS_ESCRITA = new Set([
+  'criar_evento', 'criar_lembrete', 'corrigir_dossie_cliente', 'registrar_memoria', 'remover_memoria',
+  // Só escrevem de fato quando o parâmetro salvar/anexar vem true (o agente
+  // só deve mandar isso após confirmação do usuário) — mesmo assim entram
+  // aqui porque TÊM a capacidade de mudar dado, que é o que esta tela avisa.
+  'redigir_ata_reuniao', 'gerar_ata_pdf',
+]);
 
 /**
  * Rotas de configuração do provedor de IA e do login da conta Claude, mais o
@@ -201,14 +207,21 @@ router.get('/interno/ferramentas', apenasMcp, (_req, res) => {
  * É o que faz a página do assistente e a auditoria continuarem funcionando
  * iguais nos dois provedores, sem código de log duplicado.
  */
-router.post('/interno/ferramenta', apenasMcp, (req, res) => {
+router.post('/interno/ferramenta', apenasMcp, async (req, res) => {
   const { nome, argumentos = {}, origem = 'claude-cli', turnId, monitor } = req.body ?? {};
   const ferramenta = FERRAMENTAS_POR_NOME.get(nome);
   if (!ferramenta) return res.status(404).json({ error: `Ferramenta "${nome}" não existe.` });
 
   let resultado;
   try {
-    resultado = ferramenta.executar(repo, argumentos, { monitor });
+    // `await` numa função sync devolve o próprio valor — mesma linha serve
+    // pras duas, sem precisar checar `.then` manualmente. Sem isso, uma
+    // ferramenta ASYNC (ex.: reanalisar_cliente, redigir_ata_reuniao) tinha
+    // seu resultado real substituído por `{}` (Promise sem props próprias
+    // sobrevive ao JSON.stringify vazia) — pior, uma rejeição virava
+    // unhandled rejection e podia derrubar o processo inteiro (mesma classe
+    // do bug de consultarLimiteConta em 02/09/2026).
+    resultado = await ferramenta.executar(repo, argumentos, { monitor });
   } catch (err) {
     resultado = { erro: err.message };
   }

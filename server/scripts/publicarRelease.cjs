@@ -50,7 +50,7 @@ function lerVersaoPackageJson(raiz = RAIZ) {
  */
 const DEPS_SERVIDOR = [
   'adm-zip', 'better-sqlite3', 'cors', 'date-fns', 'express',
-  'google-auth-library', 'multer', 'node-cron', 'xlsx', 'zod',
+  'google-auth-library', 'jspdf', 'multer', 'node-cron', 'xlsx', 'zod',
 ];
 
 /**

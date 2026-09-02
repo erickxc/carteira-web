@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { separarBlocos } from './blocosMarkdown';
+import { extrairLinkUpload, separarBlocos } from './blocosMarkdown';
 
 /**
  * Cobre a separação em blocos — a única parte com regra de verdade (o resto é
@@ -53,6 +53,17 @@ describe('separarBlocos', () => {
   it('texto vazio não gera bloco', () => {
     expect(separarBlocos('')).toEqual([]);
     expect(separarBlocos('\n\n')).toEqual([]);
+  });
+
+  it('extrairLinkUpload: reconhece link de /uploads (gerar_ata_pdf)', () => {
+    expect(extrairLinkUpload('[Abrir ata em PDF](/uploads/abc123-Ata_Cativo.pdf)')).toEqual({
+      rotulo: 'Abrir ata em PDF', arquivo: 'abc123-Ata_Cativo.pdf',
+    });
+  });
+
+  it('extrairLinkUpload: ignora link pra fora de /uploads (não vira âncora clicável)', () => {
+    expect(extrairLinkUpload('[clique aqui](https://exemplo.com/qualquer)')).toBeNull();
+    expect(extrairLinkUpload('texto sem link nenhum')).toBeNull();
   });
 
   it('resposta real do agente (dossiê) vira título + lista, sem asterisco solto', () => {

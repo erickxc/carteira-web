@@ -1,12 +1,18 @@
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 const { executarMutacao } = require('../fila/mutacao.cjs');
 const { lerDossieCliente, corrigirDossieCliente, gerarAnalisesPendentes } = require('./analisesAutomaticas.cjs');
 const { TEMPLATE_DOSSIE } = require('./analiseCliente.cjs');
+const { gerarAtaIA } = require('./geracaoAta.cjs');
+const { gerarAta } = require('./ataTexto.cjs');
+const { gerarAtaPdfBuffer } = require('./ataPdf.cjs');
 const {
   calcularAderencia, listaJSON, buscarVencendo, buscarCobertura, buscarCoberturaServicos, buscarAlertasSemAcompanhamento,
 } = require('../dominio/cadenciaServico.cjs');
 const { sugerirAgenda } = require('../dominio/sugestaoAgenda.cjs');
 const { getCache: getCacheCeoAgenda } = require('../ceoAgenda.cjs');
-const { CADENCIAS_SEED } = require('../config.cjs');
+const { CADENCIAS_SEED, UPLOADS_DIR } = require('../config.cjs');
 const { isClient } = require('../modo.cjs');
 const memoriaIADominio = require('../dominio/memoriaIA.cjs');
 
@@ -368,6 +374,122 @@ function corrigirDossie(repo, { clientId, dossie }) {
   if (analise && !isClient) repo.update('AnalisesIA', analise.id, { sugestaoProximaPauta: extrairProximaPauta(dossie) });
 
   return { ok: true, empresa: cliente.empresa };
+}
+
+/** Catálogo de vendas do cliente (produtos/clientes finais), pra IA corrigir
+ *  grafia da transcrição — integração opcional, mesmo padrão de `POST /gerar-ata`. */
+function catalogoParaAta(clientId) {
+  if (!clientId) return { produtosCatalogo: [], clientesCatalogo: [] };
+  try {
+    const { catalogoDoCliente } = require('../alvos/consulta.cjs');
+    const cat = catalogoDoCliente(clientId);
+    return { produtosCatalogo: cat.produtos ?? [], clientesCatalogo: cat.clientes ?? [] };
+  } catch {
+    return { produtosCatalogo: [], clientesCatalogo: [] };
+  }
+}
+
+/** Evento (linha crua de `Agenda`) com os campos JSON deserializados —
+ *  mesmo tratamento que `ataPdf.cjs`/`ataTexto.cjs` esperam receber. */
+function eventoParaAta(evento) {
+  let preAnalise;
+  if (typeof evento.preAnalise === 'string' && evento.preAnalise.trim()) {
+    try { preAnalise = JSON.parse(evento.preAnalise); } catch { preAnalise = undefined; }
+  } else if (evento.preAnalise && typeof evento.preAnalise === 'object') {
+    preAnalise = evento.preAnalise;
+  }
+  return {
+    ...evento,
+    checklist: listaJSON(evento.checklist),
+    monitores: listaJSON(evento.monitores),
+    servicos: listaJSON(evento.servicos),
+    produtosSituacao: listaJSON(evento.produtosSituacao),
+    preAnalise,
+  };
+}
+
+/**
+ * "Especialista de ata" pro monitorIA: redige (ou re-redige) as 3 seções de
+ * conteúdo da ata de UMA reunião já existente, a partir do que já está
+ * gravado nela (resumo/transcrição/pauta/Registro da Monitoria) — mesmo
+ * motor (`gerarAtaIA`) do botão "Gerar ata com IA" do `EventFormModal`, mas
+ * disparável pela conversa.
+ *
+ * NUNCA salva sozinho por padrão (`salvar` omitido ou `false`): devolve o
+ * rascunho pro monitor revisar na conversa. Só grava no evento quando
+ * `salvar: true` — o agente só deve mandar isso depois do usuário CONFIRMAR
+ * que quer a versão redigida valendo (pedido explícito do usuário: "só
+ * mostra o rascunho... ou se ele pedir pra gerar uma nova ata editada").
+ * `instrucaoPersonalizada` permite um pedido livre ("foca no financeiro",
+ * "deixa mais curto") — entra no prompt junto da transcrição, a fonte mais
+ * livre que o modelo já lê.
+ */
+async function redigirAtaReuniao(repo, { eventId, instrucaoPersonalizada, salvar }) {
+  if (!eventId) throw new Error('redigir_ata_reuniao: "eventId" é obrigatório.');
+  const evento = repo.get('Agenda').find((a) => String(a.id) === String(eventId));
+  if (!evento) throw new Error(`redigir_ata_reuniao: evento "${eventId}" não encontrado.`);
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(evento.clientId));
+
+  const ev = eventoParaAta(evento);
+  const { produtosCatalogo, clientesCatalogo } = catalogoParaAta(evento.clientId);
+
+  const transcricaoComInstrucao = [
+    ev.transcricao,
+    instrucaoPersonalizada ? `INSTRUÇÃO DO MONITOR PARA ESTA REDAÇÃO: ${instrucaoPersonalizada}` : null,
+  ].filter(Boolean).join('\n\n') || undefined;
+
+  const secoes = await gerarAtaIA({
+    subject: ev.subject, resumo: ev.resumo, description: ev.description,
+    checklist: ev.checklist, produtosSituacao: ev.produtosSituacao, transcricao: transcricaoComInstrucao,
+    produtosCatalogo, clientesCatalogo, repo,
+  });
+
+  const ataCompleta = gerarAta(
+    ev,
+    { cliente: cliente ? { ...cliente, contatos: listaJSON(cliente.contatos) } : undefined },
+    secoes
+  );
+
+  if (salvar) executarMutacao('agenda', 'update', { id: evento.id, patch: { ata: ataCompleta } });
+
+  return { salvo: Boolean(salvar), oQueFoiTratado: secoes.oQueFoiTratado, decisoes: secoes.decisoes, proximosPassos: secoes.proximosPassos, ataCompleta };
+}
+
+/**
+ * Gera o PDF da ata de uma reunião — mesmo layout do botão que já existe na
+ * tela do evento (marca 2D Consultores, seções 1-4), só que pelo chat. Lê a
+ * ata JÁ GRAVADA no evento (`ev.ata`/`resumo`/`checklist`) — pra PDF de uma
+ * redação ainda não salva, primeiro chame `redigir_ata_reuniao` com
+ * `salvar: true`.
+ *
+ * NUNCA anexa à reunião sem pedir (`anexar` omitido ou `false`): devolve só
+ * a URL pro monitor abrir/baixar no navegador. Só grava como anexo do
+ * evento quando `anexar: true` — pergunte antes de mandar isso (pedido
+ * explícito do usuário).
+ */
+function gerarAtaPdfFerramenta(repo, { eventId, anexar }) {
+  if (!eventId) throw new Error('gerar_ata_pdf: "eventId" é obrigatório.');
+  const evento = repo.get('Agenda').find((a) => String(a.id) === String(eventId));
+  if (!evento) throw new Error(`gerar_ata_pdf: evento "${eventId}" não encontrado.`);
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(evento.clientId));
+
+  const ev = eventoParaAta(evento);
+  const ctx = cliente ? { cliente: { ...cliente, contatos: listaJSON(cliente.contatos) } } : {};
+  const { buffer, nomeArquivo } = gerarAtaPdfBuffer(ev, ctx);
+
+  const filename = `${crypto.randomUUID()}-${nomeArquivo}`;
+  fs.writeFileSync(path.join(UPLOADS_DIR, filename), buffer);
+  const url = `/uploads/${filename}`;
+
+  let anexado = false;
+  if (anexar) {
+    const attachments = listaJSON(evento.attachments);
+    attachments.push({ id: filename, filename, originalName: nomeArquivo, uploadedAt: new Date().toISOString() });
+    executarMutacao('agenda', 'update', { id: evento.id, patch: { attachments } });
+    anexado = true;
+  }
+
+  return { url, nomeArquivo, anexado };
 }
 
 /**
@@ -1180,6 +1302,33 @@ const FERRAMENTAS = [
       required: ['clientId', 'dossie'],
     },
     executar: corrigirDossie,
+  },
+  {
+    name: 'redigir_ata_reuniao',
+    description: 'Redige (ou re-redige) o conteúdo da ata de UMA reunião já existente (identificada por eventId), a partir do resumo/transcrição/pauta/Registro da Monitoria já gravados nela — mesmo motor do botão "Gerar ata com IA" da tela do evento. Use quando o usuário pedir uma ata nova, uma versão personalizada/editada (passe o pedido em instrucaoPersonalizada, ex.: "foca no financeiro", "deixa mais curto"), ou apontar um erro no que já foi redigido. NUNCA passe salvar=true sem o usuário ter CONFIRMADO que quer essa versão valendo — por padrão só mostre o rascunho na conversa e pergunte se quer salvar.',
+    parameters: {
+      type: 'object',
+      properties: {
+        eventId: { type: 'string', description: 'Id do evento (reunião) na Agenda.' },
+        instrucaoPersonalizada: { type: 'string', description: 'Pedido livre do usuário sobre como a ata deve ficar (opcional) — ex.: "resuma mais", "foca só nos pontos financeiros".' },
+        salvar: { type: 'boolean', description: 'true só depois do usuário confirmar que quer gravar esta versão no evento. Omitido/false = só rascunho, nada é salvo.' },
+      },
+      required: ['eventId'],
+    },
+    executar: redigirAtaReuniao,
+  },
+  {
+    name: 'gerar_ata_pdf',
+    description: 'Gera o PDF da ata de uma reunião (mesmo layout com a marca 2D Consultores do botão que já existe na tela do evento) e devolve o campo "url" pra abrir/baixar no navegador. Na sua resposta, apresente esse link em markdown EXATAMENTE como "[Abrir ata em PDF](url)" (ou texto parecido) — é o único formato de link que a tela do chat reconhece e transforma num botão clicável; a URL crua sem esse formato aparece como texto sem função. Lê a ata JÁ GRAVADA no evento — se o usuário quiser o PDF de uma redação ainda não salva, chame antes redigir_ata_reuniao com salvar=true. NUNCA passe anexar=true sem perguntar antes se o usuário quer a ata anexada à reunião — por padrão só devolva o link.',
+    parameters: {
+      type: 'object',
+      properties: {
+        eventId: { type: 'string', description: 'Id do evento (reunião) na Agenda.' },
+        anexar: { type: 'boolean', description: 'true só depois do usuário confirmar que quer o PDF salvo como anexo da reunião. Omitido/false = só devolve o link, sem anexar.' },
+      },
+      required: ['eventId'],
+    },
+    executar: gerarAtaPdfFerramenta,
   },
   {
     name: 'criar_evento',

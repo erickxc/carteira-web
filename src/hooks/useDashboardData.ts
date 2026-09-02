@@ -45,7 +45,19 @@ export function useDashboardData() {
    * excluir tudo que aconteceu depois, sem precisar filtrar `agenda`/`acoes`
    * à parte.
    */
-  const dataReferencia = isSameMonth(periodo, hoje) ? hoje : endOfMonth(periodo);
+  // useMemo (não const direta): sem isso, `dataReferencia` era um Date NOVO a
+  // cada render — nunca igual por referência ao anterior mesmo no mesmo mês —
+  // e qualquer useMemo que a listasse como dependência recomputava em TODO
+  // render, não só quando mes/ano mudava (o React Compiler passou a acusar
+  // isso como memoização quebrada). Referência estável por mes/ano resolve.
+  // `periodo`/`hoje` são recomputados a cada render (não memoizados) só pra
+  // virar Date "agora" — de propósito fora das deps: só ano/mes devem
+  // re-disparar isto.
+  const dataReferencia = useMemo(
+    () => (isSameMonth(periodo, hoje) ? hoje : endOfMonth(periodo)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ano, mes]
+  );
 
   // Opções de filtro derivadas da base (não mostra opção que não existe nos dados).
   const tiposEventoDisponiveis = useMemo(
@@ -82,7 +94,6 @@ export function useDashboardData() {
   // Price) conta como contato, não só reunião.
   const ultimaInteracao = useMemo(
     () => buildUltimaInteracaoMap(agendaAtiva, acoes, { now: dataReferencia, isRelevant: (cid) => ativosIds.has(cid) }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [agendaAtiva, acoes, ativosIds, dataReferencia]
   );
 
@@ -371,7 +382,6 @@ export function useDashboardData() {
       contatoRecente: contatoRecenteClientes.length, precisa: precisaClientes.length,
       emDiaClientes, agendaMarcadaClientes, contatoRecenteClientes, precisaClientes,
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativos, agenda, acoes, cadencias, filtroServicoAderencia, dataReferencia]);
 
   // --- Vencendo (próx. 5 dias, mesma janela do resto do app): só quem está
@@ -404,7 +414,6 @@ export function useDashboardData() {
     }
     itens.sort((a, b) => a.dias - b.dias || a.nome.localeCompare(b.nome)); // mais urgente primeiro
     return { total: itens.length, itens };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativos, agenda, cadencias, filtroServicoVencendo, dataReferencia]);
 
   // --- Próximas agendas (forward-looking) ---

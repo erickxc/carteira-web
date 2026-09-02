@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { separarBlocos } from './blocosMarkdown';
+import { extrairLinkUpload, separarBlocos } from './blocosMarkdown';
+import { urlAnexo } from '../../api/client';
 
 /**
  * Renderiza a resposta do monitorIA. Antes o chat imprimia `{m.content}` como
@@ -15,13 +16,16 @@ import { separarBlocos } from './blocosMarkdown';
  * injeção mesmo se o modelo devolver `<script>`.
  *
  * O que NÃO é tratado (de propósito, porque não aparece na prática e cada caso
- * a mais é código pra manter): tabelas, links, blocos de código com cerca,
- * citações, aninhamento de lista.
+ * a mais é código pra manter): tabelas, blocos de código com cerca, citações,
+ * aninhamento de lista. Link virou exceção (ver abaixo) só pro caso concreto
+ * de `gerar_ata_pdf` devolver uma URL pro monitor abrir — não é link genérico
+ * pra qualquer coisa que o modelo decida inventar.
  */
 
-// Negrito/itálico/código inline, numa passada só. A ordem importa: `**` antes
-// de `*`, senão o negrito é lido como dois itálicos.
-const INLINE = /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\*[^*\n]+\*)/g;
+// Negrito/itálico/código/link inline, numa passada só. A ordem importa: `**`
+// antes de `*` (senão o negrito é lido como dois itálicos), e o link antes
+// dos dois (o texto dentro de `[...]` pode ter negrito/itálico).
+const INLINE = /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\s]+\))/g;
 
 function formatarInline(texto: string, chaveBase: string): ReactNode[] {
   return texto.split(INLINE).filter(Boolean).map((parte, i) => {
@@ -34,6 +38,14 @@ function formatarInline(texto: string, chaveBase: string): ReactNode[] {
     }
     if (/^\*[^*]+\*$/.test(parte)) {
       return <em key={chave}>{parte.slice(1, -1)}</em>;
+    }
+    // `urlAnexo` (não a URL relativa crua): em dev o front roda em porta
+    // separada do backend (5173 vs 3011) — um `href` relativo abriria contra
+    // a porta do Vite, que não serve `/uploads`. Mesma função que o resto do
+    // app já usa pra anexos de evento.
+    const link = extrairLinkUpload(parte);
+    if (link) {
+      return <a key={chave} href={urlAnexo(link.arquivo)} target="_blank" rel="noreferrer" className="underline" style={{ color: 'var(--accent)' }}>{link.rotulo}</a>;
     }
     return <span key={chave}>{parte}</span>;
   });

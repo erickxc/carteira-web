@@ -11,6 +11,18 @@ export type Bloco =
   | { tipo: 'titulo'; texto: string };
 
 /**
+ * `[rótulo](url)` só é reconhecido como link de verdade quando a URL aponta
+ * pra `/uploads/<arquivo>` — o único link que o chat de fato produz hoje
+ * (`gerar_ata_pdf`, ver `server/ia/tools.cjs`). Extraído aqui (não em
+ * `RespostaIA.tsx`) pelo mesmo motivo do resto deste arquivo: função pura,
+ * testável em `node` sem precisar montar componente/DOM.
+ */
+export function extrairLinkUpload(parteInline: string): { rotulo: string; arquivo: string } | null {
+  const m = parteInline.match(/^\[([^\]\n]+)\]\(\/uploads\/([^/\s)]+)\)$/);
+  return m ? { rotulo: m[1], arquivo: decodeURIComponent(m[2]) } : null;
+}
+
+/**
  * Agrupa as linhas em blocos. Feito em duas etapas (blocos, depois inline) em
  * vez de linha a linha porque bullets consecutivos precisam virar UMA lista —
  * um `<ul>` por item quebraria o espaçamento.

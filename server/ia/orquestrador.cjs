@@ -209,7 +209,14 @@ async function conversar({ mensagens, origem = 'chat', repo = repoPlanilha(), ol
 
         let resultado;
         try {
-          resultado = ferramenta ? ferramenta.executar(repo, argumentos, { monitor }) : { erro: `Ferramenta "${nome}" não existe.` };
+          // `await` sem checar se é async: numa função sync devolve o próprio
+          // valor. Sem isso, ferramenta ASYNC (ex.: reanalisar_cliente,
+          // redigir_ata_reuniao) tinha o resultado real virando `{}` no
+          // histórico (Promise sem props próprias sobrevive ao JSON.stringify
+          // vazia) e uma rejeição virava unhandled rejection, podendo
+          // derrubar o processo (mesma classe do bug de consultarLimiteConta
+          // em 02/09/2026).
+          resultado = ferramenta ? await ferramenta.executar(repo, argumentos, { monitor }) : { erro: `Ferramenta "${nome}" não existe.` };
         } catch (err) {
           resultado = { erro: err.message };
         }
