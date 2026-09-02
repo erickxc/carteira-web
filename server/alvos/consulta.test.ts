@@ -135,6 +135,26 @@ describe('consulta: catálogo do seletor', () => {
     const c = consulta.catalogoDoCliente('c-itab', { vinculos: VINCULOS, cache: fake() });
     expect(c.produtos).toEqual([...c.produtos].sort((a, b) => a.localeCompare(b, 'pt-BR')));
   });
+
+  /**
+   * "Não pode perder os clientes" (decisão do usuário): uma leitura boa grava o
+   * espelho, e a leitura seguinte com cache FRIO ainda oferece os nomes — o
+   * formulário nunca volta a ser texto às cegas. `disponivel` continua false
+   * (nenhum cálculo deve usar o espelho, só o autocomplete).
+   */
+  it('cache frio cai no espelho persistido em vez de lista vazia', () => {
+    const caminhoCatalogo = path.join(tmp, 'catalogo.json');
+
+    const bom = consulta.catalogoDoCliente('c-itab', { vinculos: VINCULOS, cache: fake(), caminhoCatalogo });
+    expect(bom.clientes).toEqual(['EDUARDO MECANICO (CM)']);
+
+    cacheValido = false;
+    const frio = consulta.catalogoDoCliente('c-itab', { vinculos: VINCULOS, cache: fake(), caminhoCatalogo });
+    expect(frio.disponivel).toBe(false);
+    expect(frio.doEspelho).toBe(true);
+    expect(frio.clientes).toEqual(['EDUARDO MECANICO (CM)']);
+    expect(frio.produtos).toEqual(['Kit Amortecedor', 'Lubrificante']);
+  });
 });
 
 describe('consulta: fatos do cliente', () => {

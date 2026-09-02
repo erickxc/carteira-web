@@ -120,11 +120,12 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   // tratado numa Reunião — cliente segmentado (rede/grupo) ganha a coluna
   // extra "Cliente" (cada loja tem clientes finais próprios).
   const ehMonitoriaServico = !modoSimples && servicos.some((s) => /monitoria/i.test(s));
-  // Catálogo real de Dados Alvos (produtos/clientes finais) pro autocomplete do
+  // Catálogo de Dados Alvos (produtos/clientes finais) pro autocomplete do
   // Registro da Monitoria + tags compartilhadas do Ecossistema. NUNCA aquece o
   // cache aqui (`aquecer` fica de fora de propósito): pode custar ~20s em
-  // arquivo grande, e quem aquece é a ficha do cliente ao abrir. Cache frio =
-  // sem sugestão, e o campo segue aceitando texto livre.
+  // arquivo grande. Com cache frio o backend devolve o ESPELHO persistido
+  // (`alvos/catalogoSnapshot.cjs`), atualizado a cada reunião concluída/
+  // cancelada — então a lista não desaparece por causa de cache.
   // Guarda o clientId junto do resultado: sem isso, trocar de cliente no
   // combobox deixaria a sugestão do cliente ANTERIOR na tela até a resposta
   // nova chegar (e limpar com setState síncrono dentro do efeito é justamente

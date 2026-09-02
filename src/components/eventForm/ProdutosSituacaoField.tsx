@@ -109,7 +109,7 @@ export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDi
 
       {ps.precisaCliente && clientesDisponiveis.length === 0 && (
         <span className="text-text-muted" style={{ fontSize: 11, textTransform: 'none', letterSpacing: 'normal', marginTop: 6, display: 'block' }}>
-          Sem sugestão de cliente final aqui — abra a ficha do cliente uma vez para carregar os dados de venda, ou digite o nome manualmente.
+          Ainda sem lista de clientes finais para este cliente (sem dados de venda vinculados). Digite o nome manualmente — a lista passa a aparecer aqui depois da primeira leitura dos dados.
         </span>
       )}
       {ps.modo === 'cliente' && tags.length > 0 && (

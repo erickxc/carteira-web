@@ -93,8 +93,14 @@ function agregadoUnificado(agregados) {
  * casa com o arquivo, que é justamente o que o seletor resolve.
  */
 function catalogoDoCliente(clientId, opts = {}) {
+  const snapshot = require('./catalogoSnapshot.cjs');
   const ctx = contextoDoCliente(clientId, opts);
   if (ctx.estado.estado !== 'ok' || ctx.pendentes.length) {
+    // Cache frio / arquivo indisponível: cai no espelho persistido em vez de
+    // devolver lista vazia — decisão do usuário ("não pode perder os
+    // clientes"). `disponivel` segue false: quem calcula métrica não deve usar
+    // isto, só o autocomplete do formulário.
+    const espelho = snapshot.doCliente(clientId, { caminho: opts.caminhoCatalogo });
     return {
       disponivel: false,
       estado: ctx.estado.estado,
@@ -102,21 +108,27 @@ function catalogoDoCliente(clientId, opts = {}) {
       motivo: ctx.pendentes.length
         ? `dados da empresa ainda não carregados: ${ctx.pendentes.join(', ')}`
         : ctx.estado.motivo,
-      produtos: [],
-      clientes: [],
+      produtos: espelho.produtos,
+      clientes: espelho.clientes,
+      doEspelho: espelho.produtos.length > 0 || espelho.clientes.length > 0,
+      espelhoAtualizadoEm: espelho.atualizadoEm,
     };
   }
 
   const lojas = ctx.estado.lojas.map((l) => l.loja);
   const listas = listasDoCliente(agregadoUnificado(ctx.agregados), lojas);
   const ordenar = (a, b) => a.localeCompare(b, 'pt-BR');
-  return {
-    disponivel: true,
-    estado: 'ok',
-    lojas,
-    produtos: listas.produtos.sort(ordenar),
-    clientes: listas.clientes.sort(ordenar),
-  };
+  const produtos = listas.produtos.sort(ordenar);
+  const clientes = listas.clientes.sort(ordenar);
+
+  // Leu de verdade: atualiza o espelho pro formulário nunca ficar sem sugestão
+  // depois (inclusive em outra máquina, já que o arquivo fica no OneDrive).
+  snapshot.salvar(clientId, { produtos, clientes }, {
+    caminho: opts.caminhoCatalogo,
+    atualizadoEm: new Date().toISOString(),
+  });
+
+  return { disponivel: true, estado: 'ok', lojas, produtos, clientes };
 }
 
 /** Fatos do escopo REUNIÃO deste cliente (bloco "retorno do combinado"). */
