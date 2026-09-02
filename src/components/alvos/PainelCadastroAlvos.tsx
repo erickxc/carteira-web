@@ -38,9 +38,10 @@ export default function PainelCadastroAlvos() {
   // Default ABERTO: a alternativa (fechado por padrão + auto-abrir na 1ª
   // pendência) exigiria setState síncrono dentro de um efeito só pra "abrir
   // sozinho quando há algo a resolver" — mais uma fonte de cascata de render
-  // pra um ganho pequeno. Começa visível; quem recolher fica com a preferência
-  // persistida daí em diante.
-  const [aberto, setAberto] = usePersistedState('alvos:painel:aberto', true);
+  // pra um ganho pequeno. Começa RECOLHIDO por padrão (pedido do usuário: a
+  // Carteira abre direto na lista de clientes, não neste painel) — quem abrir
+  // fica com a preferência persistida daí em diante.
+  const [aberto, setAberto] = usePersistedState('alvos:painel:aberto', false);
   const [abaAtiva, setAbaAtiva] = useState<'cadastro' | 'alertas'>('cadastro');
 
   const [resumo, setResumo] = useState<ResumoCadastroAlvos | null>(null);

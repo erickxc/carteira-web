@@ -17,6 +17,14 @@
    =========================================================================== */
 
 :root {
+  /* Sem isso, o navegador assume tema CLARO pros controles nativos que a
+     CSS não estiliza por completo — o seletor de data/hora nativo
+     (<input type="date"/"time">) e o popup de opções de <select> no Windows
+     continuam pintando texto preto sobre fundo escuro, ilegível, mesmo com
+     todo o resto do formulário já em dark mode. Repetido em
+     [data-theme='light'] com o valor oposto, logo abaixo. */
+  color-scheme: dark;
+
   /* Marca (paleta Coolors: coolors.co/25252c-dabb6c-304373-68818d-cc6300):
      PRETO predominante (levemente mais quente/Shadow Grey), Soft Fawn como
      acento principal, French Blue / Slate Grey / Burnt Caramel como cores
@@ -118,6 +126,7 @@
    sobrescreve os tokens; todo o CSS/utilities consome as variáveis, então a
    troca de data-theme repinta o app inteiro. Padrão continua escuro. */
 :root[data-theme='light'] {
+  color-scheme: light;
   --bg: #d8d8dc;
   --card: #ececed;
   --card-hover: #e1e1e5;
