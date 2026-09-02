@@ -9,7 +9,7 @@ import {
   gerarAtaComIA, atualizarDossieIA, buscarCatalogoAlvos, buscarTagsClienteFinal,
   type CatalogoAlvosCliente, type TagClienteFinal,
 } from '../api/client';
-import { toastError } from '../utils/toast';
+import { toastError, toastSuccess } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ModalShell } from './ModalShell';
 import { ClienteCombobox } from './ClienteCombobox';
@@ -216,7 +216,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         produtosSituacao: ehMonitoriaServico ? ps.itens : [],
         transcricao,
       });
-      setAta(gerarAta(
+      const novaAta = gerarAta(
         {
           clientName: clienteSelecionado?.empresa ?? '',
           date: dataSegura.toISOString(),
@@ -225,7 +225,19 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         },
         { cliente: clienteSelecionado },
         secoes
-      ));
+      );
+      setAta(novaAta);
+
+      // Grava na hora quando o evento já existe. Sem isso, gerar a ata
+      // preenchia o campo na tela e PARECIA concluído, mas fechar o modal
+      // jogava tudo fora em silêncio — inclusive a transcrição colada
+      // (aconteceu de verdade: reunião da Gisalto de 01/09 ficou com a
+      // ata-esqueleto e sem transcrição nenhuma no banco). Só estes três
+      // campos: nada de status/data, que são decisão do usuário no Salvar.
+      if (editando) {
+        await atualizarEvento(initial.id, { ata: novaAta, resumo, transcricao });
+        toastSuccess('Ata gerada e salva.');
+      }
     } catch (err) {
       toastError(err instanceof Error ? err.message : 'Falha ao gerar ata com IA.');
     } finally {
