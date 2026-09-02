@@ -35,7 +35,6 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const [observacao, setObservacao] = useState(initial?.observacao ?? '');
   const [local, setLocal] = useState(initial?.local ?? '');
   const [linksServicos, setLinksServicos] = useState<Record<string, string>>(initial?.linksServicos ?? {});
-  const [servicoLinkSelecionado, setServicoLinkSelecionado] = useState('');
   const [tipoAnalise, setTipoAnalise] = useState<TipoAnalise>(initial?.tipoAnalise ?? 'unitaria');
   const [lojas, setLojas] = useState<string[]>([]);
   const [novaLoja, setNovaLoja] = useState('');
@@ -285,32 +284,31 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
             {/* Só serviços marcados como "PowerBI" (Configurações → Categorias
                 → Serviço) E que este cliente já tem contratado — o link é
                 por (cliente, serviço), não um campo genérico fixo. Sem
-                nenhum serviço PowerBI contratado, a seção nem aparece. */}
+                nenhum serviço PowerBI contratado, a seção nem aparece.
+                Um campo POR serviço, todos visíveis ao mesmo tempo — a versão
+                anterior tinha um seletor único escondendo os outros serviços
+                atrás de um dropdown, e "adicionar o link do segundo serviço"
+                não era nada óbvio (bug real relatado: cliente com Monitoria +
+                OptiMarco só mostrava campo pra editar um dos dois). */}
             {(() => {
               const servicosPowerBI = categoriasPorTipo('servico').filter((c) => c.tipoLink === 'powerbi' && servicos.includes(c.valor));
               if (servicosPowerBI.length === 0) return null;
-              const servicoAtivo = servicosPowerBI.some((c) => c.valor === servicoLinkSelecionado)
-                ? servicoLinkSelecionado
-                : servicosPowerBI[0].valor;
               return (
-                <Field as="div" label={<>Link PowerBI <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· por serviço, vira botão de acesso no cadastro</span></>}>
-                  <div className="flex-row" style={{ gap: 8 }}>
-                    <Select
-                      tone="modal"
-                      value={servicoAtivo}
-                      onChange={(e) => setServicoLinkSelecionado(e.target.value)}
-                      style={{ maxWidth: 200, flexShrink: 0 }}
-                    >
-                      {servicosPowerBI.map((c) => <option key={c.valor} value={c.valor}>{c.valor}</option>)}
-                    </Select>
-                    <Input
-                      tone="modal"
-                      type="url"
-                      placeholder={`Link do ${servicoAtivo} deste cliente`}
-                      value={linksServicos[servicoAtivo] ?? ''}
-                      onChange={(e) => setLinksServicos((prev) => ({ ...prev, [servicoAtivo]: e.target.value }))}
-                      style={{ flex: 1 }}
-                    />
+                <Field as="div" label={<>Links PowerBI <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· um por serviço, vira botão de acesso no cadastro</span></>}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {servicosPowerBI.map((c) => (
+                      <div key={c.valor} className="flex-row" style={{ gap: 8, alignItems: 'center' }}>
+                        <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal', width: 110, flexShrink: 0 }}>{c.valor}</span>
+                        <Input
+                          tone="modal"
+                          type="url"
+                          placeholder={`Link do ${c.valor} deste cliente`}
+                          value={linksServicos[c.valor] ?? ''}
+                          onChange={(e) => setLinksServicos((prev) => ({ ...prev, [c.valor]: e.target.value }))}
+                          style={{ flex: 1 }}
+                        />
+                      </div>
+                    ))}
                   </div>
                 </Field>
               );
