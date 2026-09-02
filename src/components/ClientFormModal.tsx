@@ -156,62 +156,75 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
               <Input tone="modal" autoFocus value={empresa} onChange={(e) => setEmpresa(e.target.value)} required />
             </Field>
 
-            <Field label="Monitor responsável">
-              <Select tone="modal" value={monitor} onChange={(e) => setMonitor(e.target.value)}>
-                <option value="">Nenhum</option>
-                {monitorOpcoes.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </Select>
-            </Field>
+            <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
+              <Field className="flex-1" label="Monitor responsável">
+                <Select tone="modal" value={monitor} onChange={(e) => setMonitor(e.target.value)}>
+                  <option value="">Nenhum</option>
+                  {monitorOpcoes.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </Select>
+              </Field>
 
-            <Field label="Local">
-              <Select tone="modal" value={local} onChange={(e) => setLocal(e.target.value)}>
-                <option value="">Não informado</option>
-                {localOpcoes.map((l) => (
-                  <option key={l} value={l}>{l}</option>
-                ))}
-              </Select>
-            </Field>
+              <Field className="flex-1" label="Local">
+                <Select tone="modal" value={local} onChange={(e) => setLocal(e.target.value)}>
+                  <option value="">Não informado</option>
+                  {localOpcoes.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
 
             <SecaoLabel>Situação</SecaoLabel>
 
-            <Field label="Status">
-              <Select tone="modal" value={status} onChange={(e) => setStatus(e.target.value)}>
-                {(statusOpcoes.length ? statusOpcoes : [...CLIENTE_STATUS_OPCOES]).map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </Select>
-            </Field>
+            <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
+              <Field className="flex-1" label="Status">
+                <Select tone="modal" value={status} onChange={(e) => setStatus(e.target.value)}>
+                  {(statusOpcoes.length ? statusOpcoes : [...CLIENTE_STATUS_OPCOES]).map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </Select>
+              </Field>
 
-            <Field label="Estado">
-              <Select tone="modal" value={estado} onChange={(e) => setEstado(e.target.value)}>
-                {CLIENTE_ESTADO_OPCOES.map((e) => <option key={e} value={e}>{e}</option>)}
-              </Select>
-            </Field>
+              <Field className="flex-1" label="Estado">
+                <Select tone="modal" value={estado} onChange={(e) => setEstado(e.target.value)}>
+                  {CLIENTE_ESTADO_OPCOES.map((e) => <option key={e} value={e}>{e}</option>)}
+                </Select>
+              </Field>
+            </div>
 
             <SecaoLabel>Serviços</SecaoLabel>
 
             <Field as="div" label="Serviços contratados">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-                {servicoOpcoes.length === 0 && (
-                  <span className="text-text-muted" style={{ fontSize: 13, textTransform: 'none' }}>
-                    Nenhum serviço cadastrado — adicione em Configurações.
+              {servicoOpcoes.length === 0 ? (
+                <span className="text-text-muted" style={{ fontSize: 13, textTransform: 'none' }}>
+                  Nenhum serviço cadastrado — adicione em Configurações.
+                </span>
+              ) : (
+                <div className="flex flex-wrap gap-2" style={{ marginTop: 4 }}>
+                  {servicoOpcoes.map((s) => (
+                    <Chip key={s} variant="toggle" active={servicos.includes(s)} onClick={() => toggleServico(s)}>{s}</Chip>
+                  ))}
+                </div>
+              )}
+              {/* "Independente" só faz sentido pra serviço já contratado — lista
+                  separada abaixo em vez de um segundo controle grudado em cada
+                  chip, que ficava apertado e confuso de ler. */}
+              {servicos.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
+                  <span className="text-text-muted" style={{ fontSize: 11, textTransform: 'none', letterSpacing: 'normal' }}>
+                    Independente (o cliente faz sozinho, não depende de reunião/monitoria):
                   </span>
-                )}
-                {servicoOpcoes.map((s) => (
-                  <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <label className="check-row">
-                      <input type="checkbox" checked={servicos.includes(s)} onChange={() => toggleServico(s)} /> {s}
-                    </label>
-                    {servicos.includes(s) && (
-                      <label className="check-row" style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'none' }}>
-                        <input type="checkbox" checked={servicosIndependentes.includes(s)} onChange={() => toggleIndependente(s)} /> Independente
+                  <div className="flex flex-wrap gap-2">
+                    {servicos.map((s) => (
+                      <label key={s} className="check-row" style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'none' }}>
+                        <input type="checkbox" checked={servicosIndependentes.includes(s)} onChange={() => toggleIndependente(s)} /> {s}
                       </label>
-                    )}
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </Field>
 
             <SecaoLabel>Estrutura</SecaoLabel>
