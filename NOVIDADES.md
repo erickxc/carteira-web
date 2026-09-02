@@ -8,6 +8,25 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.8
+
+- **Ata com IA usa os produtos e clientes cadastrados de verdade.** A
+  transcrição automática às vezes ouve o nome errado (ex.: "queijo de
+  embreagem" em vez de "Kit Embreagem"). Agora a IA compara com o que está no
+  arquivo de vendas do cliente e corrige o nome antes de escrever a ata —
+  sempre que o cliente tiver Dados Alvos vinculados.
+- **Próximos passos da ata agora têm o responsável certo.** Antes, toda tarefa
+  saía marcada como "[2D]", mesmo quando quem ficou de fazer era o próprio
+  cliente ou outra pessoa citada na reunião. Agora a ata identifica quem
+  ficou de fazer o quê.
+- **Os registros que você digita em "Registro da Monitoria" (cliente
+  final/produto/situação) agora aparecem na ata.** Antes eles só ficavam
+  guardados por trás — iam pro dossiê, mas sumiam da ata.
+- **Achamos onde marcar um serviço como "PowerBI" ou "Aplicação".** Esse
+  ajuste (Configurações → Categorias → Serviço) estava escondido atrás do
+  botão de editar, sem nenhuma pista de que existia. Agora aparece direto na
+  tela, com uma explicação do que cada opção faz.
+
 ## 1.4.7
 
 - "Serviços tratados" na reunião voltou a mostrar só Monitoria e Precificação.
