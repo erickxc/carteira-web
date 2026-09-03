@@ -45,12 +45,19 @@ interface PriceModalState {
 }
 
 /** Ícone por opção: o Price tem a logo própria (mesma da sidebar), o resto é
- *  sempre um link de Power BI. */
+ *  sempre um link de Power BI. Largura fixa no wrapper (a logo do Price é
+ *  retangular, mais larga que o quadrado do Power BI) — sem isso, o rótulo
+ *  de cada linha começava numa coluna diferente, desalinhado. */
 function Icone({ opcao }: { opcao: AcessoOpcao }) {
-  if (opcao.label === PRICE_LABEL) {
-    return <img src={priceLogo} alt="" style={{ height: 18, width: 'auto', objectFit: 'contain' }} />;
-  }
-  return <img src={powerbiLogo} alt="" style={{ width: 15, height: 15, objectFit: 'contain' }} />;
+  return (
+    <span className="flex items-center justify-center shrink-0" style={{ width: 18 }}>
+      {opcao.label === PRICE_LABEL ? (
+        <img src={priceLogo} alt="" style={{ height: 18, width: 'auto', objectFit: 'contain' }} />
+      ) : (
+        <img src={powerbiLogo} alt="" style={{ width: 15, height: 15, objectFit: 'contain' }} />
+      )}
+    </span>
+  );
 }
 
 /**
