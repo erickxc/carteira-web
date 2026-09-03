@@ -120,7 +120,7 @@ Responda em JSON com exatamente estes campos:
 Regras:
 - Não invente informação que não está nas reuniões ou no dossiê anterior; se um dado não aparece, não afirme sobre ele.
 - Se a ata/registro mencionar QUAL cliente final (comprador da loja, não a rede) está associado a um fato — ex.: "Widmen: venda zerada", uma linha de "Orientações" no formato "Cliente / Produto: situação" — preserve esse nome no "Pontos de Atenção"/"Oportunidades" e em "fatores". Generalizar "vendas zeraram" sem dizer de qual cliente perde informação que já estava disponível — não faça isso.
-- Se não houver sinal de risco, "nivelRisco" é "baixo" e "fatores" pode ser uma lista vazia — não force um fator artificial pra preencher.
+- "fatores" só pode ser lista vazia quando "nivelRisco" é "baixo" — não force fator artificial nesse caso. Com "medio" ou "alto", "fatores" é OBRIGATÓRIO (1 a 4 itens): é o campo que a ficha do cliente usa pra explicar POR QUE o risco é esse, e vazio ali deixa o usuário sem resposta. Os fatores devem ser os mesmos fatos que você registrou em "Pontos de Atenção", não uma lista nova.
 - Reunião marcada como "Motivo:" (cancelamento) ou "já foi remarcada Nx" (ver texto de cada reunião abaixo) é sinal de desengajamento, não detalhe operacional — trate 2+ ocorrências disso no MESMO cliente (nesta rodada ou já registradas no dossiê anterior) como padrão, cite o motivo concreto em "Pontos de Atenção" (ex.: "reunião já foi cancelada 2x — motivo alegado: agenda do responsável"), e pese isso no "nivelRisco" como faria com queda de venda repetida. Uma única ocorrência isolada, sem repetição, não sustenta "alto" sozinha.
 - Cada bullet é 1 linha, direto ao ponto — nada de parágrafo dentro de bullet, mas também nada de fórmula mecânica repetida ("fato → consequência" em todo item soa como log, não como análise). Varie a construção da frase como um analista de verdade escreveria, mantendo evidência (data/fonte) e clareza do porquê importa. Seção sem conteúdo real fica com "— nenhum registro" em vez de bullet inventado.
 - Se VÁRIAS reuniões mostram o MESMO padrão (ex.: 3 reuniões seguidas sem pauta/decisão), isso é UM fator só, citando as datas juntas ("28/05, 02/07 e 31/07: reuniões sem pauta nem decisão registrada") — não um fator por reunião. Listar cada ocorrência separada quando o padrão é repetitivo é log, não análise, e é o que mais infla "fatores" além do limite de 4.
@@ -158,7 +158,28 @@ async function gerarAnaliseIA({ cliente, eventosNovos, dossieAnterior, ollama = 
   }
 
   const nivelRisco = NIVEIS_RISCO.includes(saida.nivelRisco) ? saida.nivelRisco : 'baixo';
-  const fatores = Array.isArray(saida.fatores) ? saida.fatores.filter((f) => typeof f === 'string') : [];
+  let fatores = Array.isArray(saida.fatores) ? saida.fatores.filter((f) => typeof f === 'string') : [];
+
+  // Rede de segurança: risco médio/alto SEM fatores deixa a ficha do cliente
+  // sem justificativa nenhuma — e é justamente o que o agente cita quando
+  // perguntam "por que o risco é médio?". O modelo já devolveu isso na
+  // prática (Altese, risco médio com 5 pontos de atenção e `fatores: []`),
+  // então não basta pedir no prompt. Aqui os bullets de "Pontos de Atenção"
+  // do dossiê que ele mesmo acabou de escrever viram os fatores — mesmo
+  // conteúdo, sem chamada extra ao modelo.
+  if (fatores.length === 0 && nivelRisco !== 'baixo') {
+    const corpo = typeof saida.dossieAtualizado === 'string' ? saida.dossieAtualizado : '';
+    const secao = /###\s*Pontos de Aten[çc][ãa]o\s*([\s\S]*?)(?=\n###|$)/i.exec(corpo);
+    const bullets = (secao?.[1] ?? '')
+      .split('\n')
+      .map((l) => l.replace(/^\s*[-–—*]\s*/, '').trim())
+      .filter((l) => l && !/^—?\s*nenhum registro/i.test(l))
+      .slice(0, 4);
+    if (bullets.length > 0) {
+      console.warn(`gerarAnaliseIA: "${cliente.empresa}" veio com risco "${nivelRisco}" e fatores vazios — derivando de "Pontos de Atenção".`);
+      fatores = bullets;
+    }
+  }
 
   let dossieAtualizado = typeof saida.dossieAtualizado === 'string' && saida.dossieAtualizado.trim()
     ? saida.dossieAtualizado

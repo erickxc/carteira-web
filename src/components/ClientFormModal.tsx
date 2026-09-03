@@ -172,7 +172,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                 </Select>
               </Field>
 
-              <Field className="flex-1" label="Local">
+              <Field className="flex-1" label="Segmento">
                 <Select tone="modal" value={local} onChange={(e) => setLocal(e.target.value)}>
                   <option value="">Não informado</option>
                   {localOpcoes.map((l) => (

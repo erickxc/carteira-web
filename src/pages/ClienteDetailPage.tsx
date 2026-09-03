@@ -215,7 +215,7 @@ export default function ClienteDetailPage() {
             {/* Seletores (mudam o dado ao trocar) primeiro, juntos — depois as
                 etiquetas só informativas. Antes o Status aparecia duas vezes
                 (dropdown + badge repetindo o mesmo valor), misturado com
-                Monitor/Grupo/Local sem nenhuma ordem. */}
+                Monitor/Grupo/Segmento sem nenhuma ordem. */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ minWidth: 150 }}>
                 <Dropdown

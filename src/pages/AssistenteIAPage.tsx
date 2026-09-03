@@ -259,7 +259,11 @@ export default function AssistenteIAPage() {
             <div className="flex items-center gap-2">
               <div style={{ minWidth: 200 }}>
                 <Select tone="modal" value={clienteId} onChange={(e) => setClienteId(e.target.value)}>
-                  <option value="">Sem cliente em foco</option>
+                  {/* "Todos", não "Sem cliente em foco": é o mesmo vocabulário
+                      do filtro de monitor no header, e descreve o efeito real
+                      (o agente pode olhar a carteira inteira) em vez da
+                      mecânica interna (`clientId` vazio). */}
+                  <option value="">Todos</option>
                   {clientes.map((c) => <option key={c.id} value={c.id}>{c.empresa}</option>)}
                 </Select>
               </div>
@@ -330,17 +334,13 @@ export default function AssistenteIAPage() {
                   className="flex items-start gap-2"
                   style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}
                 >
-                  {/* Ícone do monitorIA ao lado da bolha dele (a logo da 2D,
-                      mesmo arquivo do favicon) — identifica de quem é a fala
-                      sem depender só do alinhamento/cor da bolha. */}
+                  {/* Ícone do monitorIA ao lado da bolha dele — o MESMO da
+                      sidebar (lucide `Bot`), não a logo da 2D: o ícone
+                      identifica o agente, e ele já é conhecido pelo item de
+                      menu. Trocar de arte entre menu e chat faz parecer outra
+                      coisa. */}
                   {m.role === 'assistant' && (
-                    <img
-                      src="/favicon.svg?v=2"
-                      alt="monitorIA"
-                      title="monitorIA"
-                      className="shrink-0"
-                      style={{ width: 22, height: 22, marginTop: 2, opacity: 0.9 }}
-                    />
+                    <Bot size={20} className="shrink-0 text-text-muted" style={{ marginTop: 3 }} aria-label="monitorIA" />
                   )}
                   <div
                     className={`px-3.5 py-2.5 text-[0.85rem] break-words${m.role === 'user' ? ' whitespace-pre-wrap' : ''}`}
@@ -371,12 +371,7 @@ export default function AssistenteIAPage() {
                 a espera, parecendo travada. */}
             {enviando && (
               <div className="flex items-start gap-2" style={{ alignSelf: 'flex-start', maxWidth: '85%' }}>
-                <img
-                  src="/favicon.svg?v=2"
-                  alt="monitorIA"
-                  className="shrink-0"
-                  style={{ width: 22, height: 22, marginTop: 2, opacity: 0.9 }}
-                />
+                <Bot size={20} className="shrink-0 text-text-muted" style={{ marginTop: 3 }} aria-label="monitorIA" />
                 <div
                   className="p-2.5 rounded text-[0.85rem] flex flex-col gap-1.5 text-text-muted"
                   style={{ minWidth: 0, background: 'var(--bg)', border: '1px solid var(--border)' }}

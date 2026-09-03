@@ -41,6 +41,72 @@ describe('analiseCliente: gerarAnaliseIA', () => {
     expect(resultado.nivelRisco).toBe('baixo');
   });
 
+  /**
+   * Caso REAL (Altese, 03/09/2026): o modelo devolveu risco "medio" com 5
+   * bullets em "Pontos de Atenção" e `fatores: []`. `fatores` é o campo que a
+   * ficha do cliente mostra como justificativa do risco e que o agente cita
+   * quando perguntam "por que o risco é médio?" — vazio ali reproduz a queixa
+   * de "ele não sabe explicar o risco". O prompt pede, mas pedir não garante.
+   */
+  it('deriva fatores dos "Pontos de Atenção" quando o risco não é baixo e vieram vazios', async () => {
+    const resultado = await gerarAnaliseIA({
+      cliente,
+      eventosNovos: [{ date: '2026-08-05', status: 'Concluído', ata: 'x' }],
+      dossieAnterior: '',
+      ollama: ollamaFake({
+        nivelRisco: 'medio',
+        resumo: 'r',
+        fatores: [],
+        sugestaoProximaPauta: 'p',
+        dossieAtualizado: [
+          '### Perfil', 'Loja de autopeças.', '',
+          '### Pontos de Atenção',
+          '- [05/08/2026] Widmen zerou a compra de lubrificante em julho.',
+          '- [05/08/2026] Paulo Salles com queda em vela de ignição.', '',
+          '### Oportunidades', '- [05/08/2026] Nilvan em crescimento.', '',
+          '### Próxima pauta', 'Retomar pendência.',
+        ].join('\n'),
+      }),
+    });
+
+    expect(resultado.fatores).toEqual([
+      '[05/08/2026] Widmen zerou a compra de lubrificante em julho.',
+      '[05/08/2026] Paulo Salles com queda em vela de ignição.',
+    ]);
+  });
+
+  it('risco baixo com fatores vazios continua vazio — não inventa fator', async () => {
+    const resultado = await gerarAnaliseIA({
+      cliente,
+      eventosNovos: [{ date: '2026-08-05', status: 'Concluído', ata: 'x' }],
+      dossieAnterior: '',
+      ollama: ollamaFake({
+        nivelRisco: 'baixo',
+        resumo: 'r',
+        fatores: [],
+        sugestaoProximaPauta: 'p',
+        dossieAtualizado: '### Pontos de Atenção\n- [05/08] algo pequeno.\n',
+      }),
+    });
+    expect(resultado.fatores).toEqual([]);
+  });
+
+  it('seção vazia ("nenhum registro") não vira fator', async () => {
+    const resultado = await gerarAnaliseIA({
+      cliente,
+      eventosNovos: [{ date: '2026-08-05', status: 'Concluído', ata: 'x' }],
+      dossieAnterior: '',
+      ollama: ollamaFake({
+        nivelRisco: 'alto',
+        resumo: 'r',
+        fatores: [],
+        sugestaoProximaPauta: 'p',
+        dossieAtualizado: '### Pontos de Atenção\n— nenhum registro\n\n### Oportunidades\n- [05/08] x\n',
+      }),
+    });
+    expect(resultado.fatores).toEqual([]);
+  });
+
   it('mantém o dossiê anterior quando o modelo não devolve um dossieAtualizado válido', async () => {
     const resultado = await gerarAnaliseIA({
       cliente,

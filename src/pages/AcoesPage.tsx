@@ -287,7 +287,7 @@ export default function AcoesPage() {
                 <input placeholder="Buscar cliente..." value={acCliente} onChange={(e) => setAcCliente(e.target.value)} />
               </label>
               <Dropdown label="Monitor" multiple options={monitorOpcoes.map((m) => ({ value: m, label: m }))} value={acMonitores} onChange={(v) => setAcMonitores(v as string[])} />
-              <Dropdown label="Local" multiple options={localOpcoes.map((l) => ({ value: l, label: l }))} value={acLocais} onChange={(v) => setAcLocais(v as string[])} />
+              <Dropdown label="Segmento" multiple options={localOpcoes.map((l) => ({ value: l, label: l }))} value={acLocais} onChange={(v) => setAcLocais(v as string[])} />
               <Dropdown label="Ordenar" defaultValue="contato-recente" options={[
                 { value: 'contato-recente', label: 'Contato recente' },
                 { value: 'contato-antigo', label: 'Contato antigo' },

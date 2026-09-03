@@ -10,7 +10,7 @@ export const CATEGORIA_TIPO_LABEL: Record<CategoriaTipo, string> = {
   tipo_lembrete: 'Tipos de lembrete',
   sala: 'Salas de reunião',
   prioridade_tarefa: 'Prioridades de tarefa (Ágil)',
-  local_cliente: 'Local do cliente',
+  local_cliente: 'Segmento',
   grupo_referencia: 'Grupo Referência',
   linha_cliente: 'Linha (Leve/Pesada/Geral)',
 };

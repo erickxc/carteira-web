@@ -70,11 +70,16 @@
   --tipo-contato: #8aa3ad;                /* Slate Grey clareado */
   --tipo-relatorio: #e0975a;              /* Burnt Caramel clareado */
   --tipo-ligacao: #7cc3b4;                /* Teal — telefonema */
-  /* Reserva: tipos novos/desconhecidos caem aqui via hash determinístico. */
-  --tipo-reserva-1: var(--warning);       /* = #d69a3c */
-  --tipo-reserva-2: #7b8794;
-  --tipo-reserva-3: var(--danger);        /* = #e0645c */
-  --tipo-reserva-4: #6dc0d1;
+  /* Reserva: tipos novos/desconhecidos caem aqui via hash determinístico.
+     Paleta da 2D (dourado, laranja, azul claro, tinta neutra) — SEM vermelho:
+     `--danger` estava aqui e pintava serviço/tipo de evento de vermelho, que
+     no resto do app significa cancelado/perigo. Cor de categoria não pode
+     falar a língua do alerta. A "tinta" (-4) é theme-aware de propósito: preto
+     puro desapareceria no tema escuro. */
+  --tipo-reserva-1: var(--accent);        /* dourado da marca (#dabb6c) */
+  --tipo-reserva-2: #d98a45;              /* laranja */
+  --tipo-reserva-3: #6dc0d1;              /* azul claro */
+  --tipo-reserva-4: var(--text-secondary); /* tinta neutra (preto no claro) */
 
   /* Cor do TEXTO dos badges semânticos. No tema escuro é a própria cor viva
      (contraste alto sobre fundo quase preto); o tema claro sobrescreve com
@@ -165,8 +170,10 @@
   --tipo-contato: #4f6b76;
   --tipo-relatorio: #b16a2e;
   --tipo-ligacao: #2f8f7e;
-  --tipo-reserva-2: #5c6774;
-  --tipo-reserva-4: #2f95a8;
+  /* No tema claro os tons vivos escurecem pra manter contraste sobre fundo
+     claro (mesmo critério dos outros `--tipo-*` acima). */
+  --tipo-reserva-2: #b06a22;              /* laranja escurecido */
+  --tipo-reserva-3: #2f95a8;              /* azul claro escurecido */
 
   /* Modal claro — pedido do usuário: mais ESCURO que a página ao redor (era
      o oposto, mais claro que --bg), pra destacar sobre o scrim por contraste
