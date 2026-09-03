@@ -247,7 +247,7 @@ export const removerCliente = (id: string) => request<{ success: boolean }>(`/cl
 
 /**
  * Único lugar do frontend que vê a senha do Price em texto puro — chamado só
- * na hora de abrir o login automático (`AbrirPriceModal`), nunca preenchido
+ * na hora de abrir o login automático (`AcessosExternosButton.abrirPrice`), nunca preenchido
  * de volta num formulário de edição. Ver `server/routes/clients.cjs`.
  */
 export const revelarCredenciaisPrice = (id: string) =>

@@ -925,47 +925,6 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .modal-overlay.is-closing { animation: overlay-out 0.13s ease both; }
 .modal-overlay.is-closing .modal { animation: modal-out 0.13s ease both; }
 
-/* Réplica visual (não funcional) do login do Price — AbrirPriceModal.tsx.
-   Só transição/feedback, nunca uma tela editável de verdade. */
-.price-fake-input {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 0.5rem 0.7rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-}
-.price-fake-input-valor {
-  min-height: 1.2em;
-  font-size: 0.85rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-primary);
-  letter-spacing: 0.02em;
-}
-.price-fake-cursor {
-  display: inline-block;
-  width: 1px;
-  height: 1em;
-  margin-left: 1px;
-  vertical-align: -2px;
-  background: var(--accent);
-  animation: price-cursor-blink 0.8s step-end infinite;
-}
-@keyframes price-cursor-blink { 50% { opacity: 0; } }
-
-.price-fake-botao {
-  padding: 0.55rem;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: var(--accent-contrast);
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: default;
-  transition: transform 0.1s ease, filter 0.1s ease;
-}
-.price-fake-botao.is-pressed { transform: scale(0.96); filter: brightness(0.92); }
 
 .modal-header {
   display: flex;
