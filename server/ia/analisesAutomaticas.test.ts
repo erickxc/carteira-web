@@ -64,8 +64,12 @@ describe('analisesAutomaticas: gerarAnalisesPendentes', () => {
     const analises = repo._dump().AnalisesIA;
     expect(analises).toHaveLength(1);
     expect(analises[0]).toMatchObject({ clientId: 'c1', nivelRisco: 'baixo', ultimoEventoAnalisadoData: '2026-08-01T10:00:00.000Z' });
+    // O corpo fake não tem "### Próxima pauta" — a rede de segurança de
+    // analiseCliente.cjs completa com o campo separado `sugestaoProximaPauta`
+    // (mesmo comportamento real: caso Maniacar, 03/09, onde o modelo pulou a
+    // seção mas o campo separado veio preenchido).
     expect(fs.readFileSync(path.join(DOSSIES_DIR, 'c1--empresa-teste.md'), 'utf8'))
-      .toBe('## Empresa Teste\n**Nível de risco:** Baixo | **Atualizado em:** 01/08/2026\n\nCliente estável desde o início.\n');
+      .toBe('## Empresa Teste\n**Nível de risco:** Baixo | **Atualizado em:** 01/08/2026\n\nCliente estável desde o início.\n\n### Próxima pauta\nSeguir cadência normal.\n');
   });
 
   it('não reprocessa cliente sem reunião nova desde a última análise', async () => {

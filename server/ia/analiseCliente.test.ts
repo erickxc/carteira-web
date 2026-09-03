@@ -18,7 +18,12 @@ describe('analiseCliente: gerarAnaliseIA', () => {
         resumo: 'Cliente estável, com um ponto de atenção.',
         fatores: ['Atraso no envio de dados'],
         sugestaoProximaPauta: 'Revisar prazos de envio.',
-        dossieAtualizado: 'Dossiê atualizado.',
+        // Dossiê com a seção "Próxima pauta" já presente (dossiê real sempre
+        // tem, por vir do TEMPLATE_DOSSIE) — sem isso, a rede de segurança
+        // de "seção ausente" completaria o corpo com o campo separado, o que
+        // é o comportamento certo em produção, mas não o que este teste
+        // específico quer exercitar (normalização simples dos campos).
+        dossieAtualizado: 'Dossiê atualizado.\n\n### Próxima pauta\nRevisar prazos de envio.',
       }),
     });
 
@@ -27,7 +32,7 @@ describe('analiseCliente: gerarAnaliseIA', () => {
       resumo: 'Cliente estável, com um ponto de atenção.',
       fatores: ['Atraso no envio de dados'],
       sugestaoProximaPauta: 'Revisar prazos de envio.',
-      dossieAtualizado: 'Dossiê atualizado.',
+      dossieAtualizado: 'Dossiê atualizado.\n\n### Próxima pauta\nRevisar prazos de envio.',
     });
   });
 
@@ -115,6 +120,50 @@ describe('analiseCliente: gerarAnaliseIA', () => {
       ollama: ollamaFake({ nivelRisco: 'baixo', resumo: '', fatores: [], sugestaoProximaPauta: '' }),
     });
     expect(resultado.dossieAtualizado).toBe('Dossiê anterior mantido.');
+  });
+});
+
+describe('analiseCliente: completa "Proxima pauta" ausente com o campo separado', () => {
+  /**
+   * Caso REAL (Maniacar, 03/09/2026): o corpo veio bem abaixo do teto (nao
+   * foi corte) mas o modelo simplesmente nao escreveu a secao "### Proxima
+   * pauta". O JSON tem um campo SEPARADO `sugestaoProximaPauta` com o mesmo
+   * conteudo que deveria estar la - usa ele pra completar sem chamada nova.
+   */
+  it('injeta a secao a partir de sugestaoProximaPauta quando o corpo nao a tem', async () => {
+    const resultado = await gerarAnaliseIA({
+      cliente,
+      eventosNovos: [{ date: '2026-08-05', status: 'Concluído', ata: 'x' }],
+      dossieAnterior: '',
+      ollama: ollamaFake({
+        nivelRisco: 'medio', resumo: 'r', fatores: ['f'],
+        sugestaoProximaPauta: 'Verificar estoque crítico e reconquistar Compel.',
+        dossieAtualizado: '### Perfil\nDistribuidora.\n\n### Pontos de Atenção\n- [05/08] algo.\n',
+      }),
+    });
+    expect(resultado.dossieAtualizado).toContain('### Próxima pauta');
+    expect(resultado.dossieAtualizado).toContain('Verificar estoque crítico e reconquistar Compel.');
+  });
+
+  it('não mexe quando a seção já veio no corpo', async () => {
+    const corpo = '### Perfil\nX.\n\n### Próxima pauta\nJá escrita pelo modelo.';
+    const resultado = await gerarAnaliseIA({
+      cliente,
+      eventosNovos: [{ date: '2026-08-05', status: 'Concluído', ata: 'x' }],
+      dossieAnterior: '',
+      ollama: ollamaFake({ nivelRisco: 'baixo', resumo: 'r', fatores: [], sugestaoProximaPauta: 'Outra coisa.', dossieAtualizado: corpo }),
+    });
+    expect(resultado.dossieAtualizado).toBe(corpo);
+  });
+
+  it('sem sugestaoProximaPauta também, não inventa nada — fica sem a seção', async () => {
+    const resultado = await gerarAnaliseIA({
+      cliente,
+      eventosNovos: [{ date: '2026-08-05', status: 'Concluído', ata: 'x' }],
+      dossieAnterior: '',
+      ollama: ollamaFake({ nivelRisco: 'baixo', resumo: 'r', fatores: [], sugestaoProximaPauta: '', dossieAtualizado: '### Perfil\nX.' }),
+    });
+    expect(resultado.dossieAtualizado).not.toContain('### Próxima pauta');
   });
 });
 

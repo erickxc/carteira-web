@@ -269,6 +269,18 @@ async function gerarAnaliseIA({ cliente, eventosNovos, dossieAnterior, ollama = 
   let dossieAtualizado = typeof saida.dossieAtualizado === 'string' && saida.dossieAtualizado.trim()
     ? saida.dossieAtualizado
     : (dossieAnterior || '');
+
+  // Rede de segurança: caso real (Maniacar, 03/09) — o modelo devolveu o
+  // corpo BEM abaixo do teto (então não foi corte) mas simplesmente pulou a
+  // seção "### Próxima pauta" ao escrever. `sugestaoProximaPauta` é um campo
+  // SEPARADO do mesmo JSON (não depende do modelo repetir dentro do corpo),
+  // então dá pra completar sem chamada nova ao modelo.
+  const sugestaoBruta = typeof saida.sugestaoProximaPauta === 'string' ? saida.sugestaoProximaPauta.trim() : '';
+  if (!/###\s*Pr[óo]xima pauta/i.test(dossieAtualizado) && sugestaoBruta) {
+    console.warn(`gerarAnaliseIA: dossiê de "${cliente.empresa}" veio sem a seção "Próxima pauta" — completando com o campo sugestaoProximaPauta.`);
+    dossieAtualizado = `${dossieAtualizado.trimEnd()}\n\n### Próxima pauta\n${sugestaoBruta}`;
+  }
+
   if (dossieAtualizado.length > DOSSIE_MAX_CHARS) {
     console.warn(`gerarAnaliseIA: dossiê de "${cliente.empresa}" excedeu ${DOSSIE_MAX_CHARS} caracteres (${dossieAtualizado.length}) mesmo com instrução de concisão — truncando.`);
     dossieAtualizado = truncarPreservandoProximaPauta(dossieAtualizado, DOSSIE_MAX_CHARS);
