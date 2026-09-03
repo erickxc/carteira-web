@@ -50,9 +50,9 @@ interface PriceModalState {
  *  de cada linha começava numa coluna diferente, desalinhado. */
 function Icone({ opcao }: { opcao: AcessoOpcao }) {
   return (
-    <span className="flex items-center justify-center shrink-0" style={{ width: 18 }}>
+    <span className="flex items-center justify-center shrink-0" style={{ width: 15 }}>
       {opcao.label === PRICE_LABEL ? (
-        <img src={priceLogo} alt="" style={{ height: 18, width: 'auto', objectFit: 'contain' }} />
+        <img src={priceLogo} alt="" style={{ height: 13, width: 'auto', objectFit: 'contain' }} />
       ) : (
         <img src={powerbiLogo} alt="" style={{ width: 15, height: 15, objectFit: 'contain' }} />
       )}
