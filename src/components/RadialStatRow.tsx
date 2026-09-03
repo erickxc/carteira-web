@@ -34,9 +34,13 @@ function valoresDoModo(it: RadialItem, modo: ModoCobertura) {
   return {
     pct: it.base && it.base > 0 ? Math.round((descobertos / it.base) * 100) : 0,
     n: descobertos,
-    // Cor de atenção: neste modo o anel representa o que FALTA atender, não
-    // uma segunda série — é estado (pede ação), não identidade.
-    color: 'var(--warning)',
+    // Mantém a cor PRÓPRIA do serviço (a mesma do modo Coberto) — antes virava
+    // `var(--warning)` fixo pros dois anéis, e como essa cor é quase idêntica
+    // ao dourado da marca (`--accent`, cor da Monitoria), o anel da Monitoria
+    // parecia não mudar nada ao trocar de modo, e o de Price perdia a cor
+    // própria. A identidade (qual serviço é qual) tem que valer nos dois
+    // modos; quem muda com o modo é o preenchimento (%) e o rótulo, não a cor.
+    color: it.color,
   };
 }
 
