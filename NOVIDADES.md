@@ -8,6 +8,15 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.16
+
+- **Login automático no Price a partir do cadastro do cliente.** Clientes com
+  serviço de Precificação ganham um botão de acesso ao Price que já entra
+  logado — cadastre o login/senha uma vez no cadastro do cliente (senha fica
+  guardada de forma criptografada) e o sistema faz o login sozinho, com uma
+  animação mostrando os campos sendo preenchidos.
+- Troca entre tema claro/escuro agora é suave, sem a mudança brusca de antes.
+
 ## 1.4.15
 
 - **O sistema passa a se atualizar sozinho.** Ele procura versão nova a cada
