@@ -145,6 +145,17 @@ export interface Cliente {
   linksServicos?: Record<string, string>;
   /** Endereço do cliente, texto livre (rua, número, bairro, cidade/UF). */
   endereco?: string;
+  /** Login do cliente no Price (site externo de precificação) — vai junto
+   *  dos outros links de acesso (`AcessosExternosButton`). A senha NUNCA
+   *  chega aqui em texto puro: o backend nunca devolve `senhaPriceCifrada`
+   *  pra tela nenhuma, só `temSenhaPrice` (se já existe uma senha salva). */
+  loginPrice?: string;
+  temSenhaPrice?: boolean;
+  /** ESCRITA APENAS — nunca vem preenchido numa leitura (o backend nunca
+   *  devolve a senha em texto puro por essa rota; use `temSenhaPrice` pra
+   *  saber se já existe uma). Ausente/vazio ao salvar = "não mexer na senha
+   *  atual"; `null` explícito = apagar de propósito. Ver `server/crypto.cjs`. */
+  senhaPrice?: string | null;
   createdAt: string;
   // Colunas legadas do banco real, mantidas em sincronia pelo backend:
   suspenso?: boolean;

@@ -262,6 +262,18 @@ const CLAUDE_STATE_FILE = process.env.CLAUDE_STATE_FILE || path.join(SQLITE_DIR,
  */
 const CLAUDE_CLI_PATH = process.env.CLAUDE_CLI_PATH || '';
 
+/**
+ * Chave que cifra o login/senha do cliente no Price (`server/crypto.cjs`).
+ * SEM DEFAULT de propósito — diferente de outras env aqui, uma chave com
+ * fallback embutido no código não protege nada (quem tem o código tem a
+ * chave). Só existe na máquina servidora (Karol-2D), num `.env` fora do
+ * OneDrive — as máquinas dos monitores nunca precisam dela, só recebem o
+ * login/senha já em texto puro na hora do clique (ver `routes/clients.cjs`).
+ * Sem esta env, cifrar/decifrar credencial do Price falha explícito — nunca
+ * cai num "funciona sem proteção nenhuma".
+ */
+const PRICE_CREDENCIAIS_CHAVE = process.env.PRICE_CREDENCIAIS_CHAVE || '';
+
 // Alias de modelo aceito pelo próprio CLI (`--model`). Sonnet é o default por
 // ser o equilíbrio custo/qualidade da assinatura pra tarefa de análise curta.
 //
@@ -325,7 +337,12 @@ const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, 'carteira-snapshot.sqlite');
 // inteira com json_to_sheet(dados, { header }), então qualquer coluna fora
 // dessa lista era apagada de TODAS as linhas a cada save (`sala` é campo ativo,
 // gravado pelo EventFormModal — bug real de perda de dado, não só legado).
-const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'servicosIndependentes', 'contatos', 'observacao', 'estado', 'status', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'lastPricing', 'userId', 'lojas', 'relatorioCadencia', 'local', 'linksServicos', 'endereco', 'linha'];
+// loginPrice/senhaPriceCifrada: credencial do cliente no Price (ver
+// server/crypto.cjs) — `senhaPriceCifrada` NUNCA é a senha em texto puro,
+// sempre o resultado de `cifrar()`. Nenhuma rota devolve isso pronto pra
+// exibir; só `POST /api/clients/:id/price-credenciais/revelar` descriptografa,
+// sob demanda, pro helper local (Selenium) preencher o login no Price.
+const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'servicosIndependentes', 'contatos', 'observacao', 'estado', 'status', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'lastPricing', 'userId', 'lojas', 'relatorioCadencia', 'local', 'linksServicos', 'endereco', 'linha', 'loginPrice', 'senhaPriceCifrada'];
 // `origem` = de quem partiu a interação ('nos' | 'cliente'). Vazio nos eventos
 // antigos (tratado como não informado, nunca como 'nos') — é o que permite
 // separar contato que NÓS fizemos de contato que o CLIENTE fez.
@@ -499,7 +516,7 @@ module.exports = {
   ALVOS_DIR, ALVOS_ARQUIVO, TAGS_CLIENTE_FINAL_PATH,
   SNAPSHOT_DIR, SNAPSHOT_FILE, DOSSIES_DIR, OLLAMA_URL, OLLAMA_MODEL, OLLAMA_MODELS, OLLAMA_API_KEY,
   CONFIG_IA_COMPARTILHADO,
-  IA_PROVIDER, IA_PROVIDERS, CLAUDE_STATE_FILE, CLAUDE_CLI_PATH, CLAUDE_CLI_MODEL,
+  IA_PROVIDER, IA_PROVIDERS, CLAUDE_STATE_FILE, CLAUDE_CLI_PATH, CLAUDE_CLI_MODEL, PRICE_CREDENCIAIS_CHAVE,
   CLAUDE_CLI_MODEL_PADRAO, CLAUDE_CLI_MODELOS,
   CLAUDE_CLI_TIMEOUT_MS, CLAUDE_CLI_CWD, CLAUDE_MCP_SERVER,
   CLIENTES_HEADERS, AGENDA_HEADERS, LEMBRETES_HEADERS, CATEGORIAS_HEADERS, ACOES_HEADERS, MODELOS_HEADERS, CADENCIAS_HEADERS,

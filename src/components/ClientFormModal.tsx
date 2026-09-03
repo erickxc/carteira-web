@@ -38,6 +38,12 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const [linha, setLinha] = useState(initial?.linha ?? '');
   const [endereco, setEndereco] = useState(initial?.endereco ?? '');
   const [linksServicos, setLinksServicos] = useState<Record<string, string>>(initial?.linksServicos ?? {});
+  const [loginPrice, setLoginPrice] = useState(initial?.loginPrice ?? '');
+  // Nunca vem preenchido do servidor (a senha não trafega em texto puro numa
+  // leitura) — campo vazio SEMPRE ao abrir o cadastro. Vazio ao salvar = "não
+  // mexer na senha atual" (ver server/routes/clients.cjs, prepararPatchPrice);
+  // `temSenhaPrice` é só o que diz se já existe uma, pro placeholder.
+  const [senhaPrice, setSenhaPrice] = useState('');
   const [tipoAnalise, setTipoAnalise] = useState<TipoAnalise>(initial?.tipoAnalise ?? 'unitaria');
   const [lojas, setLojas] = useState<string[]>([]);
   const [novaLoja, setNovaLoja] = useState('');
@@ -107,7 +113,10 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
           await criarClientesEmLote(novos);
         }
       } else if (editando) {
-        await atualizarCliente(initial.id, { empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, tipoAnalise, relatorioCadencia });
+        await atualizarCliente(initial.id, {
+          empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, tipoAnalise, relatorioCadencia,
+          loginPrice, senhaPrice: senhaPrice.trim() || undefined,
+        });
       } else if (tipoAnalise === 'segmentado') {
         if (lojasFinais.length === 0) { toastError('Adicione ao menos uma loja para a análise segmentada.'); setSaving(false); return; }
         const novos: NovoCliente[] = lojasFinais.map((nome) => ({
@@ -118,7 +127,10 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
         }));
         await criarClientesEmLote(novos);
       } else {
-        await criarCliente({ empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, tipoAnalise: 'unitaria', relatorioCadencia });
+        await criarCliente({
+          empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, tipoAnalise: 'unitaria', relatorioCadencia,
+          loginPrice, senhaPrice: senhaPrice.trim() || undefined,
+        });
       }
       onClose();
     } catch (err) {
@@ -329,6 +341,35 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                 </Field>
               );
             })()}
+
+            {/* Login do cliente no Price — só aparece se o cliente tem o
+                serviço contratado. A senha nunca vem preenchida do servidor
+                (não trafega em texto puro numa leitura); o placeholder avisa
+                se já existe uma salva, sem revelar o valor. Deixar em branco
+                ao salvar preserva a senha atual — só troca se digitar algo
+                novo. Fase 2 (ainda não construída): um programa auxiliar por
+                máquina usa esse login/senha pra abrir o Price já logado. */}
+            {servicos.includes('Precificação') && (
+              <Field as="div" label="Login no Price">
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Input
+                    tone="modal"
+                    placeholder="Login"
+                    value={loginPrice}
+                    onChange={(e) => setLoginPrice(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <Input
+                    tone="modal"
+                    type="password"
+                    placeholder={initial?.temSenhaPrice ? '•••••• (senha já salva — deixe em branco pra manter)' : 'Senha'}
+                    value={senhaPrice}
+                    onChange={(e) => setSenhaPrice(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+              </Field>
+            )}
 
             <SecaoLabel>Automação</SecaoLabel>
 
