@@ -8,10 +8,14 @@ const NIVEIS_RISCO = ['baixo', 'medio', 'alto'];
 // histórico em vez de consolidar). Isso aqui é só rede de segurança: se o
 // modelo ignorar a instrução, corta e loga em vez de deixar o arquivo crescer
 // sem limite a cada reunião.
-// Reduzido de 3000 pra 1800 (pedido do usuário, depois do dossiê da Cativo
-// sair grande demais) — ainda dá espaço pras 5 seções do template com
-// conteúdo real, mas força mais consolidação em vez de empilhar histórico.
-const DOSSIE_MAX_CHARS = 1800;
+// Reduzido de 3000 (Cativo grande demais) pra 1800, e agora pra 1100 — mesma
+// queixa de novo (Maniacar saiu com 1872 chars: o teto não incluía o
+// cabeçalho que `montarDossieCompleto` adiciona por fora, então o arquivo
+// final sempre passava do limite anunciado). Reserva ~150 chars pro
+// cabeçalho (nome do cliente + risco + data), então o arquivo final fica
+// perto de 1100-1250 — visivelmente mais curto pra ler numa reunião de
+// carteira, que era o motivo original desse teto existir.
+const DOSSIE_MAX_CHARS = 1100;
 
 /** Bloco "Produtos — Situação" (serviço Monitoria) formatado pro prompt. */
 function textoProdutosSituacao(itensRaw) {
@@ -151,7 +155,7 @@ Regras:
 - Cada bullet é 1 linha, direto ao ponto — nada de parágrafo dentro de bullet, mas também nada de fórmula mecânica repetida ("fato → consequência" em todo item soa como log, não como análise). Varie a construção da frase como um analista de verdade escreveria, mantendo evidência (data/fonte) e clareza do porquê importa. Seção sem conteúdo real fica com "— nenhum registro" em vez de bullet inventado.
 - Se VÁRIAS reuniões mostram o MESMO padrão (ex.: 3 reuniões seguidas sem pauta/decisão), isso é UM fator só, citando as datas juntas ("28/05, 02/07 e 31/07: reuniões sem pauta nem decisão registrada") — não um fator por reunião. Listar cada ocorrência separada quando o padrão é repetitivo é log, não análise, e é o que mais infla "fatores" além do limite de 4.
 - "dossieAtualizado" tem um limite de espaço: no máximo ${DOSSIE_MAX_CHARS} caracteres no total. Isso significa CONSOLIDAR a cada rodada, não empilhar: remova pendência já entregue, remova ponto de atenção já resolvido, mantenha só o que ainda importa para decisão futura. Nunca cole a ata da reunião nova no dossiê — extraia dela só o que é memória duradoura.
-- "Pontos de Atenção" e "Oportunidades" têm no máximo 5 bullets CADA — se houver mais reuniões novas do que isso, priorize as mais recentes/relevantes e descarte as demais (mesmo que fosse um ponto válido isolado). Reuniões diferentes com o MESMO padrão viram um bullet só, citando as datas juntas — nunca um bullet por reunião.`;
+- "Pontos de Atenção" e "Oportunidades" têm no máximo 3 bullets CADA, "Pendências" no máximo 3 — se houver mais do que isso, priorize o mais recente/relevante e descarte o resto (mesmo que fosse um ponto válido isolado). Reuniões diferentes com o MESMO padrão viram um bullet só, citando as datas juntas — nunca um bullet por reunião. Cada bullet é UMA frase curta, não um parágrafo com várias orações separadas por ";" — corte pro fato que mais pesa, não tente caber tudo.`;
 }
 
 /**
