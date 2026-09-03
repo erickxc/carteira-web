@@ -167,6 +167,60 @@ Regras:
  */
 // `ollama` mantido como nome do parametro (injecao usada em teste); o default
 // e o provedor ATIVO, que pode ser o Ollama ou o Claude Code CLI.
+/**
+ * Corta em `max` chars sem quebrar no meio de uma palavra/frase. Antes era
+ * `.slice(0, max)` puro — em produção isso cortou dossiê real assim: "R$102
+ * mil vs. R" e "...status: pendente par" (de "para"). Um corte que quebra a
+ * frase no meio lê como texto quebrado, pior do que só passar do teto.
+ *
+ * Tenta, nesta ordem, manter pelo menos 60% do teto (não voltar tanto que o
+ * corte vire outro problema): fim de frase (". "/"! "/"? " ou fim de linha),
+ * senão quebra de linha, senão fim de palavra (espaço). Sem nenhum desses
+ * dentro da margem, corta no limite mesmo (último recurso).
+ */
+function truncarSemQuebrarFrase(texto, max) {
+  if (texto.length <= max) return texto.trim();
+  const fatia = texto.slice(0, max);
+  const minimo = Math.floor(max * 0.6);
+
+  const fimDeFrase = Math.max(fatia.lastIndexOf('. '), fatia.lastIndexOf('! '), fatia.lastIndexOf('? '), fatia.lastIndexOf('.\n'));
+  if (fimDeFrase >= minimo) return fatia.slice(0, fimDeFrase + 1).trim();
+
+  const quebraLinha = fatia.lastIndexOf('\n');
+  if (quebraLinha >= minimo) return fatia.slice(0, quebraLinha).trim();
+
+  const fimDePalavra = fatia.lastIndexOf(' ');
+  if (fimDePalavra >= minimo) return fatia.slice(0, fimDePalavra).trim();
+
+  return fatia.trim();
+}
+
+/**
+ * Corta o corpo pro teto SEM sacrificar a seção "Próxima pauta" inteira.
+ * `truncarSemQuebrarFrase` sozinho resolve o corte no meio da palavra, mas
+ * criou um problema novo em produção: quando o corte cai ANTES do título
+ * "### Próxima pauta", a seção inteira desaparece do dossiê — o template
+ * fica incompleto, e `sugestaoProximaPauta` (extraída dessa seção pra
+ * `AnalisesIA`, o que a ficha do cliente mostra) fica vazia mesmo o modelo
+ * tendo escrito uma pauta real.
+ *
+ * Reserva a "Próxima pauta" (cabe inteira quase sempre — é 1-2 frases) e
+ * corta só o resto pra caber no que sobra.
+ */
+function truncarPreservandoProximaPauta(texto, max) {
+  const marcador = /###\s*Pr[óo]xima pauta/i;
+  const m = marcador.exec(texto);
+  if (!m) return truncarSemQuebrarFrase(texto, max); // template inesperado — corte simples mesmo
+
+  const antes = texto.slice(0, m.index);
+  // A própria "Próxima pauta" também passa pelo corte de frase, caso ela
+  // sozinha seja anormalmente longa (nunca deveria, mas não confia sem checar).
+  const pauta = truncarSemQuebrarFrase(texto.slice(m.index), Math.max(200, Math.floor(max * 0.25)));
+  const orcamentoAntes = Math.max(0, max - pauta.length - 1);
+  const antesCortado = truncarSemQuebrarFrase(antes, orcamentoAntes);
+  return `${antesCortado}\n\n${pauta}`;
+}
+
 async function gerarAnaliseIA({ cliente, eventosNovos, dossieAnterior, ollama = clienteLLM(), repo }) {
   const prompt = montarPrompt({ cliente, eventosNovos, dossieAnterior });
   // Medição: a análise automática (boot + cron semanal + reanálise sob pedido)
@@ -217,7 +271,7 @@ async function gerarAnaliseIA({ cliente, eventosNovos, dossieAnterior, ollama = 
     : (dossieAnterior || '');
   if (dossieAtualizado.length > DOSSIE_MAX_CHARS) {
     console.warn(`gerarAnaliseIA: dossiê de "${cliente.empresa}" excedeu ${DOSSIE_MAX_CHARS} caracteres (${dossieAtualizado.length}) mesmo com instrução de concisão — truncando.`);
-    dossieAtualizado = dossieAtualizado.slice(0, DOSSIE_MAX_CHARS).trim();
+    dossieAtualizado = truncarPreservandoProximaPauta(dossieAtualizado, DOSSIE_MAX_CHARS);
   }
 
   return {
@@ -229,4 +283,7 @@ async function gerarAnaliseIA({ cliente, eventosNovos, dossieAnterior, ollama = 
   };
 }
 
-module.exports = { gerarAnaliseIA, montarPrompt, textoEvento, TEMPLATE_DOSSIE, DOSSIE_MAX_CHARS };
+module.exports = {
+  gerarAnaliseIA, montarPrompt, textoEvento, TEMPLATE_DOSSIE, DOSSIE_MAX_CHARS,
+  truncarSemQuebrarFrase, truncarPreservandoProximaPauta,
+};

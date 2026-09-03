@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gerarAnaliseIA, montarPrompt, textoEvento } from './analiseCliente.cjs';
+import { gerarAnaliseIA, montarPrompt, textoEvento, truncarSemQuebrarFrase, truncarPreservandoProximaPauta } from './analiseCliente.cjs';
 
 const cliente = { id: 'c1', empresa: 'Empresa Teste' };
 
@@ -145,6 +145,73 @@ describe('analiseCliente: montarPrompt inclui o segmento do cliente (campo Local
     });
     expect(prompt).toContain('a loja "Itaboraí" da rede "Aliança"');
     expect(prompt).toContain('(segmento: Distribuidora)');
+  });
+});
+
+describe('truncarSemQuebrarFrase', () => {
+  /**
+   * Caso real de produção (lote de 03/09): `.slice()` puro cortou um dossiê
+   * em "R$102 mil vs. R" e outro em "...status: pendente par" (de "para") —
+   * texto visivelmente quebrado, pior do que só passar do teto.
+   */
+  it('não corta no meio de uma palavra', () => {
+    const r = truncarSemQuebrarFrase('Receita cresceu R$102 mil vs. R$80 mil no mês anterior, um bom resultado.', 30);
+    expect(r).not.toMatch(/vs\. R$/);
+    expect(r.endsWith(' ')).toBe(false);
+  });
+
+  it('prefere cortar em fim de frase quando há um dentro da margem', () => {
+    const texto = 'Primeira frase completa aqui. Segunda frase que estoura o limite proposto porque é longa.';
+    const r = truncarSemQuebrarFrase(texto, 40);
+    expect(r).toBe('Primeira frase completa aqui.');
+  });
+
+  it('texto dentro do limite não é alterado', () => {
+    expect(truncarSemQuebrarFrase('Texto curto.', 100)).toBe('Texto curto.');
+  });
+
+  it('sem fim de frase nem quebra de linha na margem, corta em fim de palavra completa', () => {
+    const original = 'palavra1 palavra2 palavra3 palavra4 palavra5 palavra6';
+    const r = truncarSemQuebrarFrase(original, 20);
+    expect(original.startsWith(r)).toBe(true);
+    // O caractere logo depois do corte, no texto original, tem que ser um
+    // espaço (ou o fim do texto) — nunca outro caractere da mesma palavra.
+    const proximoChar = original[r.length];
+    expect(proximoChar === ' ' || proximoChar === undefined).toBe(true);
+  });
+});
+
+describe('truncarPreservandoProximaPauta', () => {
+  /**
+   * Caso real de produção (Aliança - Itaboraí, lote de 03/09): o corte
+   * seguro de frase (`truncarSemQuebrarFrase` puro) parava de escrever ANTES
+   * do título "### Próxima pauta" começar — a seção inteira sumia do
+   * dossiê, e `sugestaoProximaPauta` (extraída dela) ficava vazia mesmo o
+   * modelo tendo escrito uma pauta de verdade.
+   */
+  const CORPO = [
+    '### Perfil', 'Cliente institucional.', '',
+    '### Pontos de Atenção',
+    '- [18/08] Ata em branco.', '- [20/08] Ata em branco.', '- [25/08] Reunião sem decisão registrada.', '',
+    '### Oportunidades', '— nenhum registro', '',
+    '### Pendências', '- [Cliente] Preencher atas pendentes — status: pendente', '',
+    '### Próxima pauta',
+    'Cobrar preenchimento das atas e validar cronograma da revisão de precificação.',
+  ].join('\n');
+
+  it('a seção "Próxima pauta" sempre sobrevive ao corte, mesmo quando o resto precisa encolher muito', () => {
+    const r = truncarPreservandoProximaPauta(CORPO, 120); // teto bem apertado
+    expect(r).toContain('### Próxima pauta');
+    expect(r).toContain('Cobrar preenchimento das atas');
+  });
+
+  it('texto dentro do limite não é alterado', () => {
+    expect(truncarPreservandoProximaPauta(CORPO, 5000)).toBe(CORPO);
+  });
+
+  it('template sem o título esperado cai no corte simples (nunca quebra)', () => {
+    const semSecao = 'Texto qualquer sem os títulos do template, bem mais longo que o teto proposto aqui.';
+    expect(() => truncarPreservandoProximaPauta(semSecao, 20)).not.toThrow();
   });
 });
 
