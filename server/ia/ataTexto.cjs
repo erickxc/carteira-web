@@ -14,6 +14,24 @@ const { addMinutes, format, parseISO } = require('date-fns');
 
 const TRACO = '—';
 
+// Espelha `RESUMO_MINI_MAX_CHARS`/`extrairResumoCurto` de src/utils/ata.ts —
+// mesmo motivo/risco de divergência do resto deste arquivo (comentário no
+// topo). Caso real que motivou: monitor colou o export inteiro do Gemini/
+// Otter (título, "Resumo:", "Capítulos e tópicos:", "Tarefas:"...) no campo
+// simples "Resumo" do evento — a seção "1. RESUMO" saiu com 10 mil
+// caracteres, repetindo o que a seção 2 (gerada por IA) já resume enxuto.
+const RESUMO_MINI_MAX_CHARS = 600;
+
+function extrairResumoCurto(resumoMonitor) {
+  if (resumoMonitor.length <= RESUMO_MINI_MAX_CHARS) return resumoMonitor;
+
+  const doExport = /Resumo:\s*\n([\s\S]*?)\n\s*(?:Cap[ií]tulos e t[óo]picos|Tarefas|Perguntas-chave|Bloco de Notas):/i.exec(resumoMonitor);
+  const extraido = doExport && doExport[1] && doExport[1].trim();
+  if (extraido) return extraido.length > RESUMO_MINI_MAX_CHARS ? `${extraido.slice(0, RESUMO_MINI_MAX_CHARS).trim()}…` : extraido;
+
+  return `${resumoMonitor.slice(0, RESUMO_MINI_MAX_CHARS).trim()}… (resumo completo no campo Resumo do evento)`;
+}
+
 function faixaHoraria(time, duracao) {
   if (!time) return '';
   if (!duracao || duracao <= 0) return time;
@@ -73,7 +91,7 @@ function gerarAta(ev, ctx = {}, ia) {
   const checklist = ev.checklist ?? [];
   const resumoMonitor = (ev.resumo && ev.resumo.trim()) || '';
   const primeiraLinhaIA = (ia && ia.oQueFoiTratado && ia.oQueFoiTratado.trim().split('\n')[0].trim()) || '';
-  const miniResumo = resumoMonitor || primeiraLinhaIA;
+  const miniResumo = (resumoMonitor && extrairResumoCurto(resumoMonitor)) || primeiraLinhaIA;
   L.push('', '1. RESUMO');
   if (miniResumo) miniResumo.split('\n').forEach((l) => L.push(`   ${l.trim()}`));
   else L.push('   (a preencher)');

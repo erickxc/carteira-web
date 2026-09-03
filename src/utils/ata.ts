@@ -23,6 +23,38 @@ export interface AtaSecoesIA {
 
 const TRACO = '—';
 
+/**
+ * Teto de tamanho pro "mini resumo" da seção 1 — acima disso, algo deu
+ * errado (ver `extrairResumoCurto`). Caso real: um monitor colou o export
+ * inteiro do Gemini/Otter/Fireflies (que já vem com "Resumo:", "Capítulos e
+ * tópicos:", "Tarefas:" etc. — o MESMO formato que `ImportarResumoModal` já
+ * sabe recortar, só que numa ferramenta separada) direto no campo simples
+ * "Resumo" do evento. A seção 1 saiu com 10 mil caracteres, repetindo quase
+ * tudo que a IA já resume de forma enxuta na seção 2 — a ata inteira virou
+ * ilegível.
+ */
+const RESUMO_MINI_MAX_CHARS = 600;
+
+/**
+ * "1. RESUMO" é pra ser CURTO (o nome já diz) — o texto que o monitor
+ * escreveu à mão, não um documento inteiro. Se o campo vier gigante e no
+ * formato conhecido de export de transcrição automática (Gemini/Otter/
+ * Fireflies: título, data, "Resumo:", "Capítulos e tópicos:"...), extrai só
+ * o parágrafo depois de "Resumo:" — é o que a pessoa quis dizer com "isto é
+ * o resumo", o resto (capítulos, tarefas, bloco de notas) não pertence
+ * aqui. Sem esse padrão reconhecível, corta no teto e avisa onde ver o
+ * resto, em vez de silenciosamente inflar a ata inteira.
+ */
+function extrairResumoCurto(resumoMonitor: string): string {
+  if (resumoMonitor.length <= RESUMO_MINI_MAX_CHARS) return resumoMonitor;
+
+  const doExport = /Resumo:\s*\n([\s\S]*?)\n\s*(?:Cap[ií]tulos e t[óo]picos|Tarefas|Perguntas-chave|Bloco de Notas):/i.exec(resumoMonitor);
+  const extraido = doExport?.[1]?.trim();
+  if (extraido) return extraido.length > RESUMO_MINI_MAX_CHARS ? `${extraido.slice(0, RESUMO_MINI_MAX_CHARS).trim()}…` : extraido;
+
+  return `${resumoMonitor.slice(0, RESUMO_MINI_MAX_CHARS).trim()}… (resumo completo no campo Resumo do evento)`;
+}
+
 /** "14:30–16:00" a partir de hora + duração. Só a hora se não houver duração. */
 function faixaHoraria(time?: string, duracao?: number): string {
   if (!time) return '';
@@ -102,7 +134,7 @@ export function gerarAta(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}, ia?: 
   const checklist = ev.checklist ?? [];
   const resumoMonitor = ev.resumo?.trim() ?? '';
   const primeiraLinhaIA = ia?.oQueFoiTratado?.trim().split('\n')[0]?.trim() ?? '';
-  const miniResumo = resumoMonitor || primeiraLinhaIA;
+  const miniResumo = (resumoMonitor && extrairResumoCurto(resumoMonitor)) || primeiraLinhaIA;
   L.push('', '1. RESUMO');
   if (miniResumo) miniResumo.split('\n').forEach((l) => L.push(`   ${l.trim()}`));
   else L.push('   (a preencher)');

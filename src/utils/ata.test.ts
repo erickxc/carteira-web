@@ -150,3 +150,56 @@ describe('gerarAta: Registro da Monitoria (produtosSituacao) vira seção própr
     expect(texto).not.toContain('undefined');
   });
 });
+
+describe('gerarAta: seção 1 (RESUMO) não vira dump de export de transcrição', () => {
+  /**
+   * Caso REAL de produção (Renocar, 03/09/2026): o monitor colou o export
+   * inteiro do Gemini Notes (empresa/data, "Resumo:", bullets, "Capítulos e
+   * tópicos:" com dezenas de parágrafos, "Tarefas:"...) direto no campo
+   * simples "Resumo" do evento. A seção "1. RESUMO" saiu com >10 mil
+   * caracteres, repetindo quase tudo que "2. O QUE FOI TRATADO" (gerado por
+   * IA) já resumia enxuto — a ata inteira ficou ilegível.
+   */
+  const exportGemini = [
+    'Renocar Auto Peças Ltda',
+    'Qui., 04 de set. de 2026',
+    '',
+    'Resumo:',
+    'A reunião revisou o desempenho comercial e ajustou margens de oito produtos automotivos.',
+    '• Receita caiu 11% em agosto, mas cresceu 9% interanual',
+    '• Margens foram ajustadas conforme vendas, concorrência e estoque',
+    '\t',
+    'Capítulos e tópicos:',
+    'Desempenho comercial de agosto',
+    'Renato e Erick avaliaram agosto como um mês mais fraco... '.repeat(80), // simula os "milhares de caracteres" reais
+    'Tarefas:',
+    '* Marco: Divulgue a previsão de vendas para setembro',
+  ].join('\n');
+
+  it('extrai só o parágrafo do "Resumo:", não o export inteiro', () => {
+    const texto = gerarAta({ ...evBase, resumo: exportGemini });
+    expect(texto).toContain('A reunião revisou o desempenho comercial e ajustou margens de oito produtos automotivos.');
+    expect(texto).not.toContain('Capítulos e tópicos:');
+    expect(texto).not.toContain('Tarefas:');
+    expect(texto).not.toContain('Renato e Erick avaliaram agosto');
+  });
+
+  it('a seção 1 fica abaixo do teto mesmo com um export gigante', () => {
+    const texto = gerarAta({ ...evBase, resumo: exportGemini });
+    const secao1 = texto.split('1. RESUMO')[1].split('2. O QUE FOI TRATADO')[0];
+    expect(secao1.length).toBeLessThan(700);
+  });
+
+  it('resumo curto normal (o caso comum) continua idêntico — sem regressão', () => {
+    const texto = gerarAta(evBase);
+    expect(texto).toContain('Conversamos sobre o estoque parado de amortecedores.');
+  });
+
+  it('texto grande SEM o formato reconhecido de export: corta no teto e avisa onde ver o resto', () => {
+    const textoGrandeGenerico = 'Uma frase bem longa sem estrutura de seções. '.repeat(50);
+    const texto = gerarAta({ ...evBase, resumo: textoGrandeGenerico });
+    const secao1 = texto.split('1. RESUMO')[1].split('2. O QUE FOI TRATADO')[0];
+    expect(secao1.length).toBeLessThan(700);
+    expect(secao1).toContain('resumo completo no campo Resumo do evento');
+  });
+});

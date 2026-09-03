@@ -6,6 +6,8 @@ import priceLogo from '../../assets/price-logo.svg';
 import type { Cliente } from '../../types';
 import { Button } from '../../ui';
 import { calcularPosicaoPopover } from '../../utils/popoverPosicao';
+import { abrirAbaPrice } from '../../utils/price';
+import { toastError } from '../../utils/toast';
 import { AbrirPriceModal } from './AbrirPriceModal';
 
 interface AcessoOpcao {
@@ -44,6 +46,7 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [priceModalAberto, setPriceModalAberto] = useState(false);
+  const nomeJanelaPrice = `price-2d-${cliente.id}`;
   const wrapRef = useRef<HTMLDivElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
 
@@ -74,15 +77,29 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
   if (opcoes.length === 0) return compacto ? <span className="text-text-muted">—</span> : null;
 
   function abrir(o: AcessoOpcao) {
-    if (o.url) window.open(o.url, '_blank', 'noopener,noreferrer');
-    else setPriceModalAberto(true); // Price: sem URL própria, dispara a animação de login
+    if (o.url) {
+      window.open(o.url, '_blank', 'noopener,noreferrer');
+    } else {
+      // Price: abre a aba (em branco) AGORA, ainda dentro do clique — é o
+      // que evita o bloqueio de pop-up. `enviarLoginPrice` (chamado só depois
+      // da animação, no AbrirPriceModal) navega essa MESMA janela pelo nome,
+      // não abre outra — não precisa guardar a referência, só o nome.
+      if (!abrirAbaPrice(nomeJanelaPrice)) {
+        toastError('O navegador bloqueou a aba do Price. Permita pop-ups pra este site e tente de novo.');
+        setOpen(false);
+        return;
+      }
+      setPriceModalAberto(true);
+    }
     setOpen(false);
   }
 
   const estiloCompacto = compacto ? { padding: '0.28rem 0.45rem' } : undefined;
   const rotuloGrupo = opcoes.some((o) => o.label === PRICE_LABEL) && opcoes.length > 1 ? 'Acessos' : 'Power BI';
 
-  const modalPrice = priceModalAberto && <AbrirPriceModal clientId={cliente.id} onClose={() => setPriceModalAberto(false)} />;
+  const modalPrice = priceModalAberto && (
+    <AbrirPriceModal clientId={cliente.id} nomeJanela={nomeJanelaPrice} onClose={() => setPriceModalAberto(false)} />
+  );
 
   // Um único acesso cadastrado: abre direto, sem popover — menos clique no caso comum.
   if (opcoes.length === 1) {
