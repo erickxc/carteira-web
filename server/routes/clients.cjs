@@ -83,7 +83,12 @@ router.delete('/:id', (req, res) => {
  * em particular, é a decisão já existente pra tudo aqui.
  */
 router.post('/:id/price-credenciais/revelar', (req, res) => {
-  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(req.params.id));
+  // Mesmo overlay do GET / (linha 45): numa máquina cliente, uma senha do
+  // Price recém-cadastrada pode ainda estar só na fila, não aplicada no
+  // SQLite local — sem isso, revelar lia o estado antigo e respondia 404
+  // ("sem senha cadastrada") logo depois do usuário ter acabado de salvar.
+  const dados = repo.get('Clientes');
+  const cliente = (isClient ? aplicarOverlay('Clientes', dados) : dados).find((c) => String(c.id) === String(req.params.id));
   if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
   if (!cliente.senhaPriceCifrada) return res.status(404).json({ error: 'Este cliente não tem senha do Price cadastrada.' });
   try {

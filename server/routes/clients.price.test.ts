@@ -11,8 +11,9 @@ let oneDriveDir: string;
 let sqliteDir: string;
 
 const MODULOS = [
-  '../config.cjs', '../crypto.cjs', '../dominio/repo.cjs', '../dominio/clientes.cjs',
-  '../dbSqlite.cjs', '../db.cjs', '../fila/mutacao.cjs', './clients.cjs',
+  '../config.cjs', '../crypto.cjs', '../modo.cjs', '../machine.cjs', '../dominio/repo.cjs', '../dominio/clientes.cjs',
+  '../dbSqlite.cjs', '../db.cjs', '../fila/caminhos.cjs', '../fila/pendentes.cjs', '../fila/escrever.cjs',
+  '../fila/entidades.cjs', '../fila/mutacao.cjs', './clients.cjs',
 ];
 
 function fecharConexaoSqlite() {
@@ -39,6 +40,7 @@ afterEach(() => {
   delete process.env.ONEDRIVE_ROOT;
   delete process.env.SQLITE_DIR;
   delete process.env.PRICE_CREDENCIAIS_CHAVE;
+  delete process.env.APP_MODE;
   limparCaches();
   fs.rmSync(oneDriveDir, { recursive: true, force: true });
   fs.rmSync(sqliteDir, { recursive: true, force: true });
@@ -131,6 +133,28 @@ describe('clients: login/senha do Price', () => {
       const criado = await (await fetch(url, { method: 'POST', ...jsonBody({ empresa: 'Sem Price' }) })).json();
       const res = await fetch(`${url}/${criado.id}/price-credenciais/revelar`, { method: 'POST' });
       expect(res.status).toBe(404);
+    } finally {
+      fechar();
+    }
+  });
+
+  it('APP_MODE=client: revelar credencial recém-cadastrada (ainda só na fila, não aplicada) funciona', async () => {
+    // Bug real encontrado antes de liberar a feature Price pra máquinas
+    // cliente: /revelar lia repo.get('Clientes') SEM aplicarOverlay (ao
+    // contrário do GET /), então uma senha cadastrada agora — que em modo
+    // cliente fica só na fila até o controller da máquina servidora aplicar
+    // — não aparecia, e a rota respondia 404 mesmo tendo acabado de salvar.
+    process.env.APP_MODE = 'client';
+    limparCaches();
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const criado = await (await fetch(url, { method: 'POST', ...jsonBody({ empresa: 'Cliente Fila', loginPrice: 'login@fila.com', senhaPrice: 'senhaNaFila' }) })).json();
+      expect(criado.temSenhaPrice).toBe(true);
+
+      const res = await fetch(`${url}/${criado.id}/price-credenciais/revelar`, { method: 'POST' });
+      expect(res.status).toBe(200);
+      const revelado = await res.json();
+      expect(revelado).toEqual({ loginPrice: 'login@fila.com', senhaPrice: 'senhaNaFila' });
     } finally {
       fechar();
     }
