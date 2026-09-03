@@ -24,18 +24,20 @@ export function formatarCNPJ(valor: string): string {
  * `setTimeout`) foi bloqueado na prática ("só abriu uma tela de permitir
  * popup").
  *
- * Abre direto na TELA REAL de login do Price, não num `about:blank`: a aba
- * fica visível por ~1s enquanto a animação roda na Carteira, e uma aba em
- * branco (ou com um HTML nosso imitando o Price) fica com cara de erro —
- * tentei as duas coisas antes, ambas ficaram ruins. Mostrando a tela de
- * verdade, a aba parece o que é: o Price abrindo.
- *
- * `enviarLoginPrice`, depois da animação, faz o POST do login NESTA MESMA
- * aba (via `form.target` com o mesmo nome de janela) — navegar uma janela que
- * já existe não é tratado como pop-up novo, então não é bloqueado.
+ * Abre em branco (`about:blank`) e SEM foco — o usuário não deve ver essa
+ * aba, nem perceber que ela existe, até a animação terminar. Já tentamos
+ * abrir direto na tela real do Price aqui: tecnicamente funciona, mas o
+ * usuário via a aba do Price em segundo plano ANTES da animação acabar (com
+ * o link de login dela, sem preenchimento) e achava confuso — "abre tela da
+ * price separado" antes da hora. `window.focus()` devolve o foco pra
+ * Carteira imediatamente, então a aba fica invisível até `enviarLoginPrice`
+ * navegar ela pra Price de verdade e trazer o foco de volta, exatamente
+ * quando a animação termina e o login é enviado.
  */
 export function abrirAbaPrice(nomeJanela: string): Window | null {
-  return window.open(PRICE_LOGIN_URL, nomeJanela);
+  const aba = window.open('about:blank', nomeJanela);
+  window.focus();
+  return aba;
 }
 
 /**
@@ -64,4 +66,8 @@ export function enviarLoginPrice(cnpj: string, senha: string, nomeJanela: string
   document.body.appendChild(form);
   form.submit();
   document.body.removeChild(form);
+
+  // Só agora traz a aba do Price pra frente — é quando o login de fato
+  // acontece, então é a hora certa de o usuário ver o resultado.
+  window.open('', nomeJanela)?.focus();
 }
