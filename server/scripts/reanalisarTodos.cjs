@@ -63,10 +63,32 @@ function backup(repo) {
   return { destino, arquivos };
 }
 
+async function checarCota(repo) {
+  try {
+    const { consultarLimiteConta } = require('../ia/claudeCli/limiteConta.cjs');
+    const r = await consultarLimiteConta({ repo });
+    if (!r.ok) return; // sem credencial/CLI — deixa a primeira chamada real dar o erro específico
+    const cincoH = r.cincoHoras?.utilizacao ?? 0;
+    console.log(`Cota da conta agora: 5h em ${Math.round(cincoH * 100)}%, 7d em ${Math.round((r.seteDias?.utilizacao ?? 0) * 100)}%.`);
+    // Cada cliente custa uma fração real da janela de 5h (visto na prática:
+    // ~35 pontos percentuais pra ~40 clientes) — acima de 70% já usado, é
+    // bem provável estourar no meio do lote (aconteceu de verdade em 03/09,
+    // 46 de 50 clientes silenciosamente não processados). Aviso, não aborta:
+    // é só uma estimativa, e quem decide se vale arriscar é quem está rodando.
+    if (cincoH > 0.7) {
+      console.warn(`AVISO: cota de 5h já em ${Math.round(cincoH * 100)}% — pode estourar no meio do lote (reseta ${r.cincoHoras?.resetaEm ?? '?'}). Considere esperar antes de rodar tudo.`);
+    }
+  } catch (err) {
+    console.warn(`Não deu pra checar a cota antes de começar (${err.message}) — seguindo mesmo assim.`);
+  }
+}
+
 async function main() {
   const repo = repoPlanilha();
   const clientes = repo.get('Clientes');
   const agenda = repo.get('Agenda');
+
+  await checarCota(repo);
 
   const temAta = (id) => agenda.some((a) => String(a.clientId) === String(id) && EVENTO_RELEVANTE.test(a.status || ''));
 
@@ -95,19 +117,53 @@ async function main() {
   let consecutivas = 0;
   const t0 = Date.now();
 
+  // `gerarAnalisesPendentes` engole erro POR CLIENTE internamente (try/catch
+  // próprio, só um `console.warn`) — nunca lança. Sem isto, uma falha real
+  // (limite de sessão da conta, credencial expirada) virava silenciosamente
+  // "processados: 0" e este script reportava "sem alteração" pros 46
+  // clientes seguintes, quando na verdade nenhum foi reanalisado (aconteceu
+  // de verdade: rodada de 03/09 bateu "session limit" no cliente 5 e só foi
+  // notado ao conferir os dossiês depois). Intercepta console.warn durante a
+  // chamada pra distinguir "não tinha nada novo" de "tentou e falhou calado".
+  function chamarCapturandoAvisos(fn) {
+    const avisos = [];
+    const original = console.warn;
+    console.warn = (...args) => { avisos.push(args.join(' ')); original(...args); };
+    return fn().finally(() => { console.warn = original; }).then((resultado) => ({ resultado, avisos }));
+  }
+
   for (const [i, cliente] of alvos.entries()) {
     const prefixo = `[${String(i + 1).padStart(3)}/${alvos.length}] ${cliente.empresa}`;
     const inicio = Date.now();
     try {
-      const processados = await gerarAnalisesPendentes({ repo, apenasClientId: cliente.id, forcar: true });
+      const { resultado: processados, avisos } = await chamarCapturandoAvisos(
+        () => gerarAnalisesPendentes({ repo, apenasClientId: cliente.id, forcar: true })
+      );
       const seg = Math.round((Date.now() - inicio) / 1000);
-      if (processados > 0) {
+      const avisoFalha = avisos.find((a) => a.includes(`falha para o cliente "${cliente.empresa}"`));
+      if (avisoFalha) {
+        falhas.push({ empresa: cliente.empresa, erro: avisoFalha });
+        consecutivas++;
+        console.log(`${prefixo} — FALHA (${seg}s): ${avisoFalha}`);
+        // Limite de sessão/cota não passa sozinho até a próxima tentativa —
+        // insistir nos 45 clientes restantes só queima tempo confirmando o
+        // óbvio. 1 falha já basta pra abortar quando é claramente cota (não
+        // conta como as 3 consecutivas de erro genérico abaixo).
+        if (/session limit|rate.?limit|usage limit/i.test(avisoFalha)) {
+          console.error('\nLimite de sessão/cota da conta atingido — abortando (insistir não adianta até resetar). Nada além daqui foi tocado nesta rodada.');
+          break;
+        }
+      } else if (processados > 0) {
         ok++;
         consecutivas = 0;
         console.log(`${prefixo} — ok (${seg}s)`);
       } else {
         vazios++;
         console.log(`${prefixo} — sem alteração (${seg}s)`);
+      }
+      if (consecutivas >= 3) {
+        console.error('\n3 falhas consecutivas — abortando (credencial/cota?). Nada além daqui foi tocado.');
+        break;
       }
     } catch (err) {
       falhas.push({ empresa: cliente.empresa, erro: err.message });
