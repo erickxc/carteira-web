@@ -245,6 +245,14 @@ export const atualizarCliente = async (id: string, data: Partial<Cliente>) => {
 };
 export const removerCliente = (id: string) => request<{ success: boolean }>(`/clients/${id}`, { method: 'DELETE' });
 
+/**
+ * Único lugar do frontend que vê a senha do Price em texto puro — chamado só
+ * na hora de abrir o login automático (`AbrirPriceModal`), nunca preenchido
+ * de volta num formulário de edição. Ver `server/routes/clients.cjs`.
+ */
+export const revelarCredenciaisPrice = (id: string) =>
+  request<{ loginPrice: string; senhaPrice: string }>(`/clients/${id}/price-credenciais/revelar`, { method: 'POST' });
+
 // --- Agenda ---
 export const listarAgenda = async () => (await request<Record<string, unknown>[]>('/agenda')).map(deserializeEvento);
 export const criarEvento = async (data: EventoAgenda) =>

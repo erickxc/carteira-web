@@ -9,8 +9,11 @@ const ENV_ORIGINAL = process.env.PRICE_CREDENCIAIS_CHAVE;
 // afeta o grafo do Vite pra `import`). Sem isso, o segundo teste sempre
 // enxergaria a chave do primeiro. Mesmo padrão de `autoAtualizacao.test.ts`.
 function carregarComChave(chave: string | undefined) {
-  if (chave === undefined) delete process.env.PRICE_CREDENCIAIS_CHAVE;
-  else process.env.PRICE_CREDENCIAIS_CHAVE = chave;
+  // NUNCA `delete`: `config.cjs` recarrega o `.env` real do projeto a cada
+  // require, e só pula uma variável que já existe em `process.env` (mesmo
+  // vazia) — `delete` faz ele reler a chave de verdade do arquivo, e o teste
+  // de "sem chave" deixa de testar o cenário que quer testar.
+  process.env.PRICE_CREDENCIAIS_CHAVE = chave === undefined ? '' : chave;
   delete require.cache[require.resolve('./config.cjs')];
   delete require.cache[require.resolve('./crypto.cjs')];
   return require('./crypto.cjs') as typeof import('./crypto.cjs');
