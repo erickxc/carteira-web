@@ -214,6 +214,20 @@
   box-sizing: border-box;
 }
 
+/* Troca de tema suave: alternar `data-theme` (ThemeToggle.tsx) recalcula
+   TODAS as variáveis de cor de uma vez, e cada elemento pintado com `var()`
+   pulava pro novo valor instantaneamente — no app inteiro ao mesmo tempo,
+   ficava um "flash" brusco. Uma transição padrão nas propriedades de cor
+   resolve pro app inteiro sem precisar tocar em cada componente; regras mais
+   específicas que já definem `transition` própria (botões, hover de popover
+   etc.) continuam valendo — a delas vence por especificidade. */
+*, *::before, *::after {
+  transition: background-color 0.22s ease, border-color 0.22s ease, color 0.18s ease, fill 0.22s ease, stroke 0.22s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none; }
+}
+
 html,
 body,
 #root {
