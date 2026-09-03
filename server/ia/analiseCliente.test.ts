@@ -148,6 +148,61 @@ describe('analiseCliente: montarPrompt inclui o segmento do cliente (campo Local
   });
 });
 
+describe('analiseCliente: serviços contratados e independentes no prompt', () => {
+  /**
+   * Queixa do usuário: a análise sugeria reunião/pauta pra serviço que o
+   * cliente conduz sozinho. O chat já recebia `servicosIndependentes`
+   * (`situacaoCadastro` em tools.cjs) e tinha norma pra respeitar; o prompt da
+   * análise automática não recebia NEM `servicos` NEM os independentes — não
+   * tinha como saber.
+   */
+  const base = { id: 'c1', empresa: 'Empresa Teste' };
+
+  it('lista os serviços contratados', () => {
+    const p = montarPrompt({
+      cliente: { ...base, servicos: ['Monitoria', 'Precificação'] },
+      eventosNovos: [], dossieAnterior: '',
+    });
+    expect(p).toContain('SERVIÇOS CONTRATADOS: Monitoria, Precificação.');
+  });
+
+  it('separa os independentes e proíbe tratar ausência de reunião como risco', () => {
+    const p = montarPrompt({
+      cliente: { ...base, servicos: ['Monitoria', 'Precificação'], servicosIndependentes: ['Precificação'] },
+      eventosNovos: [], dossieAnterior: '',
+    });
+    expect(p).toContain('CONDUZ SOZINHO (independentes): Precificação');
+    expect(p).toMatch(/ACOMPANHAR OS NÚMEROS/);
+    expect(p).toMatch(/não sugira pauta\/reunião pra eles/);
+    // E diz explicitamente o que SOBRA pra cadência.
+    expect(p).toContain('Reunião/cadência vale para: Monitoria.');
+  });
+
+  it('cliente com TODOS os serviços independentes: pauta é acompanhamento de indicadores', () => {
+    const p = montarPrompt({
+      cliente: { ...base, servicos: ['Precificação'], servicosIndependentes: ['Precificação'] },
+      eventosNovos: [], dossieAnterior: '',
+    });
+    expect(p).toMatch(/não depende de reunião para nenhum serviço contratado/);
+    expect(p).not.toContain('Reunião/cadência vale para:');
+  });
+
+  it('aceita o campo serializado como string JSON (como vem da planilha)', () => {
+    const p = montarPrompt({
+      cliente: { ...base, servicos: '["Monitoria","Precificação"]', servicosIndependentes: '["Precificação"]' },
+      eventosNovos: [], dossieAnterior: '',
+    });
+    expect(p).toContain('SERVIÇOS CONTRATADOS: Monitoria, Precificação.');
+    expect(p).toContain('CONDUZ SOZINHO (independentes): Precificação');
+  });
+
+  it('cliente sem serviço cadastrado não ganha bloco nenhum (nada inventado)', () => {
+    const p = montarPrompt({ cliente: base, eventosNovos: [], dossieAnterior: '' });
+    expect(p).not.toContain('SERVIÇOS CONTRATADOS');
+    expect(p).not.toContain('CONDUZ SOZINHO');
+  });
+});
+
 describe('analiseCliente: textoEvento inclui motivo e histórico de remarcação', () => {
   it('inclui o motivo do cancelamento/reagendamento quando presente', () => {
     const texto = textoEvento({ date: '2026-08-20', status: 'Cancelado', motivo: 'Cliente pediu para adiar por falta de agenda.' });

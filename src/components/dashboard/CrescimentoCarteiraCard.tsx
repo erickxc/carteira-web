@@ -10,7 +10,7 @@ interface CrescimentoCarteiraCardProps {
 /** Total de clientes cadastrados (acumulado) mês a mês, desde o primeiro `createdAt`. */
 export function CrescimentoCarteiraCard({ pontos }: CrescimentoCarteiraCardProps) {
   return (
-    <Card className="mb-6">
+    <Card>
       <div className="section-header">
         <h3>Crescimento da Carteira</h3>
         <span className="text-text-muted" style={{ fontSize: 12 }}>total de clientes cadastrados, acumulado</span>

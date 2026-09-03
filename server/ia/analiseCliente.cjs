@@ -94,7 +94,33 @@ function montarPrompt({ cliente, eventosNovos, dossieAnterior }) {
   // (compra por contrato/volume recorrente). Só entra no prompt quando
   // cadastrado; cliente sem o campo preenchido não deve ter isso inventado.
   const segmento = cliente.local ? ` (segmento: ${cliente.local})` : '';
+
+  /**
+   * Serviços contratados e, dentro deles, os que o cliente faz SOZINHO
+   * (`servicosIndependentes`). Faltava no prompt inteiro: a análise não sabia
+   * quais serviços o cliente tem, então sugeria pauta/reunião pra serviço que
+   * o cliente conduz por conta própria — o monitor só acompanha os números.
+   * O chat já tinha esse dado (`situacaoCadastro`) e norma pra respeitá-lo; a
+   * análise automática, não.
+   */
+  const lista = (v) => {
+    if (Array.isArray(v)) return v.filter(Boolean);
+    if (typeof v === 'string' && v.trim()) {
+      try { const p = JSON.parse(v); return Array.isArray(p) ? p.filter(Boolean) : []; } catch { return []; }
+    }
+    return [];
+  };
+  const servicos = lista(cliente.servicos);
+  const independentes = lista(cliente.servicosIndependentes);
+  const dependentes = servicos.filter((sv) => !independentes.includes(sv));
+  const blocoServicos = servicos.length === 0 ? '' : `
+
+SERVIÇOS CONTRATADOS: ${servicos.join(', ')}.${independentes.length ? `
+SERVIÇOS QUE O CLIENTE CONDUZ SOZINHO (independentes): ${independentes.join(', ')} — para estes, o trabalho da 2D é ACOMPANHAR OS NÚMEROS, não conduzir reunião. Não trate ausência de reunião desses serviços como risco, pendência ou lacuna, e não sugira pauta/reunião pra eles.${dependentes.length ? ` Reunião/cadência vale para: ${dependentes.join(', ')}.` : ' Este cliente não depende de reunião para nenhum serviço contratado — a pauta deve tratar de acompanhamento de indicadores.'}` : ''}`;
+
   return `Você é um analista sênior de monitoria da 2D Consultores, avaliando ${identidade}${segmento}. Escreva sempre em português do Brasil, com ortografia e gramática corretas — revise o texto antes de responder, como se fosse publicado num relatório executivo.${cliente.grupo ? ` Trate isso como uma loja específica, não como "a empresa" — se mencionar a rede, deixe claro que é a rede, não esta loja.` : ''}
+
+${blocoServicos}
 
 DOSSIÊ ATUAL DO CLIENTE (memória acumulada de análises anteriores):
 ${dossie}

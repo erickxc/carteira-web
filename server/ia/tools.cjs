@@ -116,10 +116,19 @@ function situacaoCadastro(repo, cliente) {
     .filter((a) => !/cancel/i.test(a.status || ''))
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
+  // `servicos` (contratados) vinha faltando: o agente recebia
+  // `servicosIndependentes` sem saber o que o cliente contrata, então não
+  // tinha como concluir "Monitoria precisa de reunião, Precificação não".
+  // `dependemDeReuniao` é a subtração já feita — o agente não precisa
+  // (nem deve) deduzir isso de cabeça a cada resposta.
+  const servicos = listaJSON(cliente.servicos);
+  const independentes = listaJSON(cliente.servicosIndependentes);
   return {
     estado: cliente.estado || null,
     status: cliente.status || null,
-    servicosIndependentes: listaJSON(cliente.servicosIndependentes),
+    servicos,
+    servicosIndependentes: independentes,
+    dependemDeReuniao: servicos.filter((sv) => !independentes.includes(sv)),
     proximoEvento: futuros[0] ? { date: futuros[0].date, type: futuros[0].type } : null,
   };
 }
@@ -224,6 +233,11 @@ function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo
       ...identidadeCliente(cliente),
       status: cliente.status,
       estado: cliente.estado || null,
+      servicos: listaJSON(cliente.servicos),
+      // Serviço que o cliente conduz sozinho não entra em fila de reunião —
+      // sem isso aqui, uma resposta sobre "quem agendar" incluía cliente cujo
+      // único serviço é independente.
+      servicosIndependentes: listaJSON(cliente.servicosIndependentes),
       nivelRisco: analise?.nivelRisco ?? null,
     }));
 

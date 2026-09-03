@@ -488,6 +488,20 @@ textarea:focus-visible {
   margin-bottom: 1rem;
   align-items: stretch;
 }
+/* Dashboard da Carteira: ritmo uniforme entre as seções. Antes cada bloco
+   levava sua própria margem (uns com `mb-6`, outros sem nenhuma), então
+   alguns cards ficavam colados e outros com folga dupla. Aqui o ESPAÇO é do
+   container, não de cada card — e a distância vertical passa a ser a mesma do
+   `gap` horizontal do `.dash-two-col` (1rem), pros cards ficarem numa grade
+   visualmente regular nos dois eixos. */
+.dash-secoes {
+  display: grid;
+  gap: 1rem;
+}
+/* Zera a margem própria das linhas quando elas estão dentro do container —
+   `.dash-two-col` é usado em outras telas e mantém o `margin-bottom` lá. */
+.dash-secoes > .dash-two-col { margin-bottom: 0; }
+
 .dash-gauges {
   display: grid;
   /* 280px (não 320px) pra caber os 4 cards (Ritmo/Cobertura/Vencendo/Abrangência)

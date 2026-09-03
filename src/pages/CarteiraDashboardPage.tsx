@@ -53,55 +53,61 @@ export default function CarteiraDashboardPage() {
         />
       </div>
 
-      <CrescimentoCarteiraCard pontos={d.crescimentoCarteira} />
+      {/* Um container só cuida do espaçamento (vertical igual ao gap
+          horizontal) — antes cada card trazia a própria margem e alguns
+          ficavam colados. */}
+      <div className="dash-secoes">
+        <div className="dash-two-col">
+          <CrescimentoCarteiraCard pontos={d.crescimentoCarteira} />
+          <AbrangenciaMapaCard clientes={d.ativos} />
+        </div>
 
-      <StackedBarCard
-        titulo="Profundidade de Serviços"
-        subtitulo="quantos serviços cada cliente ativo contratou"
-        segmentos={d.profundidadeServicos}
-        emptyMsg="Nenhum cliente ativo cadastrado."
-        insight={(() => {
-          const multiplos = d.profundidadeServicos.filter((s) => /^(2|3\+)/.test(s.label)).reduce((s, i) => s + i.pct, 0);
-          return multiplos > 0 ? `${multiplos}% dos clientes ativos contratam mais de um serviço.` : undefined;
-        })()}
-      />
-
-      <div className="dash-two-col">
         <StackedBarCard
-          titulo="Saúde da Carteira"
-          subtitulo="por status · ativos + inativos"
-          segmentos={d.saudeCarteira}
-          emptyMsg="Nenhum cliente cadastrado."
+          titulo="Profundidade de Serviços"
+          subtitulo="quantos serviços cada cliente ativo contratou"
+          segmentos={d.profundidadeServicos}
+          emptyMsg="Nenhum cliente ativo cadastrado."
           insight={(() => {
-            const regular = d.saudeCarteira.find((s) => /^regular$/i.test(s.label));
-            return regular ? `${regular.pct}% da carteira está com status Regular.` : undefined;
+            const multiplos = d.profundidadeServicos.filter((s) => /^(2|3\+)/.test(s.label)).reduce((s, i) => s + i.pct, 0);
+            return multiplos > 0 ? `${multiplos}% dos clientes ativos contratam mais de um serviço.` : undefined;
           })()}
         />
-        <DistribuicaoListCard
-          titulo="Concentração por Monitor"
-          subtitulo="clientes ativos"
-          items={d.clientesPorMonitor}
-          emptyMsg="Nenhum cliente ativo com monitor definido."
-        />
-      </div>
 
-      <div className="dash-two-col">
-        <DistribuicaoListCard
-          titulo="Clientes por Segmento"
-          subtitulo="clientes ativos"
-          items={d.clientesPorSegmento}
-          emptyMsg="Nenhum cliente ativo com segmento definido."
-          limite={8}
-        />
-        <DistribuicaoListCard
-          titulo="Clientes por Linha"
-          subtitulo="Leve · Pesada · Geral"
-          items={d.clientesPorLinha}
-          emptyMsg="Nenhum cliente ativo com linha definida."
-        />
-      </div>
+        <div className="dash-two-col">
+          <StackedBarCard
+            titulo="Saúde da Carteira"
+            subtitulo="por status · ativos + inativos"
+            segmentos={d.saudeCarteira}
+            emptyMsg="Nenhum cliente cadastrado."
+            insight={(() => {
+              const regular = d.saudeCarteira.find((s) => /^regular$/i.test(s.label));
+              return regular ? `${regular.pct}% da carteira está com status Regular.` : undefined;
+            })()}
+          />
+          <DistribuicaoListCard
+            titulo="Concentração por Monitor"
+            subtitulo="clientes ativos"
+            items={d.clientesPorMonitor}
+            emptyMsg="Nenhum cliente ativo com monitor definido."
+          />
+        </div>
 
-      <AbrangenciaMapaCard clientes={d.ativos} />
+        <div className="dash-two-col">
+          <DistribuicaoListCard
+            titulo="Clientes por Segmento"
+            subtitulo="clientes ativos"
+            items={d.clientesPorSegmento}
+            emptyMsg="Nenhum cliente ativo com segmento definido."
+            limite={8}
+          />
+          <DistribuicaoListCard
+            titulo="Clientes por Linha"
+            subtitulo="Leve · Pesada · Geral"
+            items={d.clientesPorLinha}
+            emptyMsg="Nenhum cliente ativo com linha definida."
+          />
+        </div>
+      </div>
     </div>
   );
 }
