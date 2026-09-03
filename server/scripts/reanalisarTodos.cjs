@@ -35,6 +35,11 @@ const seco = process.argv.includes('--dry-run');
 const soAtivos = process.argv.includes('--ativos');
 const limiteArg = process.argv.find((a) => a.startsWith('--limite='));
 const limite = limiteArg ? Number(limiteArg.split('=')[1]) : Infinity;
+// Pula quem já foi reanalisado DEPOIS deste instante ISO — pra retomar um
+// lote interrompido sem pagar de novo pelos clientes que já saíram certos
+// com a versão atual do prompt (ex.: depois de um ajuste no meio do lote).
+const desdeArg = process.argv.find((a) => a.startsWith('--desde='));
+const desde = desdeArg ? desdeArg.split('=')[1] : null;
 
 /** Mesma regra de `isClienteAtivo` (src/utils/formatters.ts). */
 function clienteAtivo(c) {
@@ -92,11 +97,19 @@ async function main() {
 
   const temAta = (id) => agenda.some((a) => String(a.clientId) === String(id) && EVENTO_RELEVANTE.test(a.status || ''));
 
+  const analises = repo.get('AnalisesIA');
+  const jaFeitoDesde = (id) => {
+    if (!desde) return false;
+    const a = analises.find((x) => String(x.clientId) === String(id));
+    return Boolean(a && String(a.geradoEm) >= desde);
+  };
+
   const alvos = clientes
     .filter((c) => (soAtivos ? clienteAtivo(c) : true))
     // Cliente sem nenhum evento relevante não gera análise (a própria função
     // pula) — não entra na conta pra não parecer que falhou.
     .filter((c) => temAta(c.id))
+    .filter((c) => !jaFeitoDesde(c.id))
     .slice(0, limite);
 
   console.log(`Clientes: ${clientes.length} no total, ${alvos.length} com histórico pra reanalisar${soAtivos ? ' (só ativos)' : ''}.`);
