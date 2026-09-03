@@ -6,17 +6,15 @@ import priceLogo from '../../assets/price-logo.svg';
 import type { Cliente } from '../../types';
 import { Button } from '../../ui';
 import { calcularPosicaoPopover } from '../../utils/popoverPosicao';
-import {
-  abrirAbaPriceComAnimacao, enviarLoginPrice, formatarCNPJ, mostrarErroNaAbaPrice,
-  type AnimacaoPrice,
-} from '../../utils/price';
+import { abrirAbaPrice, enviarLoginPrice, formatarCNPJ } from '../../utils/price';
 import { revelarCredenciaisPrice } from '../../api/client';
 import { toastError } from '../../utils/toast';
+import { AbrirPriceModal, type FasePrice } from './AbrirPriceModal';
 
 interface AcessoOpcao {
   label: string;
-  /** Ausente = não é um link comum (`window.open`), é o Price — abre a aba
-   *  com a animação de login (ver `abrirPrice`). */
+  /** Ausente = não é um link comum (`window.open`), é o Price — trata à
+   *  parte, dispara `abrirPrice` em vez de navegar direto. */
   url?: string;
 }
 
@@ -30,14 +28,21 @@ interface AcessosExternosButtonProps {
 
 const PRICE_LABEL = 'Price';
 
-// Duração de cada "letra" digitada — pedido do usuário: gostou do efeito,
-// mas rápido (~1s no total pro CNPJ + senha inteiros).
+// Duração de cada "letra" digitada na animação — pedido do usuário: gostou
+// do efeito, mas rápido (~1s no total pro CNPJ+senha inteiros).
 const MS_POR_CARACTERE = 22;
 const PAUSA_ENTRE_CAMPOS_MS = 110;
 const PAUSA_NO_BOTAO_MS = 160;
 const MAX_PONTOS_SENHA = 10;
 
 const delay = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
+interface PriceModalState {
+  fase: FasePrice;
+  cnpjMostrado: string;
+  senhaMostrada: string;
+  erro: string;
+}
 
 /** Ícone por opção: o Price tem a logo própria (mesma da sidebar), o resto é
  *  sempre um link de Power BI. */
@@ -46,37 +51,31 @@ function Icone({ opcao }: { opcao: AcessoOpcao }) {
   return <img src={src} alt="" style={{ width: 15, height: 15, objectFit: 'contain' }} />;
 }
 
-/** Digita um texto caractere por caractere dentro da aba, com cursor piscando. */
-async function digitar(alvo: HTMLElement, cursor: HTMLElement, texto: string, aindaValido: () => boolean) {
-  cursor.style.display = 'inline-block';
-  for (let i = 1; i <= texto.length; i++) {
-    await delay(MS_POR_CARACTERE);
-    if (!aindaValido()) return;
-    alvo.textContent = texto.slice(0, i);
-  }
-  cursor.style.display = 'none';
-}
-
 /**
  * Botão de acesso externo no cabeçalho do cadastro do cliente — um link por
  * SERVIÇO PowerBI que o cliente tem (`cliente.linksServicos`, preenchido no
  * cadastro por um seletor interno: escolhe o serviço, cola o link), mais o
  * Price quando o cliente tem login/senha salvos (`temSenhaPrice`) — esse não
- * abre direto: a aba nova mostra o login sendo preenchido e depois entra.
- * Sem nenhum acesso cadastrado, o botão nem aparece.
+ * abre direto: mostra uma animação (`AbrirPriceModal`, puramente visual) e
+ * envia o login de verdade numa aba nova. Sem nenhum acesso cadastrado, o
+ * botão nem aparece.
  */
 export function AcessosExternosButton({ cliente, compacto = false }: AcessosExternosButtonProps) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const [priceState, setPriceState] = useState<PriceModalState | null>(null);
   const nomeJanelaPrice = `price-2d-${cliente.id}`;
   const wrapRef = useRef<HTMLDivElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
 
   // Token da execução ATUAL da sequência do Price — não um "cancelado"
-  // boolean (isso já causou bug real: com `useEffect` + ref, o StrictMode do
-  // React rodava a sequência duas vezes, abrindo duas abas). Um número que
-  // só AUMENTA a cada clique garante que só a execução mais recente escreve
-  // na aba.
+  // boolean (isso já causou bug real: um useEffect que resetava um ref desses
+  // no topo acabava sendo enganado pelo StrictMode do React, que roda
+  // montar→limpar→montar de novo em dev, e a sequência rodava DUAS vezes —
+  // duas abas do Price abertas, ou a animação pulada). Um número que só
+  // AUMENTA a cada clique, comparado antes de cada atualização de estado,
+  // não sofre disso: mesmo se algo dessincronizar, só a execução MAIS
+  // RECENTE de fato atualiza a tela.
   const execucaoPriceRef = useRef(0);
 
   const opcoes: AcessoOpcao[] = [
@@ -105,55 +104,73 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
 
   if (opcoes.length === 0) return compacto ? <span className="text-text-muted">—</span> : null;
 
-  /** Anima o preenchimento DENTRO da aba e envia o login de verdade. */
-  async function animarEEntrar(els: AnimacaoPrice, loginPrice: string, senhaPrice: string, aindaValido: () => boolean) {
-    await digitar(els.cnpj, els.cursorCnpj, formatarCNPJ(loginPrice), aindaValido);
-    if (!aindaValido()) return;
-    await delay(PAUSA_ENTRE_CAMPOS_MS);
-    if (!aindaValido()) return;
-
-    // Senha sempre em pontinhos — nunca mostra o texto real, nem numa
-    // animação nossa; o tamanho é só visual, não reflete a senha de verdade.
-    const pontos = '•'.repeat(Math.max(6, Math.min(senhaPrice.length, MAX_PONTOS_SENHA)));
-    await digitar(els.senha, els.cursorSenha, pontos, aindaValido);
-    if (!aindaValido()) return;
-    await delay(PAUSA_ENTRE_CAMPOS_MS);
-    if (!aindaValido()) return;
-
-    els.botao.classList.add('apertado');
-    await delay(PAUSA_NO_BOTAO_MS);
-  }
-
   /**
-   * Sequência inteira do Price: abre a aba (síncrono, pro pop-up não ser
-   * bloqueado) → busca credencial → anima DENTRO da aba → envia o login.
-   * Vive na função do CLIQUE, não num `useEffect`, de propósito: o React
-   * nunca invoca um handler de clique em duplicidade, e isso já foi a causa
-   * raiz de dois bugs aqui (duas abas / animação pulada).
+   * Sequência inteira do Price: busca credencial → anima → envia o login de
+   * verdade. Vive na função do CLIQUE (não num `useEffect` de componente) de
+   * propósito — é o que garante que só roda uma vez por clique, sem depender
+   * de nenhuma garantia de ciclo de vida do React.
    */
   async function abrirPrice() {
-    const aberta = abrirAbaPriceComAnimacao(nomeJanelaPrice);
-    if (!aberta) {
+    // Abre a aba (em branco) AGORA, ainda dentro do clique — é o que evita o
+    // bloqueio de pop-up (só conta como "ação do usuário" o `window.open`
+    // síncrono; abrir só depois da animação já foi bloqueado na prática).
+    // `enviarLoginPrice`, mais tarde, navega essa MESMA janela pelo nome.
+    if (!abrirAbaPrice(nomeJanelaPrice)) {
       toastError('O navegador bloqueou a aba do Price. Permita pop-ups pra este site e tente de novo.');
       return;
     }
 
     const meuToken = ++execucaoPriceRef.current;
-    const aindaValido = () => execucaoPriceRef.current === meuToken && !aberta.janela.closed;
+    const aindaValido = () => execucaoPriceRef.current === meuToken;
 
-    const credenciais = await revelarCredenciaisPrice(cliente.id).catch((err: unknown) => {
+    setPriceState({ fase: 'carregando', cnpjMostrado: '', senhaMostrada: '', erro: '' });
+
+    const credenciais = await revelarCredenciaisPrice(cliente.id).catch(async (err: unknown) => {
+      if (!aindaValido()) return null;
       const msg = err instanceof Error ? err.message : 'Falha ao buscar as credenciais do Price.';
-      if (aindaValido()) mostrarErroNaAbaPrice(aberta.janela, msg);
+      setPriceState({ fase: 'erro', cnpjMostrado: '', senhaMostrada: '', erro: msg });
       toastError(msg);
+      await delay(1400);
+      if (aindaValido()) setPriceState(null);
       return null;
     });
     if (!credenciais || !aindaValido()) return;
-
     const { loginPrice, senhaPrice } = credenciais;
-    if (aberta.els) await animarEEntrar(aberta.els, loginPrice, senhaPrice, aindaValido);
+
+    // Digita CNPJ char a char, pausa, digita senha (como pontos — nunca
+    // mostra a senha real na tela, mesmo sendo uma animação nossa), pausa,
+    // "aperta" o botão, envia de verdade.
+    const cnpjFormatado = formatarCNPJ(loginPrice);
+    setPriceState({ fase: 'cnpj', cnpjMostrado: '', senhaMostrada: '', erro: '' });
+    for (let i = 1; i <= cnpjFormatado.length; i++) {
+      await delay(MS_POR_CARACTERE);
+      if (!aindaValido()) return;
+      setPriceState({ fase: 'cnpj', cnpjMostrado: cnpjFormatado.slice(0, i), senhaMostrada: '', erro: '' });
+    }
+    await delay(PAUSA_ENTRE_CAMPOS_MS);
+    if (!aindaValido()) return;
+
+    const tamanhoSenha = Math.max(6, Math.min(senhaPrice.length, MAX_PONTOS_SENHA));
+    setPriceState({ fase: 'senha', cnpjMostrado: cnpjFormatado, senhaMostrada: '', erro: '' });
+    for (let i = 1; i <= tamanhoSenha; i++) {
+      await delay(MS_POR_CARACTERE);
+      if (!aindaValido()) return;
+      setPriceState({ fase: 'senha', cnpjMostrado: cnpjFormatado, senhaMostrada: '•'.repeat(i), erro: '' });
+    }
+    await delay(PAUSA_ENTRE_CAMPOS_MS);
+    if (!aindaValido()) return;
+
+    setPriceState({ fase: 'clicando', cnpjMostrado: cnpjFormatado, senhaMostrada: '•'.repeat(tamanhoSenha), erro: '' });
+    await delay(PAUSA_NO_BOTAO_MS);
     if (!aindaValido()) return;
 
     enviarLoginPrice(loginPrice, senhaPrice, nomeJanelaPrice);
+    setPriceState(null);
+  }
+
+  function fecharPriceModal() {
+    execucaoPriceRef.current++; // invalida a sequência em andamento, se houver
+    setPriceState(null);
   }
 
   function abrir(o: AcessoOpcao) {
@@ -165,13 +182,26 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
   const estiloCompacto = compacto ? { padding: '0.28rem 0.45rem' } : undefined;
   const rotuloGrupo = opcoes.some((o) => o.label === PRICE_LABEL) && opcoes.length > 1 ? 'Acessos' : 'Power BI';
 
+  const modalPrice = priceState && (
+    <AbrirPriceModal
+      fase={priceState.fase}
+      cnpjMostrado={priceState.cnpjMostrado}
+      senhaMostrada={priceState.senhaMostrada}
+      erro={priceState.erro}
+      onClose={fecharPriceModal}
+    />
+  );
+
   // Um único acesso cadastrado: abre direto, sem popover — menos clique no caso comum.
   if (opcoes.length === 1) {
     const [unica] = opcoes;
     return (
-      <Button variant="secondary" onClick={() => abrir(unica)} title={`Abrir ${unica.label}`} style={estiloCompacto}>
-        <Icone opcao={unica} /> {!compacto && unica.label}
-      </Button>
+      <>
+        <Button variant="secondary" onClick={() => abrir(unica)} title={`Abrir ${unica.label}`} style={estiloCompacto}>
+          <Icone opcao={unica} /> {!compacto && unica.label}
+        </Button>
+        {modalPrice}
+      </>
     );
   }
 
@@ -205,6 +235,7 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
         </div>,
         document.body
       )}
+      {modalPrice}
     </div>
   );
 }
