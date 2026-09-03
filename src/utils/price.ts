@@ -18,39 +18,16 @@ export function formatarCNPJ(valor: string): string {
 }
 
 /**
- * Abre a aba do Price NA HORA do clique (síncrono) — é o que evita o bloqueio
- * de pop-up: o navegador só permite `window.open` sem bloquear dentro do
- * mesmo evento de clique do usuário. Abrir só depois da animação (num
- * `setTimeout`) foi bloqueado na prática ("só abriu uma tela de permitir
- * popup").
- *
- * Abre em branco (`about:blank`) e SEM foco — o usuário não deve ver essa
- * aba, nem perceber que ela existe, até a animação terminar. Já tentamos
- * abrir direto na tela real do Price aqui: tecnicamente funciona, mas o
- * usuário via a aba do Price em segundo plano ANTES da animação acabar (com
- * o link de login dela, sem preenchimento) e achava confuso — "abre tela da
- * price separado" antes da hora. `window.focus()` devolve o foco pra
- * Carteira imediatamente, então a aba fica invisível até `enviarLoginPrice`
- * navegar ela pra Price de verdade e trazer o foco de volta, exatamente
- * quando a animação termina e o login é enviado.
- */
-export function abrirAbaPrice(nomeJanela: string): Window | null {
-  const aba = window.open('about:blank', nomeJanela);
-  window.focus();
-  return aba;
-}
-
-/**
- * Envia o formulário de login de verdade pro Price, DENTRO da aba já aberta
- * por `abrirAbaPrice` — o MESMO mecanismo que o navegador usa quando alguém
- * digita CNPJ/senha na tela dele e aperta "Entrar" (POST comum de formulário,
- * sem AJAX), então o Price responde com a sessão real na aba real.
+ * Envia o formulário de login de verdade pro Price DENTRO de uma janela já
+ * aberta com o nome `nomeJanela` — o MESMO mecanismo que o navegador usa
+ * quando alguém digita CNPJ/senha na tela dele e aperta "Entrar" (POST comum
+ * de formulário, sem AJAX), então o Price responde com a sessão real lá.
  *
  * Não é possível manipular a aba depois de navegada (outra origem — barreira
  * de segurança do navegador, não limitação nossa): por isso a animação mora
  * na Carteira, não lá dentro.
  */
-export function enviarLoginPrice(cnpj: string, senha: string, nomeJanela: string) {
+function enviarFormularioLogin(cnpj: string, senha: string, nomeJanela: string) {
   const form = document.createElement('form');
   form.method = 'POST';
   form.action = PRICE_LOGIN_URL;
@@ -66,8 +43,25 @@ export function enviarLoginPrice(cnpj: string, senha: string, nomeJanela: string
   document.body.appendChild(form);
   form.submit();
   document.body.removeChild(form);
+}
 
-  // Só agora traz a aba do Price pra frente — é quando o login de fato
-  // acontece, então é a hora certa de o usuário ver o resultado.
-  window.open('', nomeJanela)?.focus();
+/**
+ * Abre a aba do Price SÓ no fim, depois da animação — nada de aba/janela
+ * nasce antes disso (nem em `about:blank`), porque qualquer `window.open`
+ * síncrono já aparece na barra de abas do navegador, mesmo sem foco, e isso
+ * confundia quem estava vendo a animação ("cria outra sessão").
+ *
+ * O preço dessa escolha: o navegador só garante que `window.open` funcione
+ * sem bloqueio dentro do MESMO evento de clique do usuário ("ativação
+ * transitória", ~5s no Chrome) — como aqui já passou por uma busca de
+ * credencial (rede) + a animação inteira, pode passar desse prazo e ser
+ * bloqueado. Por isso a função devolve `false` nesse caso: quem chama deve
+ * mostrar um botão real pro usuário clicar (`abrirEEnviarLoginManual`), o
+ * que é um gesto novo e sempre funciona.
+ */
+export function abrirEEnviarLoginPrice(cnpj: string, senha: string, nomeJanela: string): boolean {
+  const aba = window.open(PRICE_LOGIN_URL, nomeJanela);
+  if (!aba) return false;
+  enviarFormularioLogin(cnpj, senha, nomeJanela);
+  return true;
 }

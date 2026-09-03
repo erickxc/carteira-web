@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom';
 import { Loader2 } from 'lucide-react';
 import priceLogo from '../../assets/price-logo.svg';
 
-export type FasePrice = 'carregando' | 'cnpj' | 'senha' | 'clicando' | 'erro';
+export type FasePrice = 'carregando' | 'cnpj' | 'senha' | 'clicando' | 'erro' | 'bloqueado';
 
 interface AbrirPriceModalProps {
   fase: FasePrice;
@@ -10,6 +10,9 @@ interface AbrirPriceModalProps {
   senhaMostrada: string;
   erro: string;
   onClose: () => void;
+  /** Só usado na fase 'bloqueado' — reabre a aba a partir de um clique real
+   *  do usuário (o navegador só permite pop-up dentro de um gesto). */
+  onAbrirManualmente?: () => void;
 }
 
 /**
@@ -24,7 +27,7 @@ interface AbrirPriceModalProps {
  * visível começar). Um componente sem side-effect nenhum não pode sofrer
  * disso — só mostra o que o clique manda mostrar.
  */
-export function AbrirPriceModal({ fase, cnpjMostrado, senhaMostrada, erro, onClose }: AbrirPriceModalProps) {
+export function AbrirPriceModal({ fase, cnpjMostrado, senhaMostrada, erro, onClose, onAbrirManualmente }: AbrirPriceModalProps) {
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
@@ -37,6 +40,15 @@ export function AbrirPriceModal({ fase, cnpjMostrado, senhaMostrada, erro, onClo
             </p>
           ) : fase === 'erro' ? (
             <p className="text-[0.85rem] text-danger text-center">{erro}</p>
+          ) : fase === 'bloqueado' ? (
+            <>
+              <p className="text-[0.85rem] text-text-muted text-center">
+                O navegador bloqueou a abertura automática. Clique abaixo pra abrir o Price já logado.
+              </p>
+              <button type="button" className="price-fake-botao" onClick={onAbrirManualmente}>
+                Abrir o Price
+              </button>
+            </>
           ) : (
             <div className="w-full flex flex-col gap-3">
               <div className="price-fake-input">

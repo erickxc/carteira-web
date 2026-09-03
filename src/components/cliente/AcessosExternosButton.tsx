@@ -6,7 +6,7 @@ import priceLogo from '../../assets/price-logo.svg';
 import type { Cliente } from '../../types';
 import { Button } from '../../ui';
 import { calcularPosicaoPopover } from '../../utils/popoverPosicao';
-import { abrirAbaPrice, enviarLoginPrice, formatarCNPJ } from '../../utils/price';
+import { abrirEEnviarLoginPrice, formatarCNPJ } from '../../utils/price';
 import { revelarCredenciaisPrice } from '../../api/client';
 import { toastError } from '../../utils/toast';
 import { AbrirPriceModal, type FasePrice } from './AbrirPriceModal';
@@ -77,6 +77,10 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
   // não sofre disso: mesmo se algo dessincronizar, só a execução MAIS
   // RECENTE de fato atualiza a tela.
   const execucaoPriceRef = useRef(0);
+  // Guarda a credencial já revelada só pra viabilizar o botão manual da fase
+  // 'bloqueado' (retry com um clique novo, de verdade) — nunca persiste, é
+  // limpa assim que o login é enviado ou o modal fecha.
+  const credencialPendenteRef = useRef<{ loginPrice: string; senhaPrice: string } | null>(null);
 
   const opcoes: AcessoOpcao[] = [
     ...Object.entries(cliente.linksServicos ?? {})
@@ -111,15 +115,6 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
    * de nenhuma garantia de ciclo de vida do React.
    */
   async function abrirPrice() {
-    // Abre a aba (em branco) AGORA, ainda dentro do clique — é o que evita o
-    // bloqueio de pop-up (só conta como "ação do usuário" o `window.open`
-    // síncrono; abrir só depois da animação já foi bloqueado na prática).
-    // `enviarLoginPrice`, mais tarde, navega essa MESMA janela pelo nome.
-    if (!abrirAbaPrice(nomeJanelaPrice)) {
-      toastError('O navegador bloqueou a aba do Price. Permita pop-ups pra este site e tente de novo.');
-      return;
-    }
-
     const meuToken = ++execucaoPriceRef.current;
     const aindaValido = () => execucaoPriceRef.current === meuToken;
 
@@ -164,12 +159,31 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
     await delay(PAUSA_NO_BOTAO_MS);
     if (!aindaValido()) return;
 
-    enviarLoginPrice(loginPrice, senhaPrice, nomeJanelaPrice);
+    // Só agora a aba nasce — nada de janela/aba aparece antes disso. O custo:
+    // já se passou tempo (busca de credencial + animação) desde o clique
+    // original, então o navegador pode não reconhecer mais isso como gesto
+    // do usuário e bloquear o pop-up. Nesse caso, cai no fallback manual.
+    if (abrirEEnviarLoginPrice(loginPrice, senhaPrice, nomeJanelaPrice)) {
+      setPriceState(null);
+    } else {
+      credencialPendenteRef.current = { loginPrice, senhaPrice };
+      setPriceState({ fase: 'bloqueado', cnpjMostrado: cnpjFormatado, senhaMostrada: '•'.repeat(tamanhoSenha), erro: '' });
+    }
+  }
+
+  function abrirPriceManualmente() {
+    const credencial = credencialPendenteRef.current;
+    if (!credencial) return;
+    // Clique novo e real no botão do fallback — sempre passa como gesto do
+    // usuário, então não precisa checar o retorno de novo.
+    abrirEEnviarLoginPrice(credencial.loginPrice, credencial.senhaPrice, nomeJanelaPrice);
+    credencialPendenteRef.current = null;
     setPriceState(null);
   }
 
   function fecharPriceModal() {
     execucaoPriceRef.current++; // invalida a sequência em andamento, se houver
+    credencialPendenteRef.current = null;
     setPriceState(null);
   }
 
@@ -189,6 +203,7 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
       senhaMostrada={priceState.senhaMostrada}
       erro={priceState.erro}
       onClose={fecharPriceModal}
+      onAbrirManualmente={abrirPriceManualmente}
     />
   );
 
