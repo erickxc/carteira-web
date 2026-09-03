@@ -47,8 +47,10 @@ interface PriceModalState {
 /** Ícone por opção: o Price tem a logo própria (mesma da sidebar), o resto é
  *  sempre um link de Power BI. */
 function Icone({ opcao }: { opcao: AcessoOpcao }) {
-  const src = opcao.label === PRICE_LABEL ? priceLogo : powerbiLogo;
-  return <img src={src} alt="" style={{ width: 15, height: 15, objectFit: 'contain' }} />;
+  if (opcao.label === PRICE_LABEL) {
+    return <img src={priceLogo} alt="" style={{ height: 18, width: 'auto', objectFit: 'contain' }} />;
+  }
+  return <img src={powerbiLogo} alt="" style={{ width: 15, height: 15, objectFit: 'contain' }} />;
 }
 
 /**

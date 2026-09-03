@@ -967,6 +967,27 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 }
 .price-fake-botao.is-pressed { transform: scale(0.96); filter: brightness(0.92); }
 
+.price-loading-bar {
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  overflow: hidden;
+}
+.price-loading-bar::after {
+  content: '';
+  display: block;
+  height: 100%;
+  width: 40%;
+  border-radius: 999px;
+  background: var(--accent);
+  animation: price-loading-bar-slide 1.1s ease-in-out infinite;
+}
+@keyframes price-loading-bar-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
 .modal-header {
   display: flex;
   align-items: center;
