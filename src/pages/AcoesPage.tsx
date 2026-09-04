@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarDays, CalendarPlus, Check, Plus, Search, Trash2, X } from 'lucide-react';
+import { CalendarDays, CalendarPlus, Check, PhoneMissed, Plus, Search, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { AcaoFormModal } from '../components/AcaoFormModal';
 import { Dropdown } from '../components/Dropdown';
@@ -19,8 +19,8 @@ import { buscarAlertasAlvos, type AlertaAlvos } from '../api/client';
 import { Badge, Button, Card, Chip, Td, Th, type BadgeVariant } from '../ui';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../types';
 
-const ACAO_STATUS_BADGE: Record<string, BadgeVariant> = { programado: 'accent', concluido: 'success', dispensado: 'muted' };
-const ACAO_STATUS_LABEL: Record<string, string> = { programado: 'Programada', concluido: 'Concluída', dispensado: 'Dispensada' };
+const ACAO_STATUS_BADGE: Record<string, BadgeVariant> = { programado: 'accent', concluido: 'success', sem_sucesso: 'warning', dispensado: 'muted' };
+const ACAO_STATUS_LABEL: Record<string, string> = { programado: 'Programada', concluido: 'Concluída', sem_sucesso: 'Sem sucesso', dispensado: 'Dispensada' };
 
 export default function AcoesPage() {
   const { clientes, agenda, acoes, cadencias, analisesIA, atualizarAcao, removerAcao, opcoesPorTipo } = useCarteira();
@@ -471,7 +471,15 @@ export default function AcoesPage() {
                             <Button variant="secondary" size="icon" title="Ver na agenda" onClick={() => navigate('/agenda', { state: { focusDate: i.eventDate } })}><CalendarDays size={14} /></Button>
                           ) : (
                             <>
-                              {i.acaoStatus === 'programado' && <Button variant="secondary" size="icon" title="Concluir" onClick={() => atualizarAcao(i.refId, { status: 'concluido' })}><Check size={14} /></Button>}
+                              {i.acaoStatus === 'programado' && (
+                                <>
+                                  <Button variant="secondary" size="icon" title="Concluir" onClick={() => atualizarAcao(i.refId, { status: 'concluido' })}><Check size={14} /></Button>
+                                  {/* Diferente de "Concluir": não conta como toque de cadência —
+                                      o cliente continua vencido, só registra que já se tentou
+                                      (ver AcaoStatus em types/index.ts pro porquê). */}
+                                  <Button variant="secondary" size="icon" title="Marcar como sem sucesso (tentou e não conseguiu)" onClick={() => atualizarAcao(i.refId, { status: 'sem_sucesso' })}><PhoneMissed size={14} /></Button>
+                                </>
+                              )}
                               <Button variant="danger" size="icon" title="Excluir" onClick={async () => { if (await confirmDialog('Excluir esta ação?', { danger: true, confirmLabel: 'Excluir' })) removerAcao(i.refId); }}><Trash2 size={13} /></Button>
                             </>
                           )}

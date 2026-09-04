@@ -27,6 +27,13 @@ export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFor
   const [data, setData] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  // Só importa quando modo === 'nova' (ação já aconteceu) — distingue
+  // "consegui falar" de "tentei e não consegui". Ver AcaoStatus em
+  // types/index.ts: 'sem_sucesso' não conta como toque de cadência, ao
+  // contrário de 'concluido' — sem essa distinção, uma tentativa falha
+  // marcada como "realizada" fazia o sistema achar que o cliente tinha
+  // sido atendido de verdade.
+  const [conseguiuContato, setConseguiuContato] = useState(true);
 
   // Segmento p/ escolher material/relatório — mesma fonte da fila de cadência do
   // Acompanhamento (antes era um cálculo à parte, com limiar diferente, gerando
@@ -60,7 +67,7 @@ export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFor
         clientId,
         tipo,
         segmento: segmentoDe(clientId),
-        status: modo === 'nova' ? 'concluido' : 'programado',
+        status: modo === 'nova' ? (conseguiuContato ? 'concluido' : 'sem_sucesso') : 'programado',
         servico: servico || undefined,
         monitor: monitor || undefined,
         notes,
@@ -115,6 +122,24 @@ export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFor
                 ))}
               </div>
             </Field>
+
+            {modo === 'nova' && (
+              <Field as="div" label="Resultado">
+                <div className="flex flex-wrap gap-2">
+                  <Chip variant="toggle" active={conseguiuContato} onClick={() => setConseguiuContato(true)}>
+                    Consegui contato
+                  </Chip>
+                  <Chip variant="toggle" active={!conseguiuContato} onClick={() => setConseguiuContato(false)}>
+                    Tentei, sem sucesso
+                  </Chip>
+                </div>
+                {!conseguiuContato && (
+                  <p className="text-[0.76rem] text-text-muted" style={{ marginTop: 4 }}>
+                    O cliente continua vencido na fila de cadência — isso só registra que já houve tentativa.
+                  </p>
+                )}
+              </Field>
+            )}
 
             <SelectField
               label="Serviço"

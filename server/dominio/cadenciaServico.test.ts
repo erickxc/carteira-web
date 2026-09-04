@@ -78,6 +78,21 @@ describe('buildUltimaInteracaoMap', () => {
     expect(mapa.has('c2')).toBe(false);
   });
 
+  /**
+   * Correção de comportamento real (04/09/2026): antes só existia
+   * 'concluido'/'programado'/'dispensado' — uma tentativa de contato
+   * malsucedida (ligou, não atendeu) só podia virar 'concluido' pra sair da
+   * lista de pendências, e isso zerava o relógio de cadência como se o
+   * cliente tivesse sido atendido de verdade. 'sem_sucesso' é status novo
+   * que registra a tentativa SEM contar como toque — o cliente continua
+   * vencido/precisando de contato de verdade.
+   */
+  it('ação "sem_sucesso" NÃO conta como interação — cliente continua vencido', () => {
+    const acoes = [{ clientId: 'c1', status: 'sem_sucesso', updatedAt: '2026-09-03T00:00:00.000Z' }];
+    const mapa = cadencia.buildUltimaInteracaoMap([], acoes, { now: AGORA });
+    expect(mapa.has('c1')).toBe(false);
+  });
+
   it('interação futura (depois de "now") não conta', () => {
     const agenda = [{ clientId: 'c1', date: '2026-09-10T12:00:00.000Z', status: 'Concluído' }];
     const mapa = cadencia.buildUltimaInteracaoMap(agenda, [], { now: AGORA });
@@ -105,6 +120,13 @@ describe('buildFilaCadencia — o mesmo motor do frontend, via require() do back
     const agenda = [{ clientId: 'c1', date: '2026-09-01T12:00:00.000Z', type: 'Reunião', status: 'Concluído', servicos: ['Monitoria'] }];
     const fila = cadencia.buildFilaCadencia(clientes, agenda, [], { monitoria_dias: 30 }, AGORA);
     expect(cadencia.classificarCadencia(fila[0])).toBe('em_dia');
+  });
+
+  it('Ação de Price "sem_sucesso" NÃO cobre o relógio — cliente continua vencido (correção de comportamento)', () => {
+    const clientes = [{ id: 'c1', empresa: 'Cliente X', estado: 'Ativo', status: 'Regular', servicos: ['Price'], createdAt: '2026-01-01T00:00:00.000Z' }];
+    const acoes = [{ clientId: 'c1', tipo: 'price', status: 'sem_sucesso', updatedAt: '2026-09-03T00:00:00.000Z' }];
+    const fila = cadencia.buildFilaCadencia(clientes, [], acoes, { price_dias: 30 }, AGORA);
+    expect(cadencia.classificarCadencia(fila[0])).toBe('vencido');
   });
 
   /**

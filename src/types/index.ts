@@ -487,7 +487,20 @@ export interface Holiday {
 // --- Ações / Recomendações ---
 export type Segmento = 'engajado' | 'esfriando' | 'frio';
 export type AcaoTipo = 'contato' | 'reuniao' | 'relatorio' | 'price';
-export type AcaoStatus = 'programado' | 'concluido' | 'dispensado';
+/**
+ * `sem_sucesso`: tentativa de contato que NÃO deu certo (ligou e não
+ * atendeu, mandou mensagem e não teve resposta) — deliberadamente diferente
+ * de `concluido`. Bug real corrigido: antes só existia `concluido`/
+ * `dispensado`/`programado`, e uma tentativa falha só podia virar
+ * `concluido` (única forma de tirar da lista de pendências sem descartar) —
+ * mas QUALQUER ação `concluido` zera o relógio de cadência
+ * (`shared/cadenciaServico.cjs`, `buildUltimaInteracaoMap`), então o sistema
+ * achava que o cliente tinha sido atendido de verdade. `sem_sucesso` não
+ * entra nesse filtro (só `concluido` conta), então o cliente CONTINUA
+ * aparecendo como vencido na fila — com o histórico mostrando que já houve
+ * tentativa, não silêncio.
+ */
+export type AcaoStatus = 'programado' | 'concluido' | 'sem_sucesso' | 'dispensado';
 
 export const ACAO_TIPOS: AcaoTipo[] = ['contato', 'reuniao', 'relatorio', 'price'];
 
