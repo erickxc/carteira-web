@@ -8,6 +8,14 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.21
+
+- **Dashboard da Carteira ganha "Total de clientes"**, separado dos
+  atendimentos: um grupo com várias lojas (ex.: rede Altese) conta como 1
+  cliente da 2D, mesmo tendo mais de um atendimento ativo. A Visão Geral
+  passa a chamar o número de lojas atendidas de "Total de atendimentos",
+  pra não confundir os dois conceitos.
+
 ## 1.4.20
 
 - **Pausa temporária de cliente.** Dá pra marcar um cliente como pausado até
