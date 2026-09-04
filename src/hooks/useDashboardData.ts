@@ -76,6 +76,23 @@ export function useDashboardData() {
     [clientes, filtroMonitor]
   );
   const ativosIds = useMemo(() => new Set(ativos.map((c) => c.id)), [ativos]);
+  // Cada loja é um "cliente" (registro) próprio na Carteira, mas várias lojas
+  // do mesmo grupo (ex.: "Altese - Recreio + Barra" e "Altese - GM, Ford,
+  // Fiat, VW") são, na prática, UM cliente da 2D com múltiplos atendimentos.
+  // `ativos.length` conta atendimentos (uma linha por loja); isto conta
+  // clientes distintos (uma vez por `grupo`, senão uma vez por cliente sem
+  // grupo) — as duas métricas divergem e cada dashboard mostra a que faz
+  // sentido pro seu propósito (Visão Geral = atendimentos; Dashboard da
+  // Carteira = clientes).
+  const totalClientesDistintos = useMemo(() => {
+    const grupos = new Set<string>();
+    let semGrupo = 0;
+    for (const c of ativos) {
+      if (c.grupo) grupos.add(c.grupo);
+      else semGrupo++;
+    }
+    return grupos.size + semGrupo;
+  }, [ativos]);
   const agendaAtiva = useMemo(
     () => agenda.filter((a) => ativosIds.has(a.clientId) && (filtroTipoEvento === 'Todos' || a.type === filtroTipoEvento)),
     [agenda, ativosIds, filtroTipoEvento]
@@ -617,7 +634,7 @@ export function useDashboardData() {
     mes, setMes, ano, setAno, periodo, dataReferencia,
     monitoresDisponiveis, tiposEventoDisponiveis, anosDisponiveis, mesesDisponiveis,
     // base
-    ativos, agendaPorMonitor, acoesPorMonitor,
+    ativos, totalClientesDistintos, agendaPorMonitor, acoesPorMonitor,
     // KPIs
     reunioesConcluidasMes, variacao, diaCorte, reunioesAgendadasMes, reagendamentosMes,
     // gráfico

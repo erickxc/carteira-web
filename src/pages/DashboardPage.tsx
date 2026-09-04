@@ -75,7 +75,7 @@ export default function DashboardPage() {
 
       {/* KPIs compactos numa linha */}
       <div className="stat-grid dash-stats">
-        <StatCard title="Clientes ativos" value={d.ativos.length} icon={Users} onClick={() => navigate('/clientes')} />
+        <StatCard title="Total de atendimentos" value={d.ativos.length} icon={Users} onClick={() => navigate('/clientes')} />
         <StatCard
           title={`Reuniões concluídas em ${MESES[d.mes].slice(0, 3)}/${d.ano}`}
           value={d.reunioesConcluidasMes}

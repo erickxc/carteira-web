@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Layers, TrendingUp, UserCheck, UserX } from 'lucide-react';
+import { ArrowLeft, Building2, Layers, TrendingUp, UserCheck, UserX } from 'lucide-react';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { DistribuicaoListCard } from '../components/dashboard/DistribuicaoListCard';
 import { StackedBarCard } from '../components/dashboard/StackedBarCard';
@@ -39,8 +39,12 @@ export default function CarteiraDashboardPage() {
       </div>
 
       <div className="stat-grid dash-stats" style={{ marginBottom: '1.5rem' }}>
-        <StatCard title="Clientes ativos" value={totalAtivos} icon={UserCheck} onClick={() => navigate('/clientes')} />
-        <StatCard title="Clientes inativos" value={totalInativos} icon={UserX} />
+        {/* Distinto de "atendimentos": um grupo com várias lojas (ex.: rede
+            Altese) conta como 1 cliente aqui, mesmo tendo N lojas ativas —
+            "atendimentos" (uma linha por loja) é o que a Visão Geral mostra. */}
+        <StatCard title="Total de clientes" value={d.totalClientesDistintos} icon={Building2} onClick={() => navigate('/clientes')} />
+        <StatCard title="Atendimentos ativos" value={totalAtivos} icon={UserCheck} onClick={() => navigate('/clientes')} />
+        <StatCard title="Atendimentos inativos" value={totalInativos} icon={UserX} />
         <StatCard
           title="Novos clientes no mês"
           value={d.novosClientesMes}
