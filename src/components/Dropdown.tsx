@@ -112,7 +112,13 @@ export function Dropdown({ label, options, value, onChange, multiple, defaultVal
           role="listbox"
           aria-multiselectable={multiple}
           className="filter-pop"
-          style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { largura: rect.width }), width: rect.width, overflowY: 'auto' }}
+          // `minWidth` inline (não só `width`) porque `.filter-pop` tem um
+          // `min-width: 190px` no CSS pra outros popovers que precisam dele
+          // (ex.: ReagendarButton, sem largura própria) — sem sobrescrever
+          // aqui, um gatilho mais estreito que 190px (ex.: "Serviços") virava
+          // uma lista mais larga que o próprio botão, parecendo "fora do
+          // lugar" (reportado pelo usuário). Inline sempre vence a classe.
+          style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { largura: rect.width }), width: rect.width, minWidth: rect.width, overflowY: 'auto' }}
         >
           {options.length === 0 ? (
             <div className="px-3 py-2 text-[0.8rem] text-text-muted">Sem opções</div>

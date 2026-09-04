@@ -99,7 +99,11 @@ export function ClienteCombobox({ clientes, value, onChange, tone, placeholder =
           ref={popRef}
           role="listbox"
           className="filter-pop"
-          style={{ position: 'fixed', ...pos, width: rect.width, maxHeight: Math.min(240, pos.maxHeight ?? 240), overflowY: 'auto' }}
+          // minWidth inline sobrescreve o `min-width: 190px` de `.filter-pop`
+          // (existe pra outros popovers sem largura própria) — mesmo bug e
+          // fix de Dropdown.tsx: gatilho estreito virava lista mais larga
+          // que ele, parecendo desalinhada.
+          style={{ position: 'fixed', ...pos, width: rect.width, minWidth: rect.width, maxHeight: Math.min(240, pos.maxHeight ?? 240), overflowY: 'auto' }}
         >
           {filtrados.length === 0 ? (
             <div className="px-3 py-2 text-[0.8rem] text-text-muted">Nenhum cliente encontrado</div>
