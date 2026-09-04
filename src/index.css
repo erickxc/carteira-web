@@ -214,19 +214,13 @@
   box-sizing: border-box;
 }
 
-/* Troca de tema suave: alternar `data-theme` (ThemeToggle.tsx) recalcula
-   TODAS as variáveis de cor de uma vez, e cada elemento pintado com `var()`
-   pulava pro novo valor instantaneamente — no app inteiro ao mesmo tempo,
-   ficava um "flash" brusco. Uma transição padrão nas propriedades de cor
-   resolve pro app inteiro sem precisar tocar em cada componente; regras mais
-   específicas que já definem `transition` própria (botões, hover de popover
-   etc.) continuam valendo — a delas vence por especificidade. */
-*, *::before, *::after {
-  transition: background-color 0.22s ease, border-color 0.22s ease, color 0.18s ease, fill 0.22s ease, stroke 0.22s ease;
-}
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition: none; }
-}
+/* Troca de tema suave — ver `.theme-switching` mais abaixo (perto de
+   `a { color: inherit }`) pro mecanismo de verdade. Não é uma transição
+   PERMANENTE aqui de propósito: testado e descartado — atrasar
+   `background-color`/`color` em TODO elemento do app também atrasa hovers
+   que precisam ser imediatos (botão, item de popover, linha de tabela),
+   deixando a UI inteira com resposta "de borracha" o tempo todo pra
+   resolver um efeito que só acontece no instante de clicar sol/lua. */
 
 html,
 body,
@@ -305,6 +299,21 @@ h3 {
 }
 
 a { color: inherit; }
+
+/* Crossfade das cores ao alternar claro/escuro. Classe TEMPORÁRIA
+   (`useTheme.ts` adiciona no clique, remove ~360ms depois) — nunca uma
+   transição permanente em tudo, que atrasaria hovers o tempo todo pra
+   resolver algo que só acontece nesse instante (ver comentário acima, perto
+   de `*, *::before, *::after`). `!important` porque elementos com transição
+   PRÓPRIA (botões, hover de popover) têm mais especificidade que uma classe
+   sozinha — sem isso, a troca de tema deles continuaria instantânea. */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: background-color 320ms ease, border-color 320ms ease, color 280ms ease, fill 320ms ease, stroke 320ms ease !important;
+  transition-delay: 0s !important;
+}
 
 /* Crossfade das cores ao alternar claro/escuro. Aplicado por uma classe
    TEMPORÁRIA (useTheme adiciona, remove ao terminar) em vez de uma transição
