@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { format, isValid, parse, setHours, setMinutes } from 'date-fns';
+import { endOfWeek, format, isValid, parse, setHours, setMinutes, startOfWeek } from 'date-fns';
 import { AlertTriangle, Ban, Bot, Check, FileText, Loader2 } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { gerarAta } from '../utils/ata';
@@ -197,6 +197,27 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const conflitoSala = ehReuniao && Boolean(sala) && agenda.some((a) =>
     a.id !== initial?.id && a.sala === sala && !naoOcupaHorario(a) && mesmoDiaHora(a)
   );
+
+  /**
+   * Contador informativo (não bloqueia nada, ao contrário de `conflitoMonitor`
+   * acima) — quantas Reuniões cada monitor selecionado já tem na MESMA semana
+   * da data escolhida (seg-dom, mesma convenção de `AgendaPage.tsx`). Pedido
+   * do usuário: só existia aviso de conflito pontual (mesmo dia+hora exatos),
+   * nada que desse noção de carga da semana ANTES de tentar marcar um
+   * horário específico.
+   */
+  const inicioSemana = startOfWeek(dataSegura, { weekStartsOn: 1 });
+  const fimSemana = endOfWeek(dataSegura, { weekStartsOn: 1 });
+  const reunioesNaSemanaPorMonitor = dataValida
+    ? monitores.map((m) => ({
+      monitor: m,
+      total: agenda.filter((a) =>
+        a.id !== initial?.id && /reuni/i.test(a.type) && !naoOcupaHorario(a)
+        && (a.monitores ?? []).includes(m)
+        && new Date(a.date) >= inicioSemana && new Date(a.date) <= fimSemana
+      ).length,
+    }))
+    : [];
 
   const statusConcluido = statusOpcoes.find((s) => /conclu|realiz/i.test(s)) ?? 'Concluído';
   const statusCancelado = statusOpcoes.find((s) => /cancel/i.test(s)) ?? 'Cancelado';
@@ -510,6 +531,18 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                     <Chip variant="toggle" key={m} active={monitores.includes(m)} onClick={() => toggleMonitor(m)}>{m}</Chip>
                   ))}
                 </div>
+              )}
+              {/* Só informativo — nunca bloqueia, ao contrário do aviso de
+                  conflito pontual mais abaixo. */}
+              {reunioesNaSemanaPorMonitor.length > 0 && (
+                <p className="text-[0.76rem] text-text-muted" style={{ marginTop: 6 }}>
+                  {reunioesNaSemanaPorMonitor.map(({ monitor: m, total }, i) => (
+                    <span key={m}>
+                      {i > 0 && ' · '}
+                      {m}: {total} {total === 1 ? 'reunião' : 'reuniões'} nessa semana
+                    </span>
+                  ))}
+                </p>
               )}
             </Field>
 
