@@ -8,6 +8,29 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.20
+
+- **Pausa temporária de cliente.** Dá pra marcar um cliente como pausado até
+  uma data (com motivo), sem precisar inativar o cadastro — ele some da fila
+  de cobrança até a data passar e volta sozinho.
+- **Tentativa de contato sem sucesso não conta mais como atendimento.**
+  Registrar "tentei ligar e não consegui" não zera a cadência do cliente como
+  se ele tivesse sido atendido de verdade.
+- **Histórico de risco do cliente é preservado.** Antes, cada nova análise do
+  monitorIA substituía a anterior; agora dá pra ver a evolução do risco ao
+  longo do tempo.
+- **Agenda mostra a carga da semana do monitor** ao marcar uma reunião, pra
+  ajudar a decidir o horário.
+- **monitorIA ganha mais autonomia no chat**: agora consegue registrar uma
+  ação (contato, reunião, relatório, Price) direto pela conversa, consultar o
+  histórico de risco de um cliente e enxergar a carga de reuniões da semana.
+- Grupos de lojas na lista de clientes ficaram mais claros ao expandir/
+  recolher (mostra o nome do grupo e todas as lojas, sem informação
+  duplicada).
+- Pequenos ajustes visuais: campos de seleção mais consistentes em todas as
+  telas, popup de filtro alinhado corretamente, transição entre tema claro/
+  escuro mais suave.
+
 ## 1.4.19
 
 - Corrigido: em máquinas diferentes da principal, abrir o Price podia dar erro
