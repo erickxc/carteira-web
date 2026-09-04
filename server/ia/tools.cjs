@@ -129,7 +129,9 @@ function situacaoCadastro(repo, cliente) {
     servicos,
     servicosIndependentes: independentes,
     dependemDeReuniao: servicos.filter((sv) => !independentes.includes(sv)),
-    proximoEvento: futuros[0] ? { date: futuros[0].date, type: futuros[0].type } : null,
+    proximoEvento: futuros[0]
+      ? { date: dataCivilEvento(futuros[0].date), hora: futuros[0].time || null, type: futuros[0].type }
+      : null,
   };
 }
 
@@ -376,7 +378,7 @@ function buscarRegistrosProduto(repo, { clientId }) {
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 10)
     .map((a) => ({
-      date: a.date, type: a.type, status: a.status,
+      date: dataCivilEvento(a.date), hora: a.time || null, type: a.type, status: a.status,
       reagendamentos: a.reagendamentos || 0,
       produtosSituacao: a.produtosSituacao,
       precificacoes: a.precificacoes,
@@ -600,6 +602,29 @@ function conflitoAgenda(repo, { type, date, time, monitores, sala, excluirId }) 
     if (conflito) return `A sala "${sala}" já está ocupada nesse dia e horário (cliente "${conflito.clientName}").`;
   }
   return null;
+}
+
+/**
+ * Data CIVIL do evento (AAAA-MM-DD) pra devolver ao agente — nunca o ISO
+ * completo.
+ *
+ * Bug real: um evento SEM hora marcada (`time` vazio) ficou gravado como
+ * "2026-09-08T12:00:00.000Z" (o meio-dia UTC que `normalizarDataEvento` usa
+ * de sentinela justamente pra data não escorregar de fuso). O agente leu esse
+ * ISO, achou que 12:00 era o horário da reunião e respondeu ao usuário
+ * "próxima reunião às 12h" — hora que nunca foi marcada por ninguém. Pior que
+ * errar: soou preciso.
+ *
+ * A hora da reunião mora SÓ na coluna `time`. Cortando a parte de hora aqui,
+ * o agente não tem de onde inventar: ou `time` tem valor, ou não há hora.
+ *
+ * `slice(0, 10)` do ISO (que é UTC) dá a data civil certa nas duas convenções
+ * que a base usa — "T03:00:00.000Z" (meia-noite de Brasília, gravado pela
+ * tela) e "T12:00:00.000Z" (sentinela do agente) caem no mesmo dia civil.
+ */
+function dataCivilEvento(date) {
+  const texto = String(date ?? '');
+  return texto.slice(0, 10) || null;
 }
 
 /**
@@ -1058,7 +1083,10 @@ function buscarHistoricoEventos(repo, { clientId, limite }) {
       // caso real, ele respondeu "não consegui obter o ID do evento no formato
       // esperado" e mandou o usuário gerar o PDF à mão na tela.
       id: a.id,
-      date: a.date, time: a.time || null, type: a.type, status: a.status,
+      // `date` é a data CIVIL (sem hora) e `time` é a ÚNICA fonte da hora —
+      // ver dataCivilEvento: devolver o ISO completo fez o agente anunciar
+      // "reunião às 12h" pra um evento sem hora marcada.
+      date: dataCivilEvento(a.date), time: a.time || null, type: a.type, status: a.status,
       subject: a.subject || '', resumo: a.resumo || '',
       // TEXTO COMPLETO da ata — não é resumo nem indicador de existência.
       // Ver GATILHO ATA em normas.cjs: já houve resposta afirmando não ter

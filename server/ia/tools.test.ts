@@ -333,7 +333,35 @@ describe('buscar_dossie_cliente', () => {
       { id: 'e2', clientId: 'c1', type: 'Reunião', date: maisLonge, status: 'Agendado' },
       { id: 'e1', clientId: 'c1', type: 'Reunião', date: futuro, status: 'Agendado' },
     ] });
-    expect(exec('buscar_dossie_cliente', repo, { clientId: 'c1' }).proximoEvento.date).toBe(futuro);
+    // Data CIVIL (AAAA-MM-DD), nunca o ISO completo — ver `dataCivilEvento`.
+    expect(exec('buscar_dossie_cliente', repo, { clientId: 'c1' }).proximoEvento.date).toBe(futuro.slice(0, 10));
+  });
+
+  /**
+   * Bug real de produção (03/09/2026, cliente Peça.com): o evento não tinha
+   * hora marcada (`time` vazio), mas a data estava gravada como
+   * "2026-09-08T12:00:00.000Z" — o meio-dia UTC que `normalizarDataEvento` usa
+   * de sentinela pra data não escorregar de fuso. O agente leu o ISO, tratou
+   * 12:00 como horário da reunião e respondeu ao usuário "próxima reunião às
+   * 12h". Hora que ninguém marcou, afirmada com confiança.
+   */
+  it('29b. evento SEM hora não pode expor hora nenhuma, mesmo com ISO em 12:00 UTC (bug Peça.com)', () => {
+    const dia = new Date(Date.now() + 5 * 86400e3).toISOString().slice(0, 10);
+    const repo = repoBase({ Agenda: [
+      { id: 'e1', clientId: 'c1', type: 'Reunião', date: `${dia}T12:00:00.000Z`, status: 'Pendente' },
+    ] });
+    const { proximoEvento } = exec('buscar_dossie_cliente', repo, { clientId: 'c1' });
+    expect(proximoEvento.hora).toBeNull();
+    expect(proximoEvento.date).toBe(dia); // sem "T12:00:00.000Z" de onde inferir hora
+    expect(JSON.stringify(proximoEvento)).not.toContain('12:00');
+  });
+
+  it('29c. evento COM hora expõe a hora do campo time, não a do ISO', () => {
+    const dia = new Date(Date.now() + 5 * 86400e3).toISOString().slice(0, 10);
+    const repo = repoBase({ Agenda: [
+      { id: 'e1', clientId: 'c1', type: 'Reunião', date: `${dia}T12:00:00.000Z`, time: '14:00', status: 'Pendente' },
+    ] });
+    expect(exec('buscar_dossie_cliente', repo, { clientId: 'c1' }).proximoEvento.hora).toBe('14:00');
   });
 
   it('30. evento cancelado não conta como proximoEvento', () => {
@@ -511,6 +539,20 @@ describe('buscar_historico_eventos', () => {
       { id: 'b', clientId: 'c1', type: 'Reunião', status: 'Concluído', date: '2026-08-01' },
     ] });
     expect(exec('buscar_historico_eventos', repo, { clientId: 'c1' }).eventos[0].date).toBe('2026-08-01');
+  });
+
+  it('59b. histórico devolve data civil e hora só do campo time (bug da hora fantasma)', () => {
+    const repo = repoBase({ Agenda: [
+      { id: 'a', clientId: 'c1', type: 'Reunião', status: 'Pendente', date: '2026-09-08T12:00:00.000Z' },
+      { id: 'b', clientId: 'c1', type: 'Reunião', status: 'Pendente', date: '2026-09-05T03:00:00.000Z', time: '14:00' },
+    ] });
+    const { eventos } = exec('buscar_historico_eventos', repo, { clientId: 'c1' });
+    const semHora = eventos.find((e: { id: string }) => e.id === 'a');
+    const comHora = eventos.find((e: { id: string }) => e.id === 'b');
+    expect(semHora).toMatchObject({ date: '2026-09-08', time: null });
+    expect(comHora).toMatchObject({ date: '2026-09-05', time: '14:00' });
+    // Nenhuma hora vazando pelo ISO da data — é dela que o agente inferiu "12h".
+    expect(JSON.stringify(semHora)).not.toContain('12:00');
   });
 
   it('60. inclui ata e resumo (o conteúdo que importa)', () => {

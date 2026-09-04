@@ -88,7 +88,7 @@ const SUGESTOES: { titulo: string; pergunta: string }[] = [
  * audita o que ele já fez.
  */
 export default function AssistenteIAPage() {
-  const { clientes, filtroMonitor } = useCarteira();
+  const { clientes, filtroMonitor, recarregar } = useCarteira();
   const location = useLocation();
   // Cliente em foco também persiste: voltar pra tela com a conversa de um
   // cliente mas o seletor zerado faria a próxima pergunta perder o contexto.
@@ -210,6 +210,21 @@ export default function AssistenteIAPage() {
       // atenção agora". Sem isso, os cards de alerta só atualizavam com F5
       // ou o botão de recarregar manual, o que parecia "não atualizou".
       setVersaoAlertas((v) => v + 1);
+      // ... e o mesmo vale pro DADO em si, não só pros alertas: o agente
+      // escreve direto no banco (atualizar_evento, criar_evento,
+      // atualizar_cliente...), e o estado global do app não sabe disso.
+      //
+      // Bug real: o usuário pediu "mude a hora da reunião pra 14h", o agente
+      // gravou certo (banco com 14:00) e respondeu "✅ hora atualizada" — mas
+      // ao abrir o evento na tela o campo Hora aparecia VAZIO, porque o
+      // contexto ainda tinha a versão anterior em memória. Conclusão do
+      // usuário: "a IA não soube fazer". Ela soube; a tela é que mentiu.
+      //
+      // Recarrega sempre, sem tentar adivinhar se a pergunta escreveu algo:
+      // uma pergunta de leitura paga um refetch a mais (barato — LAN, SQLite
+      // local, e a resposta do agente já levou segundos), enquanto errar a
+      // adivinhação traz de volta exatamente o bug acima.
+      void recarregar();
     } catch (err) {
       toastError(err instanceof Error ? err.message : 'Falha ao falar com o monitorIA.');
       setMensagens((prev) => prev.slice(0, -1));
