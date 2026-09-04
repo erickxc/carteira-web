@@ -13,6 +13,7 @@ import {
 import { toastError, toastInfo, toastSuccess } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ModalShell } from './ModalShell';
+import { CancelarEventoPopup } from './eventForm/CancelarEventoPopup';
 import { ClienteCombobox } from './ClienteCombobox';
 import { useRecorrencia } from './eventForm/useRecorrencia';
 import { useChecklist } from './eventForm/useChecklist';
@@ -94,6 +95,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const [gerandoAtaIA, setGerandoAtaIA] = useState(false);
   const [catalogoAlvos, setCatalogoAlvos] = useState<{ clientId: string; catalogo: CatalogoAlvosCliente | null } | null>(null);
   const [tagsClienteFinal, setTagsClienteFinal] = useState<TagClienteFinal[]>([]);
+  const [mostrarPopupCancelamento, setMostrarPopupCancelamento] = useState(false);
 
   const eventoAtual = initial ? agenda.find((a) => a.id === initial.id) : undefined;
 
@@ -251,7 +253,14 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     void salvar(statusConcluido);
   }
 
-  async function salvar(statusOverride?: string) {
+  /**
+   * `motivoOverride`: mesmo motivo do `statusOverride` (`handleConcluir`) —
+   * o popup de cancelamento (`CancelarEventoPopup`) chama `salvar` logo
+   * depois de `setMotivo`, e o `setState` do React não é síncrono. Sem o
+   * override, "Confirmar e Salvar" salvaria o motivo ANTERIOR (vazio, na
+   * primeira vez), não o que acabou de ser digitado no popup.
+   */
+  async function salvar(statusOverride?: string, motivoOverride?: string) {
     const cliente = clientes.find((c) => c.id === clientId);
     if (!cliente) { toastError('Selecione um cliente.'); return; }
     if (!dataValida) { toastError('Data inválida — confira o dia informado.'); return; }
@@ -261,8 +270,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     // nos cards da Agenda (semana/mês) — obrigatório pra sempre saber o que foi tratado.
     if (ehReuniao && servicos.length === 0) { toastError('Marque ao menos um serviço tratado.'); return; }
     const statusFinalPre = statusOverride ?? status;
-    if (/reagend/i.test(statusFinalPre) && !motivo.trim()) { toastError('Informe o motivo do reagendamento.'); return; }
-    if (/cancel/i.test(statusFinalPre) && !motivo.trim()) { toastError('Informe o motivo do cancelamento.'); return; }
+    const motivoFinal = motivoOverride ?? motivo;
+    if (/reagend/i.test(statusFinalPre) && !motivoFinal.trim()) { toastError('Informe o motivo do reagendamento.'); return; }
+    if (/cancel/i.test(statusFinalPre) && !motivoFinal.trim()) { toastError('Informe o motivo do cancelamento.'); return; }
     // Bloqueia de verdade (não só avisa): mesmo monitor ou mesma sala não podem
     // ocupar o mesmo dia/horário duas vezes.
     if (conflitoMonitor) { toastError(`${nomeMonitorConflitante} já tem outro evento marcado nesse dia e horário.`); return; }
@@ -285,7 +295,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         resumo: modoSimples ? '' : resumo,
         monitores,
         sala: ehReuniao ? (sala || undefined) : undefined,
-        motivo: /reagend|cancel/i.test(statusFinal) ? motivo : undefined,
+        motivo: /reagend|cancel/i.test(statusFinal) ? motivoFinal : undefined,
         // Só faz sentido em interação pontual (Contato/Ligação): reunião e
         // relatório não são "quem procurou quem".
         origem: ehInteracao ? (origem || undefined) : undefined,
@@ -363,21 +373,37 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   }
 
   /**
-   * "Cancelar evento" NÃO cancela direto: motivo é obrigatório no cancelamento
-   * (o dossiê precisa poder dizer "cancelou 2x por tal motivo"), e este botão
-   * gravava status Cancelado sem perguntar nada — o cancelamento entrava no
-   * histórico sem justificativa (reportado pelo usuário). Agora ele coloca o
-   * formulário em modo cancelamento: o campo Motivo aparece obrigatório (mesma
-   * validação do Salvar), o usuário justifica e salva.
+   * "Cancelar evento" NÃO cancela direto: motivo é obrigatório no
+   * cancelamento (o dossiê precisa poder dizer "cancelou 2x por tal
+   * motivo"). Antes disparava um `confirmDialog` (sim/não) e, ao confirmar,
+   * empurrava o formulário pra modo cancelamento — o campo Motivo aparecia
+   * escondido no meio do form grande, sem deixar claro que era uma ação em
+   * andamento (reportado como confuso pelo usuário: "cria o campo dentro do
+   * Form"). Agora abre um popup dedicado (`CancelarEventoPopup`) que já pede
+   * o motivo ali, com a decisão explícita de só marcar (revisar o resto do
+   * form antes de salvar) ou marcar e salvar na hora.
    */
-  async function handleDelete() {
+  function handleDelete() {
     if (!initial) return;
-    if (!(await confirmDialog(
-      'Cancelar este evento? Ele fica no histórico marcado como Cancelado (não é apagado) — você precisa informar o motivo.',
-      { danger: true, confirmLabel: 'Sim, informar motivo', cancelLabel: 'Voltar' },
-    ))) return;
+    setMostrarPopupCancelamento(true);
+  }
+
+  /** Só marca o formulário como Cancelado + motivo — quem clicou pode
+   *  revisar o resto do form antes de apertar Salvar. */
+  function confirmarCancelamento(motivoTexto: string) {
     setStatus(statusCancelado);
-    toastInfo('Informe o motivo do cancelamento e clique em Salvar.');
+    setMotivo(motivoTexto);
+    setMostrarPopupCancelamento(false);
+    toastInfo('Cancelamento marcado — revise o evento e clique em Salvar.');
+  }
+
+  /** Marca E salva na hora — fecha o popup e, ao terminar, o próprio
+   *  `salvar()` fecha o Editar Evento (mesmo caminho do Salvar normal). */
+  function confirmarCancelamentoESalvar(motivoTexto: string) {
+    setStatus(statusCancelado);
+    setMotivo(motivoTexto);
+    setMostrarPopupCancelamento(false);
+    void salvar(statusCancelado, motivoTexto);
   }
 
   async function handleFilesSelected(files: FileList | null) {
@@ -391,6 +417,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   }
 
   return (
+    <>
     <ModalShell
       title={`${editando ? 'Editar' : 'Novo'} ${modoSimples ? type : 'Evento'}`}
       onClose={onClose}
@@ -663,5 +690,13 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
               />
             )}
     </ModalShell>
+    {mostrarPopupCancelamento && (
+      <CancelarEventoPopup
+        onFechar={() => setMostrarPopupCancelamento(false)}
+        onConfirmar={confirmarCancelamento}
+        onConfirmarESalvar={confirmarCancelamentoESalvar}
+      />
+    )}
+    </>
   );
 }
