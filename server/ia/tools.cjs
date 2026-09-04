@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { startOfWeek, endOfWeek, parseISO } = require('date-fns');
 const { executarMutacao } = require('../fila/mutacao.cjs');
 const { lerDossieCliente, corrigirDossieCliente, gerarAnalisesPendentes } = require('./analisesAutomaticas.cjs');
 const { TEMPLATE_DOSSIE } = require('./analiseCliente.cjs');
@@ -9,6 +10,7 @@ const { gerarAta } = require('./ataTexto.cjs');
 const { gerarAtaPdfBuffer } = require('./ataPdf.cjs');
 const {
   calcularAderencia, listaJSON, buscarVencendo, buscarCobertura, buscarCoberturaServicos, buscarAlertasSemAcompanhamento,
+  buildFilaCadencia, classificarCadencia,
 } = require('../dominio/cadenciaServico.cjs');
 const { sugerirAgenda } = require('../dominio/sugestaoAgenda.cjs');
 const { getCache: getCacheCeoAgenda } = require('../ceoAgenda.cjs');
@@ -123,9 +125,19 @@ function situacaoCadastro(repo, cliente) {
   // (nem deve) deduzir isso de cabeça a cada resposta.
   const servicos = listaJSON(cliente.servicos);
   const independentes = listaJSON(cliente.servicosIndependentes);
+  // Pausa temporária (Cliente.pausadoAte/motivoPausa) — conceito à parte de
+  // estado/status: um cliente pausado ainda está "Ativo"/"Regular" no
+  // cadastro, só sai da fila de cadência até a data. `pausadoAtivo` já vem
+  // calculado (mesma regra por dia calendário de isClienteAtivo) pra o
+  // agente não ter que fazer conta de data sozinho.
+  const pausadoAte = cliente.pausadoAte || null;
+  const pausadoAtivo = Boolean(pausadoAte) && !isNaN(new Date(pausadoAte).getTime()) && new Date(pausadoAte) >= agora;
   return {
     estado: cliente.estado || null,
     status: cliente.status || null,
+    pausadoAte,
+    motivoPausa: cliente.motivoPausa || null,
+    pausadoAtivo,
     servicos,
     servicosIndependentes: independentes,
     dependemDeReuniao: servicos.filter((sv) => !independentes.includes(sv)),
@@ -357,6 +369,26 @@ function buscarDossieCliente(repo, { clientId }) {
     dossie: lerDossieCliente(clientId),
     ultimaAnalise: analise ?? null,
   };
+}
+
+/**
+ * Linha do tempo do nível de risco do cliente — cada análise automática
+ * ANTERIOR arquivada em AnalisesIAHistorico antes de ser sobrescrita (ver
+ * server/ia/analisesAutomaticas.cjs), mais a atual (AnalisesIA). Item 4 do
+ * levantamento de gaps: antes, cada análise nova apagava a anterior — não
+ * dava pra responder "esse cliente está piorando?" com dado real, só com
+ * memória de conversas antigas (não confiável). Mais antiga primeiro.
+ */
+function buscarHistoricoRiscoCliente(repo, { clientId }) {
+  if (!clientId) throw new Error('buscar_historico_risco_cliente: "clientId" é obrigatório.');
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
+  if (!cliente) throw new Error(`buscar_historico_risco_cliente: cliente "${clientId}" não encontrado.`);
+  const antigas = repo.get('AnalisesIAHistorico').filter((a) => String(a.clientId) === String(clientId));
+  const atual = repo.get('AnalisesIA').find((a) => String(a.clientId) === String(clientId));
+  const linha = [...antigas, ...(atual ? [atual] : [])]
+    .sort((a, b) => new Date(a.geradoEm) - new Date(b.geradoEm))
+    .map((a) => ({ geradoEm: a.geradoEm, nivelRisco: a.nivelRisco, resumo: a.resumo }));
+  return { ...identidadeCliente(cliente), historico: linha };
 }
 
 /**
@@ -763,12 +795,101 @@ function atualizarCliente(repo, args) {
   if (args.observacao !== undefined) patch.observacao = String(args.observacao);
   if (args.endereco !== undefined) patch.endereco = String(args.endereco);
   if (args.grupo !== undefined) patch.grupo = String(args.grupo);
+  // `pausadoAte: null` explícito = retomar (limpa os dois campos) — mesma
+  // convenção de `senhaPrice` em prepararPatchPrice (routes/clients.cjs):
+  // ausente/undefined nunca mexe no que já está salvo, null é "apagar de
+  // propósito". Pausa é conceito à parte de status/estado (não sobrescreve).
+  if (args.pausadoAte === null) {
+    patch.pausadoAte = '';
+    patch.motivoPausa = '';
+  } else if (args.pausadoAte !== undefined) {
+    const data = String(args.pausadoAte).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data) || isNaN(new Date(data).getTime())) {
+      throw new Error('atualizar_cliente: "pausadoAte" precisa ser uma data no formato AAAA-MM-DD, ou null pra retomar o cliente.');
+    }
+    patch.pausadoAte = data;
+    if (args.motivoPausa !== undefined) patch.motivoPausa = String(args.motivoPausa);
+  }
 
   if (Object.keys(patch).length === 0) {
-    throw new Error('atualizar_cliente: nenhum campo pra alterar — informe ao menos um (monitor, status, estado, local, linha, servicos, observacao, endereco, grupo).');
+    throw new Error('atualizar_cliente: nenhum campo pra alterar — informe ao menos um (monitor, status, estado, local, linha, servicos, observacao, endereco, grupo, pausadoAte).');
   }
 
   return executarMutacao('clientes', 'update', { id: clientId, patch });
+}
+
+/** Mesmo cálculo de `segmentoDe` em `src/components/AcaoFormModal.tsx` — a
+ *  "temperatura" do cliente pela cadência (fonte única, ver comentário lá).
+ *  Cliente fora do modelo de cadência (sem Monitoria/Price) cai no fallback
+ *  por recência simples de eventos passados. */
+function segmentoDoCliente(repo, clientId) {
+  const clientes = repo.get('Clientes');
+  const agenda = repo.get('Agenda');
+  const acoes = repo.get('Acoes');
+  const cadencias = lerCadencias(repo);
+  const fila = buildFilaCadencia(clientes, agenda, acoes, cadencias);
+  const item = fila.find((f) => String(f.cliente.id) === String(clientId));
+  if (!item) {
+    const agora = new Date();
+    const datas = agenda
+      .filter((a) => String(a.clientId) === String(clientId))
+      .map((a) => parseISO(a.date))
+      .filter((d) => !isNaN(d.getTime()) && d <= agora);
+    if (datas.length === 0) return 'frio';
+    const ultimo = new Date(Math.max(...datas.map((d) => d.getTime())));
+    const esfriandoDias = Number(cadencias?.esfriando_dias) || 30;
+    const dias = Math.round((agora - ultimo) / 86400e3);
+    return dias >= esfriandoDias ? 'esfriando' : 'engajado';
+  }
+  const c = classificarCadencia(item);
+  return c === 'vencido' ? 'frio' : c === 'vencendo' ? 'esfriando' : 'engajado';
+}
+
+/**
+ * Registra uma Ação — reunião/contato/relatório/price já REALIZADO
+ * (`data` no passado ou hoje) ou PROGRAMADO (`data` no futuro).
+ *
+ * `resultado: 'sem_sucesso'` (tentou contato e não conseguiu — ligou, não
+ * atendeu) é DIFERENTE de 'sucesso': só 'sucesso' zera o relógio de
+ * cadência (ver shared/cadenciaServico.cjs, buildUltimaInteracaoMap) — uma
+ * tentativa malsucedida NÃO deve fazer o cliente sumir da fila como se
+ * tivesse sido atendido de verdade (era exatamente esse bug antes de
+ * 'sem_sucesso' existir). Só vale pra ação já REALIZADA — ação programada
+ * não tem resultado ainda.
+ */
+function registrarAcao(repo, args) {
+  const { clientId, tipo, resultado } = args;
+  if (!clientId) throw new Error('registrar_acao: "clientId" é obrigatório.');
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
+  if (!cliente) throw new Error(`registrar_acao: cliente "${clientId}" não encontrado.`);
+  if (!['contato', 'reuniao', 'relatorio', 'price'].includes(tipo)) {
+    throw new Error('registrar_acao: "tipo" precisa ser contato, reuniao, relatorio ou price.');
+  }
+  const dataStr = args.data ? String(args.data).trim() : new Date().toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) throw new Error('registrar_acao: "data" precisa ser AAAA-MM-DD.');
+  const dueAt = normalizarDataEvento(dataStr, 'registrar_acao: data');
+  const realizada = dueAt.slice(0, 10) <= new Date().toISOString().slice(0, 10);
+
+  let status;
+  if (!realizada) {
+    status = 'programado';
+  } else if (resultado === 'sem_sucesso') {
+    status = 'sem_sucesso';
+  } else if (!resultado || resultado === 'sucesso') {
+    status = 'concluido';
+  } else {
+    throw new Error('registrar_acao: "resultado" precisa ser sucesso ou sem_sucesso (só faz sentido pra ação já realizada).');
+  }
+
+  const servico = args.servico ? resolverOpcao(repo, 'servico', args.servico, 'registrar_acao: servico') : undefined;
+  const monitor = args.monitor ? resolverOpcao(repo, 'monitor', args.monitor, 'registrar_acao: monitor') : undefined;
+
+  return executarMutacao('acoes', 'create', {
+    payload: {
+      clientId, tipo, segmento: segmentoDoCliente(repo, clientId), status,
+      servico, monitor, notes: args.notes || '', dueAt,
+    },
+  });
 }
 
 function criarLembrete(repo, args) {
@@ -1310,10 +1431,35 @@ function buscarFilaPriorizacao(repo, { servico } = {}, ctx = {}) {
  * descobrir o conflito no erro de `criar_evento` (mesma lógica de
  * `conflitoAgenda`, reaproveitada).
  */
+/**
+ * Carga de agenda da SEMANA (seg-dom, mesma convenção de AgendaPage.tsx e
+ * EventFormModal.tsx) por monitor — só informativo, nunca bloqueia (ao
+ * contrário do conflito pontual acima). Item 2 do levantamento de gaps:
+ * antes só existia aviso de conflito EXATO (mesmo dia+hora); nada dava
+ * noção de carga da semana antes de tentar marcar um horário.
+ */
+function cargaSemanaPorMonitor(repo, date, monitores) {
+  if (!monitores?.length) return [];
+  const dataRef = parseISO(String(date).slice(0, 10));
+  const inicio = startOfWeek(dataRef, { weekStartsOn: 1 });
+  const fim = endOfWeek(dataRef, { weekStartsOn: 1 });
+  const agenda = repo.get('Agenda').filter((a) =>
+    /reuni/i.test(a.type || '') && !/cancel|reagend/i.test(a.status || '')
+  );
+  return monitores.map((m) => ({
+    monitor: m,
+    reunioesNaSemana: agenda.filter((a) => {
+      const d = new Date(a.date);
+      return listaJSON(a.monitores).includes(m) && d >= inicio && d <= fim;
+    }).length,
+  }));
+}
+
 function verificarDisponibilidade(repo, { date, time, monitores, sala }) {
   if (!date || !time) throw new Error('verificar_disponibilidade: "date" e "time" são obrigatórios.');
   const conflito = conflitoAgenda(repo, { type: 'Reunião', date, time, monitores, sala });
-  return conflito ? { disponivel: false, motivo: conflito } : { disponivel: true };
+  const cargaSemana = cargaSemanaPorMonitor(repo, date, monitores);
+  return conflito ? { disponivel: false, motivo: conflito, cargaSemana } : { disponivel: true, cargaSemana };
 }
 
 const FERRAMENTAS = [
@@ -1373,6 +1519,12 @@ const FERRAMENTAS = [
     description: 'Devolve o dossiê (memória acumulada de análises) e a última análise de risco de um cliente específico. `ultimaAnalise.fatores` é a JUSTIFICATIVA do nível de risco (os motivos que a análise registrou) e `ultimaAnalise.resumo` é o texto que aparece na ficha do cliente — se perguntarem por que o risco é alto/médio/baixo, a resposta está nesses campos; nunca diga que o critério não está explícito quando eles vierem preenchidos.',
     parameters: { type: 'object', properties: { clientId: { type: 'string' } }, required: ['clientId'] },
     executar: buscarDossieCliente,
+  },
+  {
+    name: 'buscar_historico_risco_cliente',
+    description: 'Devolve a linha do tempo do nível de risco do cliente (todas as análises automáticas já geradas, mais antiga primeiro — geradoEm/nivelRisco/resumo de cada uma). Use quando perguntarem se um cliente está piorando/melhorando ao longo do tempo — buscar_dossie_cliente só traz o estado ATUAL, não histórico.',
+    parameters: { type: 'object', properties: { clientId: { type: 'string' } }, required: ['clientId'] },
+    executar: buscarHistoricoRiscoCliente,
   },
   {
     name: 'buscar_registros_produto',
@@ -1495,7 +1647,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'verificar_disponibilidade',
-    description: 'Confere se um monitor ou sala está livre num dia/horário ANTES de tentar criar_evento — evita propor um horário que já sabe que vai dar conflito.',
+    description: 'Confere se um monitor ou sala está livre num dia/horário ANTES de tentar criar_evento — evita propor um horário que já sabe que vai dar conflito. Devolve também "cargaSemana" (quantas Reuniões cada monitor já tem na mesma semana, seg-dom) — informativo, não impede nada; mencione se for alto antes de sugerir mais uma reunião naquela semana.',
     parameters: {
       type: 'object',
       properties: {
@@ -1597,7 +1749,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'atualizar_cliente',
-    description: 'Altera o CADASTRO de um cliente (monitor, status, estado Ativo/Inativo, local/segmento, linha, serviços contratados, observação, endereço, grupo). Só mexe no que você informar. NÃO cria nem exclui cliente — isso continua sendo feito na tela. GRAVA DADO: só chame depois de o usuário confirmar.',
+    description: 'Altera o CADASTRO de um cliente (monitor, status, estado Ativo/Inativo, local/segmento, linha, serviços contratados, observação, endereço, grupo, pausa temporária). Só mexe no que você informar. NÃO cria nem exclui cliente — isso continua sendo feito na tela. GRAVA DADO: só chame depois de o usuário confirmar.',
     parameters: {
       type: 'object',
       properties: {
@@ -1611,10 +1763,33 @@ const FERRAMENTAS = [
         observacao: { type: 'string' },
         endereco: { type: 'string' },
         grupo: { type: 'string', description: 'Grupo/rede do cliente (análise segmentada).' },
+        pausadoAte: {
+          type: 'string',
+          description: 'Pausa temporária: data AAAA-MM-DD até quando o cliente sai da fila de cadência (inclui o dia inteiro, volta sozinho no dia seguinte — sem precisar mudar status/estado). Envie null pra RETOMAR o cliente antes da data (limpa pausadoAte e motivoPausa).',
+        },
+        motivoPausa: { type: 'string', description: 'Motivo curto da pausa (ex.: "Obra fechada até outubro"). Só faz sentido junto de pausadoAte.' },
       },
       required: ['clientId'],
     },
     executar: atualizarCliente,
+  },
+  {
+    name: 'registrar_acao',
+    description: 'Registra uma Ação (Contato/Reunião/Relatório/Price) do cliente — já REALIZADA (data hoje ou passado) ou PROGRAMADA (data futura). Pra ação realizada, "resultado" diferencia "sucesso" (conseguiu falar/entregar — conta como toque de cadência, o cliente sai de vencido) de "sem_sucesso" (tentou e não conseguiu: ligou e não atendeu, mandou mensagem sem resposta — NÃO conta como toque, o cliente continua vencido na fila, só fica registrado que já houve tentativa). Nunca registre uma tentativa falha como "sucesso" só pra "resolver" a pendência — é exatamente o erro que esse campo existe pra evitar. GRAVA DADO: só chame depois de o usuário confirmar.',
+    parameters: {
+      type: 'object',
+      properties: {
+        clientId: { type: 'string' },
+        tipo: { type: 'string', enum: ['contato', 'reuniao', 'relatorio', 'price'] },
+        data: { type: 'string', description: 'AAAA-MM-DD. Ausente = hoje.' },
+        resultado: { type: 'string', enum: ['sucesso', 'sem_sucesso'], description: 'Só pra ação já realizada (data hoje/passado). Ignorado se "data" for futura (vira status "programado" automaticamente).' },
+        servico: { type: 'string', description: 'Serviço a que a ação se refere, como cadastrado (ex.: "Monitoria").' },
+        monitor: { type: 'string', description: 'Monitor responsável, como cadastrado.' },
+        notes: { type: 'string' },
+      },
+      required: ['clientId', 'tipo'],
+    },
+    executar: registrarAcao,
   },
   {
     name: 'criar_lembrete',

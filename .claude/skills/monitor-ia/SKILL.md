@@ -1,13 +1,13 @@
 ---
 name: monitor-ia
-description: Referência técnica completa do subsistema monitorIA (agente de IA da Carteira Web) — arquitetura, provedores, as 37 ferramentas, alertas, memória, custo/uso. Use ao implementar/alterar qualquer coisa em server/ia/, ao decidir se uma feature nova precisa de ferramenta pro agente (checklist do CLAUDE.md), ou ao responder perguntas analíticas sobre NÚMEROS/DADOS/INFORMAÇÕES do próprio monitorIA (quantas ferramentas existem, quanto custou, quais alertas disparam, como o risco é calculado) — não sobre a carteira de clientes em si (isso é CLAUDE.md).
+description: Referência técnica completa do subsistema monitorIA (agente de IA da Carteira Web) — arquitetura, provedores, as 39 ferramentas, alertas, memória, custo/uso. Use ao implementar/alterar qualquer coisa em server/ia/, ao decidir se uma feature nova precisa de ferramenta pro agente (checklist do CLAUDE.md), ou ao responder perguntas analíticas sobre NÚMEROS/DADOS/INFORMAÇÕES do próprio monitorIA (quantas ferramentas existem, quanto custou, quais alertas disparam, como o risco é calculado) — não sobre a carteira de clientes em si (isso é CLAUDE.md).
 ---
 
 # monitorIA — referência técnica
 
 Este skill é sobre o **agente de IA** da Carteira Web (`server/ia/`), não sobre o app em geral (isso é `CLAUDE.md`, na raiz — leia-o primeiro se ainda não leu). Carregue este skill quando a tarefa for: (1) implementar/alterar algo em `server/ia/`, (2) decidir se uma feature nova em qualquer parte do app precisa de uma ferramenta pro agente, ou (3) responder uma pergunta analítica sobre o próprio monitorIA — contagem de ferramentas, custo, alertas, arquitetura de provedor.
 
-Todo dado numérico abaixo (contagem de ferramentas, etc.) foi verificado rodando o código em 04/09/2026 — se precisar de um número atualizado, rode `node -e "console.log(require('./server/ia/tools.cjs').FERRAMENTAS.length)"` em vez de confiar cegamente neste arquivo, que pode ficar desatualizado.
+Todo dado numérico abaixo (contagem de ferramentas, etc.) foi verificado rodando o código em 04/09/2026 (atualizado após `registrar_acao`/`buscar_historico_risco_cliente`) — se precisar de um número atualizado, rode `node -e "console.log(require('./server/ia/tools.cjs').FERRAMENTAS.length)"` em vez de confiar cegamente neste arquivo, que pode ficar desatualizado.
 
 ## Arquitetura em uma imagem
 
@@ -31,7 +31,7 @@ tool-calling AQUI)  subprocesso; loop de
    │                 │
    └────────┬────────┘
             ▼
-   server/ia/tools.cjs — 37 ferramentas (FERRAMENTAS)
+   server/ia/tools.cjs — 39 ferramentas (FERRAMENTAS)
             │
             ▼
    server/dominio/*.cjs (via repoPlanilha()) → SQLite → espelho database_dev.xlsx
@@ -39,15 +39,15 @@ tool-calling AQUI)  subprocesso; loop de
 
 **Por que dois provedores**: `ollama` roda local/grátis; `claude-cli` usa a assinatura Claude do usuário (login OAuth do CLI, não API key — ver CLAUDE.md pro porquê disso importar). Produção hoje usa `claude-cli` com Haiku. Escolha em `IA_PROVIDER` (`.env`, trava) ou na GUI (Configurações → Sistema), persistida em `SQLITE_DIR/claude-cli.json`.
 
-## As 37 ferramentas (`server/ia/tools.cjs`, array `FERRAMENTAS`)
+## As 39 ferramentas (`server/ia/tools.cjs`, array `FERRAMENTAS`)
 
 Agrupadas por o que fazem — **nomes exatos**, use pra saber se algo já existe antes de propor ferramenta nova:
 
-**Leitura de cliente/carteira**: `buscar_clientes`, `buscar_dossie_cliente`, `buscar_contatos_cliente`, `buscar_contatos`, `buscar_cobertura_contatos`, `buscar_historico_eventos`, `buscar_registros_produto`, `buscar_lembretes_cliente`, `buscar_tarefas_cliente`, `buscar_opcoes_evento`, `buscar_config_cadencias`
+**Leitura de cliente/carteira**: `buscar_clientes`, `buscar_dossie_cliente`, `buscar_historico_risco_cliente`, `buscar_contatos_cliente`, `buscar_contatos`, `buscar_cobertura_contatos`, `buscar_historico_eventos`, `buscar_registros_produto`, `buscar_lembretes_cliente`, `buscar_tarefas_cliente`, `buscar_opcoes_evento`, `buscar_config_cadencias`
 
-**Fila/priorização/visão geral**: `buscar_fila_priorizacao`, `buscar_vencendo`, `buscar_cobertura`, `buscar_cobertura_servicos`, `buscar_alertas_acompanhamento`, `sugerir_encaixes_agenda`, `verificar_disponibilidade`, `buscar_agenda_ceo`
+**Fila/priorização/visão geral**: `buscar_fila_priorizacao`, `buscar_vencendo`, `buscar_cobertura`, `buscar_cobertura_servicos`, `buscar_alertas_acompanhamento`, `sugerir_encaixes_agenda`, `verificar_disponibilidade` (devolve também `cargaSemana` — reuniões da semana por monitor, informativo), `buscar_agenda_ceo`
 
-**Escrita — CONDICIONAL, exige confirmação do usuário antes de gravar** (todas seguem o padrão "descreve o que faria, só grava se confirmado"): `criar_evento`, `atualizar_evento`, `atualizar_cliente`, `criar_lembrete`, `corrigir_dossie_cliente`, `redigir_ata_reuniao`, `gerar_ata_pdf`, `reanalisar_cliente`
+**Escrita — CONDICIONAL, exige confirmação do usuário antes de gravar** (todas seguem o padrão "descreve o que faria, só grava se confirmado"): `criar_evento`, `atualizar_evento`, `atualizar_cliente` (inclui pausa temporária: `pausadoAte`/`motivoPausa`), `registrar_acao` (Contato/Reunião/Relatório/Price — `resultado: 'sucesso' | 'sem_sucesso'` na ação já realizada; NUNCA registrar tentativa falha como sucesso), `criar_lembrete`, `corrigir_dossie_cliente`, `redigir_ata_reuniao`, `gerar_ata_pdf`, `reanalisar_cliente`
 
 **Memória do agente** (regras gerais da carteira, não de um cliente): `buscar_memoria`, `registrar_memoria`, `remover_memoria`
 

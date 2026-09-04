@@ -134,8 +134,8 @@ function escreverDossie(clientId: string, slug: string, corpo: string) {
 // 1-8: catálogo e contrato geral das ferramentas
 // ---------------------------------------------------------------------------
 describe('catálogo de ferramentas', () => {
-  it('1. expõe exatamente as 37 ferramentas esperadas', () => {
-    expect(FERRAMENTAS).toHaveLength(37);
+  it('1. expõe exatamente as 39 ferramentas esperadas', () => {
+    expect(FERRAMENTAS).toHaveLength(39);
   });
 
   it('2. nenhum nome de ferramenta duplicado', () => {
@@ -816,6 +816,26 @@ describe('agendamento', () => {
     expect(r.motivo).toMatch(/Erick Cardoso/);
   });
 
+  /**
+   * Item 2 do levantamento de gaps: antes só existia aviso de conflito
+   * PONTUAL (mesmo dia+hora exatos) — nada dava noção da carga da semana
+   * antes de tentar marcar um horário. Puramente informativo, não bloqueia.
+   */
+  it('98b. verificar_disponibilidade também devolve a carga da semana (informativo, não bloqueia)', () => {
+    // 2026-09-10 é quinta; 08 (terça) e 12 (sábado) caem na MESMA semana
+    // (seg-dom); 15 (a terça seguinte) cai na semana DEPOIS.
+    const repo = repoBase({
+      Agenda: [
+        { id: 'e1', clientId: 'c1', clientName: 'Loja A', type: 'Reunião', status: 'Agendado', date: '2026-09-08', time: '09:00', monitores: ['Erick Cardoso'] },
+        { id: 'e2', clientId: 'c1', clientName: 'Loja A', type: 'Reunião', status: 'Agendado', date: '2026-09-12', time: '11:00', monitores: ['Erick Cardoso'] },
+        { id: 'e3', clientId: 'c1', clientName: 'Loja A', type: 'Reunião', status: 'Agendado', date: '2026-09-15', time: '11:00', monitores: ['Erick Cardoso'] },
+      ],
+    });
+    const r = exec('verificar_disponibilidade', repo, { date: '2026-09-10', time: '16:00', monitores: ['Erick Cardoso'] });
+    expect(r.cargaSemana).toEqual([{ monitor: 'Erick Cardoso', reunioesNaSemana: 2 }]);
+    expect(r.disponivel).toBe(true); // não bloqueia nada, só informa
+  });
+
   it('99. criar_evento é bloqueado por conflito de monitor (guarda que só existia no formulário)', () => {
     const repo = repoBase({ Agenda: [{ id: 'e1', clientId: 'c1', clientName: 'Loja Teste', type: 'Reunião', status: 'Agendado', date: '2026-09-10', time: '14:00', monitores: ['Erick Cardoso'] }] });
     expect(() => exec('criar_evento', repo, { clientId: 'c1', type: 'Reunião', date: '2026-09-10', time: '14:00', monitores: ['Erick Cardoso'] }))
@@ -1451,5 +1471,113 @@ describe('atualizar_cliente', () => {
 
   it('sem nenhum campo pra mudar, erra em vez de gravar patch vazio', () => {
     expect(() => exec('atualizar_cliente', preparar(), { clientId: 'c1' })).toThrow(/nenhum campo pra alterar/);
+  });
+
+  describe('pausadoAte — pausa temporária (item 5 do levantamento de gaps)', () => {
+    it('grava pausadoAte + motivoPausa juntos', () => {
+      const r = exec('atualizar_cliente', preparar(), {
+        clientId: 'c1', pausadoAte: '2026-09-20', motivoPausa: 'Obra fechada',
+      }) as { pausadoAte: string; motivoPausa: string };
+      expect(r.pausadoAte).toBe('2026-09-20');
+      expect(r.motivoPausa).toBe('Obra fechada');
+    });
+
+    it('pausadoAte: null limpa os dois campos (retomada antecipada)', () => {
+      const r = exec('atualizar_cliente', preparar(), { clientId: 'c1', pausadoAte: null }) as { pausadoAte: string; motivoPausa: string };
+      expect(r.pausadoAte).toBe('');
+      expect(r.motivoPausa).toBe('');
+    });
+
+    it('formato de data inválido erra explícito', () => {
+      expect(() => exec('atualizar_cliente', preparar(), { clientId: 'c1', pausadoAte: '20/09/2026' }))
+        .toThrow(/formato AAAA-MM-DD/);
+    });
+  });
+});
+
+describe('registrar_acao', () => {
+  const CATEGORIAS = [
+    { id: 'k1', tipo: 'monitor', valor: 'Erick Cardoso', ordem: 1 },
+    { id: 'k2', tipo: 'servico', valor: 'Precificação', ordem: 1 },
+  ];
+
+  /** Mesmo motivo dos blocos de escrita acima: executarMutacao usa o repo
+   *  REAL (repoPlanilha), então precisa semear os dois lados. */
+  function preparar() {
+    dbSqlite.saveSheetData('Clientes', [clienteBase()]);
+    dbSqlite.saveSheetData('Agenda', []);
+    dbSqlite.saveSheetData('Acoes', []);
+    return repoBase({ Categorias: CATEGORIAS });
+  }
+
+  it('exige clientId e tipo', () => {
+    expect(() => exec('registrar_acao', preparar(), { tipo: 'contato' })).toThrow(/clientId.*obrigat/i);
+    expect(() => exec('registrar_acao', preparar(), { clientId: 'c1', tipo: 'invalido' })).toThrow(/contato, reuniao, relatorio ou price/);
+  });
+
+  it('data de hoje + resultado "sucesso" grava status concluido', () => {
+    const hoje = new Date().toISOString().slice(0, 10);
+    const r = exec('registrar_acao', preparar(), { clientId: 'c1', tipo: 'contato', data: hoje, resultado: 'sucesso' }) as { status: string };
+    expect(r.status).toBe('concluido');
+  });
+
+  /**
+   * Bug real corrigido (item 3 do levantamento de gaps): antes só existia
+   * 'concluido', e qualquer 'concluido' zera o relógio de cadência — uma
+   * tentativa sem sucesso registrada como "concluído" fazia o sistema achar
+   * que o cliente tinha sido atendido de verdade.
+   */
+  it('data de hoje + resultado "sem_sucesso" grava status sem_sucesso, não concluido', () => {
+    const hoje = new Date().toISOString().slice(0, 10);
+    const r = exec('registrar_acao', preparar(), { clientId: 'c1', tipo: 'contato', data: hoje, resultado: 'sem_sucesso' }) as { status: string };
+    expect(r.status).toBe('sem_sucesso');
+  });
+
+  it('data futura vira "programado", ignorando "resultado"', () => {
+    const r = exec('registrar_acao', preparar(), { clientId: 'c1', tipo: 'reuniao', data: '2099-01-01' }) as { status: string };
+    expect(r.status).toBe('programado');
+  });
+
+  it('sem "resultado" e data de hoje, assume sucesso (concluido)', () => {
+    const hoje = new Date().toISOString().slice(0, 10);
+    const r = exec('registrar_acao', preparar(), { clientId: 'c1', tipo: 'contato', data: hoje }) as { status: string };
+    expect(r.status).toBe('concluido');
+  });
+
+  it('cliente inexistente erra explicitamente', () => {
+    expect(() => exec('registrar_acao', preparar(), { clientId: 'zzz', tipo: 'contato' })).toThrow(/"zzz" não encontrado/);
+  });
+
+  it('serviço fora do cadastro erra com a lista válida', () => {
+    expect(() => exec('registrar_acao', preparar(), { clientId: 'c1', tipo: 'contato', servico: 'Fulano' })).toThrow(/não existe/);
+  });
+});
+
+describe('buscar_historico_risco_cliente', () => {
+  it('exige clientId', () => {
+    expect(() => exec('buscar_historico_risco_cliente', repoBase(), {})).toThrow(/obrigat/i);
+  });
+
+  it('combina histórico arquivado + análise atual, mais antiga primeiro', () => {
+    const repo = repoBase({
+      Clientes: [clienteBase()],
+      AnalisesIAHistorico: [
+        { id: 'h1', clientId: 'c1', nivelRisco: 'baixo', resumo: 'Início tranquilo.', geradoEm: '2026-06-01T00:00:00.000Z' },
+        { id: 'h2', clientId: 'c1', nivelRisco: 'medio', resumo: 'Começou a esfriar.', geradoEm: '2026-07-01T00:00:00.000Z' },
+      ],
+      AnalisesIA: [{ id: 'a1', clientId: 'c1', nivelRisco: 'alto', resumo: 'Piorou de vez.', geradoEm: '2026-08-01T00:00:00.000Z' }],
+    });
+    const r = exec('buscar_historico_risco_cliente', repo, { clientId: 'c1' }) as { historico: { nivelRisco: string }[] };
+    expect(r.historico.map((h) => h.nivelRisco)).toEqual(['baixo', 'medio', 'alto']);
+  });
+
+  it('cliente sem nenhuma análise devolve histórico vazio, não erro', () => {
+    const repo = repoBase({ Clientes: [clienteBase()], AnalisesIAHistorico: [], AnalisesIA: [] });
+    const r = exec('buscar_historico_risco_cliente', repo, { clientId: 'c1' }) as { historico: unknown[] };
+    expect(r.historico).toEqual([]);
+  });
+
+  it('cliente inexistente erra explicitamente', () => {
+    expect(() => exec('buscar_historico_risco_cliente', repoBase(), { clientId: 'zzz' })).toThrow(/não encontrado/);
   });
 });
