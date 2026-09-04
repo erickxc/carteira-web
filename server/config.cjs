@@ -412,6 +412,11 @@ const AGIL_COMENTARIOS_HEADERS = ['id', 'tarefaId', 'autor', 'texto', 'createdAt
 // nunca disparava reanálise. Efeito real medido na base: 38 de 45 atas
 // escritas jamais chegaram ao dossiê.
 const ANALISES_IA_HEADERS = ['id', 'clientId', 'nivelRisco', 'resumo', 'fatores', 'sugestaoProximaPauta', 'ultimoEventoAnalisadoData', 'geradoEm', 'atasAnalisadas'];
+// Mesmas colunas de AnalisesIA — é o registro ANTERIOR arquivado antes de
+// AnalisesIA ser sobrescrita (1 linha por cliente lá, sempre a mais
+// recente). APPEND-ONLY: nunca editada nem tem linha removida por
+// `gerarAnalisesPendentes` — ver server/ia/analisesAutomaticas.cjs.
+const ANALISES_IA_HISTORICO_HEADERS = [...ANALISES_IA_HEADERS];
 // Log de auditoria de toda ação que o agente de IA executa de verdade (criar
 // evento, criar lembrete etc.) — argumentos/resultado como JSON string.
 // origem: 'chat' (usuário pediu) ou 'analise_semanal' (futuro uso automático).
@@ -475,6 +480,7 @@ const HEADERS_BY_SHEET = {
   AgilSubtarefas: AGIL_SUBTAREFAS_HEADERS,
   AgilComentarios: AGIL_COMENTARIOS_HEADERS,
   AnalisesIA: ANALISES_IA_HEADERS,
+  AnalisesIAHistorico: ANALISES_IA_HISTORICO_HEADERS,
   AcoesIA: ACOES_IA_HEADERS,
   MemoriaIA: MEMORIA_IA_HEADERS,
   UsoIA: USO_IA_HEADERS,
@@ -535,7 +541,7 @@ module.exports = {
   CLIENTES_HEADERS, AGENDA_HEADERS, LEMBRETES_HEADERS, CATEGORIAS_HEADERS, ACOES_HEADERS, MODELOS_HEADERS, CADENCIAS_HEADERS,
   AGENDA_SERIES_HEADERS,
   AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_SWIMLANES_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS,
-  ANALISES_IA_HEADERS, ACOES_IA_HEADERS, MEMORIA_IA_HEADERS, USO_IA_HEADERS,
+  ANALISES_IA_HEADERS, ANALISES_IA_HISTORICO_HEADERS, ACOES_IA_HEADERS, MEMORIA_IA_HEADERS, USO_IA_HEADERS,
   HEADERS_BY_SHEET,
   CADENCIAS_SEED, MODELOS_SEED, CATEGORIAS_SEED,
 };

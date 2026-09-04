@@ -111,6 +111,42 @@ describe('analisesAutomaticas: gerarAnalisesPendentes', () => {
     expect(processados).toBe(1);
   });
 
+  /**
+   * Item 4 do levantamento de gaps: antes, cada análise nova SOBRESCREVIA a
+   * anterior em AnalisesIA (1 linha por cliente) — o nível de risco/resumo
+   * de antes desaparecia pra sempre, sem dar pra saber se o cliente estava
+   * piorando ou melhorando ao longo do tempo. Agora o registro antigo é
+   * arquivado em AnalisesIAHistorico (append-only) antes de sobrescrever.
+   */
+  it('arquiva a análise anterior em AnalisesIAHistorico antes de sobrescrever', async () => {
+    const repo = repoMemoria({
+      Clientes: [{ id: 'c1', empresa: 'Empresa Teste' }],
+      Agenda: [{ id: 'e1', clientId: 'c1', date: '2026-08-01T10:00:00.000Z', status: 'Concluído', ata: 'Reunião ok.' }],
+      AnalisesIA: [{
+        id: 'a1', clientId: 'c1', nivelRisco: 'baixo', resumo: 'Estava tudo bem.', fatores: '[]',
+        sugestaoProximaPauta: '', ultimoEventoAnalisadoData: '2026-08-01T10:00:00.000Z', geradoEm: '2026-08-02T00:00:00.000Z',
+      }],
+      AnalisesIAHistorico: [],
+    });
+
+    // Sem evento novo, gerarAnalisesPendentes pularia — `forcar` é o mesmo
+    // caminho usado por "reanalisar este cliente".
+    const processados = await gerarAnalisesPendentes({
+      repo,
+      forcar: true,
+      ollama: ollamaFake({ nivelRisco: 'alto', resumo: 'Piorou.', fatores: [], sugestaoProximaPauta: '', dossieAtualizado: 'Cliente piorou.' }),
+    });
+    expect(processados).toBe(1);
+
+    const atual = repo._dump().AnalisesIA;
+    expect(atual).toHaveLength(1);
+    expect(atual[0]).toMatchObject({ nivelRisco: 'alto', resumo: 'Piorou.' });
+
+    const historico = repo._dump().AnalisesIAHistorico;
+    expect(historico).toHaveLength(1);
+    expect(historico[0]).toMatchObject({ clientId: 'c1', nivelRisco: 'baixo', resumo: 'Estava tudo bem.' });
+  });
+
   it('isola erro de um cliente sem interromper os demais', async () => {
     const repo = repoMemoria({
       Clientes: [

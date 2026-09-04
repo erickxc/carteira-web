@@ -150,6 +150,12 @@ async function gerarAnalisesPendentes(opts = {}) {
   const clientes = repo.get('Clientes');
   const agenda = repo.get('Agenda');
   const analises = repo.get('AnalisesIA');
+  // Append-only — nunca lida por regra de negócio nenhuma, só arquivo de
+  // histórico (ver comentário no HEADERS em server/config.cjs). Antes desta
+  // mudança, cada análise nova APAGAVA a anterior (mesma linha por
+  // clientId) — não dava pra saber se um cliente estava piorando, só o
+  // estado atual existia.
+  const historico = repo.get('AnalisesIAHistorico');
   let processados = 0;
 
   for (const cliente of clientes) {
@@ -197,6 +203,11 @@ async function gerarAnalisesPendentes(opts = {}) {
         geradoEm: new Date().toISOString(),
       };
 
+      // Arquiva o registro ANTERIOR antes de sobrescrever — sem isso, o
+      // nível de risco/resumo de antes desaparecia pra sempre (nem na
+      // sheet, nem no dossiê, que também é sobrescrito por completo).
+      if (analiseAnterior) historico.push(analiseAnterior);
+
       const semAnalisesAntigas = analises.filter((a) => String(a.clientId) !== String(cliente.id));
       analises.length = 0;
       analises.push(...semAnalisesAntigas, novaLinha);
@@ -206,7 +217,10 @@ async function gerarAnalisesPendentes(opts = {}) {
     }
   }
 
-  if (processados > 0) repo.save('AnalisesIA', analises);
+  if (processados > 0) {
+    repo.save('AnalisesIA', analises);
+    repo.save('AnalisesIAHistorico', historico);
+  }
   return processados;
 }
 
