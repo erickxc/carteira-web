@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { Bot, FileUp, LayoutDashboard, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { Bot, ChevronDown, ChevronRight, FileUp, LayoutDashboard, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -18,6 +18,7 @@ import { AcessosExternosButton } from '../components/cliente/AcessosExternosButt
 import { buscarAnalisesIA } from '../api/client';
 import { calcularPosicaoPopover } from '../utils/popoverPosicao';
 import { corDoServico } from '../utils/corServico';
+import { agruparPorGrupo, type LinhaTabela } from '../utils/gruposLojas';
 import { Dropdown } from '../components/Dropdown';
 import { Badge, Button, Card, Td, Th } from '../ui';
 import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type AnaliseIA, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
@@ -320,6 +321,29 @@ export default function ClientesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientes, debouncedSearch, fMonitores, fTipoAnalise, fServicos, fEstado, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir, analisesPorCliente]);
 
+  // Lojas da mesma rede (`Cliente.grupo`, ex.: "Altese - Recreio + Barra" e
+  // "Altese - GM, Ford, Fiat, VW") viram um bloco recolhível na tabela — cada
+  // loja continua sendo um cliente 100% independente por trás (cadastro,
+  // cadência, análise própria); isso é só apresentação. `principal` (a loja
+  // mais antiga do grupo) é quem "dá a cara" ao cabeçalho fechado — grupo
+  // já confirmado, nos dados reais, sempre com monitor único entre lojas.
+  const linhas = useMemo(() => agruparPorGrupo(filtrados, clientes), [filtrados, clientes]);
+
+  // Recolhido por padrão; abre manualmente OU sozinho quando há filtro ativo
+  // (senão uma busca por nome de loja "encontraria" o registro mas ele
+  // ficaria escondido dentro de um acordeão fechado).
+  const [gruposAbertosManual, setGruposAbertosManual] = useState<Set<string>>(new Set());
+  function alternarGrupo(grupo: string) {
+    setGruposAbertosManual((prev) => {
+      const novo = new Set(prev);
+      if (novo.has(grupo)) novo.delete(grupo); else novo.add(grupo);
+      return novo;
+    });
+  }
+  function grupoAberto(grupo: string): boolean {
+    return filtrosAtivos || gruposAbertosManual.has(grupo);
+  }
+
   async function handleDelete(cliente: Cliente) {
     if (!(await confirmDialog(`Excluir o cliente "${cliente.empresa}"? Isso também remove os eventos de agenda vinculados.`, { danger: true, confirmLabel: 'Excluir' }))) return;
     await removerCliente(cliente.id);
@@ -355,6 +379,133 @@ export default function ClientesPage() {
       toastSuccess(`${parsed.length} cliente(s) importado(s) com sucesso.`);
     }
     e.target.value = '';
+  }
+
+  /** Linha de um cliente — usada tanto pra cliente sem grupo quanto pra cada
+   *  loja dentro de um grupo expandido. `semLinks`: lojas que não são a
+   *  principal do grupo não editam/mostram mais link próprio (ver
+   *  `ClientFormModal`) — o botão de acessos aparece só na linha do grupo. */
+  function renderLinhaCliente(cliente: Cliente, opts?: { indent?: boolean; semLinks?: boolean }) {
+    const ult = ultimaReuniao.get(cliente.id);
+    const prox = proximoAgendamento.get(cliente.id);
+    const ultC = ultimoContato.get(cliente.id);
+    const ultCData = ultC ? parseISO(ultC.date) : null;
+    const diasSemContato = ultCData ? differenceInCalendarDays(hoje, ultCData) : null;
+    const inativo = (cliente.estado || 'Ativo') !== 'Ativo';
+    return (
+      <tr
+        key={cliente.id}
+        className="group [&:last-child>td]:border-b-0"
+        style={isGratuidade(cliente.status) ? { background: 'var(--gratuidade-pastel-bg)' } : undefined}
+      >
+        <Td first>
+          <button
+            className="link-button"
+            style={{ fontWeight: 600, ...(opts?.indent ? { paddingLeft: '1.4rem' } : undefined) }}
+            onClick={() => navigate(`/clientes/${cliente.id}`)}
+          >
+            {cliente.empresa}
+          </button>
+        </Td>
+        <Td className="text-text-muted">{cliente.monitor || '—'}</Td>
+        <Td>
+          <ServicosCell servicos={cliente.servicos} corPorServico={corPorServico} />
+        </Td>
+        <Td style={{ textAlign: 'center' }}>
+          {opts?.semLinks ? <span className="text-text-muted">—</span> : <AcessosExternosButton cliente={cliente} compacto />}
+        </Td>
+        <Td style={{ textAlign: 'center' }}>
+          <AnaliseIACell clienteId={cliente.id} risco={analisesPorCliente.get(cliente.id)?.nivelRisco} />
+        </Td>
+        <Td>
+          <div className="flex-row" style={{ gap: 12, flexWrap: 'wrap' }}>
+            <span className="inline-flex items-center gap-2" style={{ fontSize: '0.8rem' }}>
+              <i style={{
+                width: 9, height: 9, borderRadius: '50%', display: 'inline-block', flexShrink: 0,
+                background: clienteStatusCor(cliente.status),
+                boxShadow: `0 0 0 1px color-mix(in srgb, ${clienteStatusCor(cliente.status)} 55%, transparent)`,
+              }}
+              />
+              <span className="text-text-primary" style={{ fontWeight: 500 }}>{cliente.status || '—'}</span>
+            </span>
+            {inativo && (
+              <span className="inline-flex items-center gap-2" style={{ fontSize: '0.8rem' }}>
+                <i style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--danger)', display: 'inline-block', flexShrink: 0, boxShadow: '0 0 0 1px color-mix(in srgb, var(--danger) 55%, transparent)' }} />
+                <span style={{ color: 'var(--danger)', fontWeight: 600 }}>Inativo</span>
+              </span>
+            )}
+          </div>
+        </Td>
+        <Td className="text-text-muted" style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cliente.observacao || undefined}>
+          {cliente.observacao?.trim() || '—'}
+        </Td>
+        <Td className="text-text-muted" style={{ fontSize: '0.8rem', lineHeight: 1.5 }}>
+          <div>Últ. reunião: {ult ? format(ult, 'dd/MM/yyyy') : '—'}</div>
+          <div>Próximo: {prox ? `${prox.type} · ${format(parseISO(prox.date), 'dd/MM/yyyy')}` : '—'}</div>
+          <div>Últ. contato: {ultCData ? format(ultCData, 'dd/MM/yyyy') : '—'}</div>
+        </Td>
+        <Td>
+          {diasSemContato === null ? (
+            <span className="text-text-muted">—</span>
+          ) : (
+            <Badge variant={
+              diasSemContato > cadencias.reuniao_dias ? 'danger'
+                : diasSemContato > cadencias.reuniao_dias * 0.7 ? 'warning'
+                : 'muted'
+            }>
+              {diasSemContato}d
+            </Badge>
+          )}
+        </Td>
+        <Td>
+          <div className="flex-row" style={{ justifyContent: 'flex-end' }}>
+            <Button variant="secondary" size="icon" onClick={() => setModalState({ editing: cliente })} aria-label="Editar">
+              <Pencil size={15} />
+            </Button>
+            <Button variant="danger" size="icon" onClick={() => handleDelete(cliente)} aria-label="Excluir">
+              <Trash2 size={15} />
+            </Button>
+          </div>
+        </Td>
+      </tr>
+    );
+  }
+
+  /** Cabeçalho recolhível de uma rede de lojas (`Cliente.grupo`) — mostra
+   *  nome + contador + monitor (verificado único entre lojas na prática) +
+   *  os acessos da loja PRINCIPAL (ver gruposLojas.ts). Clicar expande/
+   *  recolhe; as lojas de dentro são linhas normais, só sem link próprio. */
+  function renderLinhaGrupo(linha: Extract<LinhaTabela, { tipo: 'grupo' }>) {
+    const aberto = grupoAberto(linha.grupo);
+    const monitores = [...new Set(linha.lojas.map((l) => l.monitor).filter(Boolean))];
+    return (
+      <>
+        <tr key={`grupo-${linha.grupo}`} className="group" style={{ background: 'var(--card-hover)' }}>
+          <Td first colSpan={2}>
+            <button
+              className="link-button"
+              style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              onClick={() => alternarGrupo(linha.grupo)}
+              aria-expanded={aberto}
+            >
+              {aberto ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+              {linha.grupo}
+              <span className="text-text-muted" style={{ fontWeight: 400 }}>· {linha.lojas.length} lojas</span>
+            </button>
+          </Td>
+          <Td className="text-text-muted" colSpan={2}>
+            {monitores.length === 1 ? monitores[0] : monitores.length === 0 ? '—' : 'vários'}
+          </Td>
+          <Td style={{ textAlign: 'center' }} colSpan={2}>
+            <AcessosExternosButton cliente={linha.principal} compacto />
+          </Td>
+          <Td colSpan={4} className="text-text-muted" style={{ fontSize: '0.8rem' }}>
+            Links e acesso externo do grupo vêm de "{linha.principal.empresa}" (loja principal)
+          </Td>
+        </tr>
+        {aberto && linha.lojas.map((loja) => renderLinhaCliente(loja, { indent: true, semLinks: loja.id !== linha.principal.id }))}
+      </>
+    );
   }
 
   return (
@@ -476,87 +627,11 @@ export default function ClientesPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtrados.map((cliente) => {
-                  const ult = ultimaReuniao.get(cliente.id);
-                  const prox = proximoAgendamento.get(cliente.id);
-                  const ultC = ultimoContato.get(cliente.id);
-                  const ultCData = ultC ? parseISO(ultC.date) : null;
-                  const diasSemContato = ultCData ? differenceInCalendarDays(hoje, ultCData) : null;
-                  const inativo = (cliente.estado || 'Ativo') !== 'Ativo';
-                  return (
-                    <tr
-                      key={cliente.id}
-                      className="group [&:last-child>td]:border-b-0"
-                      style={isGratuidade(cliente.status) ? { background: 'var(--gratuidade-pastel-bg)' } : undefined}
-                    >
-                      <Td first>
-                        <button className="link-button" style={{ fontWeight: 600 }} onClick={() => navigate(`/clientes/${cliente.id}`)}>
-                          {cliente.empresa}
-                        </button>
-                      </Td>
-                      <Td className="text-text-muted">{cliente.monitor || '—'}</Td>
-                      <Td>
-                        <ServicosCell servicos={cliente.servicos} corPorServico={corPorServico} />
-                      </Td>
-                      <Td style={{ textAlign: 'center' }}>
-                        <AcessosExternosButton cliente={cliente} compacto />
-                      </Td>
-                      <Td style={{ textAlign: 'center' }}>
-                        <AnaliseIACell clienteId={cliente.id} risco={analisesPorCliente.get(cliente.id)?.nivelRisco} />
-                      </Td>
-                      <Td>
-                        <div className="flex-row" style={{ gap: 12, flexWrap: 'wrap' }}>
-                          <span className="inline-flex items-center gap-2" style={{ fontSize: '0.8rem' }}>
-                            <i style={{
-                              width: 9, height: 9, borderRadius: '50%', display: 'inline-block', flexShrink: 0,
-                              background: clienteStatusCor(cliente.status),
-                              boxShadow: `0 0 0 1px color-mix(in srgb, ${clienteStatusCor(cliente.status)} 55%, transparent)`,
-                            }}
-                            />
-                            <span className="text-text-primary" style={{ fontWeight: 500 }}>{cliente.status || '—'}</span>
-                          </span>
-                          {inativo && (
-                            <span className="inline-flex items-center gap-2" style={{ fontSize: '0.8rem' }}>
-                              <i style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--danger)', display: 'inline-block', flexShrink: 0, boxShadow: '0 0 0 1px color-mix(in srgb, var(--danger) 55%, transparent)' }} />
-                              <span style={{ color: 'var(--danger)', fontWeight: 600 }}>Inativo</span>
-                            </span>
-                          )}
-                        </div>
-                      </Td>
-                      <Td className="text-text-muted" style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cliente.observacao || undefined}>
-                        {cliente.observacao?.trim() || '—'}
-                      </Td>
-                      <Td className="text-text-muted" style={{ fontSize: '0.8rem', lineHeight: 1.5 }}>
-                        <div>Últ. reunião: {ult ? format(ult, 'dd/MM/yyyy') : '—'}</div>
-                        <div>Próximo: {prox ? `${prox.type} · ${format(parseISO(prox.date), 'dd/MM/yyyy')}` : '—'}</div>
-                        <div>Últ. contato: {ultCData ? format(ultCData, 'dd/MM/yyyy') : '—'}</div>
-                      </Td>
-                      <Td>
-                        {diasSemContato === null ? (
-                          <span className="text-text-muted">—</span>
-                        ) : (
-                          <Badge variant={
-                            diasSemContato > cadencias.reuniao_dias ? 'danger'
-                              : diasSemContato > cadencias.reuniao_dias * 0.7 ? 'warning'
-                              : 'muted'
-                          }>
-                            {diasSemContato}d
-                          </Badge>
-                        )}
-                      </Td>
-                      <Td>
-                        <div className="flex-row" style={{ justifyContent: 'flex-end' }}>
-                          <Button variant="secondary" size="icon" onClick={() => setModalState({ editing: cliente })} aria-label="Editar">
-                            <Pencil size={15} />
-                          </Button>
-                          <Button variant="danger" size="icon" onClick={() => handleDelete(cliente)} aria-label="Excluir">
-                            <Trash2 size={15} />
-                          </Button>
-                        </div>
-                      </Td>
-                    </tr>
-                  );
-                })}
+                {linhas.map((linha) =>
+                  linha.tipo === 'grupo'
+                    ? renderLinhaGrupo(linha)
+                    : renderLinhaCliente(linha.cliente)
+                )}
               </tbody>
             </table>
           </div>

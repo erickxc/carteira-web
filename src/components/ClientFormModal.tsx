@@ -4,6 +4,7 @@ import { useCarteira } from '../context/CarteiraContext';
 import { toastError } from '../utils/toast';
 import { ModalShell } from './ModalShell';
 import { DIAS_SEMANA } from '../utils/diasSemana';
+import { ehLojaPrincipal, lojaPrincipal } from '../utils/gruposLojas';
 import { Badge, Button, Chip, Field, Input, SecaoLabel, Select, Textarea } from '../ui';
 import {
   TIPO_ANALISE_LABEL, UNIDADE_CADENCIA_LABEL, CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES,
@@ -18,7 +19,14 @@ interface ClientFormModalProps {
 }
 
 export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
-  const { criarCliente, criarClientesEmLote, atualizarCliente, opcoesPorTipo, categoriasPorTipo } = useCarteira();
+  const { clientes, criarCliente, criarClientesEmLote, atualizarCliente, opcoesPorTipo, categoriasPorTipo } = useCarteira();
+  // Links de Power BI (e a credencial do Price) só são editados pela loja
+  // PRINCIPAL do grupo (a mais antiga) — as outras lojas da mesma rede
+  // reaproveitam os da principal na tela de listagem (ver gruposLojas.ts,
+  // AcessosExternosButton). Sem grupo, o cliente é sempre "principal" de
+  // si mesmo, então isso não muda nada pra cadastro avulso.
+  const ehPrincipal = !initial || ehLojaPrincipal(initial, clientes);
+  const nomePrincipalDoGrupo = initial?.grupo && !ehPrincipal ? lojaPrincipal(initial.grupo, clientes)?.empresa : undefined;
   const servicoOpcoes = opcoesPorTipo('servico');
   const statusOpcoes = [...CLIENTE_STATUS_OPCOES];
   const monitorOpcoes = opcoesPorTipo('monitor');
@@ -329,6 +337,21 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
             {(() => {
               const servicosPowerBI = categoriasPorTipo('servico').filter((c) => c.tipoLink === 'powerbi' && servicos.includes(c.valor));
               if (servicosPowerBI.length === 0) return null;
+              // Loja que não é a principal do grupo: os links (e o botão de
+              // acesso na listagem) vêm da principal, não daqui — editar
+              // nesta tela não teria efeito nenhum na tabela, então nem
+              // mostra o campo (evitava confusão: usuário editava aqui e o
+              // botão de acesso continuava mostrando o link antigo).
+              if (!ehPrincipal) {
+                return (
+                  <Field as="div" label="Links PowerBI">
+                    <p className="text-[0.8rem] text-text-muted" style={{ margin: 0 }}>
+                      Esta loja faz parte do grupo "{initial?.grupo}" — os links de acesso ficam cadastrados em{' '}
+                      <strong>{nomePrincipalDoGrupo}</strong> (a loja mais antiga do grupo), não aqui.
+                    </p>
+                  </Field>
+                );
+              }
               return (
                 <Field as="div" label={<>Links PowerBI <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· um por serviço, vira botão de acesso no cadastro</span></>}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
