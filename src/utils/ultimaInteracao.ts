@@ -1,32 +1,19 @@
-import { parseISO } from 'date-fns';
+import * as motor from '../../shared/cadenciaServico.cjs';
 import type { Acao, EventoAgenda } from '../types';
 
 /**
- * Última interação por cliente = reunião de agenda OU ação concluída mais
- * recente (registrar uma ação conta como contato, não só reunião — regra de
- * negócio central do acompanhamento). Usado por AcoesPage e DashboardPage;
- * antes duplicado em ambos com thresholds/filtros indo aos poucos divergindo.
+ * Última interação por cliente — motor mora em `shared/cadenciaServico.cjs`
+ * (compartilhado com o backend desde 04/09/2026; ver o comentário de topo
+ * daquele arquivo). Esta função já foi um `.cjs` separado no backend com uma
+ * regra sutilmente DIFERENTE (excluía reunião Cancelada/Reagendada da
+ * "última interação" — divergência real, silenciosa, encontrada só ao
+ * unificar); a versão única adota este comportamento (conta Cancelado como
+ * contato), que é o documentado com a razão de negócio.
  */
 export function buildUltimaInteracaoMap(
   agenda: EventoAgenda[],
   acoes: Acao[],
   opts?: { now?: Date; isRelevant?: (clientId: string) => boolean }
 ): Map<string, Date> {
-  const now = opts?.now ?? new Date();
-  const isRelevant = opts?.isRelevant ?? (() => true);
-  const m = new Map<string, Date>();
-  const push = (cid: string, d: Date) => {
-    if (!isRelevant(cid) || isNaN(d.getTime()) || d > now) return;
-    const cur = m.get(cid);
-    if (!cur || d > cur) m.set(cid, d);
-  };
-  // Cancelado/Reagendado TAMBÉM conta como contato: a reunião em si não
-  // aconteceu, mas cancelar ou reagendar sempre envolveu falar com o cliente
-  // — por isso o motivo é obrigatório nos dois casos (ver `EventFormModal`).
-  // O que este mapa mede é "quando falamos com o cliente por último", não
-  // "quando a reunião de fato aconteceu" (essa é outra métrica — ver
-  // `ultimaReuniao` em `ClientesPage.tsx`, que continua excluindo os dois).
-  agenda.forEach((a) => push(a.clientId, parseISO(a.date)));
-  acoes.filter((a) => a.status === 'concluido').forEach((a) => push(a.clientId, parseISO(a.dueAt || a.updatedAt || a.createdAt)));
-  return m;
+  return motor.buildUltimaInteracaoMap(agenda, acoes, opts);
 }

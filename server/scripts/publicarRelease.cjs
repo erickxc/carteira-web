@@ -72,6 +72,16 @@ function verificarDepsDoServidor(raiz = RAIZ) {
       }
     }
   })(path.join(raiz, 'server'));
+  // `shared/` viaja na release igual `server/` (ver `publicarRelease`) e é
+  // `require()`ada por ele — mesmo risco de "Cannot find module" na máquina
+  // de destino se algum `.cjs` de lá usar um pacote fora da lista.
+  (function varrer(dir) {
+    for (const nome of fs.readdirSync(dir)) {
+      const completo = path.join(dir, nome);
+      if (fs.statSync(completo).isDirectory()) varrer(completo);
+      else if (nome.endsWith('.cjs')) arquivos.push(completo);
+    }
+  })(path.join(raiz, 'shared'));
   arquivos.push(path.join(raiz, 'server.cjs'), path.join(raiz, 'inicio.cjs'));
 
   const faltando = new Set();
@@ -192,6 +202,14 @@ function publicarRelease() {
   try {
     fs.cpSync(path.join(RAIZ, 'dist'), path.join(tmpDir, 'dist'), { recursive: true });
     fs.cpSync(path.join(RAIZ, 'server'), path.join(tmpDir, 'server'), { recursive: true });
+    // Motor de cadência compartilhado entre frontend (build já embutido em
+    // dist/) e backend — `server/dominio/cadenciaServico.cjs` faz
+    // `require('../../shared/cadenciaServico.cjs')`, caminho relativo que
+    // exige essa pasta como IRMÃ de `server/` no pacote publicado, igual é
+    // no repositório. Esquecer isso aqui quebraria só na máquina de destino
+    // ("Cannot find module"), nunca localmente (onde `shared/` já existe na
+    // raiz do projeto).
+    fs.cpSync(path.join(RAIZ, 'shared'), path.join(tmpDir, 'shared'), { recursive: true });
     fs.copyFileSync(path.join(RAIZ, 'server.cjs'), path.join(tmpDir, 'server.cjs'));
     // Entrypoint do app instalado (bandeja + servidor) e o ícone que ela usa.
     // Ambos precisam viajar no `.zip`: é justamente por estarem aqui, e não

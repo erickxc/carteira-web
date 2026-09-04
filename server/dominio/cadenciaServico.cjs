@@ -1,215 +1,27 @@
 const { differenceInCalendarDays, parseISO } = require('date-fns');
+const motor = require('../../shared/cadenciaServico.cjs');
 
 /**
- * Porta pro backend de `src/utils/cadenciaServico.ts` + `isClienteAtivo`
- * (`src/utils/formatters.ts`) + `buildUltimaInteracaoMap`
- * (`src/utils/ultimaInteracao.ts`) — só o necessário pra ferramenta
- * `buscar_fila_priorizacao` (`server/ia/tools.cjs`) responder "% em dia"
- * sem o agente inventar o número (era recusado antes por não existir
- * ferramenta nenhuma pra essa métrica).
+ * Consumidores backend-only do motor de cadência compartilhado
+ * (`shared/cadenciaServico.cjs`) — cálculos que só existem aqui porque só a
+ * ferramenta `buscar_fila_priorizacao`/alertas do agente (`server/ia/`)
+ * precisa deles; o Dashboard do frontend tem seu próprio hook
+ * (`src/hooks/useDashboardData.ts`) com os mesmos números calculados de
+ * outro jeito (documentado caso a caso abaixo, "Mesmo cálculo do card X").
  *
- * DUPLICAÇÃO DELIBERADA, não acidental: o app é Vite/React (frontend) +
- * Express/CommonJS (backend), sem um pacote compartilhado entre os dois hoje
- * — importar `.ts` de dentro de `.cjs` não é trivial nesse setup. Mesmo
- * padrão já usado em `server/routes/atualizacao.cjs` (`versaoMaiorQue`
- * duplicada de `launcher/atualizar.cjs`, comentário lá explica o motivo).
- *
- * Se `cadenciaServico.ts` mudar a fórmula de aderência, esta cópia PRECISA
- * mudar junto — senão o agente de chat e a Visão Geral divergem no mesmo
- * número, o que é pior do que o agente recusar a pergunta.
+ * Até 04/09/2026 este arquivo era uma PORTA duplicada de
+ * `src/utils/cadenciaServico.ts` inteiro (motor + estes wrappers, 412
+ * linhas) — motivo e histórico da unificação estão no comentário de topo de
+ * `shared/cadenciaServico.cjs`.
  */
 
-const STATUS_EM_ATENDIMENTO = /^(ativo|regular|gratuidade)?$/i;
-const JANELA_VENCENDO = 5;
-const PESO_NUNCA = 100000;
+const {
+  isClienteAtivo, buildUltimaInteracaoMap, buildFilaCadencia, classificarCadencia,
+  contatoRecenteNaoRefletido, rotuloRelogio, listaJSON,
+  temServico, ehIndependente, ehToqueMonitoria, ehToquePrice, calcularRelogio, relatorioCadenciaEmDias,
+} = motor;
 
-/**
- * `Clientes.servicos`/`servicosIndependentes` chegam DUPLAMENTE serializados
- * em produção hoje (achado real, não hipotético): o frontend faz
- * `JSON.stringify` antes de enviar (herdado da era Excel/SheetJS), e o motor
- * SQLite (`dbSqlite.cjs`) faz `JSON.stringify`/`JSON.parse` automático em
- * TODA coluna — o resultado é uma string com o array já serializado dentro
- * (`'["Monitoria"]'`), não o array. O frontend disfarça isso silenciosamente
- * (`parseListaJSON` em `src/api/client.ts` reprocessa a string); esta cópia
- * do backend não tinha essa camada e quebrava com "some is not a function" na
- * maioria dos clientes reais. Mesmo remendo aqui — a causa raiz (dupla
- * serialização) é maior e fica pra outra hora, não pra esta função.
- */
-function listaJSON(raw) {
-  if (Array.isArray(raw)) return raw;
-  if (typeof raw === 'string' && raw.trim()) {
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-  return [];
-}
-
-function isClienteAtivo(cliente) {
-  const status = (cliente.status || '').trim();
-  if (cliente.estado) return /^ativo$/i.test(cliente.estado.trim()) && STATUS_EM_ATENDIMENTO.test(status);
-  return /^(ativ|gratuidade)/i.test(status);
-}
-
-function buildUltimaInteracaoMap(agenda, acoes, opts = {}) {
-  const now = opts.now ?? new Date();
-  const m = new Map();
-  const push = (cid, d) => {
-    if (isNaN(d.getTime()) || d > now) return;
-    const cur = m.get(cid);
-    if (!cur || d > cur) m.set(cid, d);
-  };
-  agenda.filter((a) => !/cancel|reagend/i.test(a.status || '')).forEach((a) => push(a.clientId, parseISO(a.date)));
-  acoes.filter((a) => a.status === 'concluido').forEach((a) => push(a.clientId, parseISO(a.dueAt || a.updatedAt || a.createdAt)));
-  return m;
-}
-
-function temServico(c, re, flag) {
-  return listaJSON(c.servicos).some((s) => re.test(s)) || Boolean(c[flag]);
-}
-function ehIndependente(c, re) {
-  return listaJSON(c.servicosIndependentes).some((s) => re.test(s));
-}
-const naoCancelado = (a) => !/cancel|reagend/i.test(a.status || '');
-function ehToqueMonitoria(a) {
-  if (!/reuni/i.test(a.type || '')) return false;
-  const s = listaJSON(a.servicos);
-  return s.length === 0 || s.some((x) => /monitor/i.test(x));
-}
-function ehToquePrice(a) {
-  if (/precific/i.test(a.type || '')) return true;
-  if (!/reuni|relat/i.test(a.type || '')) return false;
-  return listaJSON(a.servicos).some((x) => /(price|prec)/i.test(x));
-}
-
-function calcularProximoPorServico(eventos, ehToque, now) {
-  let proximo = null;
-  for (const a of eventos) {
-    if (!naoCancelado(a) || !ehToque(a)) continue;
-    const d = parseISO(a.date);
-    if (isNaN(d.getTime()) || d <= now) continue;
-    if (!proximo || d < proximo) proximo = d;
-  }
-  return proximo;
-}
-
-function calcularRelogio(servico, eventos, ehToque, cadencia, now, desde, janelaVencendo = JANELA_VENCENDO, toquesExtras = []) {
-  let ultimo = null;
-  for (const a of eventos) {
-    if (!naoCancelado(a) || !ehToque(a)) continue;
-    const d = parseISO(a.date);
-    if (isNaN(d.getTime()) || d > now) continue;
-    if (!ultimo || d > ultimo) ultimo = d;
-  }
-  for (const d of toquesExtras) {
-    if (isNaN(d.getTime()) || d > now) continue;
-    if (!ultimo || d > ultimo) ultimo = d;
-  }
-  const proximo = calcularProximoPorServico(eventos, ehToque, now);
-
-  let statusReal, atrasoReal;
-  if (!ultimo) {
-    statusReal = 'nunca';
-    const referencia = !isNaN(desde.getTime()) ? desde : now;
-    atrasoReal = differenceInCalendarDays(now, referencia) - cadencia;
-  } else {
-    atrasoReal = differenceInCalendarDays(now, ultimo) - cadencia;
-    statusReal = atrasoReal > 0 ? 'vencido' : atrasoReal > -janelaVencendo ? 'vencendo' : 'em_dia';
-  }
-
-  let status, atraso;
-  if (proximo) {
-    status = 'coberto';
-    atraso = -PESO_NUNCA;
-  } else {
-    status = statusReal;
-    atraso = atrasoReal;
-  }
-  return { servico, cadencia, ultimo, proximo, atraso, status, statusReal, atrasoReal };
-}
-
-function contatoRecenteNaoRefletido(relogios, ultimoContato) {
-  if (!ultimoContato) return false;
-  const ultimoToqueRelogio = relogios && relogios.length > 0
-    ? Math.max(...relogios.map((r) => r.ultimo?.getTime() ?? 0))
-    : 0;
-  return ultimoContato.getTime() > ultimoToqueRelogio;
-}
-
-const RANK_SEVERIDADE = { vencido: 0, vencendo: 1, em_dia: 2 };
-
-function classificarCadencia(f) {
-  if (f.relogios.some((r) => r.status === 'vencido' || r.status === 'nunca')) return 'vencido';
-  if (f.relogios.some((r) => r.status === 'vencendo')) return 'vencendo';
-  return 'em_dia';
-}
-
-function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(), opts = {}) {
-  const monDias = Number(cadencias?.monitoria_dias) || 30;
-  const priceDias = Number(cadencias?.price_dias) || 30;
-
-  const porCliente = new Map();
-  agenda.forEach((a) => {
-    if (!porCliente.has(a.clientId)) porCliente.set(a.clientId, []);
-    porCliente.get(a.clientId).push(a);
-  });
-
-  const acoesPricePorCliente = new Map();
-  acoes.forEach((a) => {
-    if (a.tipo !== 'price' || a.status !== 'concluido') return;
-    const d = parseISO(a.dueAt || a.updatedAt || a.createdAt);
-    if (!acoesPricePorCliente.has(a.clientId)) acoesPricePorCliente.set(a.clientId, []);
-    acoesPricePorCliente.get(a.clientId).push(d);
-  });
-  const acoesRelatorioPorCliente = new Map();
-  acoes.forEach((a) => {
-    if (a.tipo !== 'relatorio' || a.status !== 'concluido') return;
-    const d = parseISO(a.dueAt || a.updatedAt || a.createdAt);
-    if (!acoesRelatorioPorCliente.has(a.clientId)) acoesRelatorioPorCliente.set(a.clientId, []);
-    acoesRelatorioPorCliente.get(a.clientId).push(d);
-  });
-
-  const out = [];
-  for (const c of clientes) {
-    if (!isClienteAtivo(c)) continue;
-    const evs = porCliente.get(c.id) ?? [];
-    const desde = c.createdAt ? parseISO(c.createdAt) : now;
-
-    const todosRelogios = [];
-    if (temServico(c, /monitor/i, 'monitoria') && !ehIndependente(c, /monitor/i)) {
-      todosRelogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, desde, JANELA_VENCENDO, acoesRelatorioPorCliente.get(c.id) ?? []));
-    }
-    if (temServico(c, /(price|prec)/i, 'price') && !ehIndependente(c, /(price|prec)/i)) {
-      todosRelogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now, desde, JANELA_VENCENDO, acoesPricePorCliente.get(c.id) ?? []));
-    }
-    const relogios = opts.servico ? todosRelogios.filter((r) => r.servico === opts.servico) : todosRelogios;
-    if (relogios.length === 0) continue;
-    const score = Math.max(...relogios.map((r) => r.atraso));
-    const precisaAcao = relogios.some((r) => r.status === 'vencido' || r.status === 'vencendo' || r.status === 'nunca');
-    out.push({ cliente: c, relogios, score, precisaAcao });
-  }
-
-  const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now });
-  const qtdRuins = (f) => f.relogios.filter((r) => r.status === 'vencido' || r.status === 'vencendo' || r.status === 'nunca').length;
-  return out.sort((a, b) => {
-    const rankA = RANK_SEVERIDADE[classificarCadencia(a)];
-    const rankB = RANK_SEVERIDADE[classificarCadencia(b)];
-    if (rankA !== rankB) return rankA - rankB;
-    const qtdA = qtdRuins(a);
-    const qtdB = qtdRuins(b);
-    if (qtdA !== qtdB) return qtdB - qtdA;
-    const ultimoA = ultimaInteracaoMap.get(a.cliente.id) ?? null;
-    const ultimoB = ultimaInteracaoMap.get(b.cliente.id) ?? null;
-    const recA = contatoRecenteNaoRefletido(a.relogios, ultimoA);
-    const recB = contatoRecenteNaoRefletido(b.relogios, ultimoB);
-    if (recA !== recB) return recA ? 1 : -1;
-    if (recA && recB) return (ultimoA?.getTime() ?? 0) - (ultimoB?.getTime() ?? 0);
-    return b.score - a.score;
-  });
-}
+function ehToqueRelatorio(a) { return /relat/i.test(a.type || ''); }
 
 /**
  * Mesmo cálculo do card "Aderência" da Visão Geral
@@ -255,34 +67,6 @@ function calcularAderencia(clientes, agenda, acoes, cadencias, now = new Date(),
     precisaContatoClientes: precisa.map((f) => f.cliente.empresa).sort(),
   };
 }
-
-/** Porta de `rotuloRelogio` (`cadenciaServico.ts`) — texto curto do relógio,
- *  usado como "motivo" nas sugestões de encaixe. */
-function rotuloRelogio(r) {
-  const curto = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-  switch (r.status) {
-    case 'coberto': return `${r.servico} coberta · ${r.proximo ? curto(r.proximo) : ''}`.trim();
-    case 'nunca': return `${r.servico}: nunca atendido`;
-    case 'vencido': return `${r.servico} vencida há ${r.atraso}d`;
-    case 'vencendo': return `${r.servico} vence em ${Math.max(0, -r.atraso)}d`;
-    default: return `${r.servico} em dia`;
-  }
-}
-
-function relatorioCadenciaEmDias(rc, fallbackDias) {
-  if (!rc || !rc.numero || !rc.unidade) return fallbackDias;
-  const n = rc.numero;
-  switch (rc.unidade) {
-    case 'dia': return n;
-    case 'semana': return n * 7;
-    case 'mes': return n * 30;
-    case 'trimestre': return n * 90;
-    case 'semestre': return n * 180;
-    case 'personalizado': return n * 7;
-    default: return fallbackDias;
-  }
-}
-function ehToqueRelatorio(a) { return /relat/i.test(a.type || ''); }
 
 /**
  * Porta de `buildVencendoDashboard` (`cadenciaServico.ts`) — cálculo PRÓPRIO
@@ -406,7 +190,10 @@ function buscarAlertasSemAcompanhamento(clientes, agenda, acoes, now = new Date(
 }
 
 module.exports = {
+  // Reexportado do motor compartilhado — mesma interface pública de antes,
+  // pra nenhum `require('../dominio/cadenciaServico.cjs')` existente precisar mudar.
   isClienteAtivo, buildUltimaInteracaoMap, buildFilaCadencia, classificarCadencia, contatoRecenteNaoRefletido,
-  calcularAderencia, listaJSON, buscarVencendo, buscarCobertura, buscarCoberturaServicos, buscarAlertasSemAcompanhamento,
-  rotuloRelogio,
+  listaJSON, rotuloRelogio,
+  // Específico do backend.
+  calcularAderencia, buscarVencendo, buscarCobertura, buscarCoberturaServicos, buscarAlertasSemAcompanhamento,
 };
