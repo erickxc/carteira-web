@@ -8,6 +8,12 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.19
+
+- Corrigido: em máquinas diferentes da principal, abrir o Price podia dar erro
+  ("PRICE_CREDENCIAIS_CHAVE não configurada"). Agora a chave é configurada
+  sozinha automaticamente, sem precisar mexer em nada máquina por máquina.
+
 ## 1.4.17
 
 - **Fila de Ações agora também considera o risco do dossiê do monitorIA.**
