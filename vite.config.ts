@@ -23,4 +23,16 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
   },
+  optimizeDeps: {
+    // `carteira-shared` (`shared/cadenciaServico.cjs`, motor de cadência
+    // compartilhado com o backend) é um pacote LINKADO via `file:` no
+    // package.json, não um pacote de verdade baixado do npm — o Vite, por
+    // padrão, NÃO pré-empacota pacotes linkados (assume que é código-fonte
+    // do próprio projeto, quer edição ao vivo sem passar pelo otimizador).
+    // Sem isso, `npm run dev` servia o `.cjs` cru pro navegador — que não
+    // entende CommonJS nativamente — e a tela ficava em branco com
+    // "SyntaxError: does not provide an export named...". `npm run build`
+    // nunca teve esse problema (usa Rollup, que converte CJS→ESM sempre).
+    include: ['carteira-shared/cadenciaServico.cjs'],
+  },
 });

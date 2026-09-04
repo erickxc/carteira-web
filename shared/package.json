@@ -1,0 +1,7 @@
+{
+  "name": "carteira-shared",
+  "private": true,
+  "version": "1.0.0",
+  "main": "cadenciaServico.cjs",
+  "types": "cadenciaServico.d.cts"
+}

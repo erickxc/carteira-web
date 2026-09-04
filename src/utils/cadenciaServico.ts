@@ -1,5 +1,5 @@
 import { parseISO } from 'date-fns';
-import * as motor from '../../shared/cadenciaServico.cjs';
+import * as motor from 'carteira-shared/cadenciaServico.cjs';
 import { isClienteAtivo } from './formatters';
 import type { Acao, Cadencias, Cliente, EventoAgenda } from '../types';
 

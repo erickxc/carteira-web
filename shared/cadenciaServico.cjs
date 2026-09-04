@@ -396,11 +396,30 @@ function rotuloRelogio(r) {
   }
 }
 
-module.exports = {
-  STATUS_EM_ATENDIMENTO, JANELA_VENCENDO, PESO_NUNCA,
-  listaJSON, isClienteAtivo, buildUltimaInteracaoMap,
-  temServico, ehIndependente, naoCancelado,
-  ehToqueMonitoria, ehToquePrice, ehToqueRelatorio, relatorioCadenciaEmDias,
-  calcularProximoPorServico, calcularRelogio, contatoRecenteNaoRefletido,
-  classificarCadencia, buildFilaCadencia, rotuloRelogio,
-};
+// Atribuições INDIVIDUAIS de propósito, não um único `module.exports = {...}`
+// — o analisador estático de export do Vite (aplicado a `.cjs` fora de
+// node_modules, importado com `import { nome } from '...cjs'`) não detectava
+// de forma confiável exports dentro de um objeto único, mesmo no formato
+// shorthand padrão (bug real: `import { isClienteAtivo } from
+// '.../cadenciaServico.cjs'` quebrava só em `npm run dev`, nunca em
+// `npm run build` — o build usa Rollup, que analisa diferente). Cada
+// `exports.x = x` é reconhecido individualmente, sem essa fragilidade.
+exports.STATUS_EM_ATENDIMENTO = STATUS_EM_ATENDIMENTO;
+exports.JANELA_VENCENDO = JANELA_VENCENDO;
+exports.PESO_NUNCA = PESO_NUNCA;
+exports.listaJSON = listaJSON;
+exports.isClienteAtivo = isClienteAtivo;
+exports.buildUltimaInteracaoMap = buildUltimaInteracaoMap;
+exports.temServico = temServico;
+exports.ehIndependente = ehIndependente;
+exports.naoCancelado = naoCancelado;
+exports.ehToqueMonitoria = ehToqueMonitoria;
+exports.ehToquePrice = ehToquePrice;
+exports.ehToqueRelatorio = ehToqueRelatorio;
+exports.relatorioCadenciaEmDias = relatorioCadenciaEmDias;
+exports.calcularProximoPorServico = calcularProximoPorServico;
+exports.calcularRelogio = calcularRelogio;
+exports.contatoRecenteNaoRefletido = contatoRecenteNaoRefletido;
+exports.classificarCadencia = classificarCadencia;
+exports.buildFilaCadencia = buildFilaCadencia;
+exports.rotuloRelogio = rotuloRelogio;

@@ -1,4 +1,4 @@
-import * as motor from '../../shared/cadenciaServico.cjs';
+import * as motor from 'carteira-shared/cadenciaServico.cjs';
 import type { Acao, EventoAgenda } from '../types';
 
 /**

@@ -1,4 +1,4 @@
-import { isClienteAtivo as isClienteAtivoMotor } from '../../shared/cadenciaServico.cjs';
+import { isClienteAtivo as isClienteAtivoMotor } from 'carteira-shared/cadenciaServico.cjs';
 
 export function truthy(value: unknown): boolean {
   if (typeof value === 'boolean') return value;
