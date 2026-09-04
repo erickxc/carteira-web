@@ -44,6 +44,13 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   // mexer na senha atual" (ver server/routes/clients.cjs, prepararPatchPrice);
   // `temSenhaPrice` é só o que diz se já existe uma, pro placeholder.
   const [senhaPrice, setSenhaPrice] = useState('');
+  // true = ao salvar, apaga login+senha do Price de vez (envia `senhaPrice:
+  // null`, que o backend trata como remoção explícita — ver prepararPatchPrice).
+  // Existe porque limpar só o campo Login não bastava pra remover o acesso:
+  // a senha continuava guardada (campo de senha vazio = "não mexer"), então
+  // o botão de abrir o Price seguia funcionando com a senha antiga mesmo com
+  // o login em branco na tela — reportado como bug real.
+  const [removerCredencialPrice, setRemoverCredencialPrice] = useState(false);
   const [tipoAnalise, setTipoAnalise] = useState<TipoAnalise>(initial?.tipoAnalise ?? 'unitaria');
   const [lojas, setLojas] = useState<string[]>([]);
   const [novaLoja, setNovaLoja] = useState('');
@@ -115,7 +122,8 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
       } else if (editando) {
         await atualizarCliente(initial.id, {
           empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, tipoAnalise, relatorioCadencia,
-          loginPrice, senhaPrice: senhaPrice.trim() || undefined,
+          loginPrice: removerCredencialPrice ? '' : loginPrice,
+          senhaPrice: removerCredencialPrice ? null : (senhaPrice.trim() || undefined),
         });
       } else if (tipoAnalise === 'segmentado') {
         if (lojasFinais.length === 0) { toastError('Adicione ao menos uma loja para a análise segmentada.'); setSaving(false); return; }
@@ -355,19 +363,43 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                   <Input
                     tone="modal"
                     placeholder="Login"
-                    value={loginPrice}
+                    value={removerCredencialPrice ? '' : loginPrice}
                     onChange={(e) => setLoginPrice(e.target.value)}
+                    disabled={removerCredencialPrice}
                     style={{ flex: 1 }}
                   />
                   <Input
                     tone="modal"
                     type="password"
-                    placeholder={initial?.temSenhaPrice ? '•••••• (senha já salva — deixe em branco pra manter)' : 'Senha'}
+                    placeholder={removerCredencialPrice ? 'será removida' : initial?.temSenhaPrice ? '•••••• (senha já salva — deixe em branco pra manter)' : 'Senha'}
                     value={senhaPrice}
                     onChange={(e) => setSenhaPrice(e.target.value)}
+                    disabled={removerCredencialPrice}
                     style={{ flex: 1 }}
                   />
                 </div>
+                {/* Limpar só o campo Login não apagava a credencial — a senha
+                    continuava guardada (campo vazio = "não mexer"), então o
+                    acesso ao Price seguia funcionando com a senha antiga
+                    mesmo com o login em branco na tela. Isso é a forma
+                    explícita de remover os dois de vez. */}
+                {initial?.temSenhaPrice && (
+                  removerCredencialPrice ? (
+                    <p className="text-[0.78rem] text-danger" style={{ marginTop: 4 }}>
+                      Login e senha do Price serão removidos ao salvar.{' '}
+                      <button type="button" className="link-button" onClick={() => setRemoverCredencialPrice(false)}>Desfazer</button>
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      className="link-button text-[0.78rem] text-text-muted"
+                      style={{ marginTop: 4 }}
+                      onClick={() => setRemoverCredencialPrice(true)}
+                    >
+                      Remover credencial do Price
+                    </button>
+                  )
+                )}
               </Field>
             )}
 

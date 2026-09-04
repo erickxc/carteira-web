@@ -95,7 +95,12 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
     ...Object.entries(cliente.linksServicos ?? {})
       .filter(([, url]) => url?.trim())
       .map(([label, url]) => ({ label, url: url.trim() })),
-    ...(cliente.temSenhaPrice ? [{ label: PRICE_LABEL }] : []),
+    // As duas condições, não só `temSenhaPrice`: sem checar o serviço, um
+    // cliente que desmarcou "Precificação" do cadastro continuava com a
+    // opção Price no seletor (a senha guardada não é apagada ao desmarcar o
+    // serviço, de propósito — ver ClientFormModal — mas não deveria ficar
+    // oferecendo login automático pra um serviço que o cliente não tem mais).
+    ...(cliente.temSenhaPrice && cliente.servicos?.includes('Precificação') ? [{ label: PRICE_LABEL }] : []),
   ];
 
   useEffect(() => {
