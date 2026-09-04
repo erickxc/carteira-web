@@ -3,6 +3,7 @@ import { Plus, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { toastError } from '../utils/toast';
 import { ModalShell } from './ModalShell';
+import { Dropdown } from './Dropdown';
 import { DIAS_SEMANA } from '../utils/diasSemana';
 import { ehLojaPrincipal, lojaPrincipal } from '../utils/gruposLojas';
 import { Badge, Button, Chip, Field, Input, SecaoLabel, Select, Textarea } from '../ui';
@@ -200,13 +201,19 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                 </Select>
               </Field>
 
-              <Field className="flex-1" label="Segmento">
-                <Select tone="modal" value={local} onChange={(e) => setLocal(e.target.value)}>
-                  <option value="">Não informado</option>
-                  {localOpcoes.map((l) => (
-                    <option key={l} value={l}>{l}</option>
-                  ))}
-                </Select>
+              <Field as="div" className="flex-1" label="Segmento">
+                {/* Dropdown próprio (mesmo componente dos filtros), não
+                    <select> nativo: a lista de opções de um <select> é
+                    desenhada pelo navegador, fora do controle do CSS do
+                    app — abrir mostrava um popup genérico, destoando do
+                    resto da UI (reportado pelo usuário). */}
+                <Dropdown
+                  label="Não informado"
+                  value={local}
+                  defaultValue=""
+                  onChange={(v) => setLocal(v as string)}
+                  options={[{ value: '', label: 'Não informado' }, ...localOpcoes.map((l) => ({ value: l, label: l }))]}
+                />
               </Field>
 
               <Field className="flex-1" label="Linha">
