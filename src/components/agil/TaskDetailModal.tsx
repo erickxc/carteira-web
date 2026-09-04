@@ -6,7 +6,8 @@ import { useCarteira } from '../../context/CarteiraContext';
 import { toastError } from '../../utils/toast';
 import { confirmDialog } from '../../utils/confirmDialog';
 import { ModalShell } from '../ModalShell';
-import { Badge, Button, Chip, Field, Input, Select, Textarea } from '../../ui';
+import { Badge, Button, Chip, Field, Input, Textarea } from '../../ui';
+import { SelectField } from '../SelectField';
 import type { AgilColuna, AgilSwimlane, AgilTarefa } from '../../types';
 import { SubtarefasTab } from './SubtarefasTab';
 import { ComentariosTab } from './ComentariosTab';
@@ -201,12 +202,13 @@ export function TaskDetailModal({ boardId, colunas, swimlanes, initial, initialC
         {/* Coluna direita: campos estruturados — igual ao "Card Fields" de
             referência (Kanbanize/Businessmap), tudo visível de uma vez. */}
         <div className="flex flex-col gap-3 min-w-0">
-          <Field label="Prioridade">
-            <Select tone="modal" value={prioridade} onChange={(e) => setPrioridade(e.target.value)}>
-              <option value="">Nenhuma</option>
-              {prioridadeOpcoes.map((p) => <option key={p} value={p}>{p}</option>)}
-            </Select>
-          </Field>
+          <SelectField
+            label="Prioridade"
+            placeholder="Nenhuma"
+            value={prioridade}
+            onChange={setPrioridade}
+            options={[{ value: '', label: 'Nenhuma' }, ...prioridadeOpcoes.map((p) => ({ value: p, label: p }))]}
+          />
 
           <Field as="div" label="Responsável(is)">
             {monitorOpcoes.length === 0 ? (
@@ -224,32 +226,36 @@ export function TaskDetailModal({ boardId, colunas, swimlanes, initial, initialC
             <Input tone="modal" type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
           </Field>
 
-          <Field label="Cliente vinculado">
-            <Select tone="modal" value={clientId} onChange={(e) => setClientId(e.target.value)}>
-              <option value="">Nenhum</option>
-              {clientes.map((c) => <option key={c.id} value={c.id}>{c.empresa}</option>)}
-            </Select>
-          </Field>
+          <SelectField
+            label="Cliente vinculado"
+            placeholder="Nenhum"
+            value={clientId}
+            onChange={setClientId}
+            options={[{ value: '', label: 'Nenhum' }, ...clientes.map((c) => ({ value: c.id, label: c.empresa }))]}
+          />
 
-          <Field label="Coluna">
-            <Select tone="modal" value={colunaId} onChange={(e) => setColunaId(e.target.value)} required>
-              {folhas.map((c) => <option key={c.id} value={c.id}>{rotuloPorFolha.get(c.id) ?? c.titulo}</option>)}
-            </Select>
-          </Field>
+          <SelectField
+            label="Coluna"
+            value={colunaId}
+            onChange={setColunaId}
+            options={folhas.map((c) => ({ value: c.id, label: rotuloPorFolha.get(c.id) ?? c.titulo }))}
+          />
 
-          <Field label="Swimlane">
-            <Select tone="modal" value={swimlaneId} onChange={(e) => setSwimlaneId(e.target.value)} required>
-              {swimlanes.map((s) => <option key={s.id} value={s.id}>{s.titulo}</option>)}
-            </Select>
-          </Field>
+          <SelectField
+            label="Swimlane"
+            value={swimlaneId}
+            onChange={setSwimlaneId}
+            options={swimlanes.map((s) => ({ value: s.id, label: s.titulo }))}
+          />
 
           {iniciativasCandidatas.length > 0 && (
-            <Field label="Iniciativa vinculada">
-              <Select tone="modal" value={iniciativaId} onChange={(e) => setIniciativaId(e.target.value)}>
-                <option value="">Nenhuma</option>
-                {iniciativasCandidatas.map((t) => <option key={t.id} value={t.id}>{t.titulo}</option>)}
-              </Select>
-            </Field>
+            <SelectField
+              label="Iniciativa vinculada"
+              placeholder="Nenhuma"
+              value={iniciativaId}
+              onChange={setIniciativaId}
+              options={[{ value: '', label: 'Nenhuma' }, ...iniciativasCandidatas.map((t) => ({ value: t.id, label: t.titulo }))]}
+            />
           )}
 
           <Field label="Etiquetas" as="div">

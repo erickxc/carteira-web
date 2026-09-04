@@ -7,7 +7,8 @@ import {
   verificarStatusAtualizacao, aplicarAtualizacao, verificarStatusBase, type StatusAtualizacao,
   verificarIniciarComWindows, definirIniciarComWindows, type StatusIniciarComWindows,
 } from '../api/client';
-import { Badge, Button, Card, Field, Input, Select, Textarea } from '../ui';
+import { Badge, Button, Card, Field, Input, Textarea } from '../ui';
+import { Dropdown } from '../components/Dropdown';
 import { corDoServico } from '../utils/corServico';
 import ProvedorIACard from '../components/config/ProvedorIACard';
 import LimiteContaCard from '../components/config/LimiteContaCard';
@@ -156,9 +157,15 @@ function ModelosCard() {
 
       <Field as="div" className="mb-2" label={<span style={{ fontSize: 13, fontWeight: 600 }}>{editando ? 'Editando modelo' : 'Novo modelo'}</span>}>
         <div className="flex-row" style={{ gap: 8, marginBottom: 8 }}>
-          <Select value={novoSeg} onChange={(e) => setNovoSeg(e.target.value as Segmento)} style={{ maxWidth: 160 }}>
-            {SEGMENTOS.map((s) => <option key={s} value={s}>{SEGMENTO_LABEL[s]}</option>)}
-          </Select>
+          <div style={{ maxWidth: 160 }}>
+            <Dropdown
+              variant="campo"
+              label="Segmento"
+              value={novoSeg}
+              onChange={(v) => setNovoSeg(v as Segmento)}
+              options={SEGMENTOS.map((s) => ({ value: s, label: SEGMENTO_LABEL[s] }))}
+            />
+          </div>
           <Input placeholder="Título" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
         </div>
         <Textarea rows={4} placeholder="Conteúdo do material..." value={conteudo} onChange={(e) => setConteudo(e.target.value)} />
@@ -330,15 +337,19 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
                       </Button>
                     )}
                     <span className="text-text-muted" style={{ fontSize: 11, textTransform: 'none', letterSpacing: 'normal', flexShrink: 0, marginLeft: 8 }}>Tipo de link:</span>
-                    <Select
-                      value={cat.tipoLink ?? ''}
-                      onChange={(e) => definirTipoLinkInline(cat, e.target.value as '' | TipoLinkServico)}
-                      style={{ maxWidth: 170 }}
-                    >
-                      <option value="">Sem link</option>
-                      <option value="powerbi">PowerBI (por cliente)</option>
-                      <option value="aplicacao">Aplicação (link único)</option>
-                    </Select>
+                    <div style={{ maxWidth: 170 }}>
+                      <Dropdown
+                        variant="campo"
+                        label="Sem link"
+                        value={cat.tipoLink ?? ''}
+                        onChange={(v) => definirTipoLinkInline(cat, v as '' | TipoLinkServico)}
+                        options={[
+                          { value: '', label: 'Sem link' },
+                          { value: 'powerbi', label: 'PowerBI (por cliente)' },
+                          { value: 'aplicacao', label: 'Aplicação (link único)' },
+                        ]}
+                      />
+                    </div>
                     {cat.tipoLink === 'aplicacao' && (
                       <Input
                         type="url"
@@ -370,11 +381,19 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
         </div>
         {tipo === 'servico' && novoValor.trim() && (
           <div className="flex-row" style={{ gap: 8 }}>
-            <Select value={novoTipoLink} onChange={(e) => setNovoTipoLink(e.target.value as '' | TipoLinkServico)} style={{ maxWidth: 160 }}>
-              <option value="">Sem link</option>
-              <option value="powerbi">PowerBI (por cliente)</option>
-              <option value="aplicacao">Aplicação (link único)</option>
-            </Select>
+            <div style={{ maxWidth: 160 }}>
+              <Dropdown
+                variant="campo"
+                label="Sem link"
+                value={novoTipoLink}
+                onChange={(v) => setNovoTipoLink(v as '' | TipoLinkServico)}
+                options={[
+                  { value: '', label: 'Sem link' },
+                  { value: 'powerbi', label: 'PowerBI (por cliente)' },
+                  { value: 'aplicacao', label: 'Aplicação (link único)' },
+                ]}
+              />
+            </div>
             {novoTipoLink === 'aplicacao' && (
               <Input
                 type="url"

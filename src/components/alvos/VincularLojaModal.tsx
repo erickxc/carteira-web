@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ModalShell } from '../ModalShell';
-import { Badge, Button, Field, Select } from '../../ui';
+import { Badge, Button } from '../../ui';
+import { SelectField } from '../SelectField';
 import { toastError, toastSuccess } from '../../utils/toast';
 import {
   buscarSugestoesVinculo, vincularLojaAlvos,
@@ -132,21 +133,14 @@ export function VincularLojaModal({ empresa, onClose, onVinculado }: VincularLoj
               </div>
             )}
 
-            <Field label="Ou escolha manualmente">
-              <div className="flex items-center gap-2">
-                <Select
-                  tone="modal"
-                  value={l.vinculado ?? ''}
-                  disabled={salvandoLoja === l.loja}
-                  onChange={(e) => confirmar(l.loja, e.target.value || null)}
-                >
-                  <option value="">Nenhum / desvincular</option>
-                  {ativos.map((c) => (
-                    <option key={c.id} value={c.id}>{c.empresa}</option>
-                  ))}
-                </Select>
-              </div>
-            </Field>
+            <SelectField
+              label="Ou escolha manualmente"
+              placeholder="Nenhum / desvincular"
+              value={l.vinculado ?? ''}
+              disabled={salvandoLoja === l.loja}
+              onChange={(v) => confirmar(l.loja, v || null)}
+              options={[{ value: '', label: 'Nenhum / desvincular' }, ...ativos.map((c) => ({ value: c.id, label: c.empresa }))]}
+            />
           </div>
         ))}
       </div>

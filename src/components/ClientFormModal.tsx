@@ -3,10 +3,11 @@ import { Plus, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { toastError } from '../utils/toast';
 import { ModalShell } from './ModalShell';
+import { SelectField } from './SelectField';
 import { Dropdown } from './Dropdown';
 import { DIAS_SEMANA } from '../utils/diasSemana';
 import { ehLojaPrincipal, lojaPrincipal } from '../utils/gruposLojas';
-import { Badge, Button, Chip, Field, Input, SecaoLabel, Select, Textarea } from '../ui';
+import { Badge, Button, Chip, Field, Input, SecaoLabel, Textarea } from '../ui';
 import {
   TIPO_ANALISE_LABEL, UNIDADE_CADENCIA_LABEL, CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES,
   type Cliente, type NovoCliente, type RelatorioCadencia, type TipoAnalise, type UnidadeCadenciaRelatorio,
@@ -192,56 +193,52 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
             </Field>
 
             <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
-              <Field className="flex-1" label="Monitor responsável">
-                <Select tone="modal" value={monitor} onChange={(e) => setMonitor(e.target.value)}>
-                  <option value="">Nenhum</option>
-                  {monitorOpcoes.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </Select>
-              </Field>
+              <SelectField
+                className="flex-1"
+                label="Monitor responsável"
+                placeholder="Nenhum"
+                value={monitor}
+                onChange={setMonitor}
+                options={[{ value: '', label: 'Nenhum' }, ...monitorOpcoes.map((m) => ({ value: m, label: m }))]}
+              />
 
-              <Field as="div" className="flex-1" label="Segmento">
-                {/* Dropdown próprio (mesmo componente dos filtros), não
-                    <select> nativo: a lista de opções de um <select> é
-                    desenhada pelo navegador, fora do controle do CSS do
-                    app — abrir mostrava um popup genérico, destoando do
-                    resto da UI (reportado pelo usuário). */}
-                <Dropdown
-                  label="Não informado"
-                  value={local}
-                  defaultValue=""
-                  onChange={(v) => setLocal(v as string)}
-                  options={[{ value: '', label: 'Não informado' }, ...localOpcoes.map((l) => ({ value: l, label: l }))]}
-                />
-              </Field>
+              <SelectField
+                className="flex-1"
+                label="Segmento"
+                placeholder="Não informado"
+                value={local}
+                onChange={setLocal}
+                options={[{ value: '', label: 'Não informado' }, ...localOpcoes.map((l) => ({ value: l, label: l }))]}
+              />
 
-              <Field className="flex-1" label="Linha">
-                <Select tone="modal" value={linha} onChange={(e) => setLinha(e.target.value)}>
-                  <option value="">Não informada</option>
-                  {linhaOpcoes.map((l) => (
-                    <option key={l} value={l}>{l}</option>
-                  ))}
-                </Select>
-              </Field>
+              <SelectField
+                className="flex-1"
+                label="Linha"
+                placeholder="Não informada"
+                value={linha}
+                onChange={setLinha}
+                options={[{ value: '', label: 'Não informada' }, ...linhaOpcoes.map((l) => ({ value: l, label: l }))]}
+              />
             </div>
 
             <SecaoLabel>Situação</SecaoLabel>
 
             <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
-              <Field className="flex-1" label="Status">
-                <Select tone="modal" value={status} onChange={(e) => setStatus(e.target.value)}>
-                  {(statusOpcoes.length ? statusOpcoes : [...CLIENTE_STATUS_OPCOES]).map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </Select>
-              </Field>
+              <SelectField
+                className="flex-1"
+                label="Status"
+                value={status}
+                onChange={setStatus}
+                options={(statusOpcoes.length ? statusOpcoes : [...CLIENTE_STATUS_OPCOES]).map((s) => ({ value: s, label: s }))}
+              />
 
-              <Field className="flex-1" label="Estado">
-                <Select tone="modal" value={estado} onChange={(e) => setEstado(e.target.value)}>
-                  {CLIENTE_ESTADO_OPCOES.map((e) => <option key={e} value={e}>{e}</option>)}
-                </Select>
-              </Field>
+              <SelectField
+                className="flex-1"
+                label="Estado"
+                value={estado}
+                onChange={setEstado}
+                options={CLIENTE_ESTADO_OPCOES.map((e) => ({ value: e, label: e }))}
+              />
             </div>
 
             <SecaoLabel>Serviços</SecaoLabel>
@@ -279,11 +276,17 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
 
             <SecaoLabel>Estrutura</SecaoLabel>
 
-            <Field label="Tipo de análise">
-              <Select tone="modal" value={tipoAnalise} onChange={(e) => setTipoAnalise(e.target.value as TipoAnalise)}>
-                <option value="unitaria">{TIPO_ANALISE_LABEL.unitaria}</option>
-                <option value="segmentado">{TIPO_ANALISE_LABEL.segmentado}</option>
-              </Select>
+            <Field as="div" label="Tipo de análise">
+              <Dropdown
+                variant="campo"
+                label={TIPO_ANALISE_LABEL.unitaria}
+                value={tipoAnalise}
+                onChange={(v) => setTipoAnalise(v as TipoAnalise)}
+                options={[
+                  { value: 'unitaria', label: TIPO_ANALISE_LABEL.unitaria },
+                  { value: 'segmentado', label: TIPO_ANALISE_LABEL.segmentado },
+                ]}
+              />
               {editando && tipoAnalise === 'segmentado' && (
                 <span className="text-text-muted" style={{ fontSize: 11, textTransform: 'none', letterSpacing: 'normal' }}>
                   Adicione lojas abaixo para dividir este cliente em vários (a primeira renomeia o atual; as demais são criadas). Sem lojas, só marca o tipo.
@@ -449,11 +452,13 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                         onChange={(e) => setRelatorioNumero(Number(e.target.value))}
                       />
                     </Field>
-                    <Field className="flex-1" label="Unidade">
-                      <Select tone="modal" value={relatorioUnidade} onChange={(e) => setRelatorioUnidade(e.target.value as UnidadeCadenciaRelatorio)}>
-                        {UNIDADES_CADENCIA.map((u) => (<option key={u} value={u}>{UNIDADE_CADENCIA_LABEL[u]}</option>))}
-                      </Select>
-                    </Field>
+                    <SelectField
+                      className="flex-1"
+                      label="Unidade"
+                      value={relatorioUnidade}
+                      onChange={(v) => setRelatorioUnidade(v as UnidadeCadenciaRelatorio)}
+                      options={UNIDADES_CADENCIA.map((u) => ({ value: u, label: UNIDADE_CADENCIA_LABEL[u] }))}
+                    />
                   </div>
                   {relatorioUnidade === 'personalizado' && (
                     <div>

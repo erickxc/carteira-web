@@ -6,7 +6,8 @@ import { useCarteira } from '../context/CarteiraContext';
 import { buscarAcoesIA, enviarMensagemChatIA, type AlertaIA, type MensagemChatIA, type PadraoCarteira } from '../api/client';
 import { toastError } from '../utils/toast';
 import { usePersistedState } from '../hooks/usePersistedState';
-import { Badge, Button, Card, Select, Textarea } from '../ui';
+import { Badge, Button, Card, Textarea } from '../ui';
+import { Dropdown } from '../components/Dropdown';
 import RespostaIA from '../components/ia/RespostaIA';
 import AlertasIA from '../components/ia/AlertasIA';
 import type { AcaoIA } from '../types';
@@ -273,14 +274,17 @@ export default function AssistenteIAPage() {
             <h3>Conversa</h3>
             <div className="flex items-center gap-2">
               <div style={{ minWidth: 200 }}>
-                <Select tone="modal" value={clienteId} onChange={(e) => setClienteId(e.target.value)}>
-                  {/* "Todos", não "Sem cliente em foco": é o mesmo vocabulário
-                      do filtro de monitor no header, e descreve o efeito real
-                      (o agente pode olhar a carteira inteira) em vez da
-                      mecânica interna (`clientId` vazio). */}
-                  <option value="">Todos</option>
-                  {clientes.map((c) => <option key={c.id} value={c.id}>{c.empresa}</option>)}
-                </Select>
+                {/* "Todos", não "Sem cliente em foco": é o mesmo vocabulário
+                    do filtro de monitor no header, e descreve o efeito real
+                    (o agente pode olhar a carteira inteira) em vez da
+                    mecânica interna (`clientId` vazio). */}
+                <Dropdown
+                  variant="campo"
+                  label="Todos"
+                  value={clienteId}
+                  onChange={(v) => setClienteId(v as string)}
+                  options={[{ value: '', label: 'Todos' }, ...clientes.map((c) => ({ value: c.id, label: c.empresa }))]}
+                />
               </div>
               {/* A conversa agora sobrevive a sair da tela (localStorage), então
                   passa a ser necessário um jeito explícito de começar do zero —

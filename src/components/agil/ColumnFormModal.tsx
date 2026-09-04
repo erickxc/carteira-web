@@ -3,7 +3,8 @@ import { useCarteira } from '../../context/CarteiraContext';
 import { toastError } from '../../utils/toast';
 import { confirmDialog } from '../../utils/confirmDialog';
 import { ModalShell } from '../ModalShell';
-import { Button, Field, Input, Select } from '../../ui';
+import { Button, Field, Input } from '../../ui';
+import { Dropdown } from '../Dropdown';
 import type { AgilColuna } from '../../types';
 
 interface ColumnFormModalProps {
@@ -79,11 +80,15 @@ export function ColumnFormModal({ boardId, initial, parentIdInicial, colunasTopo
         <Input tone="modal" autoFocus value={titulo} onChange={(e) => setTitulo(e.target.value)} required />
       </Field>
 
-      <Field label="Dentro da coluna (opcional)">
-        <Select tone="modal" value={parentId} onChange={(e) => setParentId(e.target.value)} disabled={!podeEscolherPai}>
-          <option value="">Nenhuma — coluna de topo</option>
-          {paisPossiveis.map((c) => <option key={c.id} value={c.id}>{c.titulo}</option>)}
-        </Select>
+      <Field as="div" label="Dentro da coluna (opcional)">
+        <Dropdown
+          variant="campo"
+          label="Nenhuma — coluna de topo"
+          value={parentId}
+          onChange={(v) => setParentId(v as string)}
+          disabled={!podeEscolherPai}
+          options={[{ value: '', label: 'Nenhuma — coluna de topo' }, ...paisPossiveis.map((c) => ({ value: c.id, label: c.titulo }))]}
+        />
         <span className="text-[0.72rem] text-text-muted mt-1 block font-normal">
           {podeEscolherPai
             ? 'Escolher uma coluna aqui transforma esta em sub-coluna dela. As tarefas ficam sempre nas sub-colunas.'

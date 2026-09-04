@@ -4,7 +4,8 @@ import { useCarteira } from '../context/CarteiraContext';
 import { toastError } from '../utils/toast';
 import { linkWhatsApp } from '../utils/whatsapp';
 import { ModalShell } from './ModalShell';
-import { Button, Field, Select, Textarea } from '../ui';
+import { Button, Field, Textarea } from '../ui';
+import { SelectField } from './SelectField';
 import { SEGMENTO_LABEL, type Contato } from '../types';
 
 interface WhatsAppMensagemModalProps {
@@ -63,16 +64,16 @@ export function WhatsAppMensagemModal({ contato, empresa, onClose }: WhatsAppMen
         </>
       }
     >
-      <Field label="Mensagem automática">
-        <Select tone="modal" value={modeloId} onChange={(e) => escolherModelo(e.target.value)}>
-          <option value="">— Sem mensagem (só abrir a conversa) —</option>
-          {modelos.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.titulo} · {SEGMENTO_LABEL[m.segmento]}
-            </option>
-          ))}
-        </Select>
-      </Field>
+      <SelectField
+        label="Mensagem automática"
+        placeholder="— Sem mensagem (só abrir a conversa) —"
+        value={modeloId}
+        onChange={escolherModelo}
+        options={[
+          { value: '', label: '— Sem mensagem (só abrir a conversa) —' },
+          ...modelos.map((m) => ({ value: m.id, label: `${m.titulo} · ${SEGMENTO_LABEL[m.segmento]}` })),
+        ]}
+      />
 
       {modelos.length === 0 && (
         <p className="text-text-muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 8 }}>

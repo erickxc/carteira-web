@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowRight, ArrowUp, Plus, X } from 'lucide-react';
-import { Badge, Button, Field, Input, Select } from '../../ui';
+import { Badge, Button, Field, Input } from '../../ui';
+import { Dropdown } from '../Dropdown';
 import type { BadgeVariant } from '../../ui';
 import { MARGEM_PRECIFICACAO_LABEL, type MargemPrecificacao } from '../../types';
 import type { usePrecificacao } from './usePrecificacao';
@@ -52,11 +53,15 @@ export function PrecificacaoField({ pc }: PrecificacaoFieldProps) {
           onChange={(e) => pc.setProduto(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); pc.addItem(); } }}
         />
-        <Select tone="modal" style={{ width: 130 }} value={pc.margem} onChange={(e) => pc.setMargem(e.target.value as MargemPrecificacao)}>
-          {(Object.keys(MARGEM_PRECIFICACAO_LABEL) as MargemPrecificacao[]).map((m) => (
-            <option key={m} value={m}>{MARGEM_PRECIFICACAO_LABEL[m]}</option>
-          ))}
-        </Select>
+        <div style={{ width: 130 }}>
+          <Dropdown
+            variant="campo"
+            label="Margem"
+            value={pc.margem}
+            onChange={(v) => pc.setMargem(v as MargemPrecificacao)}
+            options={(Object.keys(MARGEM_PRECIFICACAO_LABEL) as MargemPrecificacao[]).map((m) => ({ value: m, label: MARGEM_PRECIFICACAO_LABEL[m] }))}
+          />
+        </div>
         <Button variant="primary" size="icon" onClick={pc.addItem} disabled={!pc.produto.trim()}><Plus size={16} /></Button>
       </div>
     </Field>

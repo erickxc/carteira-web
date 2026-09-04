@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { previewAgendaSerie } from '../../api/client';
-import { Chip, Field, Input, Select } from '../../ui';
+import { Chip, Field, Input } from '../../ui';
+import { SelectField } from '../SelectField';
 import { DIAS_SEMANA } from '../../utils/diasSemana';
 import type { OffsetLembrete } from '../../types';
 import type { useRecorrencia } from './useRecorrencia';
@@ -70,11 +71,13 @@ export function RecorrenciaFields({ rec, baseData }: RecorrenciaFieldsProps) {
       </Field>
 
       {rec.recorrMode === 'semanal' && (
-        <Field className="w-[180px]" label="Toda">
-          <Select tone="modal" value={rec.diaSemana} onChange={(e) => rec.setDiaSemana(Number(e.target.value))}>
-            {DIAS_SEMANA.map((d) => (<option key={d.v} value={d.v}>{d.label}</option>))}
-          </Select>
-        </Field>
+        <SelectField
+          className="w-[180px]"
+          label="Toda"
+          value={String(rec.diaSemana)}
+          onChange={(v) => rec.setDiaSemana(Number(v))}
+          options={DIAS_SEMANA.map((d) => ({ value: String(d.v), label: d.label }))}
+        />
       )}
 
       {rec.recorrMode === 'mensalVezes' && (

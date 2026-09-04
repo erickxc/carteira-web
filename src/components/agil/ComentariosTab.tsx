@@ -3,7 +3,8 @@ import { format, parseISO } from 'date-fns';
 import { Trash2 } from 'lucide-react';
 import { useCarteira } from '../../context/CarteiraContext';
 import { toastError } from '../../utils/toast';
-import { Button, Select, Textarea } from '../../ui';
+import { Button, Textarea } from '../../ui';
+import { Dropdown } from '../Dropdown';
 
 function iniciais(nome: string): string {
   const partes = nome.trim().split(/\s+/);
@@ -42,9 +43,9 @@ export function ComentariosTab({ tarefaId }: ComentariosTabProps) {
   return (
     <div className="flex flex-col gap-3">
       <form onSubmit={handleAdd} className="flex flex-col gap-2">
-        <Select tone="modal" value={autor} onChange={(e) => setAutor(e.target.value)} style={{ maxWidth: 220 }}>
-          {monitorOpcoes.map((m) => <option key={m} value={m}>{m}</option>)}
-        </Select>
+        <div style={{ maxWidth: 220 }}>
+          <Dropdown variant="campo" label="Selecione" value={autor} onChange={(v) => setAutor(v as string)} options={monitorOpcoes.map((m) => ({ value: m, label: m }))} />
+        </div>
         <Textarea tone="modal" placeholder="Escreva um comentário..." value={texto} onChange={(e) => setTexto(e.target.value)} />
         <Button type="submit" variant="secondary" disabled={saving || !texto.trim()} style={{ alignSelf: 'flex-start' }}>
           Comentar

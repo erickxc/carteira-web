@@ -3,7 +3,8 @@ import { format, parse, parseISO, differenceInCalendarDays } from 'date-fns';
 import { useCarteira } from '../context/CarteiraContext';
 import { toastError } from '../utils/toast';
 import { ModalShell } from './ModalShell';
-import { Button, Chip, Field, Input, Select, Textarea } from '../ui';
+import { Button, Chip, Field, Input, Textarea } from '../ui';
+import { SelectField } from './SelectField';
 import { buildFilaCadencia, classificarCadencia } from '../utils/cadenciaServico';
 import { ACAO_TIPOS, ACAO_TIPO_LABEL, type AcaoTipo, type Segmento } from '../types';
 
@@ -97,12 +98,13 @@ export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFor
         </>
       }
     >
-            <Field label="Cliente">
-              <Select tone="modal" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
-                <option value="" disabled>Selecione...</option>
-                {clientes.map((c) => <option key={c.id} value={c.id}>{c.empresa}</option>)}
-              </Select>
-            </Field>
+            <SelectField
+              label="Cliente"
+              placeholder="Selecione..."
+              value={clientId}
+              onChange={setClientId}
+              options={clientes.map((c) => ({ value: c.id, label: c.empresa }))}
+            />
 
             <Field as="div" label="Tipo de ação">
               <div className="flex flex-wrap gap-2">
@@ -114,19 +116,21 @@ export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFor
               </div>
             </Field>
 
-            <Field label="Serviço">
-              <Select tone="modal" value={servico} onChange={(e) => setServico(e.target.value)}>
-                <option value="">— nenhum —</option>
-                {servicoOpcoes.map((s) => <option key={s} value={s}>{s}</option>)}
-              </Select>
-            </Field>
+            <SelectField
+              label="Serviço"
+              placeholder="— nenhum —"
+              value={servico}
+              onChange={setServico}
+              options={[{ value: '', label: '— nenhum —' }, ...servicoOpcoes.map((s) => ({ value: s, label: s }))]}
+            />
 
-            <Field label="Monitor">
-              <Select tone="modal" value={monitor} onChange={(e) => setMonitor(e.target.value)}>
-                <option value="">— nenhum —</option>
-                {monitorOpcoes.map((m) => <option key={m} value={m}>{m}</option>)}
-              </Select>
-            </Field>
+            <SelectField
+              label="Monitor"
+              placeholder="— nenhum —"
+              value={monitor}
+              onChange={setMonitor}
+              options={[{ value: '', label: '— nenhum —' }, ...monitorOpcoes.map((m) => ({ value: m, label: m }))]}
+            />
 
             <Field label={modo === 'nova' ? 'Data em que foi feita' : 'Data planejada'}>
               <Input tone="modal" type="date" value={data} onChange={(e) => setData(e.target.value)} required />

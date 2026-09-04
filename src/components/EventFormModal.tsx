@@ -24,7 +24,8 @@ import { RecorrenciaFields } from './eventForm/RecorrenciaFields';
 import { AnexosField } from './eventForm/AnexosField';
 import { ProdutosSituacaoField } from './eventForm/ProdutosSituacaoField';
 import { PrecificacaoField } from './eventForm/PrecificacaoField';
-import { Badge, Button, Chip, Field, Input, SecaoLabel, Select, Textarea } from '../ui';
+import { Badge, Button, Chip, Field, Input, SecaoLabel, Textarea } from '../ui';
+import { SelectField } from './SelectField';
 import { ORIGEM_LABEL, type EventoAgenda, type OrigemEvento } from '../types';
 
 interface EventFormModalProps {
@@ -449,11 +450,14 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                   informação o formulário pede (Contato/Relatório são enxutos) —
                   antes ficava em 4º lugar, depois de campos que ele mesmo
                   esconde, e trocar o tipo fazia o formulário "pular". */}
-              <Field className="w-[160px]" labelSize="sm" label="Tipo">
-                <Select tone="modal" value={type} onChange={(e) => setType(e.target.value)}>
-                  {tipoOpcoes.map((t) => (<option key={t} value={t}>{t}</option>))}
-                </Select>
-              </Field>
+              <SelectField
+                className="w-[160px]"
+                labelSize="sm"
+                label="Tipo"
+                value={type}
+                onChange={setType}
+                options={tipoOpcoes.map((t) => ({ value: t, label: t }))}
+              />
             </div>
 
             {/* Campo de texto principal do evento (`subject`), agora em todos os
@@ -480,15 +484,20 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                 <Input tone="modal" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
               </Field>
               {!modoSimples && (
-                <Field className="w-[110px]" labelSize="sm" label="Duração">
-                  <Select tone="modal" value={duracao} onChange={(e) => setDuracao(Number(e.target.value))}>
-                    <option value={0}>—</option>
-                    <option value={30}>30 min</option>
-                    <option value={60}>1h</option>
-                    <option value={90}>1h30</option>
-                    <option value={120}>2h</option>
-                  </Select>
-                </Field>
+                <SelectField
+                  className="w-[110px]"
+                  labelSize="sm"
+                  label="Duração"
+                  value={String(duracao)}
+                  onChange={(v) => setDuracao(Number(v))}
+                  options={[
+                    { value: '0', label: '—' },
+                    { value: '30', label: '30 min' },
+                    { value: '60', label: '1h' },
+                    { value: '90', label: '1h30' },
+                    { value: '120', label: '2h' },
+                  ]}
+                />
               )}
             </div>
 
@@ -505,30 +514,39 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
             </Field>
 
             {ehInteracao && (
-              <Field label="Quem procurou">
-                <Select tone="modal" value={origem} onChange={(e) => setOrigem(e.target.value as OrigemEvento | '')}>
-                  <option value="">— não informado —</option>
-                  <option value="nos">{ORIGEM_LABEL.nos}</option>
-                  <option value="cliente">{ORIGEM_LABEL.cliente}</option>
-                </Select>
-              </Field>
+              <SelectField
+                label="Quem procurou"
+                value={origem}
+                onChange={(v) => setOrigem(v as OrigemEvento | '')}
+                options={[
+                  { value: '', label: '— não informado —' },
+                  { value: 'nos', label: ORIGEM_LABEL.nos },
+                  { value: 'cliente', label: ORIGEM_LABEL.cliente },
+                ]}
+              />
             )}
 
             <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
               {ehReuniao && (
-                <Field className="flex-1" labelSize="sm" label="Sala">
-                  <Select tone="modal" value={sala} onChange={(e) => setSala(e.target.value)}>
-                    <option value="">— nenhuma —</option>
-                    {salaOpcoes.map((s) => (<option key={s} value={s}>{s}</option>))}
-                  </Select>
-                </Field>
+                <SelectField
+                  className="flex-1"
+                  labelSize="sm"
+                  label="Sala"
+                  placeholder="— nenhuma —"
+                  value={sala}
+                  onChange={setSala}
+                  options={[{ value: '', label: '— nenhuma —' }, ...salaOpcoes.map((s) => ({ value: s, label: s }))]}
+                />
               )}
 
-              <Field className="flex-1" labelSize="sm" label="Status">
-                <Select tone="modal" value={status} onChange={(e) => setStatus(e.target.value)}>
-                  {statusOpcoes.map((s) => (<option key={s} value={s}>{s}</option>))}
-                </Select>
-              </Field>
+              <SelectField
+                className="flex-1"
+                labelSize="sm"
+                label="Status"
+                value={status}
+                onChange={setStatus}
+                options={statusOpcoes.map((s) => ({ value: s, label: s }))}
+              />
             </div>
 
             {conflitoMonitor && (

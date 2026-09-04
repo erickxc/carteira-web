@@ -5,7 +5,8 @@ import { ModalShell } from './ModalShell';
 import { ClienteCombobox } from './ClienteCombobox';
 import { toastError, toastSuccess } from '../utils/toast';
 import { contatosVisiveis } from '../utils/contatos';
-import { Button, Chip, Field, Input, Select, Textarea } from '../ui';
+import { Button, Chip, Field, Input, Textarea } from '../ui';
+import { SelectField } from './SelectField';
 
 interface RegistroContatoModalProps {
   /** Pré-seleciona o cliente (vindo da tela de detalhe dele). */
@@ -122,11 +123,13 @@ export function RegistroContatoModal({ clienteId, onClose }: RegistroContatoModa
       </Field>
 
       <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
-        <Field className="flex-1" label="Como">
-          <Select tone="modal" value={tipo} onChange={(e) => setTipo(e.target.value)}>
-            {tiposContato.map((t) => (<option key={t} value={t}>{t}</option>))}
-          </Select>
-        </Field>
+        <SelectField
+          className="flex-1"
+          label="Como"
+          value={tipo}
+          onChange={setTipo}
+          options={tiposContato.map((t) => ({ value: t, label: t }))}
+        />
         <Field className="flex-1" label="Data">
           <Input tone="modal" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
         </Field>
@@ -135,26 +138,31 @@ export function RegistroContatoModal({ clienteId, onClose }: RegistroContatoModa
         </Field>
       </div>
 
-      <Field label="Quem falou">
-        {contatosDoCliente.length > 0 ? (
-          <Select tone="modal" value={quem} onChange={(e) => setQuem(e.target.value)}>
-            <option value="">— não informado —</option>
-            {contatosDoCliente.map((c) => (
-              <option key={c.id} value={c.nome}>{c.nome}{c.cargo ? ` (${c.cargo})` : ''}</option>
-            ))}
-            <option value="Outro">Outro (não cadastrado)</option>
-          </Select>
-        ) : (
+      {contatosDoCliente.length > 0 ? (
+        <SelectField
+          label="Quem falou"
+          placeholder="— não informado —"
+          value={quem}
+          onChange={setQuem}
+          options={[
+            { value: '', label: '— não informado —' },
+            ...contatosDoCliente.map((c) => ({ value: c.nome, label: `${c.nome}${c.cargo ? ` (${c.cargo})` : ''}` })),
+            { value: 'Outro', label: 'Outro (não cadastrado)' },
+          ]}
+        />
+      ) : (
+        <Field label="Quem falou">
           <Input tone="modal" value={quem} onChange={(e) => setQuem(e.target.value)} placeholder="Nome de quem entrou em contato" />
-        )}
-      </Field>
+        </Field>
+      )}
 
-      <Field label="Monitor que atendeu">
-        <Select tone="modal" value={monitor} onChange={(e) => setMonitor(e.target.value)}>
-          <option value="">— nenhum —</option>
-          {monitorOpcoes.map((m) => (<option key={m} value={m}>{m}</option>))}
-        </Select>
-      </Field>
+      <SelectField
+        label="Monitor que atendeu"
+        placeholder="— nenhum —"
+        value={monitor}
+        onChange={setMonitor}
+        options={[{ value: '', label: '— nenhum —' }, ...monitorOpcoes.map((m) => ({ value: m, label: m }))]}
+      />
 
       {servicoOpcoes.length > 0 && (
         <Field as="div" label="Sobre qual serviço">

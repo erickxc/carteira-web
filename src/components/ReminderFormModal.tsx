@@ -3,7 +3,8 @@ import { format, parseISO } from 'date-fns';
 import { useCarteira } from '../context/CarteiraContext';
 import { toastError } from '../utils/toast';
 import { ModalShell } from './ModalShell';
-import { Button, Field, Input, Select, Textarea } from '../ui';
+import { Button, Field, Input, Textarea } from '../ui';
+import { SelectField } from './SelectField';
 import type { Lembrete, Recorrencia } from '../types';
 
 const RECURRENCE_OPTIONS: { value: Recorrencia; label: string }[] = [
@@ -92,48 +93,44 @@ export function ReminderFormModal({ initial, initialClientId, initialTitle, init
               <Input tone="modal" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} required />
             </Field>
 
-            <Field label="Tipo de lembrete">
-              <Select tone="modal" value={tipo} onChange={(e) => setTipo(e.target.value)}>
-                {tipoOpcoes.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </Select>
-            </Field>
+            <SelectField
+              label="Tipo de lembrete"
+              value={tipo}
+              onChange={setTipo}
+              options={tipoOpcoes.map((t) => ({ value: t, label: t }))}
+            />
 
             <Field label="Data e hora">
               <Input tone="modal" type="datetime-local" value={datetime} onChange={(e) => setDatetime(e.target.value)} required />
             </Field>
 
-            <Field label="Cliente (opcional)">
-              <Select tone="modal" value={clientId} onChange={(e) => handleClientChange(e.target.value)}>
-                <option value="">Nenhum</option>
-                {clientes.map((c) => (
-                  <option key={c.id} value={c.id}>{c.empresa}</option>
-                ))}
-              </Select>
-            </Field>
+            <SelectField
+              label="Cliente (opcional)"
+              placeholder="Nenhum"
+              value={clientId}
+              onChange={handleClientChange}
+              options={[{ value: '', label: 'Nenhum' }, ...clientes.map((c) => ({ value: c.id, label: c.empresa }))]}
+            />
 
             {clientId && (
-              <Field label="Reunião vinculada (opcional)">
-                <Select tone="modal" value={eventId} onChange={(e) => setEventId(e.target.value)}>
-                  <option value="">Nenhuma</option>
-                  {eventosDoCliente.map((ev) => (
-                    <option key={ev.id} value={ev.id}>
-                      {format(parseISO(ev.date), 'dd/MM/yyyy')} — {ev.subject || ev.type}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+              <SelectField
+                label="Reunião vinculada (opcional)"
+                placeholder="Nenhuma"
+                value={eventId}
+                onChange={setEventId}
+                options={[
+                  { value: '', label: 'Nenhuma' },
+                  ...eventosDoCliente.map((ev) => ({ value: ev.id, label: `${format(parseISO(ev.date), 'dd/MM/yyyy')} — ${ev.subject || ev.type}` })),
+                ]}
+              />
             )}
 
-            <Field label="Recorrência">
-              <Select tone="modal" value={recurrence} onChange={(e) => setRecurrence(e.target.value as Recorrencia)}>
-                {RECURRENCE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </Select>
-            </Field>
-
+            <SelectField
+              label="Recorrência"
+              value={recurrence}
+              onChange={(v) => setRecurrence(v as Recorrencia)}
+              options={RECURRENCE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+            />
             <Field label="Descrição">
               <Textarea tone="modal" value={description} onChange={(e) => setDescription(e.target.value)} />
             </Field>

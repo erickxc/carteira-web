@@ -5,7 +5,8 @@ import {
   type ResultadoTesteClaude, type StatusMcpClaude, type StatusProvedorIA,
 } from '../../api/client';
 import { toastError } from '../../utils/toast';
-import { Badge, Button, Card, Field, Select } from '../../ui';
+import { Badge, Button, Card } from '../../ui';
+import { SelectField } from '../SelectField';
 
 /**
  * Painel do MCP da carteira — a ponte entre o Claude Code CLI e as ferramentas
@@ -101,15 +102,13 @@ export default function McpClaudeCard() {
 
       <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 16 }}>
         <div style={{ minWidth: 200 }}>
-          <Field label="Modelo do Claude">
-            <Select
-              value={claude.modelo}
-              disabled={claude.modeloTravado || salvandoModelo}
-              onChange={(e) => trocarModelo(e.target.value)}
-            >
-              {mcp.modelos.map((m) => <option key={m} value={m}>{m}</option>)}
-            </Select>
-          </Field>
+          <SelectField
+            label="Modelo do Claude"
+            value={claude.modelo}
+            disabled={claude.modeloTravado || salvandoModelo}
+            onChange={trocarModelo}
+            options={mcp.modelos.map((m) => ({ value: m, label: m }))}
+          />
         </div>
         <Button onClick={testar} disabled={testando || !claude.autenticado}>
           {testando ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}

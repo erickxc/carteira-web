@@ -3,7 +3,8 @@ import { useCarteira } from '../../context/CarteiraContext';
 import { toastError } from '../../utils/toast';
 import { confirmDialog } from '../../utils/confirmDialog';
 import { ModalShell } from '../ModalShell';
-import { Button, Field, Input, Select, Textarea } from '../../ui';
+import { Button, Field, Input, Textarea } from '../../ui';
+import { SelectField } from '../SelectField';
 import type { AgilBoard } from '../../types';
 
 interface BoardFormModalProps {
@@ -74,11 +75,12 @@ export function BoardFormModal({ initial, workspaceIdInicial, onClose, onCreated
         <Input tone="modal" autoFocus value={nome} onChange={(e) => setNome(e.target.value)} required />
       </Field>
 
-      <Field label="Área de trabalho">
-        <Select tone="modal" value={workspaceId} onChange={(e) => setWorkspaceId(e.target.value)} required>
-          {agilWorkspaces.map((w) => <option key={w.id} value={w.id}>{w.nome}</option>)}
-        </Select>
-      </Field>
+      <SelectField
+        label="Área de trabalho"
+        value={workspaceId}
+        onChange={setWorkspaceId}
+        options={agilWorkspaces.map((w) => ({ value: w.id, label: w.nome }))}
+      />
 
       <Field label="Descrição (opcional)">
         <Textarea tone="modal" value={descricao} onChange={(e) => setDescricao(e.target.value)} />

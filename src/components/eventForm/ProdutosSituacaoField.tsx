@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
-import { Badge, Button, Chip, Field, Input, Select } from '../../ui';
+import { Badge, Button, Chip, Field, Input } from '../../ui';
+import { Dropdown } from '../Dropdown';
 import { AutocompleteInput } from '../AutocompleteInput';
 import { MODO_PRODUTO_SITUACAO_LABEL, type ModoProdutoSituacao } from '../../types';
 import type { TagClienteFinal } from '../../api/client';
@@ -137,16 +138,26 @@ export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDi
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ps.addItem(); } }}
         />
         {mostrarTag && (
-          <Select tone="modal" style={{ flex: '0 1 170px' }} value={ps.tag} onChange={(e) => ps.setTag(e.target.value)}>
-            <option value="">Tag (opcional)</option>
-            {tags.map((t) => <option key={t.id} value={t.rotulo}>{t.rotulo}</option>)}
-          </Select>
+          <div style={{ flex: '0 1 170px' }}>
+            <Dropdown
+              variant="campo"
+              label="Tag (opcional)"
+              value={ps.tag}
+              onChange={(v) => ps.setTag(v as string)}
+              options={[{ value: '', label: 'Tag (opcional)' }, ...tags.map((t) => ({ value: t.rotulo, label: t.rotulo }))]}
+            />
+          </div>
         )}
         {mostrarGrupo && (
-          <Select tone="modal" style={{ flex: '0 1 150px' }} value={ps.grupo} onChange={(e) => ps.setGrupo(e.target.value)}>
-            <option value="">Grupo (opcional)</option>
-            {gruposReferencia.map((g) => <option key={g} value={g}>{g}</option>)}
-          </Select>
+          <div style={{ flex: '0 1 150px' }}>
+            <Dropdown
+              variant="campo"
+              label="Grupo (opcional)"
+              value={ps.grupo}
+              onChange={(v) => ps.setGrupo(v as string)}
+              options={[{ value: '', label: 'Grupo (opcional)' }, ...gruposReferencia.map((g) => ({ value: g, label: g }))]}
+            />
+          </div>
         )}
         <Button variant="primary" size="icon" onClick={ps.addItem} disabled={ps.incompleto}><Plus size={16} /></Button>
       </div>

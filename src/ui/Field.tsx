@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
 
@@ -67,17 +67,3 @@ export function Textarea({ className, tone, ...props }: TextareaHTMLAttributes<H
   return <textarea className={clsx(control({ tone }), 'px-[0.7rem] py-[0.55rem] resize-y min-h-[74px]', className)} {...props} />;
 }
 
-export function Select({ className, tone, children, ...props }: SelectHTMLAttributes<HTMLSelectElement> & ControlTone) {
-  return (
-    <select
-      className={clsx(
-        control({ tone }),
-        'appearance-none cursor-pointer py-2 pl-[0.7rem] pr-8 bg-no-repeat bg-[position:calc(100%-0.6rem)_center] bg-[image:var(--select-chevron)] [&>option]:bg-card [&>option]:text-text-primary',
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </select>
-  );
-}

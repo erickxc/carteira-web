@@ -1,6 +1,6 @@
 export { Button } from './Button';
 export type { ButtonProps } from './Button';
-export { Field, Input, Select, Textarea } from './Field';
+export { Field, Input, Textarea } from './Field';
 export { Badge } from './Badge';
 export type { BadgeProps, BadgeVariant } from './Badge';
 export { Card } from './Card';
