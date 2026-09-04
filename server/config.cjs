@@ -266,13 +266,26 @@ const CLAUDE_CLI_PATH = process.env.CLAUDE_CLI_PATH || '';
  * Chave que cifra o login/senha do cliente no Price (`server/crypto.cjs`).
  * SEM DEFAULT de propósito — diferente de outras env aqui, uma chave com
  * fallback embutido no código não protege nada (quem tem o código tem a
- * chave). Só existe na máquina servidora (Karol-2D), num `.env` fora do
- * OneDrive — as máquinas dos monitores nunca precisam dela, só recebem o
- * login/senha já em texto puro na hora do clique (ver `routes/clients.cjs`).
- * Sem esta env, cifrar/decifrar credencial do Price falha explícito — nunca
- * cai num "funciona sem proteção nenhuma".
+ * chave).
+ *
+ * Setar isso no `.env` da máquina é um OVERRIDE opcional, não o caminho
+ * normal — a premissa original ("só existe na máquina servidora, os
+ * monitores nunca precisam dela") estava ERRADA: a cifragem roda no
+ * processo que recebe a requisição HTTP, que existe fisicamente em CADA
+ * máquina (não há proxy pra servidora — ver `server/fila/mutacao.cjs`), e
+ * qualquer uma delas pode ser onde alguém cadastra a senha do Price. Isso
+ * já quebrou em produção: uma máquina sem essa env no `.env` caía com
+ * "PRICE_CREDENCIAIS_CHAVE não configurada" ao tentar abrir o Price.
+ *
+ * A correção estrutural (`server/crypto.cjs:derivarChave`) é auto-provisionar
+ * a chave num arquivo dentro do OneDrive (`PRICE_CREDENCIAIS_CHAVE_PATH`,
+ * mesmo padrão já usado por `CEO_AGENDA_OAUTH_TOKEN_PATH`): a PRIMEIRA
+ * máquina a precisar da chave gera e grava lá; toda máquina depois disso lê
+ * o mesmo arquivo pelo sync do OneDrive — zero configuração manual por
+ * máquina, sempre a mesma chave em todo lugar.
  */
 const PRICE_CREDENCIAIS_CHAVE = process.env.PRICE_CREDENCIAIS_CHAVE || '';
+const PRICE_CREDENCIAIS_CHAVE_PATH = process.env.PRICE_CREDENCIAIS_CHAVE_PATH || path.join(DATA_DIR, 'price-credenciais-chave.txt');
 
 // Alias de modelo aceito pelo próprio CLI (`--model`). Sonnet é o default por
 // ser o equilíbrio custo/qualidade da assinatura pra tarefa de análise curta.
@@ -516,7 +529,7 @@ module.exports = {
   ALVOS_DIR, ALVOS_ARQUIVO, TAGS_CLIENTE_FINAL_PATH,
   SNAPSHOT_DIR, SNAPSHOT_FILE, DOSSIES_DIR, OLLAMA_URL, OLLAMA_MODEL, OLLAMA_MODELS, OLLAMA_API_KEY,
   CONFIG_IA_COMPARTILHADO,
-  IA_PROVIDER, IA_PROVIDERS, CLAUDE_STATE_FILE, CLAUDE_CLI_PATH, CLAUDE_CLI_MODEL, PRICE_CREDENCIAIS_CHAVE,
+  IA_PROVIDER, IA_PROVIDERS, CLAUDE_STATE_FILE, CLAUDE_CLI_PATH, CLAUDE_CLI_MODEL, PRICE_CREDENCIAIS_CHAVE, PRICE_CREDENCIAIS_CHAVE_PATH,
   CLAUDE_CLI_MODEL_PADRAO, CLAUDE_CLI_MODELOS,
   CLAUDE_CLI_TIMEOUT_MS, CLAUDE_CLI_CWD, CLAUDE_MCP_SERVER,
   CLIENTES_HEADERS, AGENDA_HEADERS, LEMBRETES_HEADERS, CATEGORIAS_HEADERS, ACOES_HEADERS, MODELOS_HEADERS, CADENCIAS_HEADERS,
