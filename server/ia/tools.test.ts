@@ -25,6 +25,14 @@ const require = createRequire(import.meta.url);
 let tmpOneDrive: string;
 let tmpSqlite: string;
 let repoMemoria: typeof import('../dominio/repo.cjs').repoMemoria;
+/** Forma mínima do JSON Schema que `parameters` de cada ferramenta declara —
+ *  só os campos que os testes 5/6 verificam (objeto, required, properties). */
+interface JsonSchemaObjeto {
+  type: string;
+  required?: string[];
+  properties?: Record<string, unknown>;
+}
+
 let FERRAMENTAS: { name: string; description: string; parameters: unknown; executar: (repo: unknown, args?: unknown) => unknown }[];
 let DOSSIES_DIR: string;
 let UPLOADS_DIR: string;
@@ -93,7 +101,12 @@ const tool = (nome: string) => {
   if (!f) throw new Error(`ferramenta "${nome}" não existe`);
   return f;
 };
-const exec = (nome: string, repo: unknown, args?: unknown, ctx?: unknown) => tool(nome).executar(repo, args, ctx) as any;
+// Retorno de `unknown` de propósito — cada ferramenta devolve um formato
+// diferente (é JSON dinâmico, não um contrato único), então tipar aqui só
+// empurraria o `any` pra dentro de um alias em vez de removê-lo. Os testes
+// que precisam acessar campos específicos já fazem o cast localmente (ver
+// `opcoes.test.ts` pro mesmo padrão).
+const exec = (nome: string, repo: unknown, args?: unknown, ctx?: unknown): unknown => tool(nome).executar(repo, args, ctx);
 
 /** Cliente base: ativo, Regular, com Monitoria+Price, 1 contato. */
 function clienteBase(over: Record<string, unknown> = {}) {
@@ -144,12 +157,12 @@ describe('catálogo de ferramentas', () => {
   });
 
   it('5. todo parameters é um JSON Schema de objeto', () => {
-    for (const f of FERRAMENTAS) expect((f.parameters as any).type).toBe('object');
+    for (const f of FERRAMENTAS) expect((f.parameters as JsonSchemaObjeto).type).toBe('object');
   });
 
   it('6. required, quando existe, aponta pra propriedade declarada', () => {
     for (const f of FERRAMENTAS) {
-      const p = f.parameters as any;
+      const p = f.parameters as JsonSchemaObjeto;
       for (const req of p.required ?? []) expect(Object.keys(p.properties ?? {})).toContain(req);
     }
   });
@@ -507,8 +520,8 @@ describe('buscar_cobertura_contatos', () => {
       clienteBase({ id: 'c1', empresa: 'G - A', grupo: 'G', contatos: [] }),
       clienteBase({ id: 'c2', empresa: 'G - B', grupo: 'G', contatos: [{ id: 'ct9', nome: 'Chefe', escopo: 'grupo' }] }),
     ] });
-    const r = exec('buscar_cobertura_contatos', repo, { clientId: 'c1' });
-    expect(r.contatos.some((c: any) => c.nome === 'Chefe' && c.herdadoDoGrupo)).toBe(true);
+    const r = exec('buscar_cobertura_contatos', repo, { clientId: 'c1' }) as { contatos: { nome: string; herdadoDoGrupo?: boolean }[] };
+    expect(r.contatos.some((c) => c.nome === 'Chefe' && c.herdadoDoGrupo)).toBe(true);
   });
 
   it('56. contato escopo loja NÃO é herdado por outra loja do grupo', () => {
@@ -733,8 +746,8 @@ describe('métricas de carteira', () => {
   });
 
   it('89. buscar_cobertura_servicos devolve uma linha por serviço', () => {
-    const r = exec('buscar_cobertura_servicos', repoBase());
-    expect(r.servicos.map((s: any) => s.servico)).toEqual(['Monitoria', 'Price']);
+    const r = exec('buscar_cobertura_servicos', repoBase()) as { servicos: { servico: string }[] };
+    expect(r.servicos.map((s) => s.servico)).toEqual(['Monitoria', 'Price']);
   });
 
   it('90. buscar_cobertura_servicos aponta quem contratou e não foi atendido', () => {

@@ -119,7 +119,10 @@ describe('POST /api/atualizacao/aplicar', () => {
   });
 
   it('com .exe mas sem versão mais nova publicada: recusa com 409', async () => {
-    process.env.CARTEIRA_LAUNCHER_EXE = 'C:\nao-existe\Carteira.exe';
+    // Barra normal, não invertida: 'C:\nao-existe\...' tinha um bug real
+    // aqui — em string JS, "\n" é o caractere de nova linha, não um "n"
+    // literal, então o caminho testado não era o que parecia no código.
+    process.env.CARTEIRA_LAUNCHER_EXE = 'C:/nao-existe/Carteira.exe';
     const instalada = versaoInstaladaReal();
     fs.writeFileSync(path.join(releasesDir, 'latest.json'), JSON.stringify({
       versao: instalada, arquivo: `carteira-v${instalada}.zip`, publicadoEm: '2026-01-01T00:00:00.000Z',
