@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
@@ -23,7 +23,7 @@ import { Dropdown } from '../components/Dropdown';
 import { Badge, Button, Card, Td, Th } from '../ui';
 import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type AnaliseIA, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
 
-type SortCol = 'empresa' | 'monitor' | 'servicos' | 'analise' | 'risco' | 'estado' | 'status' | 'anotacoes' | 'ultimaReuniao' | 'proximo' | 'ultimoContato' | 'diasSemContato';
+type SortCol = 'empresa' | 'monitor' | 'servicos' | 'analise' | 'risco' | 'estado' | 'status' | 'ultimaReuniao' | 'proximo' | 'ultimoContato' | 'diasSemContato';
 
 const PERIODOS = [
   { valor: 'Todos', label: 'Últ. reunião: todas' },
@@ -272,7 +272,6 @@ export default function ClientesPage() {
       }
       case 'estado': return (c.estado || '').toLowerCase();
       case 'status': return (c.status || '').toLowerCase();
-      case 'anotacoes': return (c.observacao || '').toLowerCase();
       case 'ultimaReuniao': return ultimaReuniao.get(c.id)?.getTime() ?? -Infinity;
       case 'proximo': {
         const p = proximoAgendamento.get(c.id);
@@ -385,34 +384,71 @@ export default function ClientesPage() {
    *  loja dentro de um grupo expandido. `semLinks`: lojas que não são a
    *  principal do grupo não editam/mostram mais link próprio (ver
    *  `ClientFormModal`) — o botão de acessos aparece só na linha do grupo. */
-  function renderLinhaCliente(cliente: Cliente, opts?: { indent?: boolean; semLinks?: boolean }) {
+  function renderLinhaCliente(cliente: Cliente, opts?: {
+    indent?: boolean;
+    semLinks?: boolean;
+    /** Mostra o botão de acessos de OUTRO cliente (a loja principal do
+     *  grupo) em vez do próprio — usado na linha-âncora de um grupo, que
+     *  pode não ser a principal (ver `renderLinhaGrupo`). */
+    acessosDe?: Cliente;
+    /** Vira a linha "cabeçalho" de um grupo — mesmas colunas de sempre (é o
+     *  que faz a ordenação por qualquer coluna continuar visível/conferível
+     *  com o grupo fechado), só com o chevron + nome do grupo antes do nome
+     *  da empresa. */
+    grupoPrefixo?: { grupo: string; qtdLojas: number; aberto: boolean; onToggle: () => void };
+  }) {
     const ult = ultimaReuniao.get(cliente.id);
     const prox = proximoAgendamento.get(cliente.id);
     const ultC = ultimoContato.get(cliente.id);
     const ultCData = ultC ? parseISO(ultC.date) : null;
     const diasSemContato = ultCData ? differenceInCalendarDays(hoje, ultCData) : null;
     const inativo = (cliente.estado || 'Ativo') !== 'Ativo';
+    const acessos = opts?.acessosDe ?? cliente;
     return (
       <tr
         key={cliente.id}
         className="group [&:last-child>td]:border-b-0"
-        style={isGratuidade(cliente.status) ? { background: 'var(--gratuidade-pastel-bg)' } : undefined}
+        style={{
+          ...(isGratuidade(cliente.status) ? { background: 'var(--gratuidade-pastel-bg)' } : undefined),
+          ...(opts?.grupoPrefixo ? { background: 'var(--card-hover)' } : undefined),
+        }}
       >
         <Td first>
-          <button
-            className="link-button"
-            style={{ fontWeight: 600, ...(opts?.indent ? { paddingLeft: '1.4rem' } : undefined) }}
-            onClick={() => navigate(`/clientes/${cliente.id}`)}
-          >
-            {cliente.empresa}
-          </button>
+          {opts?.grupoPrefixo ? (
+            // Linha de grupo: o nome em destaque é o do GRUPO ("Altese",
+            // "Aliança"), não o da loja-âncora — mostrar o nome completo da
+            // loja aqui (geralmente mais longo, ex.: "Altese - GM, Ford,
+            // Fiat, VW") quebrava e ficava confuso ao lado do resumo do
+            // grupo. A loja em si continua identificável pelo resto da linha
+            // (é ela quem preenche Monitor/Situação/etc.) e por inteiro
+            // quando expandido.
+            <button
+              type="button"
+              className="link-button"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}
+              onClick={opts.grupoPrefixo.onToggle}
+              aria-expanded={opts.grupoPrefixo.aberto}
+            >
+              {opts.grupoPrefixo.aberto ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+              {opts.grupoPrefixo.grupo}
+              <span className="text-text-muted" style={{ fontWeight: 400, fontSize: '0.8rem' }}>({opts.grupoPrefixo.qtdLojas})</span>
+            </button>
+          ) : (
+            <button
+              className="link-button"
+              style={{ fontWeight: 600, ...(opts?.indent ? { paddingLeft: '1.4rem' } : undefined) }}
+              onClick={() => navigate(`/clientes/${cliente.id}`)}
+            >
+              {cliente.empresa}
+            </button>
+          )}
         </Td>
         <Td className="text-text-muted">{cliente.monitor || '—'}</Td>
         <Td>
           <ServicosCell servicos={cliente.servicos} corPorServico={corPorServico} />
         </Td>
         <Td style={{ textAlign: 'center' }}>
-          {opts?.semLinks ? <span className="text-text-muted">—</span> : <AcessosExternosButton cliente={cliente} compacto />}
+          {opts?.semLinks ? <span className="text-text-muted">—</span> : <AcessosExternosButton cliente={acessos} compacto />}
         </Td>
         <Td style={{ textAlign: 'center' }}>
           <AnaliseIACell clienteId={cliente.id} risco={analisesPorCliente.get(cliente.id)?.nivelRisco} />
@@ -435,9 +471,6 @@ export default function ClientesPage() {
               </span>
             )}
           </div>
-        </Td>
-        <Td className="text-text-muted" style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cliente.observacao || undefined}>
-          {cliente.observacao?.trim() || '—'}
         </Td>
         <Td className="text-text-muted" style={{ fontSize: '0.8rem', lineHeight: 1.5 }}>
           <div>Últ. reunião: {ult ? format(ult, 'dd/MM/yyyy') : '—'}</div>
@@ -471,40 +504,49 @@ export default function ClientesPage() {
     );
   }
 
-  /** Cabeçalho recolhível de uma rede de lojas (`Cliente.grupo`) — mostra
-   *  nome + contador + monitor (verificado único entre lojas na prática) +
-   *  os acessos da loja PRINCIPAL (ver gruposLojas.ts). Clicar expande/
-   *  recolhe; as lojas de dentro são linhas normais, só sem link próprio. */
+  /**
+   * Cabeçalho recolhível de uma rede de lojas (`Cliente.grupo`).
+   *
+   * FECHADO: a "linha âncora" (`linha.lojas[0]`, a primeira do grupo na
+   * lista já filtrada/ordenada — ou seja, a loja que colocou o bloco inteiro
+   * nesta posição) É a linha mostrada, com TODAS as colunas normais
+   * (Monitor, Serviços, Situação, Dias sem contato etc.) — só ganha o
+   * chevron + nome do grupo antes do nome. Isso é o que faz a ordenação por
+   * qualquer coluna continuar visível/conferível com o grupo fechado (antes
+   * o cabeçalho era um resumo fixo que não mudava com a coluna ordenada —
+   * reportado pelo usuário).
+   *
+   * ABERTO: o cabeçalho vira só um título (nenhuma coluna de dado — misturar
+   * "isto é uma loja específica" com "isto é um título de seção" confundia:
+   * usuário abriu esperando ver as N lojas e só via N-1, porque a âncora já
+   * estava contada no cabeçalho). TODAS as lojas do grupo aparecem embaixo,
+   * cada uma com sua própria linha completa.
+   */
   function renderLinhaGrupo(linha: Extract<LinhaTabela, { tipo: 'grupo' }>) {
     const aberto = grupoAberto(linha.grupo);
-    const monitores = [...new Set(linha.lojas.map((l) => l.monitor).filter(Boolean))];
+    const onToggle = () => alternarGrupo(linha.grupo);
+
+    if (!aberto) {
+      const [ancora] = linha.lojas;
+      return renderLinhaCliente(ancora, {
+        acessosDe: linha.principal,
+        grupoPrefixo: { grupo: linha.grupo, qtdLojas: linha.lojas.length, aberto, onToggle },
+      });
+    }
+
     return (
-      <>
-        <tr key={`grupo-${linha.grupo}`} className="group" style={{ background: 'var(--card-hover)' }}>
-          <Td first colSpan={2}>
-            <button
-              className="link-button"
-              style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              onClick={() => alternarGrupo(linha.grupo)}
-              aria-expanded={aberto}
-            >
-              {aberto ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+      <Fragment key={`grupo-${linha.grupo}`}>
+        <tr style={{ background: 'var(--card-hover)' }}>
+          <Td first colSpan={9}>
+            <button type="button" className="link-button" style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={onToggle} aria-expanded={aberto}>
+              <ChevronDown size={15} />
               {linha.grupo}
-              <span className="text-text-muted" style={{ fontWeight: 400 }}>· {linha.lojas.length} lojas</span>
+              <span className="text-text-muted" style={{ fontWeight: 400, fontSize: '0.8rem' }}>({linha.lojas.length})</span>
             </button>
           </Td>
-          <Td className="text-text-muted" colSpan={2}>
-            {monitores.length === 1 ? monitores[0] : monitores.length === 0 ? '—' : 'vários'}
-          </Td>
-          <Td style={{ textAlign: 'center' }} colSpan={2}>
-            <AcessosExternosButton cliente={linha.principal} compacto />
-          </Td>
-          <Td colSpan={4} className="text-text-muted" style={{ fontSize: '0.8rem' }}>
-            Links e acesso externo do grupo vêm de "{linha.principal.empresa}" (loja principal)
-          </Td>
         </tr>
-        {aberto && linha.lojas.map((loja) => renderLinhaCliente(loja, { indent: true, semLinks: loja.id !== linha.principal.id }))}
-      </>
+        {linha.lojas.map((loja) => renderLinhaCliente(loja, { indent: true, semLinks: loja.id !== linha.principal.id }))}
+      </Fragment>
     );
   }
 
@@ -620,7 +662,6 @@ export default function ClientesPage() {
                   <Th style={{ textAlign: 'center' }} title="Links de Power BI cadastrados no cliente">Links</Th>
                   <Th sortable onClick={() => ordenarPor('risco')} style={{ textAlign: 'center' }} title="Análise do monitorIA (risco + resumo) deste cliente">monitorIA{seta('risco')}</Th>
                   <Th sortable onClick={() => ordenarPor('status')}>Situação{seta('status')}</Th>
-                  <Th sortable onClick={() => ordenarPor('anotacoes')}>Anotações{seta('anotacoes')}</Th>
                   <Th>Cadência</Th>
                   <Th sortable onClick={() => ordenarPor('diasSemContato')}>Dias sem contato{seta('diasSemContato')}</Th>
                   <Th style={{ width: 96 }}></Th>
