@@ -64,6 +64,8 @@ export interface RelogioServico {
   atrasoReal: number;
 }
 
+export type NivelRisco = 'alto' | 'medio' | 'baixo';
+
 export interface FilaCadItem<C = ClienteCadencia> {
   cliente: C;
   relogios: RelogioServico[];
@@ -71,6 +73,10 @@ export interface FilaCadItem<C = ClienteCadencia> {
   score: number;
   /** true se algum relógio pede ação (vencido / vencendo / nunca) e não está coberto. */
   precisaAcao: boolean;
+  /** Nível de risco do dossiê do monitorIA (`AnalisesIA.nivelRisco`), quando
+   *  `opts.riscoPorCliente` foi passado pra `buildFilaCadencia`. `undefined`
+   *  = sem dossiê ainda, ou o parâmetro não foi informado. */
+  nivelRisco?: NivelRisco;
 }
 
 export const STATUS_EM_ATENDIMENTO: RegExp;
@@ -121,7 +127,7 @@ export function buildFilaCadencia<C extends ClienteCadencia>(
   acoes: AcaoCadencia[],
   cadencias: CadenciasConfig,
   now?: Date,
-  opts?: { servico?: ServicoCad }
+  opts?: { servico?: ServicoCad; riscoPorCliente?: Map<string, NivelRisco> }
 ): FilaCadItem<C>[];
 
 export function rotuloRelogio(r: RelogioServico): string;

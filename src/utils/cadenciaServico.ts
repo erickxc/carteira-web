@@ -19,6 +19,7 @@ import type { Acao, Cadencias, Cliente, EventoAgenda } from '../types';
 export type ServicoCad = motor.ServicoCad;
 export type CadStatus = motor.CadStatus;
 export type ClassificacaoCadencia = motor.ClassificacaoCadencia;
+export type NivelRisco = motor.NivelRisco;
 export type RelogioServico = motor.RelogioServico;
 export type FilaCadItem = motor.FilaCadItem<Cliente>;
 
@@ -38,7 +39,7 @@ export const buildFilaCadencia = motor.buildFilaCadencia as (
   acoes: Acao[],
   cadencias: Cadencias,
   now?: Date,
-  opts?: { servico?: ServicoCad }
+  opts?: { servico?: ServicoCad; riscoPorCliente?: Map<string, NivelRisco> }
 ) => FilaCadItem[];
 
 /**

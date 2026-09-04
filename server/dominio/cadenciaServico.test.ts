@@ -106,6 +106,46 @@ describe('buildFilaCadencia — o mesmo motor do frontend, via require() do back
     const fila = cadencia.buildFilaCadencia(clientes, agenda, [], { monitoria_dias: 30 }, AGORA);
     expect(cadencia.classificarCadencia(fila[0])).toBe('em_dia');
   });
+
+  /**
+   * `opts.riscoPorCliente` — desempate por urgência do dossiê do monitorIA
+   * (pedido do usuário: a fila deve "além das recomendações padrão,
+   * considerar a urgência dos dossiês"). Deliberadamente DESEMPATE, não
+   * override: nunca muda o BLOCO de severidade (vencido/vencendo/em_dia),
+   * só a ordem dentro do mesmo bloco.
+   */
+  describe('opts.riscoPorCliente — desempate por urgência do dossiê', () => {
+    it('dentro do mesmo bloco (vencido), risco alto vem antes de risco médio, mesmo com MENOS dias de atraso', () => {
+      const clientes = [
+        { id: 'c-medio', empresa: 'Cliente Médio', estado: 'Ativo', status: 'Regular', servicos: ['Monitoria'], createdAt: '2026-01-01T00:00:00.000Z' },
+        { id: 'c-alto', empresa: 'Cliente Alto', estado: 'Ativo', status: 'Regular', servicos: ['Monitoria'], createdAt: '2026-08-01T00:00:00.000Z' },
+      ];
+      // c-medio: nunca atendido desde 01/01 (~8 meses de atraso).
+      // c-alto: nunca atendido desde 01/08 (~1 mês de atraso) — atraso BEM menor.
+      const risco = new Map([['c-medio', 'medio'], ['c-alto', 'alto']]);
+      const fila = cadencia.buildFilaCadencia(clientes, [], [], { monitoria_dias: 30 }, AGORA, { riscoPorCliente: risco });
+      expect(fila.map((f: { cliente: { id: string } }) => f.cliente.id)).toEqual(['c-alto', 'c-medio']);
+    });
+
+    it('risco NUNCA faz um cliente em_dia furar a frente de um vencido', () => {
+      const clientes = [
+        { id: 'c-em-dia', empresa: 'Em Dia', estado: 'Ativo', status: 'Regular', servicos: ['Monitoria'] },
+        { id: 'c-vencido', empresa: 'Vencido', estado: 'Ativo', status: 'Regular', servicos: ['Monitoria'] },
+      ];
+      const agenda = [{ clientId: 'c-em-dia', date: '2026-09-01T12:00:00.000Z', type: 'Reunião', status: 'Concluído', servicos: ['Monitoria'] }];
+      // c-em-dia tem risco ALTO, c-vencido nem tem dossiê — mesmo assim o
+      // vencido continua primeiro, porque severidade de cadência manda.
+      const risco = new Map([['c-em-dia', 'alto']]);
+      const fila = cadencia.buildFilaCadencia(clientes, agenda, [], { monitoria_dias: 30 }, AGORA, { riscoPorCliente: risco });
+      expect(fila.map((f: { cliente: { id: string } }) => f.cliente.id)).toEqual(['c-vencido', 'c-em-dia']);
+    });
+
+    it('sem opts.riscoPorCliente, comportamento idêntico a antes (nivelRisco fica undefined)', () => {
+      const clientes = [{ id: 'c1', empresa: 'Cliente X', estado: 'Ativo', status: 'Regular', servicos: ['Monitoria'] }];
+      const fila = cadencia.buildFilaCadencia(clientes, [], [], { monitoria_dias: 30 }, AGORA);
+      expect(fila[0].nivelRisco).toBeUndefined();
+    });
+  });
 });
 
 describe('buscarAlertasSemAcompanhamento — reflete o mesmo comportamento de Cancelado', () => {

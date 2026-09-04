@@ -4,7 +4,7 @@ import { differenceInCalendarDays } from 'date-fns';
 import { CalendarPlus, MessageSquare, Plus } from 'lucide-react';
 import { rotuloDataCurto, sugestoes, type Item } from '../../utils/acoesHelpers';
 import { contatoRecenteNaoRefletido, rotuloRelogio, type CadStatus, type ClassificacaoCadencia, type RelogioServico } from '../../utils/cadenciaServico';
-import { isAtendidoMarco, isGratuidade } from '../../utils/badges';
+import { isAtendidoMarco, isGratuidade, riscoIACor, riscoIALabel } from '../../utils/badges';
 import { Badge, Button, Card, Chip } from '../../ui';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../../types';
 import type { AlertaAlvos } from '../../api/client';
@@ -28,6 +28,11 @@ interface CardClienteProps {
    *  em vez de só aparecer em /clientes. `null`/ausente = sem integração ou
    *  sem nada a reportar; o card não muda em nada nesse caso. */
   alertaAlvos?: AlertaAlvos | null;
+  /** Nível de risco do dossiê do monitorIA — só exibido quando presente (a
+   *  fila já usa isso como desempate de ordenação, ver `buildFilaCadencia`;
+   *  aqui é só o indicador visual pra a reordenação fazer sentido pra quem
+   *  olha a tela). */
+  nivelRisco?: 'alto' | 'medio' | 'baixo';
   onRegistrar: (clienteId: string, tipo?: AcaoTipo) => void;
   onAgendar: (clienteId: string) => void;
   onConversarAlvos?: (alerta: AlertaAlvos) => void;
@@ -54,7 +59,7 @@ const pedeAcao = (r: RelogioServico) => r.status === 'vencido' || r.status === '
  * relativas ("hoje", "há 12d", "em 5d") para deixar óbvio o que já aconteceu e
  * o que só está agendado. Antes tudo tinha o mesmo peso, dentro de duas caixas
  * cinza aninhadas — muita tinta para pouca informação. */
-export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, historico, produtos, relogios, severidade, alertaAlvos, onRegistrar, onAgendar, onConversarAlvos }: CardClienteProps) {
+export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, historico, produtos, relogios, severidade, alertaAlvos, nivelRisco, onRegistrar, onAgendar, onConversarAlvos }: CardClienteProps) {
   const navigate = useNavigate();
   // Capturado uma vez no mount, não a cada render — chamar Date.now() direto no
   // corpo do componente é impuro (react-hooks/purity acusa em build).
@@ -109,9 +114,22 @@ export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, his
             </div>
           )}
         </div>
-        {c.monitor
-          ? <Badge variant="muted" style={{ flexShrink: 0 }}>{c.monitor}</Badge>
-          : <span className="acao-tipo">sem monitor</span>}
+        <div className="flex flex-col items-end gap-1" style={{ flexShrink: 0 }}>
+          {c.monitor
+            ? <Badge variant="muted">{c.monitor}</Badge>
+            : <span className="acao-tipo">sem monitor</span>}
+          {/* Só aparece na fila de cadência (onde a ordenação de fato usa
+              isso como desempate) — as outras listas de Ações (Recorrentes,
+              Sem contato, Marco) não passam `nivelRisco`. */}
+          {nivelRisco && (
+            <span className="flex items-center gap-1.5" title={`Dossiê do monitorIA: ${riscoIALabel(nivelRisco)}`}>
+              <span
+                style={{ width: 7, height: 7, borderRadius: '50%', background: riscoIACor(nivelRisco), flexShrink: 0 }}
+              />
+              <span className="text-[0.72rem] text-text-muted">{riscoIALabel(nivelRisco)}</span>
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Situação: o que cobra ação em destaque, o resto rebaixado numa linha. */}

@@ -254,6 +254,11 @@ function contatoRecenteNaoRefletido(relogios, ultimoContato) {
 }
 
 const RANK_SEVERIDADE = { vencido: 0, vencendo: 1, em_dia: 2 };
+/** Sem dossiê (`undefined`) fica DEPOIS de "baixo" de propósito: "baixo" é um
+ * julgamento explícito da IA (leu o histórico e concluiu que está tudo bem),
+ * enquanto "sem dossiê" não afirma nada — não faz sentido dar o mesmo peso a
+ * "confirmado tranquilo" e "não sabemos". */
+const RANK_RISCO = { alto: 0, medio: 1, baixo: 2, undefined: 3 };
 
 /** Classificação do cliente pelo pior relógio — fonte única usada tanto na fila
  * de Acompanhamento (Ações) quanto na escolha de material/mensagem por segmento
@@ -279,6 +284,16 @@ function classificarCadencia(f) {
  * Monitoria EM DIA só porque o Price estava vencido: o filtro da página
  * checava apenas se o cliente *possui* o serviço, não se aquele serviço
  * precisa de ação (bug real relatado).
+ *
+ * `opts.riscoPorCliente`: nível de risco do dossiê do monitorIA
+ * (`AnalisesIA.nivelRisco`) por `clientId` — pedido do usuário pra a fila
+ * "além das recomendações padrão, considerar a urgência dos dossiês". Entra
+ * como DESEMPATE DENTRO do mesmo bloco de severidade (logo depois da
+ * severidade, antes de quantidade de serviços ruins): risco alto nunca faz
+ * um cliente "em dia" pular na frente de um "vencido" — a cadência (data)
+ * continua mandando na severidade; o risco (julgamento da IA) só decide
+ * quem vem primeiro DENTRO do mesmo bloco. Opcional: sem passar nada, a
+ * ordenação continua idêntica a antes desta função existir.
  */
 function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(), opts = {}) {
   const monDias = Number(cadencias?.monitoria_dias) || 30;
@@ -334,7 +349,8 @@ function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(),
     if (relogios.length === 0) continue; // sem serviço cadastrado (ou só independentes) → fora do modelo
     const score = Math.max(...relogios.map((r) => r.atraso));
     const precisaAcao = relogios.some((r) => r.status === 'vencido' || r.status === 'vencendo' || r.status === 'nunca');
-    out.push({ cliente: c, relogios, score, precisaAcao });
+    const nivelRisco = opts.riscoPorCliente?.get(c.id);
+    out.push({ cliente: c, relogios, score, precisaAcao, nivelRisco });
   }
 
   const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now });
@@ -348,6 +364,9 @@ function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(),
     const rankA = RANK_SEVERIDADE[classificarCadencia(a)];
     const rankB = RANK_SEVERIDADE[classificarCadencia(b)];
     if (rankA !== rankB) return rankA - rankB;
+    const riscoA = RANK_RISCO[a.nivelRisco];
+    const riscoB = RANK_RISCO[b.nivelRisco];
+    if (riscoA !== riscoB) return riscoA - riscoB;
     const qtdA = qtdRuins(a);
     const qtdB = qtdRuins(b);
     if (qtdA !== qtdB) return qtdB - qtdA;

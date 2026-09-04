@@ -6,6 +6,7 @@ import { isClienteAtivo } from '../utils/formatters';
 import type {
   Acao,
   AgendaSerie,
+  AnaliseIA,
   AgilBoard,
   AgilWorkspace,
   AgilColuna,
@@ -70,6 +71,11 @@ interface CarteiraContextValue {
   lembretes: Lembrete[];
   categorias: Categoria[];
   acoes: Acao[];
+  /** Última análise automática (dossiê/risco) de cada cliente, uma por
+   *  `clientId` — usada hoje pela fila de Ações (desempate por urgência do
+   *  dossiê, `nivelRisco`) e reaproveitável por qualquer tela que precise do
+   *  mesmo dado sem fazer fetch próprio. */
+  analisesIA: AnaliseIA[];
   modelos: Modelo[];
   cadencias: Cadencias;
   agilWorkspaces: AgilWorkspace[];
@@ -184,6 +190,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
   const [lembretes, setLembretes] = useState<Lembrete[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [acoes, setAcoes] = useState<Acao[]>([]);
+  const [analisesIA, setAnalisesIA] = useState<AnaliseIA[]>([]);
   const [modelos, setModelos] = useState<Modelo[]>([]);
   const [cadencias, setCadencias] = useState<Cadencias>(CADENCIAS_PADRAO);
   const [agilWorkspaces, setAgilWorkspaces] = useState<AgilWorkspace[]>([]);
@@ -215,6 +222,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     const [
       clientesData, agendaData, agendaSeriesData, lembretesData, categoriasData, acoesData, modelosData, cadenciasData,
       agilWorkspacesData, agilBoardsData, agilColunasData, agilSwimlanesData, agilTarefasData, agilSubtarefasData, agilComentariosData,
+      analisesIAData,
     ] = await Promise.all([
       api.listarClientes(),
       api.listarAgenda(),
@@ -231,10 +239,15 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       api.listarAgilTarefas(),
       api.listarAgilSubtarefas(),
       api.listarAgilComentarios(),
+      // Não crítico pro app funcionar (fila de Ações cai pra ordenação só por
+      // cadência sem isso) — cai pra lista vazia em erro, em vez de derrubar
+      // o `Promise.all` inteiro e travar toda a carga inicial da Carteira.
+      api.buscarAnalisesIA().catch(() => []),
     ]);
     return {
       clientesData, agendaData, agendaSeriesData, lembretesData, categoriasData, acoesData, modelosData, cadenciasData,
       agilWorkspacesData, agilBoardsData, agilColunasData, agilSwimlanesData, agilTarefasData, agilSubtarefasData, agilComentariosData,
+      analisesIAData,
     };
   }, []);
 
@@ -254,6 +267,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     setAgilTarefas(d.agilTarefasData);
     setAgilSubtarefas(d.agilSubtarefasData);
     setAgilComentarios(d.agilComentariosData);
+    setAnalisesIA(d.analisesIAData);
   }, []);
 
   const recarregar = useCallback(async () => {
@@ -720,6 +734,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       lembretes,
       categorias,
       acoes,
+      analisesIA,
       modelos,
       cadencias,
       agilWorkspaces,
@@ -786,7 +801,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       removerAgilComentario: removerAgilComentarioFn,
     }),
     [
-      clientes, filtroMonitor, definirFiltroMonitor, monitoresDisponiveis, agenda, agendaSeries, lembretes, categorias, acoes, modelos, cadencias,
+      clientes, filtroMonitor, definirFiltroMonitor, monitoresDisponiveis, agenda, agendaSeries, lembretes, categorias, acoes, analisesIA, modelos, cadencias,
       agilWorkspaces, agilBoards, agilColunas, agilSwimlanes, agilTarefas, agilSubtarefas, agilComentarios,
       loading, error, recarregar, ceoAgenda, opcoesPorTipo, categoriasPorTipo,
       criarCliente, criarClientesEmLote, atualizarClienteFn, removerClienteFn,

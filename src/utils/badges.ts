@@ -56,3 +56,18 @@ export function eventoStatusBadge(status: string): BadgeVariant {
   if (/(agend|pendent)/.test(s)) return 'accent';
   return 'muted';
 }
+
+/** Nível de risco do dossiê do monitorIA (`AnaliseIA.nivelRisco`) — cor e
+ * rótulo únicos, pra não repetir a mesma tabela alto/médio/baixo → cor em
+ * cada componente que mostra risco (já tinha acontecido: uma cópia em
+ * `AnaliseIACard.tsx`, outra em `ClientesPage.tsx`, cada uma com sua própria
+ * `Record<nivelRisco, ...>`). */
+const RISCO_LABEL: Record<'alto' | 'medio' | 'baixo', string> = { alto: 'Risco alto', medio: 'Risco médio', baixo: 'Risco baixo' };
+const RISCO_COR: Record<'alto' | 'medio' | 'baixo', string> = { alto: 'var(--danger)', medio: 'var(--warning)', baixo: 'var(--success)' };
+
+export function riscoIALabel(nivelRisco: 'alto' | 'medio' | 'baixo' | undefined): string {
+  return nivelRisco ? RISCO_LABEL[nivelRisco] : 'Sem dossiê';
+}
+export function riscoIACor(nivelRisco: 'alto' | 'medio' | 'baixo' | undefined): string {
+  return nivelRisco ? RISCO_COR[nivelRisco] : 'var(--text-muted)';
+}

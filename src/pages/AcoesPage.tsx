@@ -23,7 +23,7 @@ const ACAO_STATUS_BADGE: Record<string, BadgeVariant> = { programado: 'accent', 
 const ACAO_STATUS_LABEL: Record<string, string> = { programado: 'Programada', concluido: 'Concluída', dispensado: 'Dispensada' };
 
 export default function AcoesPage() {
-  const { clientes, agenda, acoes, cadencias, atualizarAcao, removerAcao, opcoesPorTipo } = useCarteira();
+  const { clientes, agenda, acoes, cadencias, analisesIA, atualizarAcao, removerAcao, opcoesPorTipo } = useCarteira();
   const navigate = useNavigate();
   const [aba, setAba] = usePersistedState<'acompanhamento' | 'acoes'>('filtro:acoes:aba', 'acompanhamento');
   const [visaoAcompanhamento, setVisaoAcompanhamento] = usePersistedState<'precisa' | 'emdia'>('filtro:acoes:visao', 'precisa');
@@ -98,19 +98,30 @@ export default function AcoesPage() {
     [clientes]
   );
 
+  // Nível de risco do dossiê do monitorIA por cliente — usado como desempate
+  // DENTRO do mesmo bloco de severidade da fila abaixo (nunca muda vencido
+  // vs. em dia, só a ordem dentro do bloco). Pedido do usuário: a fila deve
+  // "além das recomendações padrão, considerar a urgência dos dossiês".
+  const riscoPorCliente = useMemo(
+    () => new Map(analisesIA.map((a) => [a.clientId, a.nivelRisco])),
+    [analisesIA]
+  );
+
   // Fila de priorização por ADERÊNCIA À CADÊNCIA por serviço (Monitoria/Price).
   // Cada serviço do cliente tem um "relógio": vencido/vencendo/nunca pede ação;
   // reunião futura marcada (ou relatório, no caso de Price) cobre o relógio.
-  // Ordena do mais vencido para o menos. Substitui a antiga "sugestão por recência".
-  // `acProduto` entra AQUI (e não só como filtro de lista): com um serviço
-  // selecionado, a fila é construída olhando apenas o relógio dele — é o que
-  // faz "Precisam de ação" listar quem está ruim NAQUELE serviço, em vez de
-  // quem tem o serviço e está ruim em qualquer outro.
+  // Ordena do mais vencido para o menos, com o risco do dossiê como desempate
+  // dentro do mesmo bloco (ver `riscoPorCliente`). Substitui a antiga
+  // "sugestão por recência". `acProduto` entra AQUI (e não só como filtro de
+  // lista): com um serviço selecionado, a fila é construída olhando apenas o
+  // relógio dele — é o que faz "Precisam de ação" listar quem está ruim
+  // NAQUELE serviço, em vez de quem tem o serviço e está ruim em qualquer outro.
   const filaCadencia = useMemo(
     () => buildFilaCadencia(clientes, agenda, acoes, cadencias, new Date(), {
       servico: acProduto === 'Todos' ? undefined : acProduto,
+      riscoPorCliente,
     }),
-    [clientes, agenda, acoes, cadencias, acProduto]
+    [clientes, agenda, acoes, cadencias, acProduto, riscoPorCliente]
   );
 
   const tipoOpcoes = useMemo(() => [...new Set(itens.map((i) => i.tipoLabel))].sort(), [itens]);
@@ -231,6 +242,7 @@ export default function AcoesPage() {
       comHistorico
       relogios={f.relogios}
       severidade={classificarCadencia(f)}
+      nivelRisco={f.nivelRisco}
       ultimoContato={info.ult.get(f.cliente.id) ?? null}
       totalReunioes={info.nReun.get(f.cliente.id) ?? 0}
       historico={(itensPorCliente.get(f.cliente.id) ?? []).slice(0, 3)}
