@@ -8,6 +8,18 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.17
+
+- **Fila de Ações agora também considera o risco do dossiê do monitorIA.**
+  Além de vencido/vencendo/em dia, quem tem risco alto no dossiê sobe na
+  frente dentro do mesmo grupo — o card mostra o nível de risco pra explicar
+  a ordem.
+- **Cancelar um evento agora abre um popup dedicado** pra informar o motivo,
+  em vez de um campo escondido no meio do formulário de edição.
+- Corrigido: o monitorIA podia informar um horário de reunião que não existia
+  (quando a reunião não tinha hora marcada) e a tela às vezes não mostrava a
+  alteração mais recente feita pelo agente até atualizar a página manualmente.
+
 ## 1.4.16
 
 - **Login automático no Price a partir do cadastro do cliente.** Clientes com
