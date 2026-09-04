@@ -139,6 +139,8 @@ O que o modelo pode fazer é exatamente o que o `parameters` de cada ferramenta 
 
 `server/ia/toolsSchema.test.ts` fecha as duas: para cada ferramenta, todo parâmetro declarado tem de ser lido **e** usado no corpo, todo parâmetro lido tem de estar declarado, `required` tem de existir em `properties`, e ferramenta que exige `clientId` tem de falhar explicitamente sem ele. Ao adicionar ferramenta ou parâmetro, é esse teste que avisa se as duas pontas saíram de sincronia.
 
+**Checklist obrigatório ao terminar qualquer implementação nova** (feature, campo, status, regra de negócio): checar se é pertinente dar ao monitorIA uma ferramenta pra ler e/ou agir sobre o que acabou de ser criado. Motivo: já aconteceu na direção contrária — o agente respondeu "não tenho acesso" ou ficou desatualizado (ata/anexo, análise pós-correção de dossiê, situação de cadastro) só porque ninguém pensou em expor o dado novo como ferramenta no mesmo PR que o criou. Não significa criar ferramenta pra TUDO (ex.: um campo puramente visual não precisa) — significa perguntar a pergunta antes de dar a funcionalidade por concluída, não deixar pra uma "rodada de IA" separada depois.
+
 ### Resposta do agente na tela é markdown
 
 Os modelos devolvem `**negrito**`, bullets e títulos. O chat imprimia `{m.content}` cru e o usuário via linhas de asterisco. `src/components/ia/RespostaIA.tsx` (+ `blocosMarkdown.ts`, testado) renderiza o subconjunto que os modelos realmente emitem, montando **elementos React** — nunca `dangerouslySetInnerHTML`: o texto vem de um LLM, então nada aqui pode virar HTML. A fala do usuário segue texto puro de propósito.
