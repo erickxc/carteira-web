@@ -18,14 +18,26 @@ interface DropdownProps {
   multiple?: boolean;
   /** Single: valor que representa "sem filtro" (não destaca em dourado). */
   defaultValue?: string;
+  disabled?: boolean;
+  /**
+   * 'filtro' (default) = destaque dourado quando difere do padrão — faz
+   * sentido num FILTRO (sinaliza "está restringindo algo"). 'campo' = mesmo
+   * componente usado como campo de formulário comum (`SelectField`) — nunca
+   * destaca, senão todo campo preenchido pareceria "ativo"/especial, o que
+   * não é o caso (um Monitor selecionado é o estado normal, não um filtro).
+   */
+  variant?: 'filtro' | 'campo';
 }
 
 /**
- * Dropdown padronizado para TODOS os filtros (single e múltipla escolha).
+ * Dropdown padronizado para TODOS os filtros (single e múltipla escolha) e,
+ * via `SelectField`, para campo de formulário comum — substitui o `<select>`
+ * nativo, cuja lista de opções é desenhada pelo navegador/SO e não segue o
+ * CSS do app (reportado como "frontend do seletor é um html simples").
  * O popover é renderizado via portal no <body> com posição fixa — assim nunca
  * fica preso atrás da tabela (contexto de empilhamento dos cards).
  */
-export function Dropdown({ label, options, value, onChange, multiple, defaultValue }: DropdownProps) {
+export function Dropdown({ label, options, value, onChange, multiple, defaultValue, disabled, variant = 'filtro' }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -56,6 +68,7 @@ export function Dropdown({ label, options, value, onChange, multiple, defaultVal
   }, [open]);
 
   function toggleOpen() {
+    if (disabled) return;
     if (open) { setOpen(false); return; }
     if (triggerRef.current) setRect(triggerRef.current.getBoundingClientRect());
     setOpen(true);
@@ -63,7 +76,7 @@ export function Dropdown({ label, options, value, onChange, multiple, defaultVal
 
   const arr = Array.isArray(value) ? value : [];
   const isSel = (v: string) => (multiple ? arr.includes(v) : value === v);
-  const ativo = multiple ? arr.length > 0 : !!value && value !== (defaultValue ?? '');
+  const ativo = variant === 'filtro' && (multiple ? arr.length > 0 : !!value && value !== (defaultValue ?? ''));
   const triggerText = multiple ? label : (options.find((o) => o.value === value)?.label ?? label);
 
   function pick(v: string) {
@@ -81,9 +94,10 @@ export function Dropdown({ label, options, value, onChange, multiple, defaultVal
         ref={triggerRef}
         type="button"
         onClick={toggleOpen}
+        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={`filter-ctl w-full justify-between${ativo ? ' is-active' : ''}${open ? ' is-open' : ''}`}
+        className={`filter-ctl w-full justify-between${ativo ? ' is-active' : ''}${open ? ' is-open' : ''}${disabled ? ' opacity-50 cursor-not-allowed' : ''}`}
       >
         <span className="truncate">
           {triggerText}
