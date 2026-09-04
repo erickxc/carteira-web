@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { Bell, Bot, CalendarDays, CalendarPlus, ChevronRight, Contact, ExternalLink, FileDown, FileSpreadsheet, Kanban, LayoutDashboard, MessageSquare, PanelLeftClose, PhoneIncoming, Search, Settings, Target, Users, X } from 'lucide-react';
 import prismaLogo from '../assets/prisma-logo.png';
 import priceLogo from '../assets/price-logo.svg';
+import apuraLogo from '../assets/apura-logo.png';
 import { FilaStatusBadge } from './FilaStatusBadge';
 import { useCarteira } from '../context/CarteiraContext';
 
@@ -161,6 +162,18 @@ export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder, onImportarRes
                 scroll horizontal na sidebar inteira. */}
             <img src={priceLogo} alt="Price 2D" className="shrink-0" style={{ height: 20, width: 'auto', maxWidth: '100%' }} />
           </a>
+          {/* APURA ainda não tem link — sistema novo, endereço a definir. Botão
+              desabilitado (sem `href`, `cursor: default`) só pra deixar o
+              logotipo visível na sidebar; virar link é troca de uma linha
+              quando o endereço existir. */}
+          <button
+            type="button"
+            disabled
+            title="APURA (em breve)"
+            className="sidebar-action flex items-center justify-center w-full h-[40px] rounded-sm px-[0.5rem] bg-white border border-border cursor-default opacity-60"
+          >
+            <img src={apuraLogo} alt="APURA" className="shrink-0" style={{ height: 16, width: 'auto', maxWidth: '100%' }} />
+          </button>
           {aplicacoes.map((app) => (
             <a
               key={app.id}
