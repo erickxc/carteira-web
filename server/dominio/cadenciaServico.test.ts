@@ -41,6 +41,36 @@ describe('isClienteAtivo', () => {
     expect(cadencia.isClienteAtivo({ status: 'Gratuidade total' })).toBe(true);
     expect(cadencia.isClienteAtivo({ status: 'Suspenso' })).toBe(false);
   });
+
+  /**
+   * Item 5 do levantamento de gaps: antes, a única forma de tirar um
+   * cliente da fila era mudar `status` manualmente, sem data de retorno —
+   * fácil esquecer de reverter. `pausadoAte` é independente de status/estado
+   * e volta sozinho quando o dia passa.
+   */
+  describe('pausadoAte — pausa temporária', () => {
+    const AGORA = new Date('2026-09-10T15:00:00.000Z');
+
+    it('cliente com pausadoAte HOJE ainda conta como pausado (inclui o dia inteiro)', () => {
+      expect(cadencia.isClienteAtivo({ estado: 'Ativo', status: 'Regular', pausadoAte: '2026-09-10' }, AGORA)).toBe(false);
+    });
+
+    it('cliente com pausadoAte no FUTURO está pausado mesmo com status/estado normais', () => {
+      expect(cadencia.isClienteAtivo({ estado: 'Ativo', status: 'Regular', pausadoAte: '2026-09-15' }, AGORA)).toBe(false);
+    });
+
+    it('cliente com pausadoAte no PASSADO volta a valer status/estado normalmente (retomada automática)', () => {
+      expect(cadencia.isClienteAtivo({ estado: 'Ativo', status: 'Regular', pausadoAte: '2026-09-09' }, AGORA)).toBe(true);
+    });
+
+    it('pausadoAte inválido (string corrompida) não derruba a checagem — ignora e usa status/estado', () => {
+      expect(cadencia.isClienteAtivo({ estado: 'Ativo', status: 'Regular', pausadoAte: 'lixo' }, AGORA)).toBe(true);
+    });
+
+    it('sem pausadoAte, comportamento idêntico a antes', () => {
+      expect(cadencia.isClienteAtivo({ estado: 'Ativo', status: 'Regular' }, AGORA)).toBe(true);
+    });
+  });
 });
 
 describe('buildUltimaInteracaoMap', () => {

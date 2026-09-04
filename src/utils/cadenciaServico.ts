@@ -95,7 +95,7 @@ export function buildVencendoDashboard(
 
   const out: VencendoDashboardItem[] = [];
   for (const c of clientes) {
-    if (!isClienteAtivo(c)) continue;
+    if (!isClienteAtivo(c, now)) continue;
     const evs = porCliente.get(c.id) ?? [];
     const desde = c.createdAt ? parseISO(c.createdAt) : now;
 

@@ -84,7 +84,7 @@ export const JANELA_VENCENDO: number;
 export const PESO_NUNCA: number;
 
 export function listaJSON(raw: unknown): string[];
-export function isClienteAtivo(cliente: { estado?: string; status?: string }): boolean;
+export function isClienteAtivo(cliente: { estado?: string; status?: string; pausadoAte?: string }, now?: Date): boolean;
 
 export function buildUltimaInteracaoMap(
   agenda: EventoCadencia[],

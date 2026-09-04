@@ -156,6 +156,19 @@ export interface Cliente {
    *  saber se já existe uma). Ausente/vazio ao salvar = "não mexer na senha
    *  atual"; `null` explícito = apagar de propósito. Ver `server/crypto.cjs`. */
   senhaPrice?: string | null;
+  /**
+   * Pausa temporária (item 5 do levantamento de gaps): antes, a única forma
+   * de tirar um cliente da fila era mudar `status` manualmente (ex.:
+   * "Problemas Externos") — sem data de retorno nem motivo estruturado, e
+   * se esquecesse de reverter o cliente ficava invisível pra sempre.
+   * `pausadoAte` (data, opcional) faz `isClienteAtivo` (shared/cadenciaServico.cjs)
+   * tratar o cliente como inativo só enquanto a data não passou — volta
+   * sozinho, sem ação manual, e sem mudar `status`/`estado` (motivo de
+   * pausa é um conceito à parte de "situação" do cliente). `motivoPausa`
+   * é texto curto livre (ex.: "Obra fechada até out/26").
+   */
+  pausadoAte?: string;
+  motivoPausa?: string;
   createdAt: string;
   // Colunas legadas do banco real, mantidas em sincronia pelo backend:
   suspenso?: boolean;

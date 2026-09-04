@@ -182,7 +182,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     try { window.localStorage.setItem('filtro:global:monitor', monitor); } catch { /* localStorage indisponível — filtro só não persiste */ }
   }, []);
   const monitoresDisponiveis = useMemo(
-    () => ['Todos', ...[...new Set(clientes.filter(isClienteAtivo).map((c) => c.monitor).filter(Boolean))].sort()],
+    () => ['Todos', ...[...new Set(clientes.filter((c) => isClienteAtivo(c)).map((c) => c.monitor).filter(Boolean))].sort()],
     [clientes],
   );
   const [agendaBruta, setAgenda] = useState<EventoAgenda[]>([]);

@@ -43,6 +43,11 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const statusLegado = /^(ativ|inativ|suspens)/i.test(initial?.status ?? '');
   const [status, setStatus] = useState(statusLegado ? 'Regular' : (initial?.status ?? 'Regular'));
   const [estado, setEstado] = useState(initial?.estado ?? (/^(ativ|gratuidade)/i.test(initial?.status ?? '') ? 'Ativo' : 'Inativo'));
+  // Pausa temporária — conceito à parte de status/estado (ver Cliente.pausadoAte
+  // em types/index.ts pro porquê). Data em input type="date" (string
+  // "AAAA-MM-DD"); vazio = sem pausa.
+  const [pausadoAte, setPausadoAte] = useState(initial?.pausadoAte ? initial.pausadoAte.slice(0, 10) : '');
+  const [motivoPausa, setMotivoPausa] = useState(initial?.motivoPausa ?? '');
   const [observacao, setObservacao] = useState(initial?.observacao ?? '');
   const [local, setLocal] = useState(initial?.local ?? '');
   const [linha, setLinha] = useState(initial?.linha ?? '');
@@ -118,20 +123,20 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
         const [primeira, ...resto] = lojasFinais;
         await atualizarCliente(initial.id, {
           empresa: `${grupo} - ${primeira}`, grupo, tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, relatorioCadencia, pausadoAte: pausadoAte || undefined, motivoPausa: pausadoAte ? motivoPausa : undefined,
         });
         if (resto.length > 0) {
           const novos: NovoCliente[] = resto.map((nome) => ({
             empresa: `${grupo} - ${nome}`,
             grupo,
             tipoAnalise: 'segmentado',
-            monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, relatorioCadencia,
+            monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, relatorioCadencia, pausadoAte: pausadoAte || undefined, motivoPausa: pausadoAte ? motivoPausa : undefined,
           }));
           await criarClientesEmLote(novos);
         }
       } else if (editando) {
         await atualizarCliente(initial.id, {
-          empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, tipoAnalise, relatorioCadencia,
+          empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, tipoAnalise, relatorioCadencia, pausadoAte: pausadoAte || undefined, motivoPausa: pausadoAte ? motivoPausa : undefined,
           loginPrice: removerCredencialPrice ? '' : loginPrice,
           senhaPrice: removerCredencialPrice ? null : (senhaPrice.trim() || undefined),
         });
@@ -141,12 +146,12 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
           empresa: `${base} - ${nome}`,
           grupo: base,
           tipoAnalise: 'segmentado',
-          monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, relatorioCadencia,
+          monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, relatorioCadencia, pausadoAte: pausadoAte || undefined, motivoPausa: pausadoAte ? motivoPausa : undefined,
         }));
         await criarClientesEmLote(novos);
       } else {
         await criarCliente({
-          empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, tipoAnalise: 'unitaria', relatorioCadencia,
+          empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, tipoAnalise: 'unitaria', relatorioCadencia, pausadoAte: pausadoAte || undefined, motivoPausa: pausadoAte ? motivoPausa : undefined,
           loginPrice, senhaPrice: senhaPrice.trim() || undefined,
         });
       }
@@ -240,6 +245,26 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                 options={CLIENTE_ESTADO_OPCOES.map((e) => ({ value: e, label: e }))}
               />
             </div>
+
+            {/* Pausa temporária — conceito à parte de Status/Estado: não muda
+                a "situação" do cliente, só tira ele da fila de cadência por
+                um período com data de volta automática (sem precisar lembrar
+                de reverter status manualmente depois). */}
+            <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
+              <Field className="flex-1" label="Pausado até (opcional)">
+                <Input tone="modal" type="date" value={pausadoAte} onChange={(e) => setPausadoAte(e.target.value)} />
+              </Field>
+              {pausadoAte && (
+                <Field className="flex-1" label="Motivo da pausa">
+                  <Input tone="modal" value={motivoPausa} onChange={(e) => setMotivoPausa(e.target.value)} placeholder="Ex.: Obra fechada, férias coletivas..." />
+                </Field>
+              )}
+            </div>
+            {pausadoAte && (
+              <p className="text-[0.78rem] text-text-muted" style={{ marginTop: -8, marginBottom: 16 }}>
+                O cliente some da fila de Ações até essa data e volta sozinho no dia seguinte — sem precisar mudar Status/Estado.
+              </p>
+            )}
 
             <SecaoLabel>Serviços</SecaoLabel>
 

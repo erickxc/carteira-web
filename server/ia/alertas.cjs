@@ -59,7 +59,7 @@ function gerarAlertas(repo, { agora = new Date(), max = 8 } = {}) {
   const acoes = repo.get('Acoes');
   const analises = repo.get('AnalisesIA');
 
-  const ativos = clientes.filter(isClienteAtivo);
+  const ativos = clientes.filter((c) => isClienteAtivo(c, agora));
   const porId = new Map(clientes.map((c) => [String(c.id), c]));
   const analisePorCliente = new Map(analises.map((a) => [String(a.clientId), a]));
   const comFuturo = clientesComEventoFuturo(agenda, agora);
@@ -214,7 +214,7 @@ const TEMAS_PROCESSO = [
 const MIN_OCORRENCIAS_PADRAO = 5;
 
 function gerarPadroesCarteira(repo, { max = 3 } = {}) {
-  const clientes = repo.get('Clientes').filter(isClienteAtivo);
+  const clientes = repo.get('Clientes').filter((c) => isClienteAtivo(c));
   const contagem = TEMAS_PROCESSO.map((t) => ({ ...t, clientes: new Set() }));
 
   for (const c of clientes) {

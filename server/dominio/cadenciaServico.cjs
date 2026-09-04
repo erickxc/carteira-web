@@ -88,7 +88,7 @@ function buscarVencendo(clientes, agenda, cadencias, now = new Date(), janelaVen
 
   const itens = [];
   for (const c of clientes) {
-    if (!isClienteAtivo(c)) continue;
+    if (!isClienteAtivo(c, now)) continue;
     const evs = porCliente.get(c.id) ?? [];
     const desde = c.createdAt ? parseISO(c.createdAt) : now;
 
@@ -112,7 +112,7 @@ function buscarVencendo(clientes, agenda, cadencias, now = new Date(), janelaVen
  * (mês corrente + anterior). Cancelado/reagendado não conta.
  */
 function buscarCobertura(clientes, agenda, now = new Date()) {
-  const ativos = clientes.filter(isClienteAtivo);
+  const ativos = clientes.filter((c) => isClienteAtivo(c, now));
   const ativosIds = new Set(ativos.map((c) => c.id));
   const doisMesesAtras = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const inicioMesAtual = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -139,7 +139,7 @@ function buscarCobertura(clientes, agenda, now = new Date()) {
  */
 function buscarCoberturaServicos(clientes, agenda, now = new Date()) {
   const JANELA = 30;
-  const ativos = clientes.filter(isClienteAtivo);
+  const ativos = clientes.filter((c) => isClienteAtivo(c, now));
   const eventoRealizado = (a) => /reuni|relat/i.test(a.type || '') && /conclu|realiz/i.test(a.status || '');
   const temServicoPrice = (a) => listaJSON(a.servicos).some((s) => /(price|prec)/i.test(s));
   const temServicoMonitoria = (a) => /monitor/i.test(listaJSON(a.servicos).join(' ')) || (/reuni/i.test(a.type || '') && !temServicoPrice(a));
@@ -175,7 +175,7 @@ function buscarCoberturaServicos(clientes, agenda, now = new Date()) {
  */
 function buscarAlertasSemAcompanhamento(clientes, agenda, acoes, now = new Date()) {
   const LIMIAR_DIAS = 30;
-  const ativos = clientes.filter(isClienteAtivo);
+  const ativos = clientes.filter((c) => isClienteAtivo(c, now));
   const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now });
 
   return ativos

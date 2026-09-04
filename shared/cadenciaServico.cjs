@@ -78,7 +78,31 @@ function listaJSON(raw) {
  * coluna `estado` ainda, então normalmente `estado` não chega vazio; sem
  * "ativ" no fallback, cliente legado (status="Ativo", nunca migrado pra
  * "Regular") seria excluído — quase zerou a carteira em produção uma vez. */
-function isClienteAtivo(cliente) {
+/**
+ * `now` (opcional, default `new Date()`) SÓ decide a pausa temporária
+ * (`pausadoAte`) — a regra de status/estado abaixo não depende de tempo.
+ * NUNCA chame isto como `array.filter(isClienteAtivo)` direto: `Array#filter`
+ * passa `(elemento, índice, array)`, e o índice cairia bem aqui como `now`
+ * (um número, não uma Date) — sempre `array.filter((c) => isClienteAtivo(c))`
+ * ou `(c) => isClienteAtivo(c, now)`.
+ */
+function isClienteAtivo(cliente, now = new Date()) {
+  // Pausa temporária (item 5 do levantamento de gaps): independente de
+  // status/estado, um cliente com `pausadoAte` no futuro conta como inativo
+  // — sem precisar mudar `status` manualmente (que é "situação", um conceito
+  // à parte de "está em pausa temporária"). Volta sozinho quando a data
+  // passa, sem ação manual nenhuma.
+  if (cliente.pausadoAte) {
+    // `parseISO`, não `new Date(string)`: uma data pura ("2026-09-10") é lida
+    // como meia-noite UTC pelo construtor nativo, escorregando um dia pra
+    // trás em fuso negativo (Brasil) — mesma armadilha documentada no
+    // CLAUDE.md pra `<input type="date">`. Comparação por DIA calendário
+    // (não instante exato): "pausado até 10/09" inclui o dia 10 inteiro,
+    // volta a ficar ativo só no dia 11 — mais intuitivo que expirar às
+    // 00h00 do próprio dia escolhido.
+    const pausadoAte = parseISO(cliente.pausadoAte);
+    if (!isNaN(pausadoAte.getTime()) && differenceInCalendarDays(pausadoAte, now) >= 0) return false;
+  }
   const status = (cliente.status || '').trim();
   if (cliente.estado) return /^ativo$/i.test(cliente.estado.trim()) && STATUS_EM_ATENDIMENTO.test(status);
   return /^(ativ|gratuidade)/i.test(status);
@@ -331,7 +355,7 @@ function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(),
 
   const out = [];
   for (const c of clientes) {
-    if (!isClienteAtivo(c)) continue;
+    if (!isClienteAtivo(c, now)) continue;
     const evs = porCliente.get(c.id) ?? [];
     const desde = c.createdAt ? parseISO(c.createdAt) : now;
 

@@ -97,7 +97,7 @@ export function calcularRecuperados(
   const out: ClienteRecuperado[] = [];
 
   for (const c of clientes) {
-    if (!isClienteAtivo(c)) continue;
+    if (!isClienteAtivo(c, agora)) continue;
 
     const entregas = (porCliente.get(c.id) ?? [])
       .map((e) => ({ ev: e, d: dataDe(e)! }))
@@ -184,7 +184,7 @@ export function calcularAindaSemAtendimento(
 
   const out: AindaSemAtendimento[] = [];
   for (const c of clientes) {
-    if (!isClienteAtivo(c)) continue;
+    if (!isClienteAtivo(c, agora)) continue;
     const ultima = ultimaPorCliente.get(c.id) ?? null;
     if (!ultima) {
       // Nunca atendido: só conta se o cadastro já passou do limiar (cliente
