@@ -89,7 +89,7 @@ function ListaEstados({
         >
           <span style={{ width: 8, height: 8, borderRadius: 2, background: corPorIntensidade(e.nomes.length, max), flexShrink: 0 }} />
           <span style={{ fontWeight: 600 }}>{e.sigla}</span>
-          <span className="text-text-muted" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.nome}</span>
+          <span className="text-text-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.nome}</span>
           <span className="text-text-muted">{e.nomes.length}</span>
         </div>
       ))}
@@ -145,7 +145,7 @@ export function AbrangenciaMapaCard({ clientes }: AbrangenciaMapaCardProps) {
         style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, cursor: 'pointer', position: 'relative' }}
       >
         <MapaSvg largura={140} porUf={porUf} max={max} onHover={mostrar} onLeave={esconder} />
-        <Maximize2 size={12} className="text-text-muted" style={{ position: 'absolute', top: 0, right: 'calc(50% - 70px)' }} />
+        <Maximize2 size={18} className="text-text-muted" style={{ position: 'absolute', top: 0, right: 4 }} />
       </div>
 
       {ranking.length === 0 ? (

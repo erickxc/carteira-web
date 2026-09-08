@@ -2159,6 +2159,24 @@ button.base-sync:hover { border-color: var(--border-strong); }
   to   { opacity: 1; }
 }
 
+/* Destaque de card gerado pelo monitorIA (ex.: "Distribuição de Risco" no
+   Dashboard da Carteira) — pulso sutil no acento pra diferenciar de uma
+   contagem comum de cadastro, sem fugir da identidade preto/branco (só a cor
+   de acento já definida, nunca cor nova). */
+.stackedbar-destaque { animation: ia-glow-pulse 3.2s ease-in-out infinite; }
+@keyframes ia-glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px var(--border), 0 0 0 0 transparent; }
+  50%      { box-shadow: 0 0 0 1px var(--accent), 0 0 22px 1px var(--accent-soft); }
+}
+.stackedbar-destaque-icone { color: var(--accent); flex-shrink: 0; }
+.badge-monitor-ia {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.66rem; font-weight: 600; letter-spacing: 0.02em;
+  padding: 2px 8px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent);
+  margin-left: 4px;
+}
+
 /* ---------------------------------------------------------------------------
    Movimento reduzido (acessibilidade)
    Antes só page-transition/gauge/ticker respeitavam a preferência; hovers com
@@ -2176,4 +2194,6 @@ button.base-sync:hover { border-color: var(--border-strong); }
   .modal,
   .modal-overlay.is-closing .modal,
   .filter-pop { animation: none; }
+
+  .stackedbar-destaque { animation: none; box-shadow: 0 0 0 1px var(--accent); }
 }

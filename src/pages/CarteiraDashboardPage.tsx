@@ -1,12 +1,11 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building2, Layers, TrendingUp, UserCheck, UserX } from 'lucide-react';
+import { ArrowLeft, Bot, Building2, Layers, TrendingUp, UserCheck, UserX } from 'lucide-react';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { DistribuicaoListCard } from '../components/dashboard/DistribuicaoListCard';
 import { StackedBarCard } from '../components/dashboard/StackedBarCard';
 import { CrescimentoCarteiraCard } from '../components/dashboard/CrescimentoCarteiraCard';
 import { AbrangenciaMapaCard } from '../components/dashboard/AbrangenciaMapaCard';
 import { StatCard } from '../components/StatCard';
-import { useCarteira } from '../context/CarteiraContext';
 import { Button } from '../ui';
 
 /**
@@ -21,11 +20,10 @@ import { Button } from '../ui';
  */
 export default function CarteiraDashboardPage() {
   const navigate = useNavigate();
-  const { clientes } = useCarteira();
   const d = useDashboardData();
 
   const totalAtivos = d.ativos.length;
-  const totalInativos = clientes.length - totalAtivos;
+  const totalInativos = d.inativos.length;
 
   return (
     <div className="page-container">
@@ -66,16 +64,31 @@ export default function CarteiraDashboardPage() {
           <AbrangenciaMapaCard clientes={d.ativos} />
         </div>
 
-        <StackedBarCard
-          titulo="Profundidade de Serviços"
-          subtitulo="quantos serviços cada cliente ativo contratou"
-          segmentos={d.profundidadeServicos}
-          emptyMsg="Nenhum cliente ativo cadastrado."
-          insight={(() => {
-            const multiplos = d.profundidadeServicos.filter((s) => /^(2|3\+)/.test(s.label)).reduce((s, i) => s + i.pct, 0);
-            return multiplos > 0 ? `${multiplos}% dos clientes ativos contratam mais de um serviço.` : undefined;
-          })()}
-        />
+        <div className="dash-two-col">
+          <StackedBarCard
+            titulo="Profundidade de Serviços"
+            subtitulo="quantos serviços cada cliente ativo contratou"
+            segmentos={d.profundidadeServicos}
+            emptyMsg="Nenhum cliente ativo cadastrado."
+            insight={(() => {
+              const multiplos = d.profundidadeServicos.filter((s) => /^(2|3\+)/.test(s.label)).reduce((s, i) => s + i.pct, 0);
+              return multiplos > 0 ? `${multiplos}% dos clientes ativos contratam mais de um serviço.` : undefined;
+            })()}
+          />
+
+          <StackedBarCard
+            titulo="Distribuição de Risco"
+            subtitulo="por dossiê do monitorIA · clientes ativos"
+            segmentos={d.distribuicaoRisco}
+            emptyMsg="Nenhum cliente ativo com análise de risco ainda."
+            icone={Bot}
+            destaque
+            insight={(() => {
+              const alto = d.distribuicaoRisco.find((s) => s.label === 'Risco alto');
+              return alto ? `${alto.pct}% da carteira ativa está em risco alto.` : undefined;
+            })()}
+          />
+        </div>
 
         <div className="dash-two-col">
           <StackedBarCard
