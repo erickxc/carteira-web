@@ -19,19 +19,24 @@ interface ContatoLinha extends Contato {
  * cadastrados dentro de cada cliente; aqui é a visão agregada. */
 export default function ContatosPage() {
   const navigate = useNavigate();
-  const { clientes } = useCarteira();
+  const { clientes, filtroMonitor } = useCarteira();
   const { value: busca, debounced, setValue: setBusca } = useSearchFilter();
   const [wa, setWa] = useState<{ contato: Contato; empresa: string } | null>(null);
 
+  // Filtro global de monitor (header) — antes esta tela mostrava contatos de
+  // TODOS os clientes, de qualquer monitor, sem respeitar o "quem sou eu
+  // nesta máquina" que já vale em Agenda/Clientes/Ações.
   const linhas = useMemo<ContatoLinha[]>(() => {
     const out: ContatoLinha[] = [];
-    clientes.forEach((c) =>
-      (c.contatos ?? []).forEach((ct) =>
-        out.push({ ...ct, empresa: c.empresa, clienteId: c.id, monitor: c.monitor })
-      )
-    );
+    clientes
+      .filter((c) => filtroMonitor === 'Todos' || c.monitor === filtroMonitor)
+      .forEach((c) =>
+        (c.contatos ?? []).forEach((ct) =>
+          out.push({ ...ct, empresa: c.empresa, clienteId: c.id, monitor: c.monitor })
+        )
+      );
     return out.sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [clientes]);
+  }, [clientes, filtroMonitor]);
 
   const filtradas = useMemo(() => {
     const t = debounced.trim().toLowerCase();
