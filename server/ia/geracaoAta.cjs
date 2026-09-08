@@ -80,13 +80,14 @@ A partir dessas fontes já cruzadas, gere o CONTEÚDO de três seções de uma a
 
 Responda em JSON com exatamente estes campos:
 {
-  "oQueFoiTratado": "UMA LINHA POR TÓPICO tratado (quebre com \\n). Cada linha é uma frase objetiva e independente — NÃO devolva um parágrafo único longo",
-  "decisoes": "uma linha por decisão tomada explicitamente, sem marcador (o código adiciona) — string vazia se não houve decisão",
-  "proximosPassos": "uma linha por compromisso/próximo passo NOVO identificado na transcrição/resumo que NÃO está já coberto pelos itens de pauta acima — string vazia se não houver nenhum"
+  "oQueFoiTratado": "UMA LINHA POR TÓPICO tratado (quebre com \\n). Cada linha é uma frase objetiva e independente, no máximo ~20 palavras — NÃO devolva um parágrafo único longo",
+  "decisoes": "uma linha por decisão tomada explicitamente, sem marcador (o código adiciona), no máximo ~20 palavras por linha — string vazia se não houve decisão",
+  "proximosPassos": "uma linha por compromisso/próximo passo NOVO identificado na transcrição/resumo que NÃO está já coberto pelos itens de pauta acima, no máximo ~20 palavras por linha — string vazia se não houver nenhum"
 }
 
 Regras:
 - Não invente fato que não está nas fontes acima.
+- Seja DIRETO: cada linha é o fato em si, sem repetir contexto que outra linha já deu, sem "explicar o óbvio", sem floreio nem transição ("além disso", "vale destacar que"). Prefira frase curta e específica a frase longa e genérica — isso vale pra TODAS as seções, o tamanho da ata deve refletir quantos tópicos/decisões/passos existem de verdade, não o quanto se pode escrever sobre cada um.
 - "proximosPassos" não deve repetir itens já listados na PAUTA — só compromissos novos que apareceram na conversa/resumo.
 - Em "proximosPassos", comece CADA linha com o responsável entre colchetes, exatamente como a fonte indica: "[Luiz Guilherme] acompanhar ...", "[Daniel] verificar ...". Quando a tarefa é do lado da 2D (do monitor da reunião), escreva o NOME DO MONITOR: "[${responsavelInterno}] enviar ...". NUNCA escreva "[2D]", "[Negócios 2D]", "[Monitoria]" ou qualquer nome de área — sempre o nome de uma pessoa. Sem responsável identificável na fonte, escreva "[a definir]" — nunca atribua ao monitor por padrão.
 - Transcrição automática erra nome de produto e de empresa. Quando um termo da transcrição for claramente uma variação de um NOME CADASTRADO acima, use o nome cadastrado (ex.: ouviu "queijo de embreagem" e o cadastro tem "Kit Embreagem" → escreva "Kit Embreagem"). Não force: se não houver correspondência plausível, mantenha o termo como veio.
