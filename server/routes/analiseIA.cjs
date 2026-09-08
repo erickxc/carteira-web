@@ -1,9 +1,9 @@
 const express = require('express');
 const { repoPlanilha } = require('../dominio/repo.cjs');
-const { conversar } = require('../ia/provider.cjs');
+const { conversar, provedorAtivo } = require('../ia/provider.cjs');
 const { montarSystemPrompt } = require('../ia/agente.cjs');
 const { gerarAlertas, gerarPadroesCarteira } = require('../ia/alertas.cjs');
-const { gerarAtaIA } = require('../ia/geracaoAta.cjs');
+const { gerarAtaIA, gerarAtaIAStream } = require('../ia/geracaoAta.cjs');
 const { catalogoDoCliente } = require('../alvos/consulta.cjs');
 const { gerarAnalisesPendentes } = require('../ia/analisesAutomaticas.cjs');
 
@@ -103,14 +103,37 @@ router.post('/gerar-ata', async (req, res) => {
       console.warn(`gerar-ata: catálogo indisponível para "${clientId}" — ${err.message}`);
     }
   }
+  // SSE só no provedor claude-cli (único que faz streaming de verdade hoje —
+  // ver gerarAtaIAStream). Ollama continua no formato de sempre: resposta
+  // JSON única, sem texto ao vivo — não é o provedor de produção, não vale
+  // duplicar esforço agora.
+  if (provedorAtivo() !== 'claude-cli') {
+    try {
+      const secoes = await gerarAtaIA({
+        subject, resumo, description, checklist, produtosSituacao, transcricao,
+        produtosCatalogo, clientesCatalogo, monitores, repo,
+      });
+      return res.json(secoes);
+    } catch (err) {
+      return res.status(502).json({ error: err.message });
+    }
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
   try {
-    const secoes = await gerarAtaIA({
+    const secoes = await gerarAtaIAStream({
       subject, resumo, description, checklist, produtosSituacao, transcricao,
       produtosCatalogo, clientesCatalogo, monitores, repo,
+      onDelta: (textoAcumulado) => res.write(`event: delta\ndata: ${JSON.stringify({ texto: textoAcumulado })}\n\n`),
     });
-    res.json(secoes);
+    res.write(`event: done\ndata: ${JSON.stringify(secoes)}\n\n`);
   } catch (err) {
-    res.status(502).json({ error: err.message });
+    res.write(`event: error\ndata: ${JSON.stringify({ error: err.message })}\n\n`);
+  } finally {
+    res.end();
   }
 });
 

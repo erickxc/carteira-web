@@ -7,7 +7,7 @@ import { registrarRemarcacao } from '../utils/reagendamento';
 import { ehServicoDeReuniao } from '../utils/cadenciaServico';
 import { gerarAtaPdf } from '../utils/ataPdf';
 import {
-  gerarAtaComIA, buscarCatalogoAlvos, buscarTagsClienteFinal,
+  gerarAtaComIAStream, buscarCatalogoAlvos, buscarTagsClienteFinal,
   type CatalogoAlvosCliente, type TagClienteFinal,
 } from '../api/client';
 import { toastError, toastInfo, toastSuccess } from '../utils/toast';
@@ -245,14 +245,14 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   async function gerarAtaComIAHandler() {
     setGerandoAtaIA(true);
     try {
-      const secoes = await gerarAtaComIA({
+      const secoes = await gerarAtaComIAStream({
         clientId, subject, resumo, description, checklist: ck.checklist,
         produtosSituacao: ehMonitoriaServico ? ps.itens : [],
         transcricao,
         // Sem isto a IA não sabe o nome de quem responde pelo lado da 2D e
         // volta a escrever "[2D]"/"[Negócios 2D]" nos próximos passos.
         monitores,
-      });
+      }, (textoAcumulado) => setAta(textoAcumulado)); // texto cru aparecendo no campo enquanto gera — substituído pela versão formatada abaixo quando terminar.
       const novaAta = gerarAta(
         {
           clientName: clienteSelecionado?.empresa ?? '',

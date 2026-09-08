@@ -225,6 +225,111 @@ ${prompt}`;
 }
 
 /**
+ * Igual a `rodarCli`, mas em modo `stream-json` — cada evento de texto chega
+ * incremental via `onDelta`, pra quem quiser mostrar progresso ao vivo (hoje:
+ * só "Gerar ata com IA", que media 106s de espera com o spinner parado — ver
+ * `gerarAtaIAStream` em `geracaoAta.cjs`).
+ *
+ * `--verbose` é OBRIGATÓRIO junto de `--output-format stream-json` em modo
+ * `-p` (o CLI recusa sem isso). `--include-partial-messages` é o que faz o
+ * texto chegar em pedaços (`content_block_delta`/`text_delta`) em vez de só
+ * no final. Ignora `thinking_delta` de propósito — nunca mostra o
+ * raciocínio oculto do modelo pro usuário.
+ *
+ * O evento final (`type: 'result'`) é o MESMO objeto que `--output-format
+ * json` devolve inteiro em `rodarCli` — resolve com ele, reaproveitando o
+ * mesmo tratamento de erro (nenhuma lógica duplicada).
+ */
+function rodarCliStream(prompt, { systemPrompt, onDelta, timeoutMs = CLAUDE_CLI_TIMEOUT_MS } = {}) {
+  const bin = localizarClaudeCli();
+  if (!bin) throw new Error('Claude Code CLI não encontrado nesta máquina (instale ou aponte CLAUDE_CLI_PATH no .env).');
+
+  const args = [
+    '-p',
+    '--output-format', 'stream-json',
+    '--include-partial-messages',
+    '--verbose',
+    '--model', modeloAtivo(),
+    '--disallowed-tools', FERRAMENTAS_NATIVAS_NEGADAS,
+  ];
+
+  const viaShell = precisaShell(bin);
+  let promptFinal = prompt;
+  if (systemPrompt) {
+    if (viaShell) promptFinal = `<instrucoes_do_sistema>
+${systemPrompt}
+</instrucoes_do_sistema>
+
+${prompt}`;
+    else args.push('--append-system-prompt', systemPrompt);
+  }
+
+  return autenticado().then((ok) => {
+    if (!ok) throw new Error('Conta Claude não conectada. Vá em Configurações → monitorIA e conecte a conta (ou rode "claude auth login" nesta máquina).');
+
+    return new Promise((resolve, reject) => {
+      const cmd = comandoSpawn(bin, args);
+      const proc = spawn(cmd.file, cmd.args, {
+        cwd: garantirCwd(),
+        env: ambienteCredencial(),
+        windowsHide: true,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        ...cmd.opcoes,
+      });
+
+      let buffer = '';
+      let erroSaida = '';
+      let dadosFinais = null;
+      let encerrado = false;
+
+      const timer = setTimeout(() => {
+        encerrado = true;
+        try { proc.kill(); } catch { /* já morreu */ }
+        reject(new Error(`Claude Code CLI não respondeu em ${Math.round(timeoutMs / 1000)}s.`));
+      }, timeoutMs);
+
+      proc.stdout.on('data', (b) => {
+        buffer += b.toString('utf8');
+        const linhas = buffer.split('\n');
+        buffer = linhas.pop() ?? ''; // última pode estar incompleta — guarda pro próximo pedaço.
+        for (const linha of linhas) {
+          const texto = linha.trim();
+          if (!texto) continue;
+          let evento;
+          try { evento = JSON.parse(texto); } catch { continue; } // linha cortada/ruído — ignora, não derruba o stream.
+          if (evento.type === 'stream_event' && evento.event?.type === 'content_block_delta' && evento.event.delta?.type === 'text_delta') {
+            onDelta?.(evento.event.delta.text);
+          } else if (evento.type === 'result') {
+            dadosFinais = evento;
+          }
+        }
+      });
+      proc.stderr.on('data', (b) => { erroSaida = (erroSaida + b.toString('utf8')).slice(-4000); });
+      proc.on('error', (err) => {
+        clearTimeout(timer);
+        reject(new Error(`Falha ao executar "${bin}": ${err.message}`));
+      });
+
+      proc.on('close', (code) => {
+        clearTimeout(timer);
+        if (encerrado) return;
+
+        if (!dadosFinais || typeof dadosFinais !== 'object') {
+          const pista = (erroSaida || buffer).trim().split('\n').filter(Boolean).slice(-3).join(' | ');
+          return reject(new Error(traduzirErro(`Claude Code CLI saiu com código ${code} sem resultado válido.${pista ? ` ${pista}` : ''}`)));
+        }
+        if (dadosFinais.is_error || dadosFinais.subtype === 'error_during_execution' || dadosFinais.subtype === 'error_max_turns') {
+          return reject(new Error(traduzirErro(String(dadosFinais.result || dadosFinais.error || dadosFinais.subtype))));
+        }
+        resolve(dadosFinais);
+      });
+
+      proc.stdin.end(promptFinal, 'utf8');
+    });
+  });
+}
+
+/**
  * Erro do CLI vira mensagem acionável. Credencial expirada é o caso comum e
  * chegava como texto cru da Anthropic no meio do chat, sem dizer o que fazer
  * — o token do `setup-token` vale 1 ano, então isso acontece longe do dia em
@@ -361,6 +466,27 @@ async function gerarJSON(prompt, { coletarUso } = {}) {
 }
 
 /**
+ * Igual a `gerarJSON`, só que via `rodarCliStream` — `onDelta` recebe o texto
+ * bruto do JSON sendo escrito, pedaço por pedaço (quem chama decide o que
+ * fazer com isso, ex.: mostrar cru num campo enquanto gera). O resultado
+ * final continua sendo o objeto JÁ PARSEADO, igual `gerarJSON` — streaming
+ * muda só COMO o texto chega, não o contrato de retorno.
+ */
+async function gerarJSONStream(prompt, { coletarUso, onDelta } = {}) {
+  const dados = await rodarCliStream(`${prompt}\n\nResponda APENAS com o JSON pedido, sem texto em volta e sem cercas de código.`, {
+    systemPrompt: 'Você devolve exclusivamente JSON válido, sem comentário, sem explicação e sem cercas de código.',
+    onDelta,
+  });
+  const texto = String(dados.result ?? '');
+  if (coletarUso) Object.assign(coletarUso, extrairUsoCli(dados), { resposta: texto });
+  try {
+    return JSON.parse(extrairJSON(texto));
+  } catch (err) {
+    throw new Error(`Resposta do Claude CLI não é JSON válido: ${err.message}`);
+  }
+}
+
+/**
  * Diagnostico pra GUI: o que existe/falta pra este provedor funcionar.
  *
  * `autenticado` cobre as duas credenciais aceitas, e `origemCredencial` diz
@@ -387,6 +513,6 @@ async function diagnostico() {
 }
 
 module.exports = {
-  conversar, gerarJSON, diagnostico, rodarCli, montarPromptConversa,
+  conversar, gerarJSON, gerarJSONStream, diagnostico, rodarCli, rodarCliStream, montarPromptConversa,
   SEGREDO_INTERNO, CONFIG_MCP, CONFIG_MCP_EXTERNO,
 };

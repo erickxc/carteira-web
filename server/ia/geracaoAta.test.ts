@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { gerarAtaIA, montarPromptAta } from './geracaoAta.cjs';
+import { gerarAtaIA, gerarAtaIAStream, montarPromptAta } from './geracaoAta.cjs';
 
 const require = createRequire(import.meta.url);
 
@@ -187,5 +187,65 @@ describe('geracaoAta: montarPromptAta', () => {
   it('instrui a quebrar "o que foi tratado" em uma linha por tópico, não parágrafo único', () => {
     const prompt = montarPromptAta({ subject: 'Reunião mensal' });
     expect(prompt).toMatch(/UMA LINHA POR TÓPICO/);
+  });
+});
+
+describe('geracaoAta: streaming (progresso ao vivo)', () => {
+  /** Fake com `gerarJSONStream` — dispara onDelta em pedaços antes de devolver
+   *  o resultado final, simulando o que o Claude CLI real faz. */
+  function llmStreamFake(resposta: unknown, pedacos: string[]) {
+    return {
+      gerarJSON: async () => resposta,
+      gerarJSONStream: async (_prompt: string, opts?: { onDelta?: (t: string) => void; coletarUso?: Record<string, unknown> }) => {
+        for (const p of pedacos) opts?.onDelta?.(p);
+        return resposta;
+      },
+      chat: async () => '',
+    };
+  }
+
+  it('chama onDelta em pedaços conforme o texto chega, devolve o resultado final igual a gerarAtaIA', async () => {
+    const pedacos: string[] = [];
+    const resultado = await gerarAtaIAStream({
+      subject: 'Reunião mensal',
+      llm: llmStreamFake({ oQueFoiTratado: 'Tudo tratado.', decisoes: 'Decisão X.', proximosPassos: '' }, ['{"oQue', 'FoiTratado":"Tudo']),
+      onDelta: (texto) => pedacos.push(texto),
+    });
+    expect(pedacos).toEqual(['{"oQue', '{"oQueFoiTratado":"Tudo']); // acumulado, não o pedaço isolado
+    expect(resultado).toEqual({ oQueFoiTratado: 'Tudo tratado.', decisoes: 'Decisão X.', proximosPassos: '' });
+  });
+
+  it('sem gerarJSONStream no provedor (Ollama), cai pra gerarAtaIA sem streamar — não quebra', async () => {
+    const chamou: string[] = [];
+    const resultado = await gerarAtaIAStream({
+      subject: 'Reunião mensal',
+      llm: { gerarJSON: async () => ({ oQueFoiTratado: 'Ok.', decisoes: '', proximosPassos: '' }), chat: async () => '' },
+      onDelta: (texto) => chamou.push(texto),
+    });
+    expect(chamou).toEqual([]); // nunca disparou — provedor sem streaming
+    expect(resultado).toEqual({ oQueFoiTratado: 'Ok.', decisoes: '', proximosPassos: '' });
+  });
+
+  it('registra uso em UsoIA com origem "ata" igual à versão sem streaming', async () => {
+    const { repoMemoria } = require('../dominio/repo.cjs');
+    const repo = repoMemoria({ UsoIA: [] });
+
+    await gerarAtaIAStream({
+      subject: 'Reunião mensal',
+      llm: {
+        gerarJSON: async () => ({}),
+        gerarJSONStream: async (_prompt: string, opts?: { onDelta?: (t: string) => void; coletarUso?: Record<string, unknown> }) => {
+          opts?.onDelta?.('{}');
+          if (opts?.coletarUso) Object.assign(opts.coletarUso, { modelo: 'claude-haiku-4-5', inputTokens: 500, outputTokens: 200, custoUsd: 0.002 });
+          return { oQueFoiTratado: 'Ok.', decisoes: '', proximosPassos: '' };
+        },
+        chat: async () => '',
+      },
+      repo,
+    });
+
+    const linhas = repo.get('UsoIA');
+    expect(linhas).toHaveLength(1);
+    expect(linhas[0]).toMatchObject({ origem: 'ata', modelo: 'claude-haiku-4-5', inputTokens: 500, outputTokens: 200 });
   });
 });

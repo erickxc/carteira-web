@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { clienteLLM } = require('./provider.cjs');
+const { clienteLLM, provedorAtivo } = require('./provider.cjs');
 
 // Mesmo espírito de DOSSIE_MAX_CHARS (analiseCliente.cjs): rede de segurança,
 // não o controle real (o prompt já pede texto enxuto).
@@ -130,4 +130,45 @@ async function gerarAtaIA({ subject, resumo, description, checklist, produtosSit
   };
 }
 
-module.exports = { gerarAtaIA, montarPromptAta };
+/**
+ * Igual a `gerarAtaIA`, com progresso ao vivo via `onDelta(textoBrutoAcumulado)`
+ * — pedido real do usuário: gerar ata media 106s (medido em UsoIA), e o
+ * spinner parado por até 2,5 minutos parecia travado. `--effort` do CLI não
+ * ajuda aqui (tokens de "pensamento" são uma fração desprezível do total
+ * nos casos lentos) — o que dá pra fazer é mostrar o texto crescendo.
+ *
+ * Só streama de verdade no provedor `claude-cli` (`gerarJSONStream` só
+ * existe ali); no Ollama cai pra `gerarAtaIA` normal, sem quebrar nada — não
+ * vale duplicar esforço num provedor que não é o de produção.
+ */
+async function gerarAtaIAStream({ subject, resumo, description, checklist, produtosSituacao, transcricao, produtosCatalogo, clientesCatalogo, monitores, onDelta, llm = clienteLLM(), repo } = {}) {
+  if (typeof llm.gerarJSONStream !== 'function') {
+    return gerarAtaIA({ subject, resumo, description, checklist, produtosSituacao, transcricao, produtosCatalogo, clientesCatalogo, monitores, llm, repo });
+  }
+
+  const prompt = montarPromptAta({ subject, resumo, description, checklist, produtosSituacao, transcricao, produtosCatalogo, clientesCatalogo, monitores });
+  const uso = {};
+  const t0 = Date.now();
+  let acumulado = '';
+  const saida = await llm.gerarJSONStream(prompt, {
+    coletarUso: uso,
+    onDelta: (pedaco) => { acumulado += pedaco; onDelta?.(acumulado); },
+  });
+  if (repo) {
+    const { registrarUso } = require('./uso.cjs');
+    registrarUso(repo, {
+      origem: 'ata', provedor: provedorAtivo(), modelo: uso.modelo, turnId: crypto.randomUUID(),
+      inputTokens: uso.inputTokens, outputTokens: uso.outputTokens,
+      cacheCreationTokens: uso.cacheCreationTokens, cacheReadTokens: uso.cacheReadTokens,
+      custoUsd: uso.custoUsd ?? 0, duracaoMs: Date.now() - t0,
+      pergunta: prompt, resposta: uso.resposta ?? '',
+    });
+  }
+  return {
+    oQueFoiTratado: normalizarSecao(saida.oQueFoiTratado),
+    decisoes: normalizarSecao(saida.decisoes),
+    proximosPassos: normalizarSecao(saida.proximosPassos),
+  };
+}
+
+module.exports = { gerarAtaIA, gerarAtaIAStream, montarPromptAta };

@@ -462,6 +462,72 @@ export const gerarAtaComIA = (payload: {
   monitores?: string[];
 }) => request<SecoesAtaIA>('/ia/gerar-ata', { method: 'POST', body: JSON.stringify(payload) });
 
+/**
+ * Mesma coisa que `gerarAtaComIA`, com progresso ao vivo via `onProgresso` —
+ * pedido real do usuário (gerar ata media 106s medido, spinner parado
+ * parecia travado). Só o provedor claude-cli streama de verdade: a rota
+ * devolve SSE (`Content-Type: text/event-stream`) nesse caso, ou o JSON de
+ * sempre (Ollama) — aqui os dois são tratados, `onProgresso` simplesmente
+ * nunca dispara no caminho sem streaming.
+ *
+ * Não usa `request()` (que só sabe `res.json()` de uma resposta única) —
+ * parse manual e mínimo de SSE, só o suficiente pra este caso (sem
+ * biblioteca nova).
+ */
+export const gerarAtaComIAStream = (payload: {
+  clientId?: string;
+  subject?: string;
+  resumo?: string;
+  description?: string;
+  checklist?: ChecklistItem[];
+  produtosSituacao?: ProdutoSituacaoItem[];
+  transcricao?: string;
+  monitores?: string[];
+}, onProgresso: (textoAcumulado: string) => void) => comoMutacao(async () => {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/ia/gerar-ata`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new Error('Não foi possível conectar à API local (node server.cjs). Verifique se o servidor está rodando.');
+  }
+
+  const streaming = (res.headers.get('Content-Type') || '').includes('text/event-stream');
+  if (!streaming) return tratarResposta<SecoesAtaIA>(res);
+
+  if (!res.body) throw new Error('Falha ao gerar ata: resposta sem corpo.');
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let resultado: SecoesAtaIA | null = null;
+  let erro: string | null = null;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const blocos = buffer.split('\n\n');
+    buffer = blocos.pop() ?? '';
+    for (const bloco of blocos) {
+      const linhaEvento = bloco.split('\n').find((l) => l.startsWith('event:'));
+      const linhaDado = bloco.split('\n').find((l) => l.startsWith('data:'));
+      if (!linhaEvento || !linhaDado) continue;
+      const tipo = linhaEvento.slice('event:'.length).trim();
+      const dado = JSON.parse(linhaDado.slice('data:'.length).trim());
+      if (tipo === 'delta') onProgresso(dado.texto);
+      else if (tipo === 'done') resultado = dado;
+      else if (tipo === 'error') erro = dado.error;
+    }
+  }
+
+  if (erro) throw new Error(erro);
+  if (!resultado) throw new Error('Conexão encerrada antes de terminar a geração da ata.');
+  return resultado;
+});
+
 
 // --- Provedor de IA / conta Claude (Claude Code CLI) ---
 

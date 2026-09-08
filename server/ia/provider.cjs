@@ -30,9 +30,13 @@ const conversar = (opts) => impl().conversar(opts);
  */
 function clienteLLM() {
   if (provedorAtivo() === 'claude-cli') {
-    const { gerarJSON } = require('./claudeCli/cliente.cjs');
-    return { gerarJSON };
+    const { gerarJSON, gerarJSONStream } = require('./claudeCli/cliente.cjs');
+    return { gerarJSON, gerarJSONStream };
   }
+  // Ollama não implementa streaming ainda — quem chama (geracaoAta.cjs)
+  // confere a presença de `gerarJSONStream` antes de tentar usar, e cai pro
+  // `gerarJSON` normal quando não existir. Não é regressão prática: produção
+  // usa claude-cli.
   return require('./ollamaClient.cjs');
 }
 
