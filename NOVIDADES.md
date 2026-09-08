@@ -8,6 +8,20 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.23
+
+- **"Gerar ata com IA" mostra o texto sendo escrito ao vivo**, em vez do
+  botão travado por até 2-3 minutos sem nenhum retorno.
+- Ata gerada por IA ficou mais direta (frases mais curtas por linha, sem
+  perder conteúdo).
+- Corrigido: perguntar ao monitorIA "quais reuniões tenho essa semana"
+  podia responder com compromissos da agenda pessoal do Marco, em vez da
+  sua própria agenda de clientes.
+- Ajuste de contraste nas bordas de campos/filtros no modo escuro (ficavam
+  quase invisíveis contra o fundo).
+- Ícone de expandir do card "Abrangência da Monitoria" alinhado à direita e
+  maior.
+
 ## 1.4.22
 
 - **monitorIA agora explica conceitos do sistema com dado real da sua
