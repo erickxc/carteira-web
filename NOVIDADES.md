@@ -8,6 +8,12 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.24
+
+- Botões de ícone (adicionar loja/item/produto, editar/excluir modelo ou
+  categoria, dispensar lembrete, fechar aviso) agora mostram uma dica ao
+  passar o mouse, explicando o que cada um faz.
+
 ## 1.4.23
 
 - **"Gerar ata com IA" mostra o texto sendo escrito ao vivo**, em vez do
