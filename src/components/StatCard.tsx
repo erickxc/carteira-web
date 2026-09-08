@@ -27,7 +27,11 @@ export function StatCard({ title, value, icon: Icon, trend, trendUp, onClick }: 
         <p className="text-[0.85rem] font-medium mb-[0.5rem] max-w-full leading-tight min-h-[2.4em] flex items-start text-[color:var(--text-secondary)]">{title}</p>
         <h3 className="text-[2.3rem] font-bold leading-[1.1] tracking-[-0.02em] tabular-nums text-[color:var(--text-primary)]">{value}</h3>
         {trend && (
-          <p className="text-[0.82rem] mt-2 flex items-center gap-1 font-medium" style={{ color: trendColor }}>
+          <p
+            title={trend}
+            className="text-[0.82rem] mt-2 flex items-center gap-1 font-medium max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
+            style={{ color: trendColor }}
+          >
             {seta}{trend}
           </p>
         )}

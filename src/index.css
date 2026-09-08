@@ -507,7 +507,12 @@ textarea:focus-visible {
    Cada linha é um grid próprio (align stretch) — sem stat card esticado à
    altura do donut, sem colunas 2fr/1fr desencontradas. */
 .dash-stats {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  /* 235px (era 220px): com 5 cards na mesma linha (Visão Geral ganhou
+     "Clientes ativos" além de "Total de atendimentos"), 220px deixava o
+     texto de tendência ("↓ 62% vs mês anterior até dia 8") quebrar linha —
+     StatCard já trunca com reticências como rede de segurança, mas o ganho
+     aqui evita truncar na maioria dos casos. */
+  grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
   margin-bottom: 1rem;
   align-items: stretch;
 }
