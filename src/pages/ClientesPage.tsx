@@ -151,7 +151,7 @@ function AnaliseIACell({ clienteId, risco }: { clienteId: string; risco?: Analis
 }
 
 export default function ClientesPage() {
-  const { clientes, agenda, cadencias, removerCliente, criarClientesEmLote, opcoesPorTipo, categoriasPorTipo } = useCarteira();
+  const { clientes, agenda, cadencias, removerCliente, criarClientesEmLote, opcoesPorTipo, categoriasPorTipo, filtroMonitor } = useCarteira();
   const navigate = useNavigate();
   const hoje = new Date();
 
@@ -300,6 +300,12 @@ export default function ClientesPage() {
       .filter((c) => fEstado === 'Todos' || (c.estado || (c.status === 'Suspenso' ? 'Inativo' : 'Ativo')) === fEstado)
       .filter((c) => fStatus === 'Todos' || c.status === fStatus)
       .filter((c) => !termo || c.empresa?.toLowerCase().includes(termo) || (c.monitor ?? '').toLowerCase().includes(termo))
+      // Dois filtros de monitor coexistem de propósito (mesmo caso já corrigido
+      // na Agenda): o GLOBAL do header (filtroMonitor) e o LOCAL desta tela
+      // (fMonitores, multi-seleção) — os dois precisam valer ao mesmo tempo.
+      // Antes o global era ignorado aqui, então trocar ele no header não
+      // filtrava nada na lista de Clientes.
+      .filter((c) => filtroMonitor === 'Todos' || c.monitor === filtroMonitor)
       .filter((c) => fMonitores.length === 0 || fMonitores.includes(c.monitor))
       .filter((c) => fTipoAnalise === 'Todos' || (c.tipoAnalise ?? 'unitaria') === fTipoAnalise)
       .filter((c) => fServicos.length === 0 || fServicos.some((s) => (c.servicos ?? []).includes(s)))
@@ -318,7 +324,7 @@ export default function ClientesPage() {
         return sortDir === 'asc' ? r : -r;
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientes, debouncedSearch, fMonitores, fTipoAnalise, fServicos, fEstado, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir, analisesPorCliente]);
+  }, [clientes, debouncedSearch, filtroMonitor, fMonitores, fTipoAnalise, fServicos, fEstado, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir, analisesPorCliente]);
 
   // Lojas da mesma rede (`Cliente.grupo`, ex.: "Altese - Recreio + Barra" e
   // "Altese - GM, Ford, Fiat, VW") viram um bloco recolhível na tabela — cada

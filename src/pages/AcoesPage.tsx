@@ -23,7 +23,7 @@ const ACAO_STATUS_BADGE: Record<string, BadgeVariant> = { programado: 'accent', 
 const ACAO_STATUS_LABEL: Record<string, string> = { programado: 'Programada', concluido: 'Concluída', sem_sucesso: 'Sem sucesso', dispensado: 'Dispensada' };
 
 export default function AcoesPage() {
-  const { clientes, agenda, acoes, cadencias, analisesIA, atualizarAcao, removerAcao, opcoesPorTipo } = useCarteira();
+  const { clientes, agenda, acoes, cadencias, analisesIA, atualizarAcao, removerAcao, opcoesPorTipo, filtroMonitor } = useCarteira();
   const navigate = useNavigate();
   const [aba, setAba] = usePersistedState<'acompanhamento' | 'acoes'>('filtro:acoes:aba', 'acompanhamento');
   const [visaoAcompanhamento, setVisaoAcompanhamento] = usePersistedState<'precisa' | 'emdia'>('filtro:acoes:visao', 'precisa');
@@ -185,6 +185,11 @@ export default function AcoesPage() {
   const passaFiltro = (c: Cliente) => {
     const termo = debouncedAcCliente.trim().toLowerCase();
     return (!termo || c.empresa?.toLowerCase().includes(termo)) &&
+      // Dois filtros de monitor coexistem de propósito (mesmo caso já
+      // corrigido em Agenda/Clientes): o GLOBAL do header e o LOCAL desta
+      // tela (acMonitores, multi-seleção) — os dois precisam valer ao
+      // mesmo tempo. Antes o global era ignorado aqui.
+      (filtroMonitor === 'Todos' || c.monitor === filtroMonitor) &&
       (acMonitores.length === 0 || acMonitores.includes(c.monitor || '')) &&
       (acLocais.length === 0 || acLocais.includes(c.local || '')) &&
       (acProduto === 'Todos' || produtos(c).includes(acProduto));
