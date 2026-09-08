@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { Bot, ChevronDown, ChevronRight, FileUp, LayoutDashboard, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { Bot, ChevronDown, ChevronRight, ChevronUp, FileUp, LayoutDashboard, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -162,6 +162,12 @@ export default function ClientesPage() {
   const [fEstado, setFEstado] = usePersistedState<string>('filtro:clientes:estado:v2', 'Ativo');
   const [fStatus, setFStatus] = usePersistedState<string>('filtro:clientes:status:v2', 'Todos');
   const [fPeriodo, setFPeriodo] = usePersistedState<string>('filtro:clientes:periodo', 'Todos');
+  // Campos novos (nível de risco do monitorIA, pausa temporária) — menos
+  // usados no dia a dia que os de cima, por isso ficam recolhidos em "Outros
+  // filtros" em vez de brigar por espaço na barra principal.
+  const [fRisco, setFRisco] = usePersistedState<string>('filtro:clientes:risco', 'Todos');
+  const [fPausado, setFPausado] = usePersistedState<string>('filtro:clientes:pausado', 'Todos');
+  const [outrosFiltrosAbertos, setOutrosFiltrosAbertos] = useState(false);
   const [sortBy, setSortBy] = usePersistedState<SortCol>('filtro:clientes:sortBy', 'empresa');
   const [sortDir, setSortDir] = usePersistedState<'asc' | 'desc'>('filtro:clientes:sortDir', 'asc');
   const [modalState, setModalState] = useState<{ editing: Cliente | null } | null>(null);
@@ -250,10 +256,12 @@ export default function ClientesPage() {
 
   const filtrosAtivos =
     !!debouncedSearch.trim() || fMonitores.length > 0 || fTipoAnalise !== 'Todos' ||
-    fServicos.length > 0 || fEstado !== 'Todos' && fEstado !== 'Ativo' || fStatus !== 'Todos' || fPeriodo !== 'Todos';
+    fServicos.length > 0 || fEstado !== 'Todos' && fEstado !== 'Ativo' || fStatus !== 'Todos' || fPeriodo !== 'Todos' ||
+    fRisco !== 'Todos' || fPausado !== 'Todos';
 
   function limparFiltros() {
     setSearch(''); setFMonitores([]); setFTipoAnalise('Todos'); setFServicos([]); setFEstado('Ativo'); setFStatus('Todos'); setFPeriodo('Todos');
+    setFRisco('Todos'); setFPausado('Todos');
   }
 
   // Valor comparável de cada coluna, pra ordenação por clique no cabeçalho.
@@ -310,6 +318,16 @@ export default function ClientesPage() {
       .filter((c) => fTipoAnalise === 'Todos' || (c.tipoAnalise ?? 'unitaria') === fTipoAnalise)
       .filter((c) => fServicos.length === 0 || fServicos.some((s) => (c.servicos ?? []).includes(s)))
       .filter((c) => {
+        if (fRisco === 'Todos') return true;
+        const nivel = analisesPorCliente.get(c.id)?.nivelRisco;
+        return fRisco === 'sem_analise' ? !nivel : nivel === fRisco;
+      })
+      .filter((c) => {
+        if (fPausado === 'Todos') return true;
+        const pausado = !!c.pausadoAte && differenceInCalendarDays(parseISO(c.pausadoAte), hoje) >= 0;
+        return fPausado === 'pausado' ? pausado : !pausado;
+      })
+      .filter((c) => {
         if (fPeriodo === 'Todos') return true;
         const n = Number(fPeriodo);
         const ult = ultimaReuniao.get(c.id);
@@ -324,7 +342,7 @@ export default function ClientesPage() {
         return sortDir === 'asc' ? r : -r;
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientes, debouncedSearch, filtroMonitor, fMonitores, fTipoAnalise, fServicos, fEstado, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir, analisesPorCliente]);
+  }, [clientes, debouncedSearch, filtroMonitor, fMonitores, fTipoAnalise, fServicos, fRisco, fPausado, fEstado, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir, analisesPorCliente]);
 
   // Lojas da mesma rede (`Cliente.grupo`, ex.: "Altese - Recreio + Barra" e
   // "Altese - GM, Ford, Fiat, VW") viram um bloco recolhível na tabela — cada
@@ -643,6 +661,48 @@ export default function ClientesPage() {
             onChange={(v) => setFPeriodo(v as string)}
           />
         </div>
+
+        {/* Campos mais novos (risco do monitorIA, pausa temporária) — menos
+            usados no dia a dia, recolhidos por padrão pra não brigar por
+            espaço com os filtros principais. */}
+        <button
+          type="button"
+          className="link-button"
+          style={{ fontSize: '0.8rem', marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          onClick={() => setOutrosFiltrosAbertos((v) => !v)}
+        >
+          {outrosFiltrosAbertos ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          Outros filtros{(fRisco !== 'Todos' || fPausado !== 'Todos') ? ' (ativo)' : ''}
+        </button>
+
+        {outrosFiltrosAbertos && (
+          <div className="filter-grid" style={{ marginTop: 10 }}>
+            <Dropdown
+              label="Risco: todos"
+              defaultValue="Todos"
+              options={[
+                { value: 'Todos', label: 'Risco: todos' },
+                { value: 'baixo', label: 'Risco baixo' },
+                { value: 'medio', label: 'Risco médio' },
+                { value: 'alto', label: 'Risco alto' },
+                { value: 'sem_analise', label: 'Sem análise' },
+              ]}
+              value={fRisco}
+              onChange={(v) => setFRisco(v as string)}
+            />
+            <Dropdown
+              label="Pausa: todos"
+              defaultValue="Todos"
+              options={[
+                { value: 'Todos', label: 'Pausa: todos' },
+                { value: 'pausado', label: 'Pausado agora' },
+                { value: 'nao_pausado', label: 'Não pausado' },
+              ]}
+              value={fPausado}
+              onChange={(v) => setFPausado(v as string)}
+            />
+          </div>
+        )}
 
         {filtrosAtivos && (
           <div className="flex items-center justify-end gap-3 mt-3 pt-3 border-t border-border">
