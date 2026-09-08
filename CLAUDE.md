@@ -206,6 +206,10 @@ Pra generalizar (usuário pediu explicitamente um "especialista em conceitos", m
 
 Entra automaticamente nos dois provedores (é uma ferramenta em `FERRAMENTAS`, que Ollama e Claude CLI já compartilham) — **não** foi conectada em `orquestrador.cjs` especificamente, porque isso só afetaria o provedor Ollama; produção usa Claude CLI, que nem passa pelo orquestrador (loop próprio via MCP).
 
+**Ferramenta nova sozinha não bastou**: testado ao vivo, o modelo simplesmente não chamava `explicar_conceito_carteira` e continuava respondendo (errado) de memória — só passou a funcionar depois de um GATILHO explícito em `normas.cjs`. Mesma lição de sempre neste arquivo: "memória que depende de o modelo lembrar de consultar é memória que ele esquece" vale igual pra ferramenta nova, não só pra regra de comportamento.
+
+**Testando ao vivo, achei outro bug real na mesma leva**: "quais reuniões tenho essa semana" fazia o agente chamar `buscar_agenda_ceo` (agenda PESSOAL do Marco no Google Calendar) e responder com compromissos dele (aniversário, etc.) como se fossem reunião de cliente — nem alucinação, ferramenta errada: as duas tinham "agenda" na descrição e não existia nenhuma ferramenta pra "minha própria agenda de clientes". Criada `buscar_proximas_reunioes` (mesmo filtro de "próximo" já usado em `useDashboardData.ts::proximos`: exclui concluído/realizado e cancelado/reagendado), com GATILHO próprio em `normas.cjs` deixando explícito qual ferramenta usar pra cada caso.
+
 ### Criar evento/lembrete: valor é validado contra o cadastro, nunca gravado cru
 
 Bug de produção: o agente criou uma reunião com `monitores: ["Erick"]` — a opção cadastrada é "Erick Cardoso" (`Categorias`, tipo `monitor`). O valor foi gravado como veio, não casou com nenhuma opção do `<select>` na tela de edição, e o campo apareceu **vazio** pro usuário. Sem erro, sem log — pareceu que tinha dado certo.

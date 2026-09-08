@@ -134,8 +134,8 @@ function escreverDossie(clientId: string, slug: string, corpo: string) {
 // 1-8: catálogo e contrato geral das ferramentas
 // ---------------------------------------------------------------------------
 describe('catálogo de ferramentas', () => {
-  it('1. expõe exatamente as 40 ferramentas esperadas', () => {
-    expect(FERRAMENTAS).toHaveLength(40);
+  it('1. expõe exatamente as 41 ferramentas esperadas', () => {
+    expect(FERRAMENTAS).toHaveLength(41);
   });
 
   it('2. nenhum nome de ferramenta duplicado', () => {
@@ -1656,5 +1656,63 @@ describe('explicar_conceito_carteira', () => {
     const uso = repo.get('UsoIA') as { origem: string; pergunta: string }[];
     expect(uso).toHaveLength(1);
     expect(uso[0]).toMatchObject({ origem: 'conceito', pergunta: 'conceito — cadencia' });
+  });
+});
+
+describe('buscar_proximas_reunioes', () => {
+  function amanha() {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }
+  function ontem() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }
+
+  it('devolve eventos futuros do cliente, excluindo concluído/cancelado', () => {
+    const repo = repoBase({
+      Agenda: [
+        { id: 'e1', clientId: 'c1', clientName: 'Loja Teste', type: 'Reunião', date: amanha(), status: 'Agendado', monitores: [] },
+        { id: 'e2', clientId: 'c1', clientName: 'Loja Teste', type: 'Reunião', date: amanha(), status: 'Concluído', monitores: [] },
+        { id: 'e3', clientId: 'c1', clientName: 'Loja Teste', type: 'Reunião', date: amanha(), status: 'Cancelado', monitores: [] },
+      ],
+    });
+    const r = exec('buscar_proximas_reunioes', repo, {}) as { total: number; eventos: { clientId: string; status: string }[] };
+    expect(r.total).toBe(1);
+    expect(r.eventos[0].status).toBe('Agendado');
+  });
+
+  it('não devolve evento no passado', () => {
+    const repo = repoBase({
+      Agenda: [{ id: 'e1', clientId: 'c1', clientName: 'Loja Teste', type: 'Reunião', date: ontem(), status: 'Agendado', monitores: [] }],
+    });
+    const r = exec('buscar_proximas_reunioes', repo, {}) as { total: number };
+    expect(r.total).toBe(0);
+  });
+
+  it('respeita janela de dias (padrão 14) e escopo por monitor (ctx)', () => {
+    const repo = repoBase({
+      Clientes: [
+        clienteBase({ id: 'c1', empresa: 'Loja do Erick', monitor: 'Erick Cardoso' }),
+        clienteBase({ id: 'c2', empresa: 'Loja do Yan', monitor: 'Yan' }),
+      ],
+      Agenda: [
+        { id: 'e1', clientId: 'c1', clientName: 'Loja do Erick', type: 'Reunião', date: amanha(), status: 'Agendado', monitores: [] },
+        { id: 'e2', clientId: 'c2', clientName: 'Loja do Yan', type: 'Reunião', date: amanha(), status: 'Agendado', monitores: [] },
+      ],
+    });
+    const doErick = exec('buscar_proximas_reunioes', repo, {}, { monitor: 'Erick Cardoso' }) as { eventos: { empresa: string }[] };
+    expect(doErick.eventos.map((e) => e.empresa)).toEqual(['Loja do Erick']);
+  });
+
+  it('data devolvida é só a parte civil (sem hora fantasma) — hora vem separada em "time"', () => {
+    const repo = repoBase({
+      Agenda: [{ id: 'e1', clientId: 'c1', clientName: 'Loja Teste', type: 'Reunião', date: `${amanha()}T12:00:00.000Z`, time: '', status: 'Agendado', monitores: [] }],
+    });
+    const r = exec('buscar_proximas_reunioes', repo, {}) as { eventos: { date: string; time: string | null }[] };
+    expect(r.eventos[0].date).toBe(amanha());
+    expect(r.eventos[0].time).toBeNull();
   });
 });

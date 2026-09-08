@@ -1410,6 +1410,40 @@ function buscarAgendaCeo(repo, { dias } = {}) {
 }
 
 /**
+ * Próximos eventos da AGENDA DA CARTEIRA (reunião/contato/relatório/
+ * precificação dos clientes do monitor) — não confundir com
+ * `buscar_agenda_ceo`, que é a agenda PESSOAL do Marco no Google Calendar.
+ *
+ * Existe por um bug real: "quais reuniões tenho marcada essa semana" fazia o
+ * agente chamar `buscar_agenda_ceo` (só ferramenta com "agenda" e "semana" na
+ * descrição) e responder com compromissos do Marco (aniversários, etc.) como
+ * se fossem da carteira de clientes — nem alucinação, ferramenta errada.
+ * Mesmo filtro de "próximo" já usado em `useDashboardData.ts::proximos`
+ * (front): exclui concluído/realizado (já aconteceu) e cancelado/reagendado
+ * (não vai acontecer).
+ */
+function buscarProximasReunioes(repo, { dias } = {}, ctx = {}) {
+  const janela = Math.min(Math.max(Number(dias) || 14, 1), 60);
+  const clientes = clientesDoMonitor(repo, ctx);
+  const idsDoEscopo = new Set(clientes.map((c) => String(c.id)));
+  const hoje = new Date().toISOString().slice(0, 10);
+  const limite = new Date(Date.now() + janela * 86400e3).toISOString().slice(0, 10);
+
+  const eventos = repo.get('Agenda')
+    .filter((a) => idsDoEscopo.has(String(a.clientId)))
+    .filter((a) => !/conclu|realiz|cancel|reagend/i.test(a.status || ''))
+    .filter((a) => { const d = String(a.date || '').slice(0, 10); return d >= hoje && d <= limite; })
+    .sort((a, b) => `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`))
+    .slice(0, 40)
+    .map((a) => ({
+      clientId: a.clientId, empresa: a.clientName, type: a.type, date: dataCivilEvento(a.date),
+      time: a.time || null, subject: a.subject || '', status: a.status, monitores: listaJSON(a.monitores),
+    }));
+
+  return { janelaDias: janela, total: eventos.length, eventos };
+}
+
+/**
  * Lembretes de um cliente — fecha a assimetria de o agente poder CRIAR
  * lembrete (`criar_lembrete`) mas não ter como LER os que já existem (nem
  * `buscar_dossie_cliente` nem `buscar_historico_eventos` incluem Lembretes),
@@ -1750,9 +1784,15 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_agenda_ceo',
-    description: 'Agenda do Marco (CEO) — Google Calendar, somente leitura. Use pra "o Marco tem horário livre em X", "o que tem na agenda dele essa semana", especialmente combinado com sugerir_encaixes_agenda quando a reunião precisar dele. Devolve também quando foi a última sincronização (dado pode estar defasado).',
+    description: 'Agenda PESSOAL do Marco (CEO) — Google Calendar, somente leitura. Use SÓ pra "o Marco tem horário livre em X", "o que tem na agenda DELE essa semana", especialmente combinado com sugerir_encaixes_agenda quando a reunião precisar dele. NÃO é a agenda da carteira de clientes — pra "quais reuniões eu tenho marcada"/"o que tenho essa semana" (do próprio monitor, com clientes), use buscar_proximas_reunioes. Devolve também quando foi a última sincronização (dado pode estar defasado).',
     parameters: { type: 'object', properties: { dias: { type: 'number', description: 'Janela de dias à frente (padrão 14, máx 60).' } } },
     executar: buscarAgendaCeo,
+  },
+  {
+    name: 'buscar_proximas_reunioes',
+    description: 'Próximos eventos da AGENDA DA CARTEIRA (reunião/contato/relatório/precificação, dos clientes do monitor) — nunca a agenda pessoal do Marco (isso é buscar_agenda_ceo). Use pra "quais reuniões eu tenho marcada", "o que tenho essa semana", "minha agenda dos próximos dias". Exclui eventos já concluídos/realizados e cancelados/reagendados — só o que ainda vai acontecer.',
+    parameters: { type: 'object', properties: { dias: { type: 'number', description: 'Janela de dias à frente (padrão 14, máx 60).' } } },
+    executar: buscarProximasReunioes,
   },
   {
     name: 'buscar_lembretes_cliente',
