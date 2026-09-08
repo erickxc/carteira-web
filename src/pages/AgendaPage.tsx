@@ -29,7 +29,7 @@ function ordenaPorHora(a: EventoAgenda, b: EventoAgenda) {
 }
 
 export default function AgendaPage() {
-  const { agenda, clientes, atualizarEvento, opcoesPorTipo, ceoAgenda } = useCarteira();
+  const { agenda, clientes, atualizarEvento, opcoesPorTipo, ceoAgenda, filtroMonitor } = useCarteira();
   const location = useLocation();
   const navigate = useNavigate();
   const hoje = new Date();
@@ -75,16 +75,25 @@ export default function AgendaPage() {
   // estava na reunião era outro monitor (46 de 343 eventos reais divergem
   // assim). Cai no monitor dono do cliente só quando o evento não tem
   // `monitores` preenchido (dado legado, de antes da múltipla escolha).
+  //
+  // DOIS filtros de monitor coexistem de propósito, e os dois precisam valer
+  // ao mesmo tempo: o filtro GLOBAL do header (`filtroMonitor`, "quem sou eu
+  // nesta máquina", usado em outras telas) e o filtro LOCAL deste card
+  // (`fMonitores`, multi-seleção, só desta tela). Antes o global era
+  // simplesmente ignorado aqui — mudar ele no header não tinha efeito
+  // nenhum na Agenda, e quem via a lista "presa" era só o local (bug real
+  // reportado: trocar o filtro global não mudava nada na tela).
   const agendaFiltrada = useMemo(
     () => agenda.filter((a) => {
       const monitoresDoEvento = a.monitores && a.monitores.length > 0
         ? a.monitores
         : [monitorPorCliente.get(a.clientId) || ''];
-      return (fMonitores.length === 0 || monitoresDoEvento.some((m) => fMonitores.includes(m))) &&
+      return (filtroMonitor === 'Todos' || monitoresDoEvento.includes(filtroMonitor)) &&
+        (fMonitores.length === 0 || monitoresDoEvento.some((m) => fMonitores.includes(m))) &&
         (fTipos.length === 0 || fTipos.includes(a.type)) &&
         (mostrarCancelados || !/cancel|reagend/i.test(a.status || ''));
     }),
-    [agenda, fMonitores, fTipos, mostrarCancelados, monitorPorCliente]
+    [agenda, filtroMonitor, fMonitores, fTipos, mostrarCancelados, monitorPorCliente]
   );
 
 
