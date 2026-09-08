@@ -134,8 +134,8 @@ function escreverDossie(clientId: string, slug: string, corpo: string) {
 // 1-8: catálogo e contrato geral das ferramentas
 // ---------------------------------------------------------------------------
 describe('catálogo de ferramentas', () => {
-  it('1. expõe exatamente as 39 ferramentas esperadas', () => {
-    expect(FERRAMENTAS).toHaveLength(39);
+  it('1. expõe exatamente as 40 ferramentas esperadas', () => {
+    expect(FERRAMENTAS).toHaveLength(40);
   });
 
   it('2. nenhum nome de ferramenta duplicado', () => {
@@ -297,6 +297,36 @@ describe('buscar_clientes', () => {
       Clientes: [clienteBase({ id: 'a', grupo: 'G', empresa: 'G - Um' }), clienteBase({ id: 'b', grupo: 'G', empresa: 'G - Dois', status: 'Suspenso' })],
     });
     expect(exec('buscar_clientes', repo, { grupo: 'G', status: 'Suspenso' })).toHaveLength(1);
+  });
+
+  /**
+   * Bug real encontrado testando o agente ao vivo: "quantos clientes ativos"
+   * contava por `estado === 'Ativo'` sozinho e inflava o número — um cliente
+   * com estado=Ativo mas status="Atendido pelo Marco" (fora de atendimento)
+   * contava como ativo. `ativo` (calculado com a MESMA regra do resto do
+   * app, isClienteAtivo) tem que refletir estado+status+pausa juntos, não
+   * só o campo bruto `estado`.
+   */
+  it('20b. campo "ativo" combina estado+status (nunca só estado)', () => {
+    const repo = repoBase({
+      Clientes: [
+        clienteBase({ id: 'a', estado: 'Ativo', status: 'Regular' }),
+        clienteBase({ id: 'b', estado: 'Ativo', status: 'Atendido pelo Marco' }),
+        clienteBase({ id: 'c', estado: 'Ativo', status: 'Suspenso' }),
+      ],
+    });
+    const porId = new Map(exec('buscar_clientes', repo).map((c: { id: string }) => [c.id, c]));
+    expect(porId.get('a')).toMatchObject({ ativo: true });
+    expect(porId.get('b')).toMatchObject({ ativo: false });
+    expect(porId.get('c')).toMatchObject({ ativo: false });
+  });
+
+  it('20c. expõe pausadoAte/motivoPausa e reflete no campo "ativo" durante a pausa', () => {
+    const repo = repoBase({
+      Clientes: [clienteBase({ id: 'a', pausadoAte: '2099-01-01', motivoPausa: 'Férias do responsável' })],
+    });
+    const [r] = exec('buscar_clientes', repo) as { pausadoAte: string; motivoPausa: string; ativo: boolean }[];
+    expect(r).toMatchObject({ pausadoAte: '2099-01-01', motivoPausa: 'Férias do responsável', ativo: false });
   });
 });
 
@@ -1579,5 +1609,52 @@ describe('buscar_historico_risco_cliente', () => {
 
   it('cliente inexistente erra explicitamente', () => {
     expect(() => exec('buscar_historico_risco_cliente', repoBase(), { clientId: 'zzz' })).toThrow(/não encontrado/);
+  });
+});
+
+describe('explicar_conceito_carteira', () => {
+  function llmFake(resposta: unknown) {
+    const chamadas: string[] = [];
+    return { fn: { gerarJSON: async (prompt: string) => { chamadas.push(prompt); return resposta; } }, chamadas };
+  }
+
+  it('conceito inválido erra com a lista de chaves válidas', async () => {
+    const { fn } = llmFake({ explicacao: 'x' });
+    await expect(
+      tool('explicar_conceito_carteira').executar(repoBase(), { conceito: 'inventado', pergunta: 'oi' }, {}, fn)
+    ).rejects.toThrow(/cliente_ativo/);
+  });
+
+  it('sem "pergunta" erra explicitamente', async () => {
+    const { fn } = llmFake({ explicacao: 'x' });
+    await expect(
+      tool('explicar_conceito_carteira').executar(repoBase(), { conceito: 'cliente_ativo' }, {}, fn)
+    ).rejects.toThrow(/pergunta/);
+  });
+
+  it('devolve a explicação do modelo e passa o dado real (não inventado) no prompt', async () => {
+    const repo = repoBase({
+      Clientes: [
+        clienteBase({ id: 'c1' }),
+        clienteBase({ id: 'c2', estado: 'Ativo', status: 'Atendido pelo Marco' }),
+      ],
+    });
+    const { fn, chamadas } = llmFake({ explicacao: '**2 clientes**, 1 ativo e 1 inativo.' });
+    const r = await tool('explicar_conceito_carteira').executar(
+      repo, { conceito: 'cliente_ativo', pergunta: 'o que é cliente ativo?' }, {}, fn
+    ) as { explicacao: string };
+    expect(r.explicacao).toBe('**2 clientes**, 1 ativo e 1 inativo.');
+    expect(chamadas[0]).toContain('"totalClientes": 2');
+    expect(chamadas[0]).toContain('"ativos": 1');
+    expect(chamadas[0]).toContain('o que é cliente ativo?');
+  });
+
+  it('grava o uso com origem "conceito"', async () => {
+    const repo = repoBase();
+    const { fn } = llmFake({ explicacao: 'x' });
+    await tool('explicar_conceito_carteira').executar(repo, { conceito: 'cadencia', pergunta: 'como funciona cadência?' }, {}, fn);
+    const uso = repo.get('UsoIA') as { origem: string; pergunta: string }[];
+    expect(uso).toHaveLength(1);
+    expect(uso[0]).toMatchObject({ origem: 'conceito', pergunta: 'conceito — cadencia' });
   });
 });

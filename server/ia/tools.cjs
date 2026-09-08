@@ -10,13 +10,14 @@ const { gerarAta } = require('./ataTexto.cjs');
 const { gerarAtaPdfBuffer } = require('./ataPdf.cjs');
 const {
   calcularAderencia, listaJSON, buscarVencendo, buscarCobertura, buscarCoberturaServicos, buscarAlertasSemAcompanhamento,
-  buildFilaCadencia, classificarCadencia,
+  buildFilaCadencia, classificarCadencia, isClienteAtivo,
 } = require('../dominio/cadenciaServico.cjs');
 const { sugerirAgenda } = require('../dominio/sugestaoAgenda.cjs');
 const { getCache: getCacheCeoAgenda } = require('../ceoAgenda.cjs');
 const { CADENCIAS_SEED, UPLOADS_DIR } = require('../config.cjs');
 const { isClient } = require('../modo.cjs');
 const memoriaIADominio = require('../dominio/memoriaIA.cjs');
+const { CONCEITOS } = require('./conceitosCarteira.cjs');
 
 /**
  * Valores configuráveis por tipo (`Categorias`): monitor, serviço, sala,
@@ -247,6 +248,16 @@ function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo
       ...identidadeCliente(cliente),
       status: cliente.status,
       estado: cliente.estado || null,
+      // Bug real: o modelo respondia "quantos clientes ativos" contando só
+      // `estado === 'Ativo'`, sem considerar `status` (Suspenso/Atendido
+      // pelo Marco/Problemas Externos não contam como atendimento) nem
+      // pausa temporária — inflava a contagem de ativos e subcontava
+      // inativos. `ativo` já vem calculado com a MESMA regra do resto do
+      // app (isClienteAtivo) — use este campo, não `estado` sozinho, pra
+      // responder "está ativo?"/"quantos ativos?".
+      ativo: isClienteAtivo(cliente),
+      pausadoAte: cliente.pausadoAte || null,
+      motivoPausa: cliente.motivoPausa || null,
       servicos: listaJSON(cliente.servicos),
       // Serviço que o cliente conduz sozinho não entra em fila de reunião —
       // sem isso aqui, uma resposta sobre "quem agendar" incluía cliente cujo
@@ -927,6 +938,142 @@ function gerarRelatorioExecutivo(repo, _argumentos, ctx = {}) {
   };
 }
 
+/**
+ * Retrato pequeno de dado REAL, específico do conceito pedido — reaproveita
+ * funções já existentes neste arquivo/`cadenciaServico.cjs`, nunca duplica
+ * lógica de negócio. Escopado por monitor (ctx), igual ao resto das
+ * ferramentas de consulta.
+ */
+function dadosReaisDoConceito(repo, conceito, ctx) {
+  const clientes = clientesDoMonitor(repo, ctx);
+  switch (conceito) {
+    case 'cliente_ativo': {
+      const ativos = clientes.filter((c) => isClienteAtivo(c));
+      const inativosPorStatus = clientes.filter((c) => !isClienteAtivo(c) && c.estado !== 'Inativo');
+      return {
+        totalClientes: clientes.length,
+        ativos: ativos.length,
+        inativos: clientes.length - ativos.length,
+        exemploInativoComEstadoAtivo: inativosPorStatus[0]
+          ? { empresa: inativosPorStatus[0].empresa, estado: inativosPorStatus[0].estado, status: inativosPorStatus[0].status }
+          : null,
+      };
+    }
+    case 'atendimento_vs_cliente': {
+      const ativos = clientes.filter((c) => isClienteAtivo(c));
+      const grupos = new Set();
+      let semGrupo = 0;
+      ativos.forEach((c) => { if (c.grupo) grupos.add(c.grupo); else semGrupo++; });
+      return { totalAtendimentos: ativos.length, totalClientesUnicos: grupos.size + semGrupo, redesComMaisDeUmaLoja: grupos.size };
+    }
+    case 'cadencia': {
+      const agenda = repo.get('Agenda');
+      const acoes = repo.get('Acoes');
+      const cadenciasObj = lerCadencias(repo);
+      const fila = buildFilaCadencia(clientes, agenda, acoes, cadenciasObj, new Date());
+      return {
+        configDias: cadenciasObj,
+        top3MaisAtrasados: fila.slice(0, 3).map((f) => ({ empresa: f.cliente.empresa, situacao: classificarCadencia(f) })),
+      };
+    }
+    case 'cobertura_vs_saude': {
+      const porStatus = {};
+      clientes.forEach((c) => { const s = c.status || 'Regular'; porStatus[s] = (porStatus[s] || 0) + 1; });
+      return { totalClientes: clientes.length, composicaoPorStatus: porStatus };
+    }
+    case 'risco_ia': {
+      const analises = repo.get('AnalisesIA');
+      const idsAtivos = new Set(clientes.filter((c) => isClienteAtivo(c)).map((c) => String(c.id)));
+      const porNivel = { baixo: 0, medio: 0, alto: 0, sem_analise: 0 };
+      const analisePorId = new Map(analises.map((a) => [String(a.clientId), a]));
+      idsAtivos.forEach((id) => { const nivel = analisePorId.get(id)?.nivelRisco; porNivel[nivel && nivel in porNivel ? nivel : 'sem_analise']++; });
+      return { clientesAtivos: idsAtivos.size, porNivelRisco: porNivel };
+    }
+    case 'acao_sem_sucesso': {
+      const idsDoEscopo = new Set(clientes.map((c) => String(c.id)));
+      const acoes = repo.get('Acoes').filter((a) => idsDoEscopo.has(String(a.clientId)));
+      return {
+        concluidas: acoes.filter((a) => a.status === 'concluido').length,
+        semSucesso: acoes.filter((a) => a.status === 'sem_sucesso').length,
+      };
+    }
+    case 'pausa_temporaria': {
+      const hoje = new Date().toISOString().slice(0, 10);
+      const pausados = clientes.filter((c) => c.pausadoAte && c.pausadoAte >= hoje);
+      return {
+        totalClientes: clientes.length,
+        pausadosAgora: pausados.length,
+        exemplo: pausados[0] ? { empresa: pausados[0].empresa, pausadoAte: pausados[0].pausadoAte, motivoPausa: pausados[0].motivoPausa } : null,
+      };
+    }
+    case 'segmento_linha': {
+      const porSegmento = {};
+      const porLinha = {};
+      clientes.forEach((c) => {
+        if (c.local) porSegmento[c.local] = (porSegmento[c.local] || 0) + 1;
+        if (c.linha) porLinha[c.linha] = (porLinha[c.linha] || 0) + 1;
+      });
+      return { porSegmento, porLinha };
+    }
+    default:
+      return {};
+  }
+}
+
+/**
+ * Explica um conceito da Carteira com dado REAL da carteira do monitor,
+ * não de memória solta — existe por causa de um bug real (o próprio agente
+ * confundiu "estado" com "cliente ativo de verdade" numa pergunta real).
+ *
+ * Faz UMA chamada de modelo SEM ferramentas (`gerarJSON`), não o loop
+ * completo de tool-calling (`conversar`) — evitando o risco de a ferramenta
+ * chamar a si mesma (ela está na mesma lista FERRAMENTAS que um loop
+ * aninhado enxergaria). O dado real é buscado ANTES, por código
+ * determinístico — o modelo só redige a explicação a partir dele.
+ *
+ * Mede uso como `origem: 'conceito'` — mesma preocupação já registrada em
+ * `analiseCliente.cjs::gerarAnaliseIA` (chamada de modelo que não passa pelo
+ * chat "não aparecia no painel de consumo... gastava token pago de forma
+ * invisível").
+ */
+async function explicarConceitoCarteira(repo, { conceito, pergunta } = {}, ctx = {}, clienteLLMFn) {
+  if (!conceito || !(conceito in CONCEITOS)) {
+    throw new Error(`explicar_conceito_carteira: "conceito" precisa ser um de: ${Object.keys(CONCEITOS).join(', ')}.`);
+  }
+  if (!pergunta) throw new Error('explicar_conceito_carteira: "pergunta" é obrigatória (a pergunta original do usuário, pra dar contexto à explicação).');
+
+  const definicao = CONCEITOS[conceito];
+  const dados = dadosReaisDoConceito(repo, conceito, ctx);
+  const prompt = `Explique o conceito abaixo de forma clara e direta pro usuário de um sistema de monitoria de clientes, usando OS NÚMEROS REAIS fornecidos como exemplo concreto (não invente outros números, não fale em genérico se o dado real está disponível).
+
+Conceito: ${conceito}
+Definição correta: ${definicao}
+
+Dado real da carteira dele agora:
+${JSON.stringify(dados, null, 2)}
+
+Pergunta original do usuário: "${pergunta}"
+
+Responda em JSON: {"explicacao": "texto em markdown, direto, citando os números reais acima"}`;
+
+  const { clienteLLM, provedorAtivo } = require('./provider.cjs');
+  const llm = clienteLLMFn ?? clienteLLM();
+  const uso = {};
+  const t0 = Date.now();
+  const saida = await llm.gerarJSON(prompt, { coletarUso: uso });
+
+  const { registrarUso } = require('./uso.cjs');
+  registrarUso(repo, {
+    origem: 'conceito', provedor: provedorAtivo(), modelo: uso.modelo, turnId: crypto.randomUUID(),
+    inputTokens: uso.inputTokens, outputTokens: uso.outputTokens,
+    cacheCreationTokens: uso.cacheCreationTokens, cacheReadTokens: uso.cacheReadTokens,
+    custoUsd: uso.custoUsd ?? 0, duracaoMs: Date.now() - t0,
+    pergunta: `conceito — ${conceito}`, resposta: uso.resposta ?? '',
+  });
+
+  return { explicacao: typeof saida?.explicacao === 'string' ? saida.explicacao : String(saida) };
+}
+
 function buscarContatosCliente(repo, { clientId }) {
   if (!clientId) throw new Error('buscar_contatos_cliente: "clientId" é obrigatório.');
   const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
@@ -1465,12 +1612,12 @@ function verificarDisponibilidade(repo, { date, time, monitores, sala }) {
 const FERRAMENTAS = [
   {
     name: 'buscar_clientes',
-    description: 'Busca/lista clientes da carteira. ATENÇÃO aos dois campos de situação: "estado" é Ativo/Inativo; "status" é a situação granular (Regular, Suspenso, Atendido pelo Marco, Gratuidade, Problemas Externos). "Cliente ativo" = estado, nunca status. Pra achar UM cliente pelo nome que o usuário falou, use "nome" (busca parcial, ignora acento e maiúscula) — é o caminho pra obter o clientId antes de qualquer ferramenta que peça clientId. Também filtra por nível de risco, status, serviço, grupo/rede ou local (segmento de negócio: Autopeça, Oficina, Distribuidora...). Um cliente com "grupo" é uma LOJA de uma rede — o nome da rede sozinho (ex.: "Altese") não é um cliente, use o filtro "grupo" pra achar todas as lojas dela de uma vez. Sem nenhum filtro, devolve a carteira inteira.',
+    description: 'Busca/lista clientes da carteira. Cada resultado traz um campo "ativo" (calculado) — é ESTE que responde "cliente ativo?"/"quantos clientes ativos?", nunca o "estado" sozinho: um cliente pode ter estado=Ativo e mesmo assim "ativo: false" se o status não for de atendimento (Suspenso/Atendido pelo Marco/Problemas Externos) ou se estiver em pausa temporária (pausadoAte). "estado" (Ativo/Inativo, o campo bruto do cadastro) e "status" (situação granular: Regular, Suspenso, Atendido pelo Marco, Gratuidade, Problemas Externos) continuam disponíveis como FILTROS separados, se precisar filtrar por um valor exato específico. Pra achar UM cliente pelo nome que o usuário falou, use "nome" (busca parcial, ignora acento e maiúscula) — é o caminho pra obter o clientId antes de qualquer ferramenta que peça clientId. Também filtra por nível de risco, status, serviço, grupo/rede ou local (segmento de negócio: Autopeça, Oficina, Distribuidora...). Um cliente com "grupo" é uma LOJA de uma rede — o nome da rede sozinho (ex.: "Altese") não é um cliente, use o filtro "grupo" pra achar todas as lojas dela de uma vez. Sem nenhum filtro, devolve a carteira inteira.',
     parameters: {
       type: 'object',
       properties: {
         nome: { type: 'string', description: 'Trecho do nome do cliente/loja (ex.: "27 de setembro", "recreio"). Busca parcial, sem diferenciar acento/maiúscula.' },
-        estado: { type: 'string', enum: ['Ativo', 'Inativo'], description: 'Liga/desliga o cliente das contas de cadência. É ESTE o campo de "cliente ativo/inativo" — não confundir com "status".' },
+        estado: { type: 'string', enum: ['Ativo', 'Inativo'], description: 'Filtra pelo campo bruto do cadastro (Ativo/Inativo). NÃO é o mesmo que "cliente ativo de verdade" — pra isso, olhe o campo "ativo" de cada resultado, não este filtro.' },
         nivelRisco: { type: 'string', enum: ['baixo', 'medio', 'alto'] },
         status: { type: 'string' },
         servico: { type: 'string' },
@@ -1897,6 +2044,19 @@ const FERRAMENTAS = [
     description: 'Gera um panorama executivo da carteira: quantos clientes em cada nível de risco e a pauta sugerida para os clientes em risco alto. NÃO cobre cadência/aderência de reunião ("% em dia", "quantos atrasados") — pra isso use buscar_fila_priorizacao.',
     parameters: { type: 'object', properties: {} },
     executar: gerarRelatorioExecutivo,
+  },
+  {
+    name: 'explicar_conceito_carteira',
+    description: 'Explica um conceito/regra de negócio da Carteira (ex.: o que é "cliente ativo" de verdade, diferença entre atendimento e cliente, como funciona cadência, diferença entre Cobertura e Saúde da Carteira, como o risco é calculado, diferença entre ação sem sucesso e concluída, pausa temporária, segmento vs linha) SEMPRE que o usuário perguntar "o que significa"/"qual a diferença"/"como funciona" sobre a carteira — NUNCA responda uma pergunta conceitual de memória própria, ela já causou erro real (confundir "estado" do cadastro com "cliente ativo de verdade"). A explicação já vem com números reais da carteira do usuário, não é só teoria.',
+    parameters: {
+      type: 'object',
+      properties: {
+        conceito: { type: 'string', enum: Object.keys(CONCEITOS), description: 'Qual conceito explicar.' },
+        pergunta: { type: 'string', description: 'A pergunta original do usuário, como veio, pra dar contexto à explicação.' },
+      },
+      required: ['conceito', 'pergunta'],
+    },
+    executar: explicarConceitoCarteira,
   },
 ];
 

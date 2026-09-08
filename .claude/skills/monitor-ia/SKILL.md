@@ -1,6 +1,6 @@
 ---
 name: monitor-ia
-description: Referência técnica completa do subsistema monitorIA (agente de IA da Carteira Web) — arquitetura, provedores, as 39 ferramentas, alertas, memória, custo/uso. Use ao implementar/alterar qualquer coisa em server/ia/, ao decidir se uma feature nova precisa de ferramenta pro agente (checklist do CLAUDE.md), ou ao responder perguntas analíticas sobre NÚMEROS/DADOS/INFORMAÇÕES do próprio monitorIA (quantas ferramentas existem, quanto custou, quais alertas disparam, como o risco é calculado) — não sobre a carteira de clientes em si (isso é CLAUDE.md).
+description: Referência técnica completa do subsistema monitorIA (agente de IA da Carteira Web) — arquitetura, provedores, as 40 ferramentas, alertas, memória, custo/uso. Use ao implementar/alterar qualquer coisa em server/ia/, ao decidir se uma feature nova precisa de ferramenta pro agente (checklist do CLAUDE.md), ou ao responder perguntas analíticas sobre NÚMEROS/DADOS/INFORMAÇÕES do próprio monitorIA (quantas ferramentas existem, quanto custou, quais alertas disparam, como o risco é calculado) — não sobre a carteira de clientes em si (isso é CLAUDE.md).
 ---
 
 # monitorIA — referência técnica
@@ -31,7 +31,7 @@ tool-calling AQUI)  subprocesso; loop de
    │                 │
    └────────┬────────┘
             ▼
-   server/ia/tools.cjs — 39 ferramentas (FERRAMENTAS)
+   server/ia/tools.cjs — 40 ferramentas (FERRAMENTAS)
             │
             ▼
    server/dominio/*.cjs (via repoPlanilha()) → SQLite → espelho database_dev.xlsx
@@ -39,7 +39,7 @@ tool-calling AQUI)  subprocesso; loop de
 
 **Por que dois provedores**: `ollama` roda local/grátis; `claude-cli` usa a assinatura Claude do usuário (login OAuth do CLI, não API key — ver CLAUDE.md pro porquê disso importar). Produção hoje usa `claude-cli` com Haiku. Escolha em `IA_PROVIDER` (`.env`, trava) ou na GUI (Configurações → Sistema), persistida em `SQLITE_DIR/claude-cli.json`.
 
-## As 39 ferramentas (`server/ia/tools.cjs`, array `FERRAMENTAS`)
+## As 40 ferramentas (`server/ia/tools.cjs`, array `FERRAMENTAS`)
 
 Agrupadas por o que fazem — **nomes exatos**, use pra saber se algo já existe antes de propor ferramenta nova:
 
@@ -54,6 +54,8 @@ Agrupadas por o que fazem — **nomes exatos**, use pra saber se algo já existe
 **Dados Alvos / Ecossistema** (integração com outro sistema, vendas/produtos de clientes finais): `buscar_fatos_alvos`, `buscar_resumo_vendas_alvos`, `buscar_analise_estrategica_alvos`, `definir_status_acompanhamento`, `buscar_fichas_clientes_finais`, `definir_ficha_cliente_final`
 
 **Relatório**: `gerar_relatorio_executivo`
+
+**Conceitual** (explica regra de negócio da Carteira COM dado real, nunca de memória — achado real: o agente confundiu campo `estado` com "cliente ativo de verdade"): `explicar_conceito_carteira` — faz uma chamada de modelo SEM ferramentas (`clienteLLM().gerarJSON`, não o loop `conversar`, pra não arriscar chamar a si mesma), medida como `origem: 'conceito'` em `UsoIA`. Glossário em `server/ia/conceitosCarteira.cjs`.
 
 **Regra de ouro pra ferramenta nova**: o `parameters` (JSON Schema) É o contrato — todo parâmetro declarado tem que ser LIDO e USADO no corpo, e vice-versa. `server/ia/toolsSchema.test.ts` garante isso automaticamente; rode-o depois de tocar em qualquer ferramenta.
 
