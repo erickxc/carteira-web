@@ -521,6 +521,8 @@ export interface FerramentaMcp {
   descricao: string;
   /** Muda dado (o agente executa sem confirmação prévia). */
   escreve: boolean;
+  /** JSON Schema dos argumentos que o modelo pode mandar (`parameters` da ferramenta). */
+  parametros?: { type: string; properties?: Record<string, { type?: string; description?: string }>; required?: string[] };
 }
 
 export interface StatusMcpClaude {

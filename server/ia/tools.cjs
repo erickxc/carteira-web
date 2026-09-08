@@ -1482,6 +1482,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'reanalisar_cliente',
+    escreve: true,
     description: 'Recalcula a análise de risco (nível, resumo e fatores) e o dossiê de UM cliente lendo as atas do zero. Use quando a ata foi escrita/corrigida DEPOIS da reunião e o dossiê ficou defasado — o caso mais comum, já que a ata costuma ser preenchida ao final — E TAMBÉM depois de corrigir_dossie_cliente, pra que resumo/fatores/nível da ficha do cliente deixem de mostrar o texto antigo (o retorno daquela ferramenta avisa isso em `analiseDesatualizada`). Custa uma chamada ao modelo por cliente: ofereça e rode só a pedido, um de cada vez, nunca a carteira toda.',
     parameters: { type: 'object', properties: { clientId: { type: 'string' } }, required: ['clientId'] },
     executar: reanalisarCliente,
@@ -1500,6 +1501,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'registrar_memoria',
+    escreve: true,
     description: 'Guarda uma REGRA GERAL do processo/sistema, válida pra carteira inteira e não ligada a um cliente (ex.: "a ata da reunião só é preenchida ao final da reunião"). Use só depois de o usuário CONFIRMAR que quer guardar — ofereça antes. Para fato de UM cliente use corrigir_dossie_cliente, não isto. Uma frase por regra.',
     parameters: {
       type: 'object',
@@ -1510,6 +1512,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'remover_memoria',
+    escreve: true,
     description: 'Apaga uma regra geral da memória do sistema. Só com pedido explícito do usuário. Use buscar_memoria antes para obter o id.',
     parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
     executar: removerMemoria,
@@ -1662,6 +1665,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'corrigir_dossie_cliente',
+    escreve: true,
     description: 'Atualiza o dossiê (memória de longo prazo) de um cliente — em dois casos: (1) o usuário aponta que uma informação está errada/desatualizada, ou (2) o usuário CONFIRMA que quer registrar um fato novo mencionado na conversa (você deve OFERECER antes, nunca chamar direto). Não use para opinião, reformulação de estilo, ou fato que o usuário não confirmou querer salvar — pergunta/hipótese não é fato. Antes de chamar, consulte buscar_dossie_cliente, aplique só a mudança indicada e reescreva o dossiê INTEIRO respeitando as mesmas 5 seções do template original (Perfil, Pontos de Atenção, Oportunidades, Pendências, Próxima pauta) — o resto do conteúdo deve continuar igual.',
     parameters: {
       type: 'object',
@@ -1678,6 +1682,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'redigir_ata_reuniao',
+    escreve: true,
     description: 'Redige (ou re-redige) o conteúdo da ata de UMA reunião já existente (identificada por eventId), a partir do resumo/transcrição/pauta/Registro da Monitoria já gravados nela — mesmo motor do botão "Gerar ata com IA" da tela do evento. Use quando o usuário pedir uma ata nova, uma versão personalizada/editada (passe o pedido em instrucaoPersonalizada, ex.: "foca no financeiro", "deixa mais curto"), ou apontar um erro no que já foi redigido. NUNCA passe salvar=true sem o usuário ter CONFIRMADO que quer essa versão valendo — por padrão só mostre o rascunho na conversa e pergunte se quer salvar.',
     parameters: {
       type: 'object',
@@ -1692,6 +1697,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'gerar_ata_pdf',
+    escreve: true,
     description: 'Gera o PDF da ata de uma reunião (mesmo layout com a marca 2D Consultores do botão que já existe na tela do evento) e devolve o campo "url" pra abrir/baixar no navegador. Na sua resposta, apresente esse link em markdown EXATAMENTE como "[Abrir ata em PDF](url)" (ou texto parecido) — é o único formato de link que a tela do chat reconhece e transforma num botão clicável; a URL crua sem esse formato aparece como texto sem função. Lê a ata JÁ GRAVADA no evento — se o usuário quiser o PDF de uma redação ainda não salva, chame antes redigir_ata_reuniao com salvar=true. NUNCA passe anexar=true sem perguntar antes se o usuário quer a ata anexada à reunião — por padrão só devolva o link.',
     parameters: {
       type: 'object',
@@ -1705,6 +1711,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'criar_evento',
+    escreve: true,
     description: 'Cria um evento na agenda de um cliente (reunião, contato, relatório ou ligação). PREENCHA servicos, monitores e sala com o que o usuário disse — deixar em branco vira reunião sem dono e sem serviço na tela dele. Os valores válidos são os do cadastro (chegam no seu contexto e também em buscar_opcoes_evento); usar um nome parcial ou inventado devolve erro com a lista, não grava errado.',
     parameters: {
       type: 'object',
@@ -1726,6 +1733,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'atualizar_evento',
+    escreve: true,
     description: 'Altera campos de um evento JÁ EXISTENTE da agenda (data, hora, duração, tipo, status, assunto, descrição, resumo, sala, serviços, monitores). Só mexe no que você informar — o resto fica como está. Use quando o usuário pedir pra corrigir/completar uma reunião (ex.: "põe o monitor Erick e serviço Precificação nessa agenda"). Pegue o `eventId` em buscar_historico_eventos. GRAVA DADO: só chame depois de o usuário confirmar o que deve mudar.',
     parameters: {
       type: 'object',
@@ -1749,6 +1757,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'atualizar_cliente',
+    escreve: true,
     description: 'Altera o CADASTRO de um cliente (monitor, status, estado Ativo/Inativo, local/segmento, linha, serviços contratados, observação, endereço, grupo, pausa temporária). Só mexe no que você informar. NÃO cria nem exclui cliente — isso continua sendo feito na tela. GRAVA DADO: só chame depois de o usuário confirmar.',
     parameters: {
       type: 'object',
@@ -1775,6 +1784,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'registrar_acao',
+    escreve: true,
     description: 'Registra uma Ação (Contato/Reunião/Relatório/Price) do cliente — já REALIZADA (data hoje ou passado) ou PROGRAMADA (data futura). Pra ação realizada, "resultado" diferencia "sucesso" (conseguiu falar/entregar — conta como toque de cadência, o cliente sai de vencido) de "sem_sucesso" (tentou e não conseguiu: ligou e não atendeu, mandou mensagem sem resposta — NÃO conta como toque, o cliente continua vencido na fila, só fica registrado que já houve tentativa). Nunca registre uma tentativa falha como "sucesso" só pra "resolver" a pendência — é exatamente o erro que esse campo existe pra evitar. GRAVA DADO: só chame depois de o usuário confirmar.',
     parameters: {
       type: 'object',
@@ -1793,6 +1803,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'criar_lembrete',
+    escreve: true,
     description: 'Cria um lembrete, opcionalmente vinculado a um cliente.',
     parameters: {
       type: 'object',
@@ -1839,6 +1850,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'definir_status_acompanhamento',
+    escreve: true,
     description: 'Registra o que o usuário decidiu sobre um acompanhamento de produto/cliente final: "em_curso" (segue tentando), "abandonado" (desistiu dessa abordagem) ou "resolvido". É isso que faz o alerta parar de aparecer. Use só depois de o usuário DECIDIR — não decida por ele. O nome da entidade tem de ser exatamente o que veio em buscar_fatos_alvos.',
     parameters: {
       type: 'object',
@@ -1865,6 +1877,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'definir_ficha_cliente_final',
+    escreve: true,
     description: 'Grava tags e/ou grupo (G1/G2/G3) de um cliente final desta loja. Escopado por loja — o mesmo nome pode ter ficha diferente em outra loja sua. Use só depois de o usuário INFORMAR/DECIDIR — não conclua sozinho a partir de queda de compra. Tags e grupos válidos vêm de buscar_fichas_clientes_finais; o nome do cliente final tem de ser exatamente o que veio em buscar_fatos_alvos.',
     parameters: {
       type: 'object',

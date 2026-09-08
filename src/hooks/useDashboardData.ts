@@ -7,7 +7,7 @@ import { ptBR } from 'date-fns/locale';
 import { useCarteira } from '../context/CarteiraContext';
 import { usePersistedState } from './usePersistedState';
 import { isClienteAtivo } from '../utils/formatters';
-import { clienteStatusCor } from '../utils/badges';
+import { clienteStatusCor, riscoIACor } from '../utils/badges';
 import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
 import { buildFilaCadencia, buildVencendoDashboard, contatoRecenteNaoRefletido, type ServicoCad } from '../utils/cadenciaServico';
 import { mesesComDados } from '../utils/periodo';
@@ -23,7 +23,7 @@ const FOLLOW_UP_THRESHOLD_DAYS = 30;
 export function useDashboardData() {
   // `filtroMonitor` vem do Context — é o filtro GLOBAL ("quem sou eu"),
   // compartilhado com o header e com o monitorIA, não mais local desta tela.
-  const { clientes, agenda, acoes, lembretes, cadencias, filtroMonitor, setFiltroMonitor, monitoresDisponiveis } = useCarteira();
+  const { clientes, agenda, acoes, lembretes, cadencias, analisesIA, filtroMonitor, setFiltroMonitor, monitoresDisponiveis } = useCarteira();
   const [filtroTipo, setFiltroTipo] = usePersistedState<string>('filtro:dash:tipo', 'Todos');
   const [filtroTipoEvento, setFiltroTipoEvento] = usePersistedState<string>('filtro:dash:tipoEvento', 'Todos');
   const [filtroServicoAderencia, setFiltroServicoAderencia] = usePersistedState<ServicoCad | 'Todos'>('filtro:dash:servicoAderencia', 'Todos');
@@ -73,6 +73,14 @@ export function useDashboardData() {
   // filtros globais de Monitor (carteira) e Tipo de evento aplicados em cascata.
   const ativos = useMemo(
     () => clientes.filter((c) => isClienteAtivo(c) && (filtroMonitor === 'Todos' || c.monitor === filtroMonitor)),
+    [clientes, filtroMonitor]
+  );
+  // Mesmo filtro de monitor que `ativos`, só invertido — existe pra "inativos"
+  // não virar `clientes.length - ativos.length` (bug real: isso compara um
+  // total SEM filtro de monitor contra um `ativos` COM filtro, inflando
+  // "inativos" pelo tanto que pertence a outros monitores).
+  const inativos = useMemo(
+    () => clientes.filter((c) => !isClienteAtivo(c) && (filtroMonitor === 'Todos' || c.monitor === filtroMonitor)),
     [clientes, filtroMonitor]
   );
   const ativosIds = useMemo(() => new Set(ativos.map((c) => c.id)), [ativos]);
@@ -393,6 +401,33 @@ export function useDashboardData() {
       .map((d) => ({ ...d, pct: total > 0 ? Math.round((d.n / total) * 100) : 0 }));
   }, [ativos]);
 
+  // Distribuição de risco (baixo/médio/alto, `AnalisesIA.nivelRisco`) entre os
+  // clientes ATIVOS — mede saúde do relacionamento, não volume de atendimento
+  // (que é o que os outros cards do dashboard já cobrem). Ordem FIXA
+  // baixo→alto (não por contagem): é uma escala ordinal, ordenar por volume
+  // confundiria a leitura. "Sem análise" entra separado (mesmo padrão de
+  // "Nenhum serviço" em profundidadeServicos) — cliente sem nenhuma análise
+  // ainda não é "risco baixo", é dado ausente.
+  const distribuicaoRisco = useMemo(() => {
+    const analisePorCliente = new Map(analisesIA.map((a) => [a.clientId, a]));
+    const niveis: { label: string; nivel: 'baixo' | 'medio' | 'alto' }[] = [
+      { label: 'Risco baixo', nivel: 'baixo' },
+      { label: 'Risco médio', nivel: 'medio' },
+      { label: 'Risco alto', nivel: 'alto' },
+    ];
+    const semAnalise = ativos.filter((c) => !analisePorCliente.has(c.id)).length;
+    const dist = niveis.map((n) => ({
+      label: n.label,
+      n: ativos.filter((c) => analisePorCliente.get(c.id)?.nivelRisco === n.nivel).length,
+      color: riscoIACor(n.nivel),
+    }));
+    if (semAnalise > 0) dist.push({ label: 'Sem análise', n: semAnalise, color: 'var(--text-muted)' });
+    const total = ativos.length;
+    return dist
+      .filter((d) => d.n > 0)
+      .map((d) => ({ ...d, pct: total > 0 ? Math.round((d.n / total) * 100) : 0 }));
+  }, [ativos, analisesIA]);
+
   const mediaServicosPorCliente = useMemo(() => {
     if (ativos.length === 0) return 0;
     const soma = ativos.reduce((s, c) => s + (c.servicos ?? []).length, 0);
@@ -634,7 +669,7 @@ export function useDashboardData() {
     mes, setMes, ano, setAno, periodo, dataReferencia,
     monitoresDisponiveis, tiposEventoDisponiveis, anosDisponiveis, mesesDisponiveis,
     // base
-    ativos, totalClientesDistintos, agendaPorMonitor, acoesPorMonitor,
+    ativos, inativos, totalClientesDistintos, agendaPorMonitor, acoesPorMonitor,
     // KPIs
     reunioesConcluidasMes, variacao, diaCorte, reunioesAgendadasMes, reagendamentosMes,
     // gráfico
@@ -642,7 +677,7 @@ export function useDashboardData() {
     // cards
     servicosDist, totalAtendidos, cobertura, aderencia,
     clientesPorMonitor, clientesPorSegmento, clientesPorLinha, crescimentoCarteira,
-    saudeCarteira, profundidadeServicos, mediaServicosPorCliente, novosClientesMes,
+    saudeCarteira, profundidadeServicos, distribuicaoRisco, mediaServicosPorCliente, novosClientesMes,
     top10AtendimentosAno, filtroServicoTop10, setFiltroServicoTop10,
     vencendo, filtroServicoVencendo, setFiltroServicoVencendo,
     tiposDisponiveis, proximos,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { parseISO } from 'date-fns';
+import { addDays, parseISO, subDays } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import { ArrowLeft, Bell as BellIcon, CalendarPlus, FileSpreadsheet, NotebookPen, Pencil, PhoneIncoming, Save, Trash2, Users } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
@@ -93,8 +93,17 @@ export default function ClienteDetailPage() {
   // e os lembretes do cliente ficavam invisíveis aqui — quem abria a tela antes
   // de falar com o cliente tinha que cruzar duas telas pra saber o que já houve.
   const [filtroTimeline, setFiltroTimeline] = usePersistedState<TimelineFiltro>('filtro:cliente:timeline', 'tudo');
+  // Janela padrão da linha do tempo: sem limite, um cliente com reunião
+  // recorrente marcada até o fim do ano (ou um histórico de anos) enchia a
+  // tela de itens distantes, empurrando o que aconteceu/vai acontecer de
+  // verdade pra baixo. 30 dias passados cobre "o que já rolou recentemente";
+  // 15 à frente é suficiente pra ver a PRÓXIMA reunião marcada sem mostrar
+  // toda uma série recorrente futura. "Expandir" mostra tudo sob pedido.
+  const [timelineExpandida, setTimelineExpandida] = useState(false);
+  const JANELA_TIMELINE_DIAS_PASSADO = 30;
+  const JANELA_TIMELINE_DIAS_FUTURO = 10;
 
-  const timeline = useMemo(() => {
+  const timelineCompleta = useMemo(() => {
     const itens: TimelineItem[] = historico.map((ev) => ({
       kind: 'evento',
       id: ev.id,
@@ -119,6 +128,16 @@ export default function ClienteDetailPage() {
       })
       .sort((a, b) => b.quando.getTime() - a.quando.getTime());
   }, [historico, lembretes, id, filtroTimeline]);
+
+  const timeline = useMemo(() => {
+    if (timelineExpandida) return timelineCompleta;
+    const agora = new Date();
+    const limiteInicio = subDays(agora, JANELA_TIMELINE_DIAS_PASSADO);
+    const limiteFim = addDays(agora, JANELA_TIMELINE_DIAS_FUTURO);
+    return timelineCompleta.filter((i) => i.quando >= limiteInicio && i.quando <= limiteFim);
+  }, [timelineCompleta, timelineExpandida]);
+
+  const timelineOcultos = timelineCompleta.length - timeline.length;
 
   // Lojas do mesmo grupo (rede) — cada loja é um cliente próprio.
   const lojasDoGrupo = useMemo(() => {
@@ -355,6 +374,11 @@ export default function ClienteDetailPage() {
         filtro={filtroTimeline}
         onFiltroChange={setFiltroTimeline}
         onEditarEvento={setEventoEditando}
+        expandida={timelineExpandida}
+        onToggleExpandir={() => setTimelineExpandida((v) => !v)}
+        totalOcultos={timelineOcultos}
+        janelaDiasPassado={JANELA_TIMELINE_DIAS_PASSADO}
+        janelaDiasFuturo={JANELA_TIMELINE_DIAS_FUTURO}
       />
 
       {relatoriosOpen && (

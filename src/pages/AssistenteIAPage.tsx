@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { Bot, Check, ChevronRight, History, Loader2, Plus, Send } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
-import { buscarAcoesIA, enviarMensagemChatIA, type AlertaIA, type MensagemChatIA, type PadraoCarteira } from '../api/client';
+import { buscarAcoesIA, buscarMcpClaude, enviarMensagemChatIA, type AlertaIA, type MensagemChatIA, type PadraoCarteira } from '../api/client';
 import { toastError } from '../utils/toast';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { Badge, Button, Card, Textarea } from '../ui';
@@ -28,15 +28,6 @@ const FERRAMENTA_LABEL: Record<string, string> = {
   remover_memoria: 'Apagou uma regra do processo',
 };
 const legendaAcao = (a: AcaoIA) => a.descricao ?? FERRAMENTA_LABEL[a.ferramenta] ?? a.ferramenta;
-
-/**
- * As únicas ferramentas que ALTERAM dado. O agente executa sem pedir
- * confirmação (decisão do usuário), então o log é a peça que dá revisão
- * depois — e nele "consultou o dossiê" e "reescreveu o dossiê" não podem ter
- * o mesmo peso visual. Espelha `FERRAMENTAS_ESCRITA` em
- * `server/routes/iaProvedor.cjs`.
- */
-const FERRAMENTAS_ESCRITA = new Set(['criar_evento', 'criar_lembrete', 'corrigir_dossie_cliente', 'registrar_memoria', 'remover_memoria']);
 
 // A legenda vem em gerúndio porque serve também ao progresso ao vivo
 // ("Buscando clientes..."). No log, que é passado, o "..." fica estranho.
@@ -110,6 +101,13 @@ export default function AssistenteIAPage() {
   // comentário em enviarPergunta).
   const [versaoAlertas, setVersaoAlertas] = useState(0);
   const [acoesBrutas, setAcoesBrutas] = useState<AcaoIA[]>([]);
+  // Quais ferramentas ALTERAM dado — vem da API (`GET /api/ia/claude/mcp`,
+  // provider-agnóstica apesar do nome), fonte única em `server/ia/tools.cjs`
+  // (campo `escreve` em cada ferramenta). Antes era um `Set` copiado à mão
+  // aqui E em `iaProvedor.cjs` — as duas cópias ficaram desatualizadas (6
+  // ferramentas de escrita reais nunca entraram nelas), fazendo esta tela
+  // deixar de destacar escritas de verdade no log.
+  const [ferramentasEscrita, setFerramentasEscrita] = useState<Set<string>>(new Set());
   // Ninguém deveria ver o que outro monitor conversou com o agente — o app
   // não tem login, então a única identidade possível é o filtro global de
   // monitor (o que a própria pessoa escolheu no header). Sem filtro
@@ -139,6 +137,11 @@ export default function AssistenteIAPage() {
   }
 
   useEffect(() => { recarregarAcoes(); }, []);
+  useEffect(() => {
+    buscarMcpClaude()
+      .then((d) => setFerramentasEscrita(new Set(d.ferramentas.filter((f) => f.escreve).map((f) => f.nome))))
+      .catch(() => {}); // não crítico — pior caso, o log fica sem destaque de escrita
+  }, []);
   useEffect(() => { fimListaRef.current?.scrollIntoView({ block: 'nearest' }); }, [mensagens]);
 
   // Passos do fluxo agêntico em andamento, pra mostrar progresso de verdade
@@ -506,7 +509,7 @@ export default function AssistenteIAPage() {
           ) : (
             <div className="flex flex-col gap-2" style={{ maxHeight: 'calc(100vh - 320px)', overflowY: 'auto' }}>
               {agruparRepetidas(acoes).map(({ acao: a, repeticoes }) => {
-                const escreveu = FERRAMENTAS_ESCRITA.has(a.ferramenta);
+                const escreveu = ferramentasEscrita.has(a.ferramenta);
                 return (
                   <div
                     key={a.id}

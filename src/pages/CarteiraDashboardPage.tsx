@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bot, Building2, Layers, TrendingUp, UserCheck, UserX } from 'lucide-react';
+import { ArrowLeft, Building2, Layers, TrendingUp, UserCheck, UserX } from 'lucide-react';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { DistribuicaoListCard } from '../components/dashboard/DistribuicaoListCard';
 import { StackedBarCard } from '../components/dashboard/StackedBarCard';
@@ -81,7 +81,6 @@ export default function CarteiraDashboardPage() {
             subtitulo="por dossiê do monitorIA · clientes ativos"
             segmentos={d.distribuicaoRisco}
             emptyMsg="Nenhum cliente ativo com análise de risco ainda."
-            icone={Bot}
             destaque
             insight={(() => {
               const alto = d.distribuicaoRisco.find((s) => s.label === 'Risco alto');

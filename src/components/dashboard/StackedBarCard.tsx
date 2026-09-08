@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Bot } from 'lucide-react';
 import { Card } from '../../ui';
 
 interface Segmento {
@@ -41,7 +41,7 @@ export function StackedBarCard({ titulo, subtitulo, segmentos, emptyMsg, insight
         <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {Icone && <Icone size={15} className="stackedbar-destaque-icone" />}
           {titulo}
-          {destaque && <span className="badge-monitor-ia"><Sparkles size={10} /> monitorIA</span>}
+          {destaque && <span className="badge-monitor-ia"><Bot size={10} /> monitorIA</span>}
         </h3>
         {subtitulo && <span className="text-text-muted" style={{ fontSize: 12 }}>{subtitulo}</span>}
       </div>

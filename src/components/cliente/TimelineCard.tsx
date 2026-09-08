@@ -1,5 +1,5 @@
 import { format, parseISO } from 'date-fns';
-import { Bell as BellIcon, FileDown, Paperclip, PhoneCall, PhoneIncoming } from 'lucide-react';
+import { Bell as BellIcon, ChevronDown, ChevronUp, FileDown, Paperclip, PhoneCall, PhoneIncoming } from 'lucide-react';
 import { urlAnexo } from '../../api/client';
 import { eventoStatusBadge } from '../../utils/badges';
 import { gerarAtaPdf } from '../../utils/ataPdf';
@@ -22,6 +22,14 @@ interface TimelineCardProps {
   filtro: TimelineFiltro;
   onFiltroChange: (f: TimelineFiltro) => void;
   onEditarEvento: (ev: EventoAgenda) => void;
+  /** `expandida` mostra tudo, sem limite de data. */
+  expandida: boolean;
+  onToggleExpandir: () => void;
+  /** Quantos itens a janela padrão esconde (0 quando `expandida`). */
+  totalOcultos: number;
+  /** Tamanho da janela padrão, só pro texto do botão/vazio — a filtragem em si já vem pronta em `timeline`. */
+  janelaDiasPassado: number;
+  janelaDiasFuturo: number;
 }
 
 /**
@@ -32,26 +40,45 @@ interface TimelineCardProps {
  * ata em PDF por reunião — reusa `gerarAtaPdf` (mesma função do botão dentro
  * do EventFormModal), sem abrir o modal de edição.
  */
-export function TimelineCard({ cliente, timeline, filtro, onFiltroChange, onEditarEvento }: TimelineCardProps) {
+export function TimelineCard({
+  cliente, timeline, filtro, onFiltroChange, onEditarEvento, expandida, onToggleExpandir, totalOcultos,
+  janelaDiasPassado, janelaDiasFuturo,
+}: TimelineCardProps) {
   return (
     <Card flat>
       <div className="section-header" style={{ flexWrap: 'wrap', gap: 8 }}>
         <h3>Linha do tempo</h3>
         <span className="text-text-muted" style={{ fontSize: 12 }}>{timeline.length}</span>
       </div>
-      <div className="flex-row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-        {TIMELINE_FILTROS.map((f) => (
-          <button
-            key={f.valor}
-            className={`filtro-btn${filtro === f.valor ? ' is-active' : ''}`}
-            onClick={() => onFiltroChange(f.valor)}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="flex-between" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+        <div className="flex-row" style={{ gap: 6, flexWrap: 'wrap' }}>
+          {TIMELINE_FILTROS.map((f) => (
+            <button
+              key={f.valor}
+              className={`filtro-btn${filtro === f.valor ? ' is-active' : ''}`}
+              onClick={() => onFiltroChange(f.valor)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <button
+          className="filtro-btn"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          onClick={onToggleExpandir}
+        >
+          {expandida ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          {expandida
+            ? `Recolher (últimos ${janelaDiasPassado}d / próx. ${janelaDiasFuturo}d)`
+            : totalOcultos > 0 ? `Ver tudo (+${totalOcultos})` : 'Ver tudo'}
+        </button>
       </div>
       {timeline.length === 0 ? (
-        <div className="empty-state">Nada registrado para este cliente com esse filtro.</div>
+        <div className="empty-state">
+          {totalOcultos > 0
+            ? `Nada nos últimos ${janelaDiasPassado} dias / próximos ${janelaDiasFuturo} dias — há ${totalOcultos} item(ns) fora dessa janela.`
+            : 'Nada registrado para este cliente com esse filtro.'}
+        </div>
       ) : (
         <div className="timeline-rail">
           {timeline.map((item) => {

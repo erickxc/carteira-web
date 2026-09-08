@@ -11,17 +11,6 @@ const { conversar } = require('../ia/provider.cjs');
 const { montarSystemPrompt } = require('../ia/agente.cjs');
 const { consultarLimiteConta } = require('../ia/claudeCli/limiteConta.cjs');
 
-// Quais ferramentas MUDAM dado — a tela marca essas, porque o agente executa
-// sem confirmação prévia (decisão do usuário) e quem configura precisa ver o
-// que está entregando na mão dele.
-const FERRAMENTAS_ESCRITA = new Set([
-  'criar_evento', 'criar_lembrete', 'corrigir_dossie_cliente', 'registrar_memoria', 'remover_memoria',
-  // Só escrevem de fato quando o parâmetro salvar/anexar vem true (o agente
-  // só deve mandar isso após confirmação do usuário) — mesmo assim entram
-  // aqui porque TÊM a capacidade de mudar dado, que é o que esta tela avisa.
-  'redigir_ata_reuniao', 'gerar_ata_pdf',
-]);
-
 /**
  * Rotas de configuração do provedor de IA e do login da conta Claude, mais o
  * canal interno que o servidor MCP (`server/ia/claudeCli/mcpServidor.cjs`)
@@ -143,7 +132,16 @@ router.get('/claude/mcp', (_req, res) => {
       nome: f.name,
       qualificado: `mcp__${CLAUDE_MCP_SERVER}__${f.name}`,
       descricao: f.description,
-      escreve: FERRAMENTAS_ESCRITA.has(f.name),
+      // Fonte única: o campo `escreve` mora no próprio objeto da ferramenta em
+      // `tools.cjs`, junto de quem escreve — não mais um Set mantido à parte
+      // aqui e reescrito à mão em `AssistenteIAPage.tsx`. As duas cópias já
+      // ficaram desatualizadas de verdade (6 ferramentas de escrita reais —
+      // `atualizar_evento`, `atualizar_cliente`, `registrar_acao`,
+      // `reanalisar_cliente`, `definir_status_acompanhamento`,
+      // `definir_ficha_cliente_final` — nunca tinham entrado no Set), o que
+      // fazia a tela "Ações do agente" deixar de destacar escritas reais.
+      escreve: Boolean(f.escreve),
+      parametros: f.parameters,
     })),
   });
 });
