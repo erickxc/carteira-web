@@ -355,19 +355,23 @@ export default function ClientesPage() {
   // já confirmado, nos dados reais, sempre com monitor único entre lojas.
   const linhas = useMemo(() => agruparPorGrupo(filtrados, clientes), [filtrados, clientes]);
 
-  // Recolhido por padrão; abre manualmente OU sozinho quando há filtro ativo
-  // (senão uma busca por nome de loja "encontraria" o registro mas ele
-  // ficaria escondido dentro de um acordeão fechado).
-  const [gruposAbertosManual, setGruposAbertosManual] = useState<Set<string>>(new Set());
+  // Recolhido por padrão; abre sozinho quando há filtro ativo (senão uma
+  // busca por nome de loja "encontraria" o registro mas ele ficaria escondido
+  // dentro de um acordeão fechado) — MAS um clique manual explícito sempre
+  // vence essa regra automática. Sem isso, o botão "recolher" parecia
+  // quebrado (bug real reportado): com qualquer filtro ativo (inclusive um
+  // sem relação nenhuma com aquele grupo, ex. Segmento), TODO grupo abria
+  // sozinho e clicar pra fechar não tinha efeito nenhum, sempre.
+  const [gruposManual, setGruposManual] = useState<Map<string, boolean>>(new Map());
   function alternarGrupo(grupo: string) {
-    setGruposAbertosManual((prev) => {
-      const novo = new Set(prev);
-      if (novo.has(grupo)) novo.delete(grupo); else novo.add(grupo);
+    setGruposManual((prev) => {
+      const novo = new Map(prev);
+      novo.set(grupo, !grupoAberto(grupo));
       return novo;
     });
   }
   function grupoAberto(grupo: string): boolean {
-    return filtrosAtivos || gruposAbertosManual.has(grupo);
+    return gruposManual.get(grupo) ?? filtrosAtivos;
   }
 
   async function handleDelete(cliente: Cliente) {
