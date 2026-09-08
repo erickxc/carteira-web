@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isSameMonth } from 'date-fns';
-import { CalendarCheck, CalendarClock, CalendarX2, Users } from 'lucide-react';
+import { Building2, CalendarCheck, CalendarClock, CalendarX2, Users } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { StatCard } from '../components/StatCard';
@@ -75,6 +75,12 @@ export default function DashboardPage() {
 
       {/* KPIs compactos numa linha */}
       <div className="stat-grid dash-stats">
+        {/* Duas métricas de propósito, não uma: "atendimentos" conta LOJA (uma
+            linha por cadastro — um grupo com várias lojas, ex. Altese, soma
+            todas), "clientes ativos" agrupa por rede — Altese conta 1, não N.
+            As duas já existiam separadas (a segunda no Dashboard da
+            Carteira); pedido explícito de manter as duas visíveis aqui. */}
+        <StatCard title="Clientes ativos" value={d.totalClientesDistintos} icon={Building2} onClick={() => navigate('/clientes')} />
         <StatCard title="Total de atendimentos" value={d.ativos.length} icon={Users} onClick={() => navigate('/clientes')} />
         <StatCard
           title={`Reuniões concluídas em ${MESES[d.mes].slice(0, 3)}/${d.ano}`}
