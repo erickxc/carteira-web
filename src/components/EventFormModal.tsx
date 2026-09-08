@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { endOfWeek, format, isValid, parse, setHours, setMinutes, startOfWeek } from 'date-fns';
 import { AlertTriangle, Ban, Bot, Check, FileText, Loader2 } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
@@ -71,8 +71,24 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     const doCliente = clientes.find((c) => c.id === (initial?.clientId ?? initialClientId))?.monitor;
     return doCliente ? [doCliente] : [];
   });
-  const toggleMonitor = (m: string) =>
+  // Enquanto o usuário não mexer manualmente nos chips de monitor, trocar de
+  // cliente (no combobox) atualiza `monitores` sozinho pro monitor do cliente
+  // recém-selecionado — pedido explícito: "pré-seleciona, muda se quiser".
+  // Some assim que o toggle é usado uma vez, pra nunca sobrescrever escolha
+  // deliberada numa troca de cliente seguinte. Só em criação (`!editando`):
+  // reunião já existente tem `monitores` gravado de propósito, trocar de
+  // cliente numa edição não deveria mexer nisso sozinho.
+  const monitorEditadoManualmente = useRef(false);
+  const toggleMonitor = (m: string) => {
+    monitorEditadoManualmente.current = true;
     setMonitores((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
+  };
+  useEffect(() => {
+    if (editando || monitorEditadoManualmente.current || !clientId) return;
+    const doCliente = clientes.find((c) => c.id === clientId)?.monitor;
+    setMonitores(doCliente ? [doCliente] : []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
   // Filtra também o que já estava GRAVADO: um serviço informacional marcado
   // antes desta regra ficaria invisível nos chips e seria regravado a cada
   // Salvar (mesma armadilha do monitor fora do cadastro).

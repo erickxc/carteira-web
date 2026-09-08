@@ -66,11 +66,24 @@ export default function AgendaPage() {
   );
 
   // Agenda com filtros de monitor/tipo aplicados (para exibição).
+  //
+  // Filtro de monitor precisa checar QUEM ESTÁ NA REUNIÃO (`a.monitores`),
+  // não o monitor dono do cadastro do cliente — desde que um evento pode ter
+  // monitor(es) diferente(s) do dono do cliente (ex.: Yann cobrindo uma
+  // reunião de um cliente do Erick). Bug real: filtrar por "Erick Cardoso"
+  // devolvia reuniões do Yann sempre que o cliente era do Erick mas quem
+  // estava na reunião era outro monitor (46 de 343 eventos reais divergem
+  // assim). Cai no monitor dono do cliente só quando o evento não tem
+  // `monitores` preenchido (dado legado, de antes da múltipla escolha).
   const agendaFiltrada = useMemo(
-    () => agenda.filter((a) =>
-      (fMonitores.length === 0 || fMonitores.includes(monitorPorCliente.get(a.clientId) || '')) &&
-      (fTipos.length === 0 || fTipos.includes(a.type)) &&
-      (mostrarCancelados || !/cancel|reagend/i.test(a.status || ''))),
+    () => agenda.filter((a) => {
+      const monitoresDoEvento = a.monitores && a.monitores.length > 0
+        ? a.monitores
+        : [monitorPorCliente.get(a.clientId) || ''];
+      return (fMonitores.length === 0 || monitoresDoEvento.some((m) => fMonitores.includes(m))) &&
+        (fTipos.length === 0 || fTipos.includes(a.type)) &&
+        (mostrarCancelados || !/cancel|reagend/i.test(a.status || ''));
+    }),
     [agenda, fMonitores, fTipos, mostrarCancelados, monitorPorCliente]
   );
 
