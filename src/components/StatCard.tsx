@@ -24,20 +24,17 @@ export function StatCard({ title, value, icon: Icon, trend, trendUp, onClick }: 
     >
       <span className="stat-card-accent-bar" />
       <div className="flex-1 min-w-0 flex flex-col items-start">
-        <p className="text-[0.85rem] font-medium mb-[0.5rem] max-w-full leading-tight min-h-[2.4em] flex items-start text-[color:var(--text-secondary)]">{title}</p>
-        <h3 className="text-[2.3rem] font-bold leading-[1.1] tracking-[-0.02em] tabular-nums text-[color:var(--text-primary)]">{value}</h3>
+        <p className="text-[0.8rem] font-medium mb-[0.3rem] max-w-full leading-tight min-h-[2.1em] flex items-start text-[color:var(--text-secondary)]">{title}</p>
+        <h3 className="text-[1.9rem] font-bold leading-[1.1] tracking-[-0.02em] tabular-nums text-[color:var(--text-primary)]">{value}</h3>
         {trend && (
-          <p
-            title={trend}
-            className="text-[0.82rem] mt-2 flex items-center gap-1 font-medium max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
-            style={{ color: trendColor }}
-          >
-            {seta}{trend}
+          <p className="text-[0.78rem] mt-[0.35rem] flex items-center gap-1 font-medium max-w-full min-w-0" style={{ color: trendColor }}>
+            {seta && <span className="shrink-0">{seta}</span>}
+            <span title={trend} className="overflow-hidden text-ellipsis whitespace-nowrap min-w-0">{trend}</span>
           </p>
         )}
       </div>
-      <div className="w-[40px] h-[40px] rounded-[var(--radius-sm)] shrink-0 flex items-center justify-center bg-[var(--accent)] text-[color:var(--accent-contrast)] shadow-[0_2px_10px_rgba(218,187,108,0.35)]">
-        <Icon className="w-[20px] h-[20px]" />
+      <div className="w-[34px] h-[34px] rounded-[var(--radius-sm)] shrink-0 flex items-center justify-center bg-[var(--accent)] text-[color:var(--accent-contrast)] shadow-[0_2px_10px_rgba(218,187,108,0.35)]">
+        <Icon className="w-[17px] h-[17px]" />
       </div>
     </Card>
   );

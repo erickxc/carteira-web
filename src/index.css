@@ -546,7 +546,7 @@ textarea:focus-visible {
 }
 
 /* StatCard compacto (topo do dashboard) com barra de acento à esquerda */
-.stat-card-sm { padding: 1.15rem 1.35rem 1.15rem 1.5rem; overflow: hidden; }
+.stat-card-sm { padding: 0.85rem 1.2rem 0.85rem 1.35rem; overflow: hidden; }
 .stat-card-accent-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
 /* min-height fixo: "Carteira no Ritmo" tem uma linha a mais (toggle de
    serviço + 3ª categoria na legenda) que "Cobertura da Carteira" — sem isso os
