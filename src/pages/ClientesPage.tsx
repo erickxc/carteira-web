@@ -162,11 +162,12 @@ export default function ClientesPage() {
   const [fEstado, setFEstado] = usePersistedState<string>('filtro:clientes:estado:v2', 'Ativo');
   const [fStatus, setFStatus] = usePersistedState<string>('filtro:clientes:status:v2', 'Todos');
   const [fPeriodo, setFPeriodo] = usePersistedState<string>('filtro:clientes:periodo', 'Todos');
-  // Campos novos (nível de risco do monitorIA, pausa temporária) — menos
-  // usados no dia a dia que os de cima, por isso ficam recolhidos em "Outros
-  // filtros" em vez de brigar por espaço na barra principal.
+  // Campos menos usados no dia a dia que os de cima (segmento, linha, risco
+  // do monitorIA) — ficam recolhidos em "Outros filtros" em vez de brigar
+  // por espaço na barra principal.
   const [fRisco, setFRisco] = usePersistedState<string>('filtro:clientes:risco', 'Todos');
-  const [fPausado, setFPausado] = usePersistedState<string>('filtro:clientes:pausado', 'Todos');
+  const [fSegmento, setFSegmento] = usePersistedState<string>('filtro:clientes:segmento', 'Todos');
+  const [fLinha, setFLinha] = usePersistedState<string>('filtro:clientes:linha', 'Todos');
   const [outrosFiltrosAbertos, setOutrosFiltrosAbertos] = useState(false);
   const [sortBy, setSortBy] = usePersistedState<SortCol>('filtro:clientes:sortBy', 'empresa');
   const [sortDir, setSortDir] = usePersistedState<'asc' | 'desc'>('filtro:clientes:sortDir', 'asc');
@@ -245,6 +246,11 @@ export default function ClientesPage() {
     [clientes]
   );
   const servicoOpcoes = useMemo(() => opcoesPorTipo('servico'), [opcoesPorTipo]);
+  // Mesmo padrão de monitorOpcoes: opções vêm do dado real (quem já está
+  // cadastrado), não do catálogo inteiro de Categorias — evita opção vazia
+  // que ninguém usa ainda poluindo o filtro.
+  const segmentoOpcoes = useMemo(() => [...new Set(clientes.map((c) => c.local).filter(Boolean) as string[])].sort(), [clientes]);
+  const linhaOpcoes = useMemo(() => [...new Set(clientes.map((c) => c.linha).filter(Boolean) as string[])].sort(), [clientes]);
   // Cor de referência por serviço (Configurações → Categorias → Serviço) —
   // pra colorir os badges da coluna Serviços sem cada célula precisar
   // filtrar a lista de categorias por conta própria.
@@ -257,11 +263,11 @@ export default function ClientesPage() {
   const filtrosAtivos =
     !!debouncedSearch.trim() || fMonitores.length > 0 || fTipoAnalise !== 'Todos' ||
     fServicos.length > 0 || fEstado !== 'Todos' && fEstado !== 'Ativo' || fStatus !== 'Todos' || fPeriodo !== 'Todos' ||
-    fRisco !== 'Todos' || fPausado !== 'Todos';
+    fRisco !== 'Todos' || fSegmento !== 'Todos' || fLinha !== 'Todos';
 
   function limparFiltros() {
     setSearch(''); setFMonitores([]); setFTipoAnalise('Todos'); setFServicos([]); setFEstado('Ativo'); setFStatus('Todos'); setFPeriodo('Todos');
-    setFRisco('Todos'); setFPausado('Todos');
+    setFRisco('Todos'); setFSegmento('Todos'); setFLinha('Todos');
   }
 
   // Valor comparável de cada coluna, pra ordenação por clique no cabeçalho.
@@ -322,11 +328,8 @@ export default function ClientesPage() {
         const nivel = analisesPorCliente.get(c.id)?.nivelRisco;
         return fRisco === 'sem_analise' ? !nivel : nivel === fRisco;
       })
-      .filter((c) => {
-        if (fPausado === 'Todos') return true;
-        const pausado = !!c.pausadoAte && differenceInCalendarDays(parseISO(c.pausadoAte), hoje) >= 0;
-        return fPausado === 'pausado' ? pausado : !pausado;
-      })
+      .filter((c) => fSegmento === 'Todos' || c.local === fSegmento)
+      .filter((c) => fLinha === 'Todos' || c.linha === fLinha)
       .filter((c) => {
         if (fPeriodo === 'Todos') return true;
         const n = Number(fPeriodo);
@@ -342,7 +345,7 @@ export default function ClientesPage() {
         return sortDir === 'asc' ? r : -r;
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientes, debouncedSearch, filtroMonitor, fMonitores, fTipoAnalise, fServicos, fRisco, fPausado, fEstado, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir, analisesPorCliente]);
+  }, [clientes, debouncedSearch, filtroMonitor, fMonitores, fTipoAnalise, fServicos, fRisco, fSegmento, fLinha, fEstado, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir, analisesPorCliente]);
 
   // Lojas da mesma rede (`Cliente.grupo`, ex.: "Altese - Recreio + Barra" e
   // "Altese - GM, Ford, Fiat, VW") viram um bloco recolhível na tabela — cada
@@ -662,9 +665,9 @@ export default function ClientesPage() {
           />
         </div>
 
-        {/* Campos mais novos (risco do monitorIA, pausa temporária) — menos
-            usados no dia a dia, recolhidos por padrão pra não brigar por
-            espaço com os filtros principais. */}
+        {/* Campos menos usados no dia a dia (segmento, linha, risco do
+            monitorIA) — recolhidos por padrão pra não brigar por espaço com
+            os filtros principais. */}
         <button
           type="button"
           className="link-button"
@@ -672,11 +675,25 @@ export default function ClientesPage() {
           onClick={() => setOutrosFiltrosAbertos((v) => !v)}
         >
           {outrosFiltrosAbertos ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-          Outros filtros{(fRisco !== 'Todos' || fPausado !== 'Todos') ? ' (ativo)' : ''}
+          Outros filtros{(fRisco !== 'Todos' || fSegmento !== 'Todos' || fLinha !== 'Todos') ? ' (ativo)' : ''}
         </button>
 
         {outrosFiltrosAbertos && (
           <div className="filter-grid" style={{ marginTop: 10 }}>
+            <Dropdown
+              label="Segmento: todos"
+              defaultValue="Todos"
+              options={[{ value: 'Todos', label: 'Segmento: todos' }, ...segmentoOpcoes.map((s) => ({ value: s, label: s }))]}
+              value={fSegmento}
+              onChange={(v) => setFSegmento(v as string)}
+            />
+            <Dropdown
+              label="Linha: todas"
+              defaultValue="Todos"
+              options={[{ value: 'Todos', label: 'Linha: todas' }, ...linhaOpcoes.map((l) => ({ value: l, label: l }))]}
+              value={fLinha}
+              onChange={(v) => setFLinha(v as string)}
+            />
             <Dropdown
               label="Risco: todos"
               defaultValue="Todos"
@@ -689,17 +706,6 @@ export default function ClientesPage() {
               ]}
               value={fRisco}
               onChange={(v) => setFRisco(v as string)}
-            />
-            <Dropdown
-              label="Pausa: todos"
-              defaultValue="Todos"
-              options={[
-                { value: 'Todos', label: 'Pausa: todos' },
-                { value: 'pausado', label: 'Pausado agora' },
-                { value: 'nao_pausado', label: 'Não pausado' },
-              ]}
-              value={fPausado}
-              onChange={(v) => setFPausado(v as string)}
             />
           </div>
         )}
