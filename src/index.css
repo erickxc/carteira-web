@@ -36,8 +36,15 @@
   --card-hover: #1a1a1e;
   --sidebar: #08080a;
 
-  --border: #222226;
-  --border-strong: #2c2c31;
+  /* Contraste calculado por WCAG (mesmo critério já usado nas cores de
+     texto acima), não a olho: o par anterior (#222226/#2c2c31) dava só
+     1.17:1 / 1.33:1 contra --card — bem abaixo do que o TEMA CLARO tem pro
+     mesmo par (1.52:1 / 1.91:1), fazendo contorno de campo/input/filtro
+     praticamente sumir no escuro mesmo com o texto bem ajustado. Este par
+     dá 1.72:1 / 2.52:1 contra --card (2.67:1 o border-strong contra --bg) —
+     mais forte que o claro nos dois, sem virar borda pesada/gritante. */
+  --border: #3d3d44;
+  --border-strong: #55555f;
 
   --text-primary: #f4f4f2;
   --text-secondary: #a6a6ad;
