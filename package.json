@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:launcher": "node launcher/build.cjs",
+    "build:launcher-ia": "node launcher/buildMonitorIaPainel.cjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
