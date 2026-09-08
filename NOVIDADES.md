@@ -8,6 +8,30 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.22
+
+- **monitorIA agora explica conceitos do sistema com dado real da sua
+  carteira** — pergunte "o que é cliente ativo", "qual a diferença entre
+  Cobertura e Saúde da Carteira" etc., e a resposta já vem com os números da
+  sua carteira, não só teoria.
+- Corrigido: em alguns casos, "quantos clientes ativos" podia contar um
+  cliente a mais (ex.: "Atendido pelo Marco" contando como ativo por engano).
+- **Corrigido bug real na Agenda**: filtrar por um monitor podia mostrar
+  reuniões de outro monitor, quando o cliente e a reunião tinham monitores
+  diferentes. O filtro do topo (header) agora também funciona certo nas
+  telas de Agenda, Clientes, Ações e Contatos — antes só o filtro de dentro
+  de cada tela funcionava.
+- Ao criar um evento novo e escolher o cliente, o monitor já vem
+  pré-selecionado (dá pra trocar se quiser).
+- Linha do tempo do cliente: janela padrão de 30 dias atrás / 10 dias à
+  frente, com botão para ver tudo.
+- Corrigido: o botão de recolher grupo de lojas (redes tipo Altese) não
+  funcionava enquanto qualquer filtro estivesse ativo.
+- Novo filtro "Outros filtros" (Segmento, Linha, Risco) na tela de Clientes.
+- Dashboard da Carteira: novo card de distribuição de risco (do monitorIA),
+  e "Total de clientes" (agrupado por rede) volta a aparecer também na Visão
+  Geral, ao lado de "Total de atendimentos".
+
 ## 1.4.21
 
 - **Dashboard da Carteira ganha "Total de clientes"**, separado dos
