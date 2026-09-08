@@ -62,7 +62,7 @@ export function PrecificacaoField({ pc }: PrecificacaoFieldProps) {
             options={(Object.keys(MARGEM_PRECIFICACAO_LABEL) as MargemPrecificacao[]).map((m) => ({ value: m, label: MARGEM_PRECIFICACAO_LABEL[m] }))}
           />
         </div>
-        <Button variant="primary" size="icon" onClick={pc.addItem} disabled={!pc.produto.trim()}><Plus size={16} /></Button>
+        <Button variant="primary" size="icon" onClick={pc.addItem} disabled={!pc.produto.trim()} title="Adicionar produto"><Plus size={16} /></Button>
       </div>
     </Field>
   );

@@ -188,9 +188,17 @@ export default function AssistenteIAPage() {
     enviarPergunta(alerta.pergunta);
   }
 
+  // Trava SÍNCRONA, não `enviando` (useState) sozinho: `setState` é
+  // assíncrono, então dois envios muito próximos (Enter digitado rápido,
+  // ex.) podiam ler `enviando` ainda `false` nos dois antes do primeiro
+  // re-render aplicar — passando os dois pela guarda e mandando a MESMA
+  // pergunta duas vezes. Ref é atualizado na hora, sem esperar render.
+  const enviandoRef = useRef(false);
+
   async function enviarPergunta(bruto: string) {
     const pergunta = bruto.trim();
-    if (!pergunta || enviando) return;
+    if (!pergunta || enviandoRef.current) return;
+    enviandoRef.current = true;
     setTexto('');
     setEnviando(true);
     setPassosEmAndamento([]);
@@ -237,6 +245,7 @@ export default function AssistenteIAPage() {
       clearInterval(polling);
       setPassosEmAndamento([]);
       setEnviando(false);
+      enviandoRef.current = false;
     }
   }
 

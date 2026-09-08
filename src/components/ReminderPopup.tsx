@@ -94,7 +94,7 @@ export function ReminderPopup() {
                 <Bell size={16} style={{ color: 'var(--accent)' }} />
                 <strong style={{ fontSize: 14 }}>{reminder.title}</strong>
               </span>
-              <Button variant="secondary" size="icon" onClick={() => dismiss(reminder.id)}>
+              <Button variant="secondary" size="icon" onClick={() => dismiss(reminder.id)} title="Dispensar lembrete">
                 <X size={14} />
               </Button>
             </div>

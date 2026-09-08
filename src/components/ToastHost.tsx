@@ -23,7 +23,7 @@ export function ToastHost() {
                 <Icon size={16} className={`toast-icon-${m.type}`} />
                 <span style={{ fontSize: 14 }}>{m.text}</span>
               </span>
-              <Button variant="secondary" size="icon" onClick={() => dismissToast(m.id)}>
+              <Button variant="secondary" size="icon" onClick={() => dismissToast(m.id)} title="Fechar">
                 <X size={14} />
               </Button>
             </div>

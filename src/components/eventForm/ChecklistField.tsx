@@ -40,7 +40,7 @@ export function ChecklistField({ ck }: ChecklistFieldProps) {
       </div>
       <div className="flex-row">
         <Input tone="modal" placeholder="Nova atividade..." value={ck.novoItem} onChange={(e) => ck.setNovoItem(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ck.addItem(); } }} />
-        <Button variant="primary" size="icon" onClick={ck.addItem} disabled={!ck.novoItem.trim()}><Plus size={16} /></Button>
+        <Button variant="primary" size="icon" onClick={ck.addItem} disabled={!ck.novoItem.trim()} title="Adicionar item de pauta"><Plus size={16} /></Button>
       </div>
       <div className="flex flex-wrap gap-2 mt-2">
         <span className="text-text-muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', alignSelf: 'center' }}>Etiquetas:</span>

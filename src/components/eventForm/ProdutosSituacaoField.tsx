@@ -159,7 +159,7 @@ export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDi
             />
           </div>
         )}
-        <Button variant="primary" size="icon" onClick={ps.addItem} disabled={ps.incompleto}><Plus size={16} /></Button>
+        <Button variant="primary" size="icon" onClick={ps.addItem} disabled={ps.incompleto} title="Adicionar registro"><Plus size={16} /></Button>
       </div>
 
       {ps.precisaCliente && clientesDisponiveis.length === 0 && (

@@ -148,8 +148,8 @@ function ModelosCard() {
               <div className="text-text-muted" style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>{m.conteudo}</div>
             </div>
             <div className="flex-row">
-              <Button variant="secondary" size="icon" onClick={() => editar(m)}><Pencil size={13} /></Button>
-              <Button variant="danger" size="icon" onClick={() => excluir(m)}><Trash2 size={13} /></Button>
+              <Button variant="secondary" size="icon" onClick={() => editar(m)} title="Editar modelo"><Pencil size={13} /></Button>
+              <Button variant="danger" size="icon" onClick={() => excluir(m)} title="Excluir modelo"><Trash2 size={13} /></Button>
             </div>
           </div>
         ))}
@@ -286,8 +286,8 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
                   style={{ marginRight: 8 }}
                 />
                 <div className="flex-row">
-                  <Button variant="secondary" size="icon" onClick={() => salvarEdicao(cat.id)}><Check size={14} /></Button>
-                  <Button variant="secondary" size="icon" onClick={() => setEditandoId(null)}><X size={14} /></Button>
+                  <Button variant="secondary" size="icon" onClick={() => salvarEdicao(cat.id)} title="Salvar"><Check size={14} /></Button>
+                  <Button variant="secondary" size="icon" onClick={() => setEditandoId(null)} title="Cancelar"><X size={14} /></Button>
                 </div>
               </div>
             ) : (
@@ -314,7 +314,7 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
                     >
                       <Pencil size={13} />
                     </Button>
-                    <Button variant="danger" size="icon" onClick={() => excluir(cat.id, cat.valor)}>
+                    <Button variant="danger" size="icon" onClick={() => excluir(cat.id, cat.valor)} title="Excluir">
                       <Trash2 size={13} />
                     </Button>
                   </div>
@@ -375,7 +375,7 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
             onChange={(e) => setNovoValor(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && adicionar()}
           />
-          <Button variant="primary" size="icon" onClick={adicionar} disabled={salvando || !novoValor.trim()}>
+          <Button variant="primary" size="icon" onClick={adicionar} disabled={salvando || !novoValor.trim()} title="Adicionar">
             <Plus size={16} />
           </Button>
         </div>

@@ -342,7 +342,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                     onChange={(e) => setNovaLoja(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); adicionarLoja(); } }}
                   />
-                  <Button type="button" variant="primary" size="icon" onClick={adicionarLoja} disabled={!novaLoja.trim()}><Plus size={16} /></Button>
+                  <Button type="button" variant="primary" size="icon" onClick={adicionarLoja} disabled={!novaLoja.trim()} title="Adicionar loja"><Plus size={16} /></Button>
                 </div>
                 {base && lojasFinais.length > 0 && (
                   <p className="text-text-muted" style={{ fontSize: 12, marginTop: 8, textTransform: 'none', letterSpacing: 'normal' }}>
