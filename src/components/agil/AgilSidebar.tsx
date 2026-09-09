@@ -24,7 +24,10 @@ export function AgilSidebar({
   const [aberta, setAberta] = useState<string | null>(workspaceId || null);
 
   return (
-    <aside className="w-[240px] shrink-0 flex flex-col gap-1 pr-3 border-r border-border" style={{ maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
+    <aside
+      className="w-[240px] shrink-0 flex flex-col gap-1 p-3 rounded-xl border border-border bg-card"
+      style={{ maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}
+    >
       <div className="flex items-center justify-between px-1 mb-1">
         <span className="text-[0.7rem] font-bold uppercase tracking-[0.06em] text-text-muted">Áreas de trabalho</span>
         <button

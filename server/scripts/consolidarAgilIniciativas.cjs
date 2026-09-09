@@ -17,10 +17,10 @@
  *  - Escolhe UM canônico (o mais antigo, `createdAt`).
  *  - Move as tarefas dos outros boards "Iniciativas" duplicados pro canônico
  *    (mesmo id de tarefa preservado — `AgilTarefa.iniciativaId` que já
- *    apontava pra elas continua válido, sem reescrever).
- *  - Move as colunas dos duplicados também (evita perder onde a tarefa
- *    estava — vira uma coluna a mais no canônico, não perfeito mas seguro;
- *    o usuário pode limpar depois).
+ *    apontava pra elas continua válido, sem reescrever), remapeando pra
+ *    coluna de MESMO TÍTULO no canônico (case-insensitive) — nunca duplica
+ *    coluna; sem match, cai na primeira coluna do canônico.
+ *  - Descarta as colunas dos boards duplicados (já não têm tarefa nenhuma).
  *  - Remove os boards duplicados.
  *  - Seta `AgilWorkspace.iniciativasBoardId` pro canônico.
  * Workspace sem NENHUM board "Iniciativas": cria um novo (5 colunas padrão).
@@ -117,12 +117,31 @@ function consolidarAgilIniciativas({ dryRun = false } = {}) {
 
       const idsDuplicados = new Set(duplicados.map((b) => String(b.id)));
       if (idsDuplicados.size > 0) {
+        // Tarefa do board duplicado vai pra coluna de MESMO TÍTULO no
+        // canônico (case-insensitive) — nunca duplica a coluna. Sem match,
+        // cai na primeira coluna do canônico (nunca perde a tarefa de vista).
+        const colunasCanonico = colunas.filter((c) => String(c.boardId) === String(canonico.id));
+        const porTitulo = new Map(colunasCanonico.map((c) => [String(c.titulo).trim().toLowerCase(), c.id]));
+        const colunaPadrao = colunasCanonico[0]?.id;
+
         tarefas.forEach((t) => {
-          if (idsDuplicados.has(String(t.boardId))) { t.boardId = canonico.id; tarefasMudou = true; }
+          if (!idsDuplicados.has(String(t.boardId))) return;
+          const colunaOrigem = colunas.find((c) => String(c.id) === String(t.colunaId));
+          const destino = (colunaOrigem && porTitulo.get(String(colunaOrigem.titulo).trim().toLowerCase())) || colunaPadrao;
+          t.boardId = canonico.id;
+          if (destino) t.colunaId = destino;
+          tarefasMudou = true;
         });
-        colunas.forEach((c) => {
-          if (idsDuplicados.has(String(c.boardId))) { c.boardId = canonico.id; colunasMudou = true; }
-        });
+
+        // As colunas dos boards duplicados não são mais necessárias — as
+        // tarefas já foram remapeadas pra coluna equivalente do canônico.
+        const antesColunas = colunas.length;
+        const colunasFinais = colunas.filter((c) => !idsDuplicados.has(String(c.boardId)));
+        if (colunasFinais.length !== antesColunas) {
+          colunas.length = 0;
+          colunas.push(...colunasFinais);
+          colunasMudou = true;
+        }
       }
     }
   }

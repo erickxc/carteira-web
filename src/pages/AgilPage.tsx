@@ -76,9 +76,9 @@ export default function AgilPage() {
 
   return (
     <div className="page-container">
-      <div className="flex items-center gap-1.5 mb-4">
-        <Briefcase size={15} className="shrink-0 text-text-muted" />
-        <h1 className="page-title" style={{ margin: 0, fontSize: '1.15rem' }}>Ágil</h1>
+      <div className="flex items-center gap-2 mb-4">
+        <Briefcase size={22} className="shrink-0 text-text-muted" />
+        <h1 className="page-title" style={{ margin: 0 }}>Ágil</h1>
       </div>
 
       <div className="flex gap-5">

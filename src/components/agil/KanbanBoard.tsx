@@ -130,15 +130,16 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
   }, [topo, filhosPorPai]);
 
   return (
-    <div className="mt-4">
+    <div className="mt-4 rounded-xl border border-border shadow-sm overflow-hidden bg-bg">
       {/* Barra de título — nome do board centralizado acima das colunas
-          (estilo businessmap: "Initiatives workflow"/"Cards workflow"). */}
-      <div className="relative flex items-center justify-center px-3 py-2">
-        <h2 className="text-[0.95rem] font-semibold text-text-primary truncate max-w-[80%]">{board.nome}</h2>
-        <div className="absolute right-1 flex items-center gap-1.5">
+          (estilo businessmap: "Initiatives workflow"/"Cards workflow"),
+          uma peça só com o restante do card (bordas arredondadas no bloco todo). */}
+      <div className="relative flex items-center justify-center px-3 py-2.5 bg-card-hover border-b border-border">
+        <h2 className="text-[1.05rem] font-semibold text-text-primary truncate max-w-[80%]">{board.nome}</h2>
+        <div className="absolute right-2 flex items-center gap-1.5">
           <button
             onClick={() => setMenuAberto((v) => !v)}
-            className="flex items-center justify-center w-7 h-7 rounded-sm text-text-muted bg-transparent border-none cursor-pointer hover:bg-card-hover hover:text-text-primary"
+            className="flex items-center justify-center w-7 h-7 rounded-md text-text-muted bg-transparent border-none cursor-pointer hover:bg-card hover:text-text-primary"
             title="Mais opções do quadro"
           >
             <MoreVertical size={16} />
@@ -146,7 +147,7 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
         </div>
         {menuAberto && (
           <div
-            className="absolute right-1 top-[calc(100%+2px)] z-40 flex flex-col gap-2 p-2.5 rounded border border-border-strong bg-card shadow-lg"
+            className="absolute right-2 top-[calc(100%+2px)] z-40 flex flex-col gap-2 p-2.5 rounded-lg border border-border-strong bg-card shadow-lg"
             style={{ minWidth: 220 }}
             onMouseLeave={() => setMenuAberto(false)}
           >
@@ -164,11 +165,15 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
         )}
       </div>
 
-      <div className="flex items-center gap-2 mb-3 px-2.5 py-2 rounded border border-border bg-card-hover flex-wrap">
-        <AgilFiltrosBar boardId={board.id} filtros={filtros} onChange={setFiltros} />
-        <span className="ml-auto text-[0.72rem] font-medium text-text-muted tabular-nums">
+      {/* Barra de ferramentas — contador à esquerda, TODOS os filtros
+          fixados à direita, num bloco só. */}
+      <div className="flex items-center gap-2 px-2.5 py-2 bg-card-hover border-b border-border flex-wrap">
+        <span className="text-[0.72rem] font-medium text-text-muted tabular-nums shrink-0">
           {tarefas.length} de {tarefasDoBoard.length} tarefa(s) · {folhas.length} coluna(s)
         </span>
+        <div className="ml-auto flex items-center gap-1.5 flex-wrap justify-end">
+          <AgilFiltrosBar boardId={board.id} filtros={filtros} onChange={setFiltros} />
+        </div>
       </div>
 
       {folhas.length === 0 ? (
@@ -177,8 +182,8 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
         </div>
       ) : (
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          <div className="rounded border border-border shadow-sm overflow-hidden bg-bg">
-            <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 245px)' }}>
+          <div>
+            <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
               <div className="grid" style={{ gridTemplateColumns }}>
                 <SortableContext items={idsOrdenaveis} strategy={horizontalListSortingStrategy}>
                   {/* Cabeçalho de coluna */}
