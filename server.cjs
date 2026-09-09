@@ -150,6 +150,7 @@ app.use('/api/agil/colunas', require('./server/routes/agilColunas.cjs'));
 app.use('/api/agil/tarefas', require('./server/routes/agilTarefas.cjs'));
 app.use('/api/agil/iniciativas', require('./server/routes/agilIniciativas.cjs'));
 app.use('/api/agil/frentes', require('./server/routes/agilFrentes.cjs'));
+app.use('/api/agil/campos-personalizados', require('./server/routes/agilCamposPersonalizados.cjs'));
 app.use('/api/agil/subtarefas', require('./server/routes/agilSubtarefas.cjs'));
 app.use('/api/agil/comentarios', require('./server/routes/agilComentarios.cjs'));
 app.use('/api/fila', require('./server/routes/fila.cjs'));
