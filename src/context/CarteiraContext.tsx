@@ -11,6 +11,7 @@ import type {
   AgilWorkspace,
   AgilColuna,
   AgilComentario,
+  AgilCampoPersonalizado,
   AgilFrente,
   AgilIniciativa,
   AgilSubtarefa,
@@ -29,6 +30,7 @@ import type {
   NovaAgilColuna,
   NovaAgilFrente,
   NovaAgilIniciativa,
+  NovoAgilCampoPersonalizado,
   NovaAgilSubtarefa,
   NovaAgilWorkspace,
   NovaAgilTarefa,
@@ -85,6 +87,7 @@ interface CarteiraContextValue {
   agilColunas: AgilColuna[];
   agilIniciativas: AgilIniciativa[];
   agilFrentes: AgilFrente[];
+  agilCamposPersonalizados: AgilCampoPersonalizado[];
   agilTarefas: AgilTarefa[];
   agilSubtarefas: AgilSubtarefa[];
   agilComentarios: AgilComentario[];
@@ -162,6 +165,10 @@ interface CarteiraContextValue {
   removerAgilFrente: (id: string) => Promise<void>;
   reordenarAgilFrentes: (itens: { id: string; ordem: number }[]) => Promise<void>;
 
+  criarAgilCampoPersonalizado: (data: NovoAgilCampoPersonalizado) => Promise<AgilCampoPersonalizado>;
+  atualizarAgilCampoPersonalizado: (id: string, data: Partial<AgilCampoPersonalizado>) => Promise<void>;
+  removerAgilCampoPersonalizado: (id: string) => Promise<void>;
+  reordenarAgilCamposPersonalizados: (itens: { id: string; ordem: number }[]) => Promise<void>;
 
   criarAgilTarefa: (data: NovaAgilTarefa) => Promise<AgilTarefa>;
   atualizarAgilTarefa: (id: string, data: Partial<AgilTarefa>) => Promise<void>;
@@ -206,6 +213,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
   const [agilColunas, setAgilColunas] = useState<AgilColuna[]>([]);
   const [agilIniciativas, setAgilIniciativas] = useState<AgilIniciativa[]>([]);
   const [agilFrentes, setAgilFrentes] = useState<AgilFrente[]>([]);
+  const [agilCamposPersonalizados, setAgilCamposPersonalizados] = useState<AgilCampoPersonalizado[]>([]);
   const [agilTarefas, setAgilTarefas] = useState<AgilTarefa[]>([]);
   const [agilSubtarefas, setAgilSubtarefas] = useState<AgilSubtarefa[]>([]);
   const [agilComentarios, setAgilComentarios] = useState<AgilComentario[]>([]);
@@ -230,7 +238,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
   const buscarTudo = useCallback(async () => {
     const [
       clientesData, agendaData, agendaSeriesData, lembretesData, categoriasData, acoesData, modelosData, cadenciasData,
-      agilWorkspacesData, agilBoardsData, agilColunasData, agilIniciativasData, agilFrentesData, agilTarefasData, agilSubtarefasData, agilComentariosData,
+      agilWorkspacesData, agilBoardsData, agilColunasData, agilIniciativasData, agilFrentesData, agilCamposPersonalizadosData, agilTarefasData, agilSubtarefasData, agilComentariosData,
       analisesIAData,
     ] = await Promise.all([
       api.listarClientes(),
@@ -246,6 +254,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       api.listarAgilColunas(),
       api.listarAgilIniciativas(),
       api.listarAgilFrentes(),
+      api.listarAgilCamposPersonalizados(),
       api.listarAgilTarefas(),
       api.listarAgilSubtarefas(),
       api.listarAgilComentarios(),
@@ -256,7 +265,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     ]);
     return {
       clientesData, agendaData, agendaSeriesData, lembretesData, categoriasData, acoesData, modelosData, cadenciasData,
-      agilWorkspacesData, agilBoardsData, agilColunasData, agilIniciativasData, agilFrentesData, agilTarefasData, agilSubtarefasData, agilComentariosData,
+      agilWorkspacesData, agilBoardsData, agilColunasData, agilIniciativasData, agilFrentesData, agilCamposPersonalizadosData, agilTarefasData, agilSubtarefasData, agilComentariosData,
       analisesIAData,
     };
   }, []);
@@ -275,6 +284,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     setAgilColunas(d.agilColunasData);
     setAgilIniciativas(d.agilIniciativasData);
     setAgilFrentes(d.agilFrentesData);
+    setAgilCamposPersonalizados(d.agilCamposPersonalizadosData);
     setAgilTarefas(d.agilTarefasData);
     setAgilSubtarefas(d.agilSubtarefasData);
     setAgilComentarios(d.agilComentariosData);
@@ -604,6 +614,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     setAgilBoards((prev) => prev.filter((b) => b.id !== id));
     setAgilColunas((prev) => prev.filter((c) => c.boardId !== id));
     setAgilIniciativas((prev) => prev.filter((i) => i.boardId !== id));
+    setAgilCamposPersonalizados((prev) => prev.filter((c) => c.boardId !== id));
     const idsRemovidos = new Set(agilTarefas.filter((t) => t.boardId === id).map((t) => t.id));
     setAgilTarefas((prev) => prev.filter((t) => t.boardId !== id));
     setAgilSubtarefas((prev) => prev.filter((s) => !idsRemovidos.has(s.tarefaId)));
@@ -691,6 +702,30 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     await api.reordenarAgilFrentes(itens);
   }, []);
 
+  const criarAgilCampoPersonalizadoFn = useCallback(async (data: NovoAgilCampoPersonalizado) => {
+    const novo = await api.criarAgilCampoPersonalizado(data);
+    setAgilCamposPersonalizados((prev) => [...prev, novo]);
+    return novo;
+  }, []);
+
+  const atualizarAgilCampoPersonalizadoFn = useCallback(async (id: string, data: Partial<AgilCampoPersonalizado>) => {
+    const salvo = await api.atualizarAgilCampoPersonalizado(id, data);
+    setAgilCamposPersonalizados((prev) => prev.map((c) => (c.id === id ? salvo : c)));
+  }, []);
+
+  const removerAgilCampoPersonalizadoFn = useCallback(async (id: string) => {
+    await api.removerAgilCampoPersonalizado(id);
+    // Não-destrutivo: o valor gravado nas tarefas fica órfão no JSON, sem
+    // aparecer em lugar nenhum — mesmo comportamento do backend.
+    setAgilCamposPersonalizados((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
+  const reordenarAgilCamposPersonalizadosFn = useCallback(async (itens: { id: string; ordem: number }[]) => {
+    const porId = new Map(itens.map((i) => [i.id, i.ordem]));
+    setAgilCamposPersonalizados((prev) => prev.map((c) => (porId.has(c.id) ? { ...c, ordem: porId.get(c.id)! } : c)));
+    await api.reordenarAgilCamposPersonalizados(itens);
+  }, []);
+
   const criarAgilTarefaFn = useCallback(async (data: NovaAgilTarefa) => {
     const nova = await api.criarAgilTarefa(data);
     setAgilTarefas((prev) => [...prev, nova]);
@@ -763,6 +798,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       agilColunas,
       agilIniciativas,
       agilFrentes,
+      agilCamposPersonalizados,
       agilTarefas,
       agilSubtarefas,
       agilComentarios,
@@ -816,6 +852,10 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       atualizarAgilFrente: atualizarAgilFrenteFn,
       removerAgilFrente: removerAgilFrenteFn,
       reordenarAgilFrentes: reordenarAgilFrentesFn,
+      criarAgilCampoPersonalizado: criarAgilCampoPersonalizadoFn,
+      atualizarAgilCampoPersonalizado: atualizarAgilCampoPersonalizadoFn,
+      removerAgilCampoPersonalizado: removerAgilCampoPersonalizadoFn,
+      reordenarAgilCamposPersonalizados: reordenarAgilCamposPersonalizadosFn,
       criarAgilTarefa: criarAgilTarefaFn,
       atualizarAgilTarefa: atualizarAgilTarefaFn,
       removerAgilTarefa: removerAgilTarefaFn,
@@ -828,7 +868,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     }),
     [
       clientes, filtroMonitor, definirFiltroMonitor, monitoresDisponiveis, agenda, agendaSeries, lembretes, categorias, acoes, analisesIA, modelos, cadencias,
-      agilWorkspaces, agilBoards, agilColunas, agilIniciativas, agilFrentes, agilTarefas, agilSubtarefas, agilComentarios,
+      agilWorkspaces, agilBoards, agilColunas, agilIniciativas, agilFrentes, agilCamposPersonalizados, agilTarefas, agilSubtarefas, agilComentarios,
       loading, error, recarregar, ceoAgenda, opcoesPorTipo, categoriasPorTipo,
       criarCliente, criarClientesEmLote, atualizarClienteFn, removerClienteFn,
       criarEventoFn, atualizarEventoFn, removerEventoFn, enviarAnexoEvento, removerAnexoEvento,
@@ -841,6 +881,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       criarAgilColunaFn, atualizarAgilColunaFn, removerAgilColunaFn, reordenarAgilColunasFn,
       criarAgilIniciativaFn, atualizarAgilIniciativaFn, removerAgilIniciativaFn, reordenarAgilIniciativasFn,
       criarAgilFrenteFn, atualizarAgilFrenteFn, removerAgilFrenteFn, reordenarAgilFrentesFn,
+      criarAgilCampoPersonalizadoFn, atualizarAgilCampoPersonalizadoFn, removerAgilCampoPersonalizadoFn, reordenarAgilCamposPersonalizadosFn,
       criarAgilTarefaFn, atualizarAgilTarefaFn, removerAgilTarefaFn, moverAgilTarefasFn,
       criarAgilSubtarefaFn, atualizarAgilSubtarefaFn, removerAgilSubtarefaFn,
       criarAgilComentarioFn, removerAgilComentarioFn,

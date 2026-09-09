@@ -670,6 +670,22 @@ export interface AgilFrente {
 }
 export type NovaAgilFrente = Omit<AgilFrente, 'id' | 'ordem' | 'createdAt'>;
 
+export type AgilCampoTipo = 'texto' | 'numero' | 'data' | 'selecao' | 'pessoa';
+
+/** Campo que o usuário define POR BOARD (ex.: "Valor do contrato") — não é
+ *  global como Frente, cada quadro tem seu próprio conjunto. */
+export interface AgilCampoPersonalizado {
+  id: string;
+  boardId: string;
+  nome: string;
+  tipo: AgilCampoTipo;
+  /** Só relevante quando tipo === 'selecao'. */
+  opcoes?: string[];
+  ordem: number;
+  createdAt: string;
+}
+export type NovoAgilCampoPersonalizado = Omit<AgilCampoPersonalizado, 'id' | 'ordem' | 'createdAt'>;
+
 export interface AgilTarefa {
   id: string;
   /** Id curto sequencial por board (o "#12" exibido no card). */
@@ -695,6 +711,8 @@ export interface AgilTarefa {
   bloqueado?: boolean;
   /** Motivo do bloqueio — só relevante quando bloqueado = true. */
   motivoBloqueio?: string;
+  /** Valores dos AgilCampoPersonalizado do board — chave é o `id` do campo. */
+  camposPersonalizados?: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 }

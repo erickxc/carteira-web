@@ -31,7 +31,7 @@ const PRIORIDADE_COR: Record<string, string> = {
 };
 
 export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, onClose }: TaskDetailModalProps) {
-  const { clientes, agilBoards, agilIniciativas, agilFrentes, criarAgilTarefa, atualizarAgilTarefa, removerAgilTarefa, opcoesPorTipo } = useCarteira();
+  const { clientes, agilBoards, agilIniciativas, agilFrentes, agilCamposPersonalizados, criarAgilTarefa, atualizarAgilTarefa, removerAgilTarefa, opcoesPorTipo } = useCarteira();
   const prioridadeOpcoes = opcoesPorTipo('prioridade_tarefa');
   const monitorOpcoes = opcoesPorTipo('monitor');
   const board = agilBoards.find((b) => b.id === boardId);
@@ -39,6 +39,10 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
   const iniciativasDoBoard = useMemo(
     () => agilIniciativas.filter((i) => i.boardId === boardId).sort((a, b) => a.ordem - b.ordem),
     [agilIniciativas, boardId]
+  );
+  const camposDoBoard = useMemo(
+    () => agilCamposPersonalizados.filter((c) => c.boardId === boardId).sort((a, b) => a.ordem - b.ordem),
+    [agilCamposPersonalizados, boardId]
   );
 
   // Só colunas-FOLHA recebem tarefas (uma coluna com sub-colunas é agrupadora),
@@ -56,7 +60,12 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
   const [clientId, setClientId] = useState(initial?.clientId ?? '');
   const [bloqueado, setBloqueado] = useState(initial?.bloqueado ?? false);
   const [motivoBloqueio, setMotivoBloqueio] = useState(initial?.motivoBloqueio ?? '');
+  const [valoresCampos, setValoresCampos] = useState<Record<string, string>>(initial?.camposPersonalizados ?? {});
   const [saving, setSaving] = useState(false);
+
+  function setValorCampo(campoId: string, valor: string) {
+    setValoresCampos((prev) => ({ ...prev, [campoId]: valor }));
+  }
 
   // Cor do cabeçalho: a Frente tem precedência sobre a de prioridade (mesma
   // lógica visual do card); sem nenhuma das duas, cabeçalho padrão do tema.
@@ -83,6 +92,7 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
         clientId: clientId || undefined,
         bloqueado,
         motivoBloqueio: bloqueado ? motivoBloqueio : undefined,
+        camposPersonalizados: Object.keys(valoresCampos).length > 0 ? valoresCampos : undefined,
       };
       if (initial) {
         await atualizarAgilTarefa(initial.id, payload);
@@ -241,6 +251,44 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
           {agilFrentes.length === 0 && (
             <p className="text-text-muted" style={{ fontSize: 13, marginTop: -8 }}>Nenhuma Frente cadastrada — adicione em Configurações do Ágil.</p>
           )}
+
+          {camposDoBoard.map((campo) => {
+            const valor = valoresCampos[campo.id] ?? '';
+            if (campo.tipo === 'selecao') {
+              return (
+                <SelectField
+                  key={campo.id}
+                  label={campo.nome}
+                  placeholder="Nenhum"
+                  value={valor}
+                  onChange={(v) => setValorCampo(campo.id, v)}
+                  options={[{ value: '', label: 'Nenhum' }, ...(campo.opcoes ?? []).map((o) => ({ value: o, label: o }))]}
+                />
+              );
+            }
+            if (campo.tipo === 'pessoa') {
+              return (
+                <SelectField
+                  key={campo.id}
+                  label={campo.nome}
+                  placeholder="Nenhum"
+                  value={valor}
+                  onChange={(v) => setValorCampo(campo.id, v)}
+                  options={[{ value: '', label: 'Nenhum' }, ...monitorOpcoes.map((m) => ({ value: m, label: m }))]}
+                />
+              );
+            }
+            return (
+              <Field key={campo.id} label={campo.nome}>
+                <Input
+                  tone="modal"
+                  type={campo.tipo === 'data' ? 'date' : campo.tipo === 'numero' ? 'number' : 'text'}
+                  value={valor}
+                  onChange={(e) => setValorCampo(campo.id, e.target.value)}
+                />
+              </Field>
+            );
+          })}
 
           <Field label={<span className="flex items-center gap-2"><input type="checkbox" checked={bloqueado} onChange={(e) => setBloqueado(e.target.checked)} /> Bloqueada</span>} as="div">
             {bloqueado && (

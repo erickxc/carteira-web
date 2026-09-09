@@ -1,4 +1,4 @@
-import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilColuna, AgilComentario, AgilFrente, AgilIniciativa, AgilSubtarefa, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilFrente, NovaAgilIniciativa, NovaAgilSubtarefa, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao } from '../types';
+import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilCampoPersonalizado, AgilColuna, AgilComentario, AgilFrente, AgilIniciativa, AgilSubtarefa, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilFrente, NovaAgilIniciativa, NovaAgilSubtarefa, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilCampoPersonalizado, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao } from '../types';
 
 const PRE_ANALISE_VAZIA: PreAnalise = { orientacoes: [], clientesGeral: '', produtosGeral: '' };
 function parsePreAnalise(raw: unknown): PreAnalise {
@@ -331,12 +331,16 @@ export const identificarReuniao = (texto: string) =>
 
 // --- Ágil (Kanban de tarefas) ---
 function serializeAgilTarefa(t: NovaAgilTarefa | Partial<AgilTarefa>): Record<string, unknown> {
-  return { ...t };
+  return {
+    ...t,
+    camposPersonalizados: t.camposPersonalizados === undefined ? undefined : JSON.stringify(t.camposPersonalizados),
+  };
 }
 function deserializeAgilTarefa(raw: Record<string, unknown>): AgilTarefa {
   return {
     ...(raw as unknown as AgilTarefa),
     responsaveis: raw.responsaveis == null ? undefined : parseListaJSON<string>(raw.responsaveis),
+    camposPersonalizados: raw.camposPersonalizados ? JSON.parse(raw.camposPersonalizados as string) : undefined,
   };
 }
 
@@ -386,6 +390,23 @@ export const atualizarAgilFrente = (id: string, data: Partial<AgilFrente>) =>
 export const removerAgilFrente = (id: string) => request<{ success: boolean }>(`/agil/frentes/${id}`, { method: 'DELETE' });
 export const reordenarAgilFrentes = (itens: { id: string; ordem: number }[]) =>
   request<AgilFrente[]>('/agil/frentes/reorder', { method: 'PUT', body: JSON.stringify(itens) });
+
+function serializeAgilCampoPersonalizado(c: NovoAgilCampoPersonalizado | Partial<AgilCampoPersonalizado>): Record<string, unknown> {
+  return { ...c, opcoes: c.opcoes === undefined ? undefined : JSON.stringify(c.opcoes) };
+}
+function deserializeAgilCampoPersonalizado(raw: Record<string, unknown>): AgilCampoPersonalizado {
+  return { ...(raw as unknown as AgilCampoPersonalizado), opcoes: raw.opcoes ? JSON.parse(raw.opcoes as string) : undefined };
+}
+
+export const listarAgilCamposPersonalizados = async () =>
+  (await request<Record<string, unknown>[]>('/agil/campos-personalizados')).map(deserializeAgilCampoPersonalizado);
+export const criarAgilCampoPersonalizado = async (data: NovoAgilCampoPersonalizado) =>
+  deserializeAgilCampoPersonalizado(await request<Record<string, unknown>>('/agil/campos-personalizados', { method: 'POST', body: JSON.stringify(serializeAgilCampoPersonalizado(data)) }));
+export const atualizarAgilCampoPersonalizado = async (id: string, data: Partial<AgilCampoPersonalizado>) =>
+  deserializeAgilCampoPersonalizado(await request<Record<string, unknown>>(`/agil/campos-personalizados/${id}`, { method: 'PUT', body: JSON.stringify(serializeAgilCampoPersonalizado(data)) }));
+export const removerAgilCampoPersonalizado = (id: string) => request<{ success: boolean }>(`/agil/campos-personalizados/${id}`, { method: 'DELETE' });
+export const reordenarAgilCamposPersonalizados = (itens: { id: string; ordem: number }[]) =>
+  request<AgilCampoPersonalizado[]>('/agil/campos-personalizados/reorder', { method: 'PUT', body: JSON.stringify(itens) });
 
 
 export const listarAgilSubtarefas = () => request<AgilSubtarefa[]>('/agil/subtarefas');

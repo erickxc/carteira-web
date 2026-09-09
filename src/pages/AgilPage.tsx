@@ -8,6 +8,7 @@ import { BoardFormModal } from '../components/agil/BoardFormModal';
 import { WorkspaceFormModal } from '../components/agil/WorkspaceFormModal';
 import { FrentesManagerModal } from '../components/agil/FrentesManagerModal';
 import { IniciativasManagerModal } from '../components/agil/IniciativasManagerModal';
+import { CamposPersonalizadosManagerModal } from '../components/agil/CamposPersonalizadosManagerModal';
 import { AgilSidebar } from '../components/agil/AgilSidebar';
 import { WorkspacePinModal } from '../components/agil/WorkspacePinModal';
 import { desbloquearWorkspace, workspaceDesbloqueada } from '../utils/agilWorkspacePin';
@@ -24,6 +25,7 @@ export default function AgilPage() {
   const [boardModal, setBoardModal] = useState<'novo' | AgilBoard | null>(null);
   const [configAgilAberta, setConfigAgilAberta] = useState(false);
   const [iniciativasAberta, setIniciativasAberta] = useState(false);
+  const [camposPersonalizadosAberta, setCamposPersonalizadosAberta] = useState(false);
   const [pinPendente, setPinPendente] = useState<AgilWorkspace | null>(null);
 
   // Navegação vinda de outra tela (ex.: card de tarefas Ágil na ficha do
@@ -108,6 +110,9 @@ export default function AgilPage() {
                     <Button variant="secondary" onClick={() => setIniciativasAberta(true)}>Iniciativas</Button>
                   )}
                   {board && (
+                    <Button variant="secondary" onClick={() => setCamposPersonalizadosAberta(true)}>Campos</Button>
+                  )}
+                  {board && (
                     <Button variant="secondary" onClick={() => setBoardModal(board)} title="Editar quadro">
                       <Settings size={16} />
                     </Button>
@@ -153,6 +158,10 @@ export default function AgilPage() {
 
       {iniciativasAberta && board && (
         <IniciativasManagerModal boardId={board.id} boardNome={board.nome} onClose={() => setIniciativasAberta(false)} />
+      )}
+
+      {camposPersonalizadosAberta && board && (
+        <CamposPersonalizadosManagerModal boardId={board.id} boardNome={board.nome} onClose={() => setCamposPersonalizadosAberta(false)} />
       )}
 
       {pinPendente && (
