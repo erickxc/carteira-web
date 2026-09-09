@@ -4,7 +4,8 @@ import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-
 import { Columns3, MoreVertical } from 'lucide-react';
 import { useCarteira } from '../../context/CarteiraContext';
 import { usePersistedState } from '../../hooks/usePersistedState';
-import { montarHierarquiaColunas } from '../../utils/agilColunas';
+import { colunaConcluida, montarHierarquiaColunas, tarefaPendenteBloqueiaConclusao } from '../../utils/agilColunas';
+import { toastError } from '../../utils/toast';
 import { ordenarTarefasDaCelula, ORDENACAO_OPCOES } from '../../utils/agilOrdenacao';
 import { KanbanColumnHeader } from './KanbanColumnHeader';
 import { KanbanGroupHeader } from './KanbanGroupHeader';
@@ -30,7 +31,10 @@ interface KanbanBoardProps {
 }
 
 export function KanbanBoard({ board, filtros = AGIL_FILTROS_VAZIOS }: KanbanBoardProps) {
-  const { agilColunas, agilTarefas, reordenarAgilColunas, moverAgilTarefas, atualizarAgilBoard } = useCarteira();
+  const { agilColunas, agilTarefas, agilWorkspaces, reordenarAgilColunas, moverAgilTarefas, atualizarAgilBoard } = useCarteira();
+  // Este board É o board fixo de Iniciativas de alguma workspace? Só nele a
+  // regra "não conclui com tarefa pendente por baixo" se aplica.
+  const ehBoardIniciativas = agilWorkspaces.some((w) => w.iniciativasBoardId === board.id);
   const [colunaModal, setColunaModal] = useState<{ initial?: AgilColuna; parentId?: string } | null>(null);
   const [tarefaModal, setTarefaModal] = useState<{ initial?: AgilTarefa; colunaId?: string } | null>(null);
   const [colunasColapsadas, setColunasColapsadas] = usePersistedState<string[]>('agil:colunasColapsadas', []);
@@ -106,6 +110,17 @@ export function KanbanBoard({ board, filtros = AGIL_FILTROS_VAZIOS }: KanbanBoar
         colunaDestinoId = over.data.current.colunaId as string;
       }
       if (!colunaDestinoId) return;
+
+      if (ehBoardIniciativas && colunaDestinoId !== tarefaAtiva.colunaId) {
+        const colunaDestino = agilColunas.find((c) => c.id === colunaDestinoId);
+        if (colunaConcluida(colunaDestino?.titulo)) {
+          const pendente = tarefaPendenteBloqueiaConclusao(tarefaAtiva.id, agilTarefas, agilColunas);
+          if (pendente) {
+            toastError(`Não dá pra concluir "${tarefaAtiva.titulo}" — a tarefa "${pendente}" ainda não está concluída.`);
+            return;
+          }
+        }
+      }
 
       const destino = (tarefasPorColuna.get(colunaDestinoId) ?? []).filter((t) => t.id !== tarefaAtiva.id);
       const insertAt = overTarefaId ? destino.findIndex((t) => t.id === overTarefaId) : -1;

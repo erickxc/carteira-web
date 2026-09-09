@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { AlertTriangle, Flag } from 'lucide-react';
-import { montarHierarquiaColunas } from '../../utils/agilColunas';
+import { colunaConcluida, montarHierarquiaColunas, tarefaPendenteBloqueiaConclusao } from '../../utils/agilColunas';
 import { corContrastante } from '../../utils/cor';
 import { useCarteira } from '../../context/CarteiraContext';
 import { toastError } from '../../utils/toast';
@@ -31,7 +31,7 @@ const PRIORIDADE_COR: Record<string, string> = {
 };
 
 export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, onClose }: TaskDetailModalProps) {
-  const { clientes, agilBoards, agilWorkspaces, agilTarefas, agilFrentes, agilCamposPersonalizados, criarAgilTarefa, atualizarAgilTarefa, removerAgilTarefa, opcoesPorTipo } = useCarteira();
+  const { clientes, agilBoards, agilWorkspaces, agilColunas, agilTarefas, agilFrentes, agilCamposPersonalizados, criarAgilTarefa, atualizarAgilTarefa, removerAgilTarefa, opcoesPorTipo } = useCarteira();
   const prioridadeOpcoes = opcoesPorTipo('prioridade_tarefa');
   const monitorOpcoes = opcoesPorTipo('monitor');
   const board = agilBoards.find((b) => b.id === boardId);
@@ -86,6 +86,19 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!titulo.trim() || !colunaId) return;
+
+    // Iniciativa não pode ser concluída com tarefa vinculada ainda pendente.
+    if (initial && workspace?.iniciativasBoardId === boardId && colunaId !== initial.colunaId) {
+      const colunaDestino = colunas.find((c) => c.id === colunaId);
+      if (colunaConcluida(colunaDestino?.titulo)) {
+        const pendente = tarefaPendenteBloqueiaConclusao(initial.id, agilTarefas, agilColunas);
+        if (pendente) {
+          toastError(`Não dá pra concluir "${initial.titulo}" — a tarefa "${pendente}" ainda não está concluída.`);
+          return;
+        }
+      }
+    }
+
     setSaving(true);
     try {
       const payload = {

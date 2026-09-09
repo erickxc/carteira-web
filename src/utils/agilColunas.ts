@@ -1,4 +1,31 @@
-import type { AgilColuna } from '../types';
+import type { AgilColuna, AgilTarefa } from '../types';
+
+// Colunas são texto livre (sem enum fixo), então "concluída" é inferida por
+// palavra-chave no título — mesmo padrão de status_cliente/status_evento
+// (eventoStatusBadge/clienteStatusBadge). Nunca quebra com uma coluna que
+// nomeia diferente, só deixa de reconhecer aquele caso específico.
+export const colunaConcluida = (titulo?: string) => /conclu|feito|pronto|final|done|entregue/i.test(titulo || '');
+
+/**
+ * Regra de negócio: uma Iniciativa (tarefa do board fixo de Iniciativas) não
+ * pode ser movida pra uma coluna concluída enquanto houver tarefa vinculada
+ * (`AgilTarefa.iniciativaId === iniciativaId`) numa coluna que NÃO é
+ * concluída — ainda tem trabalho em andamento/pendente por baixo dela.
+ * Devolve o título da primeira tarefa pendente encontrada (pra mensagem de
+ * erro), ou `null` se pode concluir.
+ */
+export function tarefaPendenteBloqueiaConclusao(
+  iniciativaId: string,
+  agilTarefas: AgilTarefa[],
+  agilColunas: AgilColuna[]
+): string | null {
+  const pendente = agilTarefas.find((t) => {
+    if (t.iniciativaId !== iniciativaId) return false;
+    const coluna = agilColunas.find((c) => c.id === t.colunaId);
+    return !colunaConcluida(coluna?.titulo);
+  });
+  return pendente?.titulo ?? null;
+}
 
 export interface HierarquiaColunas {
   /** Colunas de topo (sem pai), em ordem. */

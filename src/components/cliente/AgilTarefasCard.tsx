@@ -4,18 +4,13 @@ import { format, isPast, parse, startOfDay } from 'date-fns';
 import { AlertTriangle, CalendarClock, KanbanSquare } from 'lucide-react';
 import clsx from 'clsx';
 import { useCarteira } from '../../context/CarteiraContext';
+import { colunaConcluida } from '../../utils/agilColunas';
 import { Card } from '../../ui';
 import type { Cliente } from '../../types';
 
 interface AgilTarefasCardProps {
   cliente: Cliente;
 }
-
-// Colunas são texto livre (mesmo padrão de status_cliente/status_evento — sem
-// enum fixo), então "concluída" é inferido por palavra-chave no título da
-// coluna, igual a `eventoStatusBadge`/`clienteStatusBadge` — nunca quebra
-// com um board que nomeia a coluna diferente, só deixa de filtrar aquele caso.
-const colunaConcluida = (titulo?: string) => /conclu|feito|pronto|final|done|entregue/i.test(titulo || '');
 
 /**
  * Tarefas do Ágil (Kanban interno) vinculadas a este cliente (`AgilTarefa.clientId`),
