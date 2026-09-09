@@ -201,23 +201,23 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
         </>
       }
     >
-      <div className="grid gap-5" style={{ gridTemplateColumns: 'minmax(0, 1fr) 260px' }}>
+      <div className="grid gap-4" style={{ gridTemplateColumns: 'minmax(0, 1fr) 260px' }}>
         {/* Coluna esquerda: descrição + atividade (subtarefas/comentários) —
             tudo na mesma tela, sem abas, para não esconder informação atrás de clique. */}
-        <div className="flex flex-col gap-5 min-w-0">
+        <div className="flex flex-col min-w-0">
           <Field label="Descrição">
             <Textarea tone="modal" value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} />
           </Field>
 
           {bloqueado && (
-            <div className="flex items-start gap-2 p-2.5 rounded bg-[var(--danger-bg)] text-danger text-[0.82rem]">
+            <div className="flex items-start gap-2 p-2.5 mb-3 rounded bg-[var(--danger-bg)] text-danger text-[0.82rem]">
               <AlertTriangle size={15} className="shrink-0 mt-0.5" />
               <span>{motivoBloqueio || 'Tarefa bloqueada.'}</span>
             </div>
           )}
 
-          <section>
-            <h3 className="text-[0.78rem] font-bold uppercase tracking-[0.05em] text-text-muted mb-2">Subtarefas</h3>
+          <section className="mb-3">
+            <h3 className="text-[0.78rem] font-bold uppercase tracking-[0.05em] text-text-muted mb-1.5">Subtarefas</h3>
             {initial ? (
               <SubtarefasTab tarefaId={initial.id} />
             ) : (
@@ -226,7 +226,7 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
           </section>
 
           <section>
-            <h3 className="text-[0.78rem] font-bold uppercase tracking-[0.05em] text-text-muted mb-2">Comentários</h3>
+            <h3 className="text-[0.78rem] font-bold uppercase tracking-[0.05em] text-text-muted mb-1.5">Comentários</h3>
             {initial ? (
               <ComentariosTab tarefaId={initial.id} />
             ) : (
@@ -237,7 +237,7 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
 
         {/* Coluna direita: campos estruturados — igual ao "Card Fields" de
             referência (Kanbanize/Businessmap), tudo visível de uma vez. */}
-        <div className="flex flex-col gap-3 min-w-0">
+        <div className="flex flex-col min-w-0">
           <SelectField
             label="Prioridade"
             placeholder="Nenhuma"
