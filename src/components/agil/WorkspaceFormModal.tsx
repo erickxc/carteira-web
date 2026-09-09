@@ -48,8 +48,8 @@ export function WorkspaceFormModal({ initial, onClose, onCreated, onDeleted }: W
     if (!initial) return;
     const qtdBoards = agilBoards.filter((b) => b.workspaceId === initial.id).length;
     const aviso = qtdBoards > 0
-      ? `Excluir a área de trabalho "${initial.nome}"? Isso também remove ${qtdBoards} board(s) dela, com todas as colunas e tarefas.`
-      : `Excluir a área de trabalho "${initial.nome}"? Ela não tem boards.`;
+      ? `Excluir a área de trabalho "${initial.nome}"? Isso também remove ${qtdBoards} quadro(s) dela, com todas as colunas e tarefas.`
+      : `Excluir a área de trabalho "${initial.nome}"? Ela não tem quadros.`;
     if (!(await confirmDialog(aviso, { danger: true, confirmLabel: 'Excluir' }))) return;
     await removerAgilWorkspace(initial.id);
     onDeleted?.();
@@ -72,7 +72,7 @@ export function WorkspaceFormModal({ initial, onClose, onCreated, onDeleted }: W
       }
     >
       <p className="text-[0.78rem] text-text-muted mb-3">
-        Uma área de trabalho agrupa vários boards (ex.: por time ou por assunto).
+        Uma área de trabalho agrupa vários quadros (ex.: por time ou por assunto).
       </p>
       <Field label="Nome da área de trabalho">
         <Input tone="modal" autoFocus value={nome} onChange={(e) => setNome(e.target.value)} required />

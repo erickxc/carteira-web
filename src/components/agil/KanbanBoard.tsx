@@ -140,7 +140,7 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
 
       {folhas.length === 0 ? (
         <div className="empty-state" style={{ padding: '2rem', textAlign: 'center' }}>
-          Este board não tem colunas. Crie a primeira coluna para começar.
+          Este quadro não tem colunas. Crie a primeira coluna para começar.
         </div>
       ) : (
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>

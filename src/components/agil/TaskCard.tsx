@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowUp, CalendarClock, Clock, ListChecks, Plus } from '
 import clsx from 'clsx';
 import { useCarteira } from '../../context/CarteiraContext';
 import { corContrastante } from '../../utils/cor';
+import { parseCamposCard } from '../../utils/agilCamposCard';
 import type { AgilTarefa } from '../../types';
 
 /** Barra de prioridade (idioma `stat-card-accent-bar` do app) — junto do
@@ -33,11 +34,13 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ tarefa, onClick }: TaskCardProps) {
-  const { clientes, agilIniciativas, agilFrentes, agilSubtarefas, criarAgilSubtarefa, atualizarAgilSubtarefa } = useCarteira();
+  const { clientes, agilBoards, agilIniciativas, agilFrentes, agilSubtarefas, criarAgilSubtarefa, atualizarAgilSubtarefa } = useCarteira();
+  const board = agilBoards.find((b) => b.id === tarefa.boardId);
+  const campos = parseCamposCard(board?.camposCard);
   // Se esta tarefa TEM `iniciativaId`, ela é filha de uma Iniciativa (agrupador
   // do mesmo board): mostra uma linha de referência, mesmo idioma do "↑ {cliente}".
-  const iniciativa = tarefa.iniciativaId ? agilIniciativas.find((i) => i.id === tarefa.iniciativaId) : undefined;
-  const frente = tarefa.frenteId ? agilFrentes.find((f) => f.id === tarefa.frenteId) : undefined;
+  const iniciativa = campos.includes('iniciativa') && tarefa.iniciativaId ? agilIniciativas.find((i) => i.id === tarefa.iniciativaId) : undefined;
+  const frente = campos.includes('frente') && tarefa.frenteId ? agilFrentes.find((f) => f.id === tarefa.frenteId) : undefined;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: tarefa.id,
     data: { type: 'tarefa', colunaId: tarefa.colunaId },
@@ -106,15 +109,17 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
         <span className="px-1.5 rounded-[4px] bg-bg border border-border text-[0.62rem] font-semibold text-text-secondary leading-[1.5] tabular-nums">
           {tarefa.numero ? `#${tarefa.numero}` : '—'}
         </span>
-        <span className={clsx('ml-auto text-[0.63rem] font-medium truncate shrink-0', PRIORIDADE_TEXTO[tarefa.prioridade ?? ''] ?? 'text-text-muted')}>
-          {tarefa.prioridade || 'Nenhum'}
-        </span>
+        {campos.includes('prioridade') && (
+          <span className={clsx('ml-auto text-[0.63rem] font-medium truncate shrink-0', PRIORIDADE_TEXTO[tarefa.prioridade ?? ''] ?? 'text-text-muted')}>
+            {tarefa.prioridade || 'Nenhum'}
+          </span>
+        )}
       </div>
 
       {/* Linha 2: título + avatares dos responsáveis (até 3, "+N" se houver mais) */}
       <div className="flex items-start gap-2">
         <span className="flex-1 text-[0.8rem] font-semibold text-text-primary leading-[1.35] break-words">{tarefa.titulo}</span>
-        {tarefa.responsaveis && tarefa.responsaveis.length > 0 && (
+        {campos.includes('responsaveis') && tarefa.responsaveis && tarefa.responsaveis.length > 0 && (
           <div className="shrink-0 flex items-center -space-x-1">
             {tarefa.responsaveis.slice(0, 3).map((r) => (
               <span
@@ -147,7 +152,7 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
         <span className="flex items-center gap-1" title={`${idadeDias} dia(s) desde a última alteração`}>
           <Clock size={11} /> {idadeDias}d
         </span>
-        {prazo && (
+        {campos.includes('dueAt') && prazo && (
           <span
             className={clsx(
               'flex items-center gap-1',
@@ -158,7 +163,7 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
             <CalendarClock size={11} /> {prazo.texto}
           </span>
         )}
-        {subtarefas.length > 0 && (
+        {campos.includes('subtarefas') && subtarefas.length > 0 && (
           <span className="flex items-center gap-1" title="Subtarefas concluídas">
             <ListChecks size={11} /> {feitas}/{subtarefas.length}
           </span>
@@ -192,7 +197,7 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
       )}
 
       {/* Subtarefas inline */}
-      {subtarefas.length > 0 && (
+      {campos.includes('subtarefas') && subtarefas.length > 0 && (
         <div className="flex flex-col gap-0.5 pt-0.5 border-t border-border/70">
           {subtarefas.map((s) => (
             <label key={s.id} className="flex items-start gap-1.5 text-[0.66rem] cursor-pointer" {...pararEventos}>

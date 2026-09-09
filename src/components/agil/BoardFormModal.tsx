@@ -3,8 +3,9 @@ import { useCarteira } from '../../context/CarteiraContext';
 import { toastError } from '../../utils/toast';
 import { confirmDialog } from '../../utils/confirmDialog';
 import { ModalShell } from '../ModalShell';
-import { Button, Field, Input, Textarea } from '../../ui';
+import { Button, Chip, Field, Input, Textarea } from '../../ui';
 import { SelectField } from '../SelectField';
+import { CAMPOS_CARD_OPCOES, parseCamposCard, serializeCamposCard, type CampoCard } from '../../utils/agilCamposCard';
 import type { AgilBoard } from '../../types';
 
 interface BoardFormModalProps {
@@ -21,14 +22,19 @@ export function BoardFormModal({ initial, workspaceIdInicial, onClose, onCreated
   const [nome, setNome] = useState(initial?.nome ?? '');
   const [descricao, setDescricao] = useState(initial?.descricao ?? '');
   const [workspaceId, setWorkspaceId] = useState(initial?.workspaceId ?? workspaceIdInicial);
+  const [camposCard, setCamposCard] = useState<CampoCard[]>(parseCamposCard(initial?.camposCard));
   const [saving, setSaving] = useState(false);
+
+  function toggleCampo(campo: CampoCard) {
+    setCamposCard((prev) => (prev.includes(campo) ? prev.filter((c) => c !== campo) : [...prev, campo]));
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!nome.trim() || !workspaceId) return;
     setSaving(true);
     try {
-      const payload = { nome, descricao, workspaceId };
+      const payload = { nome, descricao, workspaceId, camposCard: serializeCamposCard(camposCard) };
       if (initial) {
         await atualizarAgilBoard(initial.id, payload);
       } else {
@@ -37,7 +43,7 @@ export function BoardFormModal({ initial, workspaceIdInicial, onClose, onCreated
       }
       onClose();
     } catch (err) {
-      toastError(err instanceof Error ? err.message : 'Falha ao salvar o board.');
+      toastError(err instanceof Error ? err.message : 'Falha ao salvar o quadro.');
     } finally {
       setSaving(false);
     }
@@ -45,7 +51,7 @@ export function BoardFormModal({ initial, workspaceIdInicial, onClose, onCreated
 
   async function handleDelete() {
     if (!initial) return;
-    if (!(await confirmDialog(`Excluir o board "${initial.nome}"? Isso também remove todas as colunas, tarefas e iniciativas dele.`, { danger: true, confirmLabel: 'Excluir' }))) return;
+    if (!(await confirmDialog(`Excluir o quadro "${initial.nome}"? Isso também remove todas as colunas, tarefas e iniciativas dele.`, { danger: true, confirmLabel: 'Excluir' }))) return;
     await removerAgilBoard(initial.id);
     onDeleted?.();
     onClose();
@@ -53,7 +59,7 @@ export function BoardFormModal({ initial, workspaceIdInicial, onClose, onCreated
 
   return (
     <ModalShell
-      title={initial ? 'Editar board' : 'Novo board'}
+      title={initial ? 'Editar quadro' : 'Novo quadro'}
       onClose={onClose}
       onSubmit={handleSubmit}
       footer={
@@ -66,7 +72,7 @@ export function BoardFormModal({ initial, workspaceIdInicial, onClose, onCreated
         </>
       }
     >
-      <Field label="Nome do board">
+      <Field label="Nome do quadro">
         <Input tone="modal" autoFocus value={nome} onChange={(e) => setNome(e.target.value)} required />
       </Field>
 
@@ -81,9 +87,19 @@ export function BoardFormModal({ initial, workspaceIdInicial, onClose, onCreated
         <Textarea tone="modal" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
       </Field>
 
+      <Field as="div" label="Campos visíveis no card">
+        <div className="flex flex-wrap gap-2">
+          {CAMPOS_CARD_OPCOES.map((c) => (
+            <Chip key={c.key} variant="toggle" active={camposCard.includes(c.key)} onClick={() => toggleCampo(c.key)}>
+              {c.label}
+            </Chip>
+          ))}
+        </div>
+      </Field>
+
       {!initial && (
         <p className="text-[0.76rem] text-text-muted">
-          O board nasce com 5 colunas de período (Backlog, A fazer, Em andamento, Validação, Concluído) — editáveis depois.
+          O quadro nasce com 5 colunas de período (Backlog, A fazer, Em andamento, Validação, Concluído) — editáveis depois.
         </p>
       )}
     </ModalShell>

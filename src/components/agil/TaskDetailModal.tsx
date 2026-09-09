@@ -135,7 +135,7 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
       footer={
         <>
           <span className="text-[0.76rem] text-text-muted mr-auto self-center truncate">
-            {boardNome && <>No board <strong className="text-text-secondary">{boardNome}</strong></>}
+            {boardNome && <>No quadro <strong className="text-text-secondary">{boardNome}</strong></>}
           </span>
           {initial && <Button variant="danger" onClick={handleDelete}>Excluir</Button>}
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
