@@ -19,6 +19,9 @@ interface BoardFormModalProps {
 
 export function BoardFormModal({ initial, workspaceIdInicial, onClose, onCreated, onDeleted }: BoardFormModalProps) {
   const { agilWorkspaces, criarAgilBoard, atualizarAgilBoard, removerAgilBoard } = useCarteira();
+  // Board fixo de Iniciativas de alguma workspace — não pode ser excluído
+  // (é criado automaticamente e é a única referência de AgilTarefa.iniciativaId).
+  const ehBoardFixo = !!initial && agilWorkspaces.some((w) => w.iniciativasBoardId === initial.id);
   const [nome, setNome] = useState(initial?.nome ?? '');
   const [descricao, setDescricao] = useState(initial?.descricao ?? '');
   const [workspaceId, setWorkspaceId] = useState(initial?.workspaceId ?? workspaceIdInicial);
@@ -50,8 +53,8 @@ export function BoardFormModal({ initial, workspaceIdInicial, onClose, onCreated
   }
 
   async function handleDelete() {
-    if (!initial) return;
-    if (!(await confirmDialog(`Excluir o quadro "${initial.nome}"? Isso também remove todas as colunas, tarefas e iniciativas dele.`, { danger: true, confirmLabel: 'Excluir' }))) return;
+    if (!initial || ehBoardFixo) return;
+    if (!(await confirmDialog(`Excluir o quadro "${initial.nome}"? Isso também remove todas as colunas, tarefas e campos personalizados dele.`, { danger: true, confirmLabel: 'Excluir' }))) return;
     await removerAgilBoard(initial.id);
     onDeleted?.();
     onClose();
@@ -64,7 +67,7 @@ export function BoardFormModal({ initial, workspaceIdInicial, onClose, onCreated
       onSubmit={handleSubmit}
       footer={
         <>
-          {initial && <Button variant="danger" onClick={handleDelete} style={{ marginRight: 'auto' }}>Excluir</Button>}
+          {initial && !ehBoardFixo && <Button variant="danger" onClick={handleDelete} style={{ marginRight: 'auto' }}>Excluir</Button>}
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
           <Button type="submit" variant="primary" disabled={saving}>
             {saving ? 'Salvando...' : 'Salvar'}
@@ -72,6 +75,12 @@ export function BoardFormModal({ initial, workspaceIdInicial, onClose, onCreated
         </>
       }
     >
+      {ehBoardFixo && (
+        <p className="text-[0.76rem] text-text-muted">
+          Board fixo de Iniciativas desta área de trabalho — não pode ser excluído.
+        </p>
+      )}
+
       <Field label="Nome do quadro">
         <Input tone="modal" autoFocus value={nome} onChange={(e) => setNome(e.target.value)} required />
       </Field>

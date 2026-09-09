@@ -10,10 +10,16 @@ interface AgilFiltrosBarProps {
 }
 
 export function AgilFiltrosBar({ boardId, filtros, onChange }: AgilFiltrosBarProps) {
-  const { agilFrentes, agilIniciativas, opcoesPorTipo } = useCarteira();
+  const { agilFrentes, agilBoards, agilWorkspaces, agilTarefas, opcoesPorTipo } = useCarteira();
   const monitorOpcoes = opcoesPorTipo('monitor');
   const prioridadeOpcoes = opcoesPorTipo('prioridade_tarefa');
-  const iniciativasDoBoard = useMemo(() => agilIniciativas.filter((i) => i.boardId === boardId), [agilIniciativas, boardId]);
+  const board = agilBoards.find((b) => b.id === boardId);
+  const workspace = agilWorkspaces.find((w) => w.id === board?.workspaceId);
+  // Opções de filtro por Iniciativa: tarefas do board FIXO de Iniciativas da workspace.
+  const iniciativasDoBoard = useMemo(
+    () => agilTarefas.filter((t) => t.boardId === workspace?.iniciativasBoardId),
+    [agilTarefas, workspace]
+  );
 
   const ativo = Object.values(filtros).some((v) => v !== '');
 

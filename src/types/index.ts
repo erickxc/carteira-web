@@ -610,9 +610,13 @@ export interface AgilWorkspace {
   /** PIN opcional de 4 dígitos — barreira leve de UI (sem hash/sessão real),
    *  pra área de trabalho de time interno. Não é autenticação. */
   senha?: string;
+  /** Board FIXO de Iniciativas desta área — criado automaticamente, um só,
+   *  compartilhado por todos os quadros dela. `AgilTarefa.iniciativaId`
+   *  aponta pra uma tarefa DENTRO deste board. */
+  iniciativasBoardId?: string;
   createdAt: string;
 }
-export type NovaAgilWorkspace = Omit<AgilWorkspace, 'id' | 'ordem' | 'createdAt'>;
+export type NovaAgilWorkspace = Omit<AgilWorkspace, 'id' | 'ordem' | 'createdAt' | 'iniciativasBoardId'>;
 
 export interface AgilBoard {
   id: string;
@@ -643,20 +647,6 @@ export interface AgilColuna {
   createdAt: string;
 }
 export type NovaAgilColuna = Omit<AgilColuna, 'id' | 'ordem' | 'createdAt'>;
-
-/** Agrupador/épico de tarefas dentro do MESMO board (não é mais um board
- *  companheiro — ver docs/superpowers/specs/2026-09-09-agil-estrutura-design.md). */
-export interface AgilIniciativa {
-  id: string;
-  boardId: string;
-  titulo: string;
-  descricao?: string;
-  /** Hex #RRGGBB — identifica a iniciativa visualmente no card da tarefa. */
-  cor?: string;
-  ordem: number;
-  createdAt: string;
-}
-export type NovaAgilIniciativa = Omit<AgilIniciativa, 'id' | 'ordem' | 'createdAt'>;
 
 /** Marco do dia a dia da 2D (Monitoria/Análise/Alvos) — GLOBAL, não por
  *  board, cadastrável em Configurações do Ágil. Cor pinta o card da tarefa e
@@ -692,7 +682,8 @@ export interface AgilTarefa {
   numero?: number;
   boardId: string;
   colunaId: string;
-  /** Opcional — id de uma AgilIniciativa (agrupador/épico) do MESMO board. */
+  /** Opcional — id de uma TAREFA do board fixo de Iniciativas da workspace
+   *  (AgilWorkspace.iniciativasBoardId). */
   iniciativaId?: string;
   /** Opcional — uma AgilFrente. Substitui o antigo campo `labels` (texto
    *  livre, removido) — uma frente só por tarefa, não múltiplas. */

@@ -31,14 +31,19 @@ const PRIORIDADE_COR: Record<string, string> = {
 };
 
 export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, onClose }: TaskDetailModalProps) {
-  const { clientes, agilBoards, agilIniciativas, agilFrentes, agilCamposPersonalizados, criarAgilTarefa, atualizarAgilTarefa, removerAgilTarefa, opcoesPorTipo } = useCarteira();
+  const { clientes, agilBoards, agilWorkspaces, agilTarefas, agilFrentes, agilCamposPersonalizados, criarAgilTarefa, atualizarAgilTarefa, removerAgilTarefa, opcoesPorTipo } = useCarteira();
   const prioridadeOpcoes = opcoesPorTipo('prioridade_tarefa');
   const monitorOpcoes = opcoesPorTipo('monitor');
   const board = agilBoards.find((b) => b.id === boardId);
   const boardNome = board?.nome ?? '';
+  const workspace = agilWorkspaces.find((w) => w.id === board?.workspaceId);
+  // Candidatas a "Iniciativa vinculada": tarefas do board FIXO de Iniciativas
+  // da workspace (não desta board) — exclui a própria tarefa (não referencia a si mesma).
   const iniciativasDoBoard = useMemo(
-    () => agilIniciativas.filter((i) => i.boardId === boardId).sort((a, b) => a.ordem - b.ordem),
-    [agilIniciativas, boardId]
+    () => agilTarefas
+      .filter((t) => t.boardId === workspace?.iniciativasBoardId && t.id !== initial?.id)
+      .sort((a, b) => a.ordem - b.ordem),
+    [agilTarefas, workspace, initial]
   );
   const camposDoBoard = useMemo(
     () => agilCamposPersonalizados.filter((c) => c.boardId === boardId).sort((a, b) => a.ordem - b.ordem),

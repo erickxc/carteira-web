@@ -1,4 +1,4 @@
-import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilCampoPersonalizado, AgilColuna, AgilComentario, AgilFrente, AgilIniciativa, AgilSubtarefa, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilFrente, NovaAgilIniciativa, NovaAgilSubtarefa, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilCampoPersonalizado, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao } from '../types';
+import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilCampoPersonalizado, AgilColuna, AgilComentario, AgilFrente, AgilSubtarefa, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilFrente, NovaAgilSubtarefa, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilCampoPersonalizado, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao } from '../types';
 
 const PRE_ANALISE_VAZIA: PreAnalise = { orientacoes: [], clientesGeral: '', produtosGeral: '' };
 function parsePreAnalise(raw: unknown): PreAnalise {
@@ -374,14 +374,6 @@ export const atualizarAgilTarefa = async (id: string, data: Partial<AgilTarefa>)
 export const removerAgilTarefa = (id: string) => request<{ success: boolean }>(`/agil/tarefas/${id}`, { method: 'DELETE' });
 export const reordenarAgilTarefas = async (itens: { id: string; colunaId: string; ordem: number }[]) =>
   (await request<Record<string, unknown>[]>('/agil/tarefas/reorder', { method: 'PUT', body: JSON.stringify(itens) })).map(deserializeAgilTarefa);
-
-export const listarAgilIniciativas = () => request<AgilIniciativa[]>('/agil/iniciativas');
-export const criarAgilIniciativa = (data: NovaAgilIniciativa) => request<AgilIniciativa>('/agil/iniciativas', { method: 'POST', body: JSON.stringify(data) });
-export const atualizarAgilIniciativa = (id: string, data: Partial<AgilIniciativa>) =>
-  request<AgilIniciativa>(`/agil/iniciativas/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-export const removerAgilIniciativa = (id: string) => request<{ success: boolean }>(`/agil/iniciativas/${id}`, { method: 'DELETE' });
-export const reordenarAgilIniciativas = (itens: { id: string; ordem: number }[]) =>
-  request<AgilIniciativa[]>('/agil/iniciativas/reorder', { method: 'PUT', body: JSON.stringify(itens) });
 
 export const listarAgilFrentes = () => request<AgilFrente[]>('/agil/frentes');
 export const criarAgilFrente = (data: NovaAgilFrente) => request<AgilFrente>('/agil/frentes', { method: 'POST', body: JSON.stringify(data) });

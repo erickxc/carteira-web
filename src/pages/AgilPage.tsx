@@ -7,7 +7,6 @@ import { KanbanBoard } from '../components/agil/KanbanBoard';
 import { BoardFormModal } from '../components/agil/BoardFormModal';
 import { WorkspaceFormModal } from '../components/agil/WorkspaceFormModal';
 import { FrentesManagerModal } from '../components/agil/FrentesManagerModal';
-import { IniciativasManagerModal } from '../components/agil/IniciativasManagerModal';
 import { CamposPersonalizadosManagerModal } from '../components/agil/CamposPersonalizadosManagerModal';
 import { AgilSidebar } from '../components/agil/AgilSidebar';
 import { WorkspacePinModal } from '../components/agil/WorkspacePinModal';
@@ -24,7 +23,6 @@ export default function AgilPage() {
   const [workspaceModal, setWorkspaceModal] = useState<'nova' | AgilWorkspace | null>(null);
   const [boardModal, setBoardModal] = useState<'novo' | AgilBoard | null>(null);
   const [configAgilAberta, setConfigAgilAberta] = useState(false);
-  const [iniciativasAberta, setIniciativasAberta] = useState(false);
   const [camposPersonalizadosAberta, setCamposPersonalizadosAberta] = useState(false);
   const [pinPendente, setPinPendente] = useState<AgilWorkspace | null>(null);
 
@@ -45,13 +43,18 @@ export default function AgilPage() {
     () => agilWorkspaces.find((w) => w.id === workspaceId) ?? agilWorkspaces[0],
     [agilWorkspaces, workspaceId]
   );
+  // Exclui o board fixo de Iniciativas da navegação normal — ele só aparece
+  // via o botão "Iniciativas" (fora da lista de quadros comuns).
   const boardsDaWorkspace = useMemo(
-    () => (workspace ? agilBoards.filter((b) => b.workspaceId === workspace.id) : []),
+    () => (workspace ? agilBoards.filter((b) => b.workspaceId === workspace.id && b.id !== workspace.iniciativasBoardId) : []),
     [agilBoards, workspace]
   );
+  // `boardId` pode ser o board fixo de Iniciativas (selecionado pelo botão
+  // "Iniciativas") — ele foi excluído de `boardsDaWorkspace` de propósito,
+  // então é resolvido à parte, contra `agilBoards` inteiro.
   const board = useMemo(
-    () => boardsDaWorkspace.find((b) => b.id === boardId) ?? boardsDaWorkspace[0],
-    [boardsDaWorkspace, boardId]
+    () => boardsDaWorkspace.find((b) => b.id === boardId) ?? agilBoards.find((b) => b.id === boardId) ?? boardsDaWorkspace[0],
+    [boardsDaWorkspace, agilBoards, boardId]
   );
 
   // Área com PIN e ainda não desbloqueada nesta aba: pede o PIN antes de
@@ -106,8 +109,8 @@ export default function AgilPage() {
                   {board?.descricao && <p className="page-subtitle" style={{ margin: 0 }}>{board.descricao}</p>}
                 </div>
                 <div className="flex-row" style={{ gap: '0.6rem', flexShrink: 0 }}>
-                  {board && (
-                    <Button variant="secondary" onClick={() => setIniciativasAberta(true)}>Iniciativas</Button>
+                  {workspace.iniciativasBoardId && board?.id !== workspace.iniciativasBoardId && (
+                    <Button variant="secondary" onClick={() => setBoardId(workspace.iniciativasBoardId!)}>Iniciativas</Button>
                   )}
                   {board && (
                     <Button variant="secondary" onClick={() => setCamposPersonalizadosAberta(true)}>Campos</Button>
@@ -155,10 +158,6 @@ export default function AgilPage() {
       )}
 
       {configAgilAberta && <FrentesManagerModal onClose={() => setConfigAgilAberta(false)} />}
-
-      {iniciativasAberta && board && (
-        <IniciativasManagerModal boardId={board.id} boardNome={board.nome} onClose={() => setIniciativasAberta(false)} />
-      )}
 
       {camposPersonalizadosAberta && board && (
         <CamposPersonalizadosManagerModal boardId={board.id} boardNome={board.nome} onClose={() => setCamposPersonalizadosAberta(false)} />

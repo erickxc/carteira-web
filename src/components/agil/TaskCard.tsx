@@ -34,12 +34,12 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ tarefa, onClick }: TaskCardProps) {
-  const { clientes, agilBoards, agilIniciativas, agilFrentes, agilSubtarefas, criarAgilSubtarefa, atualizarAgilSubtarefa } = useCarteira();
+  const { clientes, agilBoards, agilTarefas, agilFrentes, agilSubtarefas, criarAgilSubtarefa, atualizarAgilSubtarefa } = useCarteira();
   const board = agilBoards.find((b) => b.id === tarefa.boardId);
   const campos = parseCamposCard(board?.camposCard);
-  // Se esta tarefa TEM `iniciativaId`, ela é filha de uma Iniciativa (agrupador
-  // do mesmo board): mostra uma linha de referência, mesmo idioma do "↑ {cliente}".
-  const iniciativa = campos.includes('iniciativa') && tarefa.iniciativaId ? agilIniciativas.find((i) => i.id === tarefa.iniciativaId) : undefined;
+  // Se esta tarefa TEM `iniciativaId`, ela aponta pra uma tarefa do board fixo
+  // de Iniciativas da workspace: mostra uma linha de referência, mesmo idioma do "↑ {cliente}".
+  const iniciativa = campos.includes('iniciativa') && tarefa.iniciativaId ? agilTarefas.find((t) => t.id === tarefa.iniciativaId) : undefined;
   const frente = campos.includes('frente') && tarefa.frenteId ? agilFrentes.find((f) => f.id === tarefa.frenteId) : undefined;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: tarefa.id,
