@@ -11,7 +11,6 @@ import { KanbanGroupHeader } from './KanbanGroupHeader';
 import { KanbanCell } from './KanbanCell';
 import { ColumnFormModal } from './ColumnFormModal';
 import { TaskDetailModal } from './TaskDetailModal';
-import { AgilFiltrosBar } from './AgilFiltrosBar';
 import { AGIL_FILTROS_VAZIOS, filtrarAgilTarefas, type AgilFiltros } from '../../utils/agilFiltros';
 import { Dropdown } from '../Dropdown';
 import { Button } from '../../ui';
@@ -25,14 +24,16 @@ const ALTURA_LINHA_CABECALHO = 34;
 
 interface KanbanBoardProps {
   board: AgilBoard;
+  /** Filtros vêm de fora (painel separado, lado direito da tela) — ausente
+   *  (ex.: board de Iniciativas empilhado) = sem filtro nenhum. */
+  filtros?: AgilFiltros;
 }
 
-export function KanbanBoard({ board }: KanbanBoardProps) {
+export function KanbanBoard({ board, filtros = AGIL_FILTROS_VAZIOS }: KanbanBoardProps) {
   const { agilColunas, agilTarefas, reordenarAgilColunas, moverAgilTarefas, atualizarAgilBoard } = useCarteira();
   const [colunaModal, setColunaModal] = useState<{ initial?: AgilColuna; parentId?: string } | null>(null);
   const [tarefaModal, setTarefaModal] = useState<{ initial?: AgilTarefa; colunaId?: string } | null>(null);
   const [colunasColapsadas, setColunasColapsadas] = usePersistedState<string[]>('agil:colunasColapsadas', []);
-  const [filtros, setFiltros] = usePersistedState<AgilFiltros>(`agil:filtros:${board.id}`, AGIL_FILTROS_VAZIOS);
   const [menuAberto, setMenuAberto] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -165,15 +166,12 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
         )}
       </div>
 
-      {/* Barra de ferramentas — contador à esquerda, TODOS os filtros
-          fixados à direita, num bloco só. */}
+      {/* Barra de ferramentas — só o contador (filtros ficam no painel
+          separado, lado direito da tela). */}
       <div className="flex items-center gap-2 px-2.5 py-2 bg-card-hover border-b border-border flex-wrap">
         <span className="text-[0.72rem] font-medium text-text-muted tabular-nums shrink-0">
           {tarefas.length} de {tarefasDoBoard.length} tarefa(s) · {folhas.length} coluna(s)
         </span>
-        <div className="ml-auto flex items-center gap-1.5 flex-wrap justify-end">
-          <AgilFiltrosBar boardId={board.id} filtros={filtros} onChange={setFiltros} />
-        </div>
       </div>
 
       {folhas.length === 0 ? (

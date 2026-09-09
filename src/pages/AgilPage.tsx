@@ -10,8 +10,10 @@ import { FrentesManagerModal } from '../components/agil/FrentesManagerModal';
 import { CamposPersonalizadosManagerModal } from '../components/agil/CamposPersonalizadosManagerModal';
 import { CardAparenciaModal } from '../components/agil/CardAparenciaModal';
 import { AgilSidebar } from '../components/agil/AgilSidebar';
+import { AgilFiltrosPainel } from '../components/agil/AgilFiltrosPainel';
 import { WorkspacePinModal } from '../components/agil/WorkspacePinModal';
 import { desbloquearWorkspace, workspaceDesbloqueada } from '../utils/agilWorkspacePin';
+import { AGIL_FILTROS_VAZIOS } from '../utils/agilFiltros';
 import { Button } from '../ui';
 import type { AgilBoard, AgilWorkspace } from '../types';
 
@@ -27,6 +29,7 @@ export default function AgilPage() {
   const [camposPersonalizadosAberta, setCamposPersonalizadosAberta] = useState(false);
   const [aparenciaAberta, setAparenciaAberta] = useState(false);
   const [pinPendente, setPinPendente] = useState<AgilWorkspace | null>(null);
+  const [filtros, setFiltros] = usePersistedState(`agil:filtros:${boardId || 'sem-quadro'}`, AGIL_FILTROS_VAZIOS);
 
   // Navegação vinda de outra tela (ex.: card de tarefas Ágil na ficha do
   // cliente) já chega com workspace/board escolhidos. Depende de `location.key`
@@ -131,7 +134,7 @@ export default function AgilPage() {
               {boardIniciativas && <KanbanBoard board={boardIniciativas} />}
 
               {board ? (
-                <KanbanBoard board={board} />
+                <KanbanBoard board={board} filtros={filtros} />
               ) : (
                 <div className="empty-state" style={{ padding: '3rem', textAlign: 'center' }}>
                   Nenhum quadro nesta área de trabalho ainda. Crie o primeiro para começar a organizar as tarefas da equipe.
@@ -140,6 +143,10 @@ export default function AgilPage() {
             </>
           )}
         </div>
+
+        {board && !bloqueada && (
+          <AgilFiltrosPainel boardId={board.id} filtros={filtros} onChange={setFiltros} />
+        )}
       </div>
 
       {workspaceModal && (

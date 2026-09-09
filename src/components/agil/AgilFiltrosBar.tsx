@@ -7,9 +7,11 @@ interface AgilFiltrosBarProps {
   boardId: string;
   filtros: AgilFiltros;
   onChange: (filtros: AgilFiltros) => void;
+  /** true = empilhado (painel lateral); false (padrão) = em linha (barra). */
+  vertical?: boolean;
 }
 
-export function AgilFiltrosBar({ boardId, filtros, onChange }: AgilFiltrosBarProps) {
+export function AgilFiltrosBar({ boardId, filtros, onChange, vertical }: AgilFiltrosBarProps) {
   const { agilFrentes, agilBoards, agilWorkspaces, agilTarefas, opcoesPorTipo } = useCarteira();
   const monitorOpcoes = opcoesPorTipo('monitor');
   const prioridadeOpcoes = opcoesPorTipo('prioridade_tarefa');
@@ -28,7 +30,7 @@ export function AgilFiltrosBar({ boardId, filtros, onChange }: AgilFiltrosBarPro
   }
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
+    <div className={vertical ? 'flex flex-col gap-2 items-stretch' : 'flex items-center gap-1.5 flex-wrap'}>
       <Dropdown
         label="Responsável"
         variant="filtro"
