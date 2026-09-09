@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Flag } from 'lucide-react';
 import { montarHierarquiaColunas } from '../../utils/agilColunas';
 import { corContrastante } from '../../utils/cor';
 import { useCarteira } from '../../context/CarteiraContext';
@@ -67,6 +67,7 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
   const [motivoBloqueio, setMotivoBloqueio] = useState(initial?.motivoBloqueio ?? '');
   const [valoresCampos, setValoresCampos] = useState<Record<string, string>>(initial?.camposPersonalizados ?? {});
   const [saving, setSaving] = useState(false);
+  const [frenteMenuAberto, setFrenteMenuAberto] = useState(false);
 
   function setValorCampo(campoId: string, valor: string) {
     setValoresCampos((prev) => ({ ...prev, [campoId]: valor }));
@@ -129,6 +130,46 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
       headerForeground={corTextoCabecalho}
       titleNode={
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setFrenteMenuAberto((v) => !v)}
+              title={frenteSelecionada ? `Frente: ${frenteSelecionada.nome}` : 'Escolher Frente'}
+              className="flex items-center justify-center w-7 h-7 rounded-[6px] border-none cursor-pointer bg-transparent hover:bg-[rgba(0,0,0,0.1)]"
+              style={{ color: frenteSelecionada?.cor ?? 'inherit', opacity: frenteSelecionada ? 1 : 0.55 }}
+            >
+              <Flag size={16} fill={frenteSelecionada ? frenteSelecionada.cor : 'none'} />
+            </button>
+            {frenteMenuAberto && (
+              <div
+                className="absolute left-0 top-[calc(100%+4px)] z-50 flex flex-col gap-0.5 p-1 rounded-lg border border-border-strong bg-card shadow-lg text-text-primary"
+                style={{ minWidth: 170 }}
+                onMouseLeave={() => setFrenteMenuAberto(false)}
+              >
+                <button
+                  type="button"
+                  onClick={() => { setFrenteId(''); setFrenteMenuAberto(false); }}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-[4px] text-[0.8rem] text-text-secondary bg-transparent border-none cursor-pointer text-left hover:bg-card-hover"
+                >
+                  Nenhuma
+                </button>
+                {agilFrentes.length === 0 && (
+                  <p className="px-2 py-1 text-[0.72rem] text-text-muted" style={{ maxWidth: 170 }}>Nenhuma Frente cadastrada — adicione em Configurações do Ágil.</p>
+                )}
+                {agilFrentes.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => { setFrenteId(f.id); setFrenteMenuAberto(false); }}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-[4px] text-[0.8rem] text-text-primary bg-transparent border-none cursor-pointer text-left hover:bg-card-hover"
+                  >
+                    <span className="w-3 h-3 rounded-full shrink-0 border border-border-strong" style={{ background: f.cor }} />
+                    <span className="truncate">{f.nome}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {initial?.numero && (
             <span
               className="shrink-0 px-2 py-0.5 rounded-[6px] text-[0.72rem] font-bold tabular-nums"
@@ -244,17 +285,6 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
               onChange={setIniciativaId}
               options={[{ value: '', label: 'Nenhuma' }, ...iniciativasDoBoard.map((i) => ({ value: i.id, label: i.titulo }))]}
             />
-          )}
-
-          <SelectField
-            label="Frente"
-            placeholder="Nenhuma"
-            value={frenteId}
-            onChange={setFrenteId}
-            options={[{ value: '', label: 'Nenhuma' }, ...agilFrentes.map((f) => ({ value: f.id, label: f.nome }))]}
-          />
-          {agilFrentes.length === 0 && (
-            <p className="text-text-muted" style={{ fontSize: 13, marginTop: -8 }}>Nenhuma Frente cadastrada — adicione em Configurações do Ágil.</p>
           )}
 
           {camposDoBoard.map((campo) => {
