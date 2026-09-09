@@ -7,41 +7,8 @@ const { repoMemoria } = require('./repo.cjs');
 const workspacesDominio = require('./agilWorkspaces.cjs');
 const boardsDominio = require('./agilBoards.cjs');
 const tarefasDominio = require('./agilTarefas.cjs');
-const iniciativasDominio = require('./agilIniciativas.cjs');
 const frentesDominio = require('./agilFrentes.cjs');
 const camposPersonalizadosDominio = require('./agilCamposPersonalizados.cjs');
-
-describe('dominio/agilIniciativas', () => {
-  it('criar gera id, ordem por board e createdAt', () => {
-    const repo = repoMemoria({ AgilIniciativas: [] });
-    const nova = iniciativasDominio.criar(repo, { boardId: 'b1', titulo: 'Épico 1' });
-    expect(nova.id).toBeTruthy();
-    expect(nova.ordem).toBe(0);
-    expect(nova.createdAt).toBeTruthy();
-    expect(repo.get('AgilIniciativas')).toHaveLength(1);
-  });
-
-  it('remover NÃO apaga as tarefas que apontavam pra ela — só limpa iniciativaId (não-destrutivo)', () => {
-    const repo = repoMemoria({
-      AgilIniciativas: [{ id: 'i1', boardId: 'b1', titulo: 'Épico', ordem: 0 }],
-      AgilTarefas: [
-        { id: 't1', boardId: 'b1', colunaId: 'c1', iniciativaId: 'i1', titulo: 'Tarefa A' },
-        { id: 't2', boardId: 'b1', colunaId: 'c1', iniciativaId: 'outra', titulo: 'Tarefa B' },
-      ],
-    });
-    const found = iniciativasDominio.remover(repo, 'i1');
-    expect(found).toBe(true);
-    expect(repo.get('AgilIniciativas')).toHaveLength(0);
-    expect(repo.get('AgilTarefas')).toHaveLength(2);
-    expect(repo.get('AgilTarefas').find((t: { id: string }) => t.id === 't1').iniciativaId).toBe('');
-    expect(repo.get('AgilTarefas').find((t: { id: string }) => t.id === 't2').iniciativaId).toBe('outra');
-  });
-
-  it('remover devolve false quando a iniciativa não existe', () => {
-    const repo = repoMemoria({ AgilIniciativas: [] });
-    expect(iniciativasDominio.remover(repo, 'inexistente')).toBe(false);
-  });
-});
 
 describe('dominio/agilFrentes', () => {
   it('criar gera id, ordem global e createdAt', () => {
@@ -95,24 +62,21 @@ describe('dominio/agilCamposPersonalizados', () => {
 });
 
 describe('dominio/agilBoards', () => {
-  it('criar já nasce com as 5 colunas de período padrão, sem criar board companheiro', () => {
+  it('criar já nasce com as 5 colunas de período padrão', () => {
     const repo = repoMemoria({ AgilBoards: [], AgilColunas: [] });
     const novo = boardsDominio.criar(repo, { workspaceId: 'w1', nome: 'Board 1' });
-    expect(novo.ehIniciativas).toBeUndefined();
-    expect(novo.iniciativasBoardId).toBeUndefined();
     expect(repo.get('AgilBoards')).toHaveLength(1);
     const colunas = repo.get('AgilColunas').filter((c: { boardId: string }) => c.boardId === novo.id);
     expect(colunas.map((c: { titulo: string }) => c.titulo)).toEqual(['Backlog', 'A fazer', 'Em andamento', 'Validação', 'Concluído']);
   });
 
-  it('remover faz cascade: colunas, tarefas, subtarefas, comentários, iniciativas e campos personalizados do board somem', () => {
+  it('remover faz cascade: colunas, tarefas, subtarefas, comentários e campos personalizados do board somem', () => {
     const repo = repoMemoria({
       AgilBoards: [{ id: 'b1', workspaceId: 'w1', nome: 'Board' }],
       AgilColunas: [{ id: 'c1', boardId: 'b1', titulo: 'Backlog', ordem: 0 }],
       AgilTarefas: [{ id: 't1', boardId: 'b1', colunaId: 'c1', titulo: 'Tarefa' }],
       AgilSubtarefas: [{ id: 's1', tarefaId: 't1', titulo: 'Sub' }],
       AgilComentarios: [{ id: 'co1', tarefaId: 't1', autor: 'x', texto: 'oi' }],
-      AgilIniciativas: [{ id: 'i1', boardId: 'b1', titulo: 'Épico' }],
       AgilCamposPersonalizados: [{ id: 'cp1', boardId: 'b1', nome: 'Status', tipo: 'texto' }],
     });
     const found = boardsDominio.remover(repo, 'b1');
@@ -121,7 +85,6 @@ describe('dominio/agilBoards', () => {
     expect(repo.get('AgilTarefas')).toHaveLength(0);
     expect(repo.get('AgilSubtarefas')).toHaveLength(0);
     expect(repo.get('AgilComentarios')).toHaveLength(0);
-    expect(repo.get('AgilIniciativas')).toHaveLength(0);
     expect(repo.get('AgilCamposPersonalizados')).toHaveLength(0);
   });
 
@@ -147,10 +110,10 @@ describe('dominio/agilTarefas', () => {
     expect(t1.swimlaneId).toBeUndefined();
   });
 
-  it('remover devolve iniciativaId vazio pras tarefas que apontavam pra ela como iniciativa', () => {
+  it('remover devolve iniciativaId vazio pras tarefas que apontavam pra ela como iniciativa (tarefa no board fixo)', () => {
     const repo = repoMemoria({
       AgilTarefas: [
-        { id: 'epico', boardId: 'b1', colunaId: 'c1', titulo: 'Épico' },
+        { id: 'epico', boardId: 'iniciativas1', colunaId: 'c1', titulo: 'Épico' },
         { id: 't1', boardId: 'b1', colunaId: 'c1', iniciativaId: 'epico', titulo: 'Filha' },
       ],
     });
@@ -160,19 +123,26 @@ describe('dominio/agilTarefas', () => {
 });
 
 describe('dominio/agilWorkspaces', () => {
-  it('remover faz cascade em cadeia: área → boards → colunas/tarefas/iniciativas', () => {
-    const repo = repoMemoria({
-      AgilWorkspaces: [{ id: 'w1', nome: 'Área' }],
-      AgilBoards: [{ id: 'b1', workspaceId: 'w1', nome: 'Board' }],
-      AgilColunas: [{ id: 'c1', boardId: 'b1', titulo: 'Backlog', ordem: 0 }],
-      AgilTarefas: [{ id: 't1', boardId: 'b1', colunaId: 'c1', titulo: 'Tarefa' }],
-      AgilIniciativas: [{ id: 'i1', boardId: 'b1', titulo: 'Épico' }],
-    });
-    const found = workspacesDominio.remover(repo, 'w1');
+  it('criar já nasce com um board fixo de Iniciativas, e iniciativasBoardId aponta pra ele', () => {
+    const repo = repoMemoria({ AgilWorkspaces: [], AgilBoards: [], AgilColunas: [] });
+    const nova = workspacesDominio.criar(repo, { nome: 'Área 1' });
+    expect(nova.iniciativasBoardId).toBeTruthy();
+    const boards = repo.get('AgilBoards').filter((b: { workspaceId: string }) => b.workspaceId === nova.id);
+    expect(boards).toHaveLength(1);
+    expect(boards[0].id).toBe(nova.iniciativasBoardId);
+    expect(boards[0].nome).toBe('Iniciativas');
+  });
+
+  it('remover faz cascade em cadeia: área → boards (inclusive o fixo de Iniciativas) → colunas/tarefas', () => {
+    const repo = repoMemoria({ AgilWorkspaces: [], AgilBoards: [], AgilColunas: [] });
+    const w = workspacesDominio.criar(repo, { nome: 'Área 1' });
+    boardsDominio.criar(repo, { workspaceId: w.id, nome: 'Board normal' });
+    tarefasDominio.criar(repo, { boardId: w.iniciativasBoardId, colunaId: 'x', titulo: 'Épico' });
+
+    const found = workspacesDominio.remover(repo, w.id);
     expect(found).toBe(true);
     expect(repo.get('AgilBoards')).toHaveLength(0);
     expect(repo.get('AgilColunas')).toHaveLength(0);
     expect(repo.get('AgilTarefas')).toHaveLength(0);
-    expect(repo.get('AgilIniciativas')).toHaveLength(0);
   });
 });

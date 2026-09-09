@@ -103,18 +103,6 @@ const agilBoardUpdateSchema = z.object({
   workspaceId: textoObrigatorio('workspaceId').optional(),
 }).passthrough();
 
-const agilIniciativaCreateSchema = z.object({
-  boardId: textoObrigatorio('boardId'),
-  titulo: textoObrigatorio('titulo'),
-  cor: corOpcional(),
-}).passthrough();
-const agilIniciativaUpdateSchema = z.object({
-  boardId: textoObrigatorio('boardId').optional(),
-  titulo: textoObrigatorio('titulo').optional(),
-  cor: corOpcional(),
-}).passthrough();
-const agilReorderIniciativaItemSchema = z.object({ id: textoObrigatorio('id'), ordem: z.number() });
-
 const agilFrenteCreateSchema = z.object({
   nome: textoObrigatorio('nome'),
   cor: z.string().regex(CORREGEX, 'cor precisa ser um hex #RRGGBB'),
@@ -226,7 +214,6 @@ module.exports = {
   agilBoardCreateSchema, agilBoardUpdateSchema,
   agilColunaCreateSchema, agilColunaUpdateSchema, agilReorderColunaItemSchema,
   agilTarefaCreateSchema, agilTarefaUpdateSchema, agilReorderTarefaItemSchema,
-  agilIniciativaCreateSchema, agilIniciativaUpdateSchema, agilReorderIniciativaItemSchema,
   agilFrenteCreateSchema, agilFrenteUpdateSchema, agilReorderFrenteItemSchema,
   agilCampoPersonalizadoCreateSchema, agilCampoPersonalizadoUpdateSchema, agilReorderCampoPersonalizadoItemSchema,
   agilSubtarefaCreateSchema, agilSubtarefaUpdateSchema,

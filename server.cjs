@@ -16,6 +16,7 @@ const { materializarTudo } = require('./server/agendaSeries.cjs');
 const { iniciarSincronizacaoPeriodica: iniciarSyncCeoAgenda } = require('./server/ceoAgenda.cjs');
 const { rodarCicloComSnapshot } = require('./server/fila/controller.cjs');
 const { gerarAnalisesPendentes } = require('./server/ia/analisesAutomaticas.cjs');
+const { consolidarAgilIniciativas } = require('./server/scripts/consolidarAgilIniciativas.cjs');
 
 console.log(`Modo: ${APP_MODE}`);
 
@@ -81,6 +82,17 @@ app.get('/api/status/base', (_req, res) => {
 // mesmo que houvesse, `initDbSqlite` grava via `saveSheetData`, bloqueado
 // pela guarda de escrita em modo cliente (server/dbSqlite.cjs).
 if (isServer) initDbSqlite();
+
+// Toda Área de trabalho precisa ter um board fixo de Iniciativas (ver
+// server/scripts/consolidarAgilIniciativas.cjs) — idempotente, roda a cada
+// boot, só na máquina "server" (mesma razão de initDbSqlite acima).
+if (isServer) {
+  try {
+    consolidarAgilIniciativas();
+  } catch (err) {
+    console.warn('Falha ao consolidar boards de Iniciativas do Ágil:', err.message);
+  }
+}
 
 // Snapshot diário do banco. Roda no boot (a máquina pode ter ficado desligada
 // no horário do cron) e todo dia às 5h. Falha aqui nunca deve impedir o
@@ -148,7 +160,6 @@ app.use('/api/agil/workspaces', require('./server/routes/agilWorkspaces.cjs'));
 app.use('/api/agil/boards', require('./server/routes/agilBoards.cjs'));
 app.use('/api/agil/colunas', require('./server/routes/agilColunas.cjs'));
 app.use('/api/agil/tarefas', require('./server/routes/agilTarefas.cjs'));
-app.use('/api/agil/iniciativas', require('./server/routes/agilIniciativas.cjs'));
 app.use('/api/agil/frentes', require('./server/routes/agilFrentes.cjs'));
 app.use('/api/agil/campos-personalizados', require('./server/routes/agilCamposPersonalizados.cjs'));
 app.use('/api/agil/subtarefas', require('./server/routes/agilSubtarefas.cjs'));

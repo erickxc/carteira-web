@@ -29,16 +29,14 @@ function atualizar(repo, id, patch) {
 }
 
 /**
- * Cascade delete: colunas, tarefas (e subtarefas/comentários delas),
- * iniciativas e campos personalizados do board são removidos. Frentes são
- * globais — sobrevivem ao
+ * Cascade delete: colunas, tarefas (e subtarefas/comentários delas) e campos
+ * personalizados do board são removidos. Frentes são globais — sobrevivem ao
  * board, só perdem o vínculo nas tarefas removidas (que já somem junto).
  */
 function remover(repo, id) {
   const found = repo.delete('AgilBoards', id);
   if (!found) return false;
   repo.save('AgilColunas', repo.get('AgilColunas').filter((c) => String(c.boardId) !== String(id)));
-  repo.save('AgilIniciativas', repo.get('AgilIniciativas').filter((i) => String(i.boardId) !== String(id)));
   repo.save('AgilCamposPersonalizados', repo.get('AgilCamposPersonalizados').filter((c) => String(c.boardId) !== String(id)));
   const tarefasRemovidas = repo.get('AgilTarefas').filter((t) => String(t.boardId) === String(id)).map((t) => String(t.id));
   const tarefasRemovidasSet = new Set(tarefasRemovidas);
