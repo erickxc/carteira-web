@@ -5,7 +5,7 @@ const {
   DB_FILE, HEADERS_BY_SHEET,
   CLIENTES_HEADERS, AGENDA_HEADERS, LEMBRETES_HEADERS, CATEGORIAS_HEADERS, ACOES_HEADERS, MODELOS_HEADERS, CADENCIAS_HEADERS,
   AGENDA_SERIES_HEADERS,
-  AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_SWIMLANES_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS,
+  AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_INICIATIVAS_HEADERS, AGIL_FRENTES_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS,
   CADENCIAS_SEED, MODELOS_SEED, CATEGORIAS_SEED,
 } = require('./config.cjs');
 
@@ -202,7 +202,8 @@ function initDB() {
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_BOARDS_HEADERS }), 'AgilBoards');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_COLUNAS_HEADERS }), 'AgilColunas');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_TAREFAS_HEADERS }), 'AgilTarefas');
-    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_SWIMLANES_HEADERS }), 'AgilSwimlanes');
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_INICIATIVAS_HEADERS }), 'AgilIniciativas');
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_FRENTES_HEADERS }), 'AgilFrentes');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_SUBTAREFAS_HEADERS }), 'AgilSubtarefas');
     xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([], { header: AGIL_COMENTARIOS_HEADERS }), 'AgilComentarios');
     gravarWorkbook(wb);
@@ -258,7 +259,8 @@ function initDB() {
       { nome: 'AgilBoards', header: AGIL_BOARDS_HEADERS, rows: [] },
       { nome: 'AgilColunas', header: AGIL_COLUNAS_HEADERS, rows: [] },
       { nome: 'AgilTarefas', header: AGIL_TAREFAS_HEADERS, rows: [] },
-      { nome: 'AgilSwimlanes', header: AGIL_SWIMLANES_HEADERS, rows: [] },
+      { nome: 'AgilIniciativas', header: AGIL_INICIATIVAS_HEADERS, rows: [] },
+      { nome: 'AgilFrentes', header: AGIL_FRENTES_HEADERS, rows: [] },
       { nome: 'AgilSubtarefas', header: AGIL_SUBTAREFAS_HEADERS, rows: [] },
       { nome: 'AgilComentarios', header: AGIL_COMENTARIOS_HEADERS, rows: [] },
     ];
@@ -271,39 +273,13 @@ function initDB() {
     }
     if (mudou2) gravarWorkbook(wb);
 
-    // Boards criados antes das swimlanes existirem (v1 do módulo Ágil) não têm
-    // nenhuma linha em AgilSwimlanes — sem uma swimlane "Geral", suas tarefas
-    // não têm onde aparecer na grade colunas×swimlanes. Migração idempotente:
-    // só cria a swimlane para boards que ainda não têm nenhuma.
+    // Numeração sequencial por board para tarefas criadas antes do campo
+    // `numero` existir — mantém o maior número já usado em cada board e
+    // continua dali, para nunca reaproveitar um número. Migração idempotente.
     {
       const wb2 = lerWorkbook();
-      const boards = wb2.SheetNames.includes('AgilBoards') ? xlsx.utils.sheet_to_json(wb2.Sheets['AgilBoards']) : [];
-      let swimlanes = wb2.SheetNames.includes('AgilSwimlanes') ? xlsx.utils.sheet_to_json(wb2.Sheets['AgilSwimlanes']) : [];
-      const comSwimlane = new Set(swimlanes.map((s) => String(s.boardId)));
-      const faltantes = boards.filter((b) => !comSwimlane.has(String(b.id)));
-      let mudouSwimlanes = false;
-      if (faltantes.length > 0) {
-        const now = new Date().toISOString();
-        const novasSwimlanes = faltantes.map((b) => ({ id: crypto.randomUUID(), boardId: b.id, titulo: 'Geral', ordem: 0, createdAt: now }));
-        swimlanes = [...swimlanes, ...novasSwimlanes];
-        wb2.Sheets['AgilSwimlanes'] = xlsx.utils.json_to_sheet(swimlanes, { header: AGIL_SWIMLANES_HEADERS });
-        mudouSwimlanes = true;
-      }
-
-      // Tarefas criadas antes de swimlanes existirem ficam sem `swimlaneId` —
-      // sem preencher, elas somem silenciosamente da grade colunas×swimlanes no
-      // frontend (célula "coluna::undefined" não bate com nenhuma swimlane
-      // real). Preenche com a primeira swimlane (ordem 0) do board da tarefa.
-      const primeiraSwimlanePorBoard = new Map();
-      swimlanes.forEach((s) => {
-        const atual = primeiraSwimlanePorBoard.get(String(s.boardId));
-        if (!atual || s.ordem < atual.ordem) primeiraSwimlanePorBoard.set(String(s.boardId), s);
-      });
       const tarefas = wb2.SheetNames.includes('AgilTarefas') ? xlsx.utils.sheet_to_json(wb2.Sheets['AgilTarefas']) : [];
       let mudouTarefas = false;
-      // Numeração sequencial por board para tarefas criadas antes do campo
-      // `numero` existir — mantém o maior número já usado em cada board e
-      // continua dali, para nunca reaproveitar um número.
       const proximoNumeroPorBoard = new Map();
       tarefas.forEach((t) => {
         const board = String(t.boardId);
@@ -311,31 +287,17 @@ function initDB() {
         proximoNumeroPorBoard.set(board, Math.max(atual, Number(t.numero) || 0));
       });
       const tarefasCorrigidas = tarefas.map((t) => {
-        let corrigida = t;
-        if (!corrigida.swimlaneId) {
-          const swimlane = primeiraSwimlanePorBoard.get(String(corrigida.boardId));
-          if (swimlane) {
-            corrigida = { ...corrigida, swimlaneId: swimlane.id };
-            mudouTarefas = true;
-          }
-        }
-        if (!corrigida.numero) {
-          const board = String(corrigida.boardId);
-          const numero = (proximoNumeroPorBoard.get(board) ?? 0) + 1;
-          proximoNumeroPorBoard.set(board, numero);
-          corrigida = { ...corrigida, numero };
-          mudouTarefas = true;
-        }
-        return corrigida;
+        if (t.numero) return t;
+        const board = String(t.boardId);
+        const numero = (proximoNumeroPorBoard.get(board) ?? 0) + 1;
+        proximoNumeroPorBoard.set(board, numero);
+        mudouTarefas = true;
+        return { ...t, numero };
       });
-      if (mudouTarefas) wb2.Sheets['AgilTarefas'] = xlsx.utils.json_to_sheet(tarefasCorrigidas, { header: AGIL_TAREFAS_HEADERS });
-
-      if (mudouSwimlanes || mudouTarefas) {
+      if (mudouTarefas) {
+        wb2.Sheets['AgilTarefas'] = xlsx.utils.json_to_sheet(tarefasCorrigidas, { header: AGIL_TAREFAS_HEADERS });
         gravarWorkbook(wb2);
-        if (cache) {
-          delete cache.sheets['AgilSwimlanes'];
-          delete cache.sheets['AgilTarefas'];
-        }
+        if (cache) delete cache.sheets['AgilTarefas'];
       }
     }
 
@@ -368,40 +330,63 @@ function initDB() {
       }
     }
 
-    // Iniciativas é workflow PADRÃO de todo board (Kanbanize: "Initiatives
-    // Workflow" vem embutido, não é algo que se vincula manualmente) — boards
-    // criados antes dessa regra existir não têm `iniciativasBoardId`. Migração
-    // idempotente: cria o board companheiro (com colunas padrão coloridas) só
-    // para quem ainda não tem, nunca mexe em quem já tem.
+    // Migração de esquema (docs/superpowers/specs/2026-09-09-agil-estrutura-design.md):
+    // Iniciativa deixou de ser um board companheiro (`ehIniciativas`/
+    // `iniciativasBoardId`) e virou entidade própria (AgilIniciativas), dentro
+    // do mesmo board de Tarefas. Idempotente: só roda enquanto sobrar algum
+    // board com `ehIniciativas` no dado (rodou uma vez, nunca mais acha nada).
+    // As tarefas do board companheiro viram linhas de AgilIniciativas com o
+    // MESMO `id` — assim `AgilTarefas.iniciativaId`, que apontava pra elas
+    // como tarefa, continua válido apontando pra elas como iniciativa, sem
+    // precisar reescrever a coluna em toda tarefa do sistema.
     {
       const wb4 = lerWorkbook();
       let boards = wb4.SheetNames.includes('AgilBoards') ? xlsx.utils.sheet_to_json(wb4.Sheets['AgilBoards']) : [];
-      const faltantes = boards.filter((b) => !b.ehIniciativas && !b.iniciativasBoardId);
-      if (faltantes.length > 0) {
-        const now = new Date().toISOString();
-        const coresPadrao = ['#304373', '#d69a3c', '#4cae7a'];
-        const titulosPadrao = ['A Fazer', 'Em Andamento', 'Concluído'];
-        let colunas = wb4.SheetNames.includes('AgilColunas') ? xlsx.utils.sheet_to_json(wb4.Sheets['AgilColunas']) : [];
-        let swimlanes = wb4.SheetNames.includes('AgilSwimlanes') ? xlsx.utils.sheet_to_json(wb4.Sheets['AgilSwimlanes']) : [];
+      const boardsIniciativas = boards.filter((b) => b.ehIniciativas);
+      if (boardsIniciativas.length > 0) {
+        const idsBoardsIniciativas = new Set(boardsIniciativas.map((b) => String(b.id)));
+        let tarefas = wb4.SheetNames.includes('AgilTarefas') ? xlsx.utils.sheet_to_json(wb4.Sheets['AgilTarefas']) : [];
+        let iniciativas = wb4.SheetNames.includes('AgilIniciativas') ? xlsx.utils.sheet_to_json(wb4.Sheets['AgilIniciativas']) : [];
+        const iniciativasBoardIdParaBoardTarefas = new Map(
+          boards.filter((b) => b.iniciativasBoardId).map((b) => [String(b.iniciativasBoardId), String(b.id)])
+        );
 
-        for (const b of faltantes) {
-          const iniciativas = { id: crypto.randomUUID(), workspaceId: b.workspaceId, nome: 'Iniciativas', ehIniciativas: true, createdAt: now };
-          boards = [...boards, iniciativas];
-          titulosPadrao.forEach((titulo, ordem) => {
-            colunas.push({ id: crypto.randomUUID(), boardId: iniciativas.id, titulo, ordem, cor: coresPadrao[ordem], createdAt: now });
-          });
-          swimlanes.push({ id: crypto.randomUUID(), boardId: iniciativas.id, titulo: 'Geral', ordem: 0, createdAt: now });
-          boards = boards.map((x) => (x.id === b.id ? { ...x, iniciativasBoardId: iniciativas.id } : x));
-        }
+        // Cada tarefa do board companheiro vira uma AgilIniciativa, presa ao
+        // board de Tarefas que apontava pra ela.
+        const novasIniciativas = tarefas
+          .filter((t) => idsBoardsIniciativas.has(String(t.boardId)))
+          .map((t, i) => ({
+            id: t.id,
+            boardId: iniciativasBoardIdParaBoardTarefas.get(String(t.boardId)) || String(t.boardId),
+            titulo: t.titulo,
+            descricao: t.descricao || '',
+            cor: '',
+            ordem: i,
+            createdAt: t.createdAt,
+          }));
+        iniciativas = [...iniciativas, ...novasIniciativas];
+
+        // Remove as tarefas do board companheiro (viraram iniciativa) e os
+        // próprios boards companheiros; limpa colunas/subtarefas/comentários
+        // órfãos deles.
+        tarefas = tarefas.filter((t) => !idsBoardsIniciativas.has(String(t.boardId)));
+        boards = boards
+          .filter((b) => !b.ehIniciativas)
+          .map(({ iniciativasBoardId, ehIniciativas, ...resto }) => resto);
+        let colunas = wb4.SheetNames.includes('AgilColunas') ? xlsx.utils.sheet_to_json(wb4.Sheets['AgilColunas']) : [];
+        colunas = colunas.filter((c) => !idsBoardsIniciativas.has(String(c.boardId)));
 
         wb4.Sheets['AgilBoards'] = xlsx.utils.json_to_sheet(boards, { header: AGIL_BOARDS_HEADERS });
+        wb4.Sheets['AgilTarefas'] = xlsx.utils.json_to_sheet(tarefas, { header: AGIL_TAREFAS_HEADERS });
+        wb4.Sheets['AgilIniciativas'] = xlsx.utils.json_to_sheet(iniciativas, { header: AGIL_INICIATIVAS_HEADERS });
         wb4.Sheets['AgilColunas'] = xlsx.utils.json_to_sheet(colunas, { header: AGIL_COLUNAS_HEADERS });
-        wb4.Sheets['AgilSwimlanes'] = xlsx.utils.json_to_sheet(swimlanes, { header: AGIL_SWIMLANES_HEADERS });
+        if (!wb4.SheetNames.includes('AgilIniciativas')) wb4.SheetNames.push('AgilIniciativas');
         gravarWorkbook(wb4);
         if (cache) {
           delete cache.sheets['AgilBoards'];
+          delete cache.sheets['AgilTarefas'];
+          delete cache.sheets['AgilIniciativas'];
           delete cache.sheets['AgilColunas'];
-          delete cache.sheets['AgilSwimlanes'];
         }
       }
     }

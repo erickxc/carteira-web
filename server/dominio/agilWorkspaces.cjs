@@ -17,7 +17,7 @@ function atualizar(repo, id, patch) {
 /**
  * Cascade delete: todos os boards da workspace são removidos, cada um pelo
  * `agilBoards.cjs::remover()` já existente — reaproveita a cascade de board
- * (colunas, tarefas, subtarefas, comentários, frentes, swimlanes) em vez de
+ * (colunas, tarefas, subtarefas, comentários, iniciativas) em vez de
  * duplicá-la aqui.
  */
 function remover(repo, id) {

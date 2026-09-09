@@ -15,8 +15,9 @@ const memoriaIA = require('../dominio/memoriaIA.cjs');
 const agilWorkspaces = require('../dominio/agilWorkspaces.cjs');
 const agilBoards = require('../dominio/agilBoards.cjs');
 const agilColunas = require('../dominio/agilColunas.cjs');
-const agilSwimlanes = require('../dominio/agilSwimlanes.cjs');
 const agilTarefas = require('../dominio/agilTarefas.cjs');
+const agilIniciativas = require('../dominio/agilIniciativas.cjs');
+const agilFrentes = require('../dominio/agilFrentes.cjs');
 const agilSubtarefas = require('../dominio/agilSubtarefas.cjs');
 const agilComentarios = require('../dominio/agilComentarios.cjs');
 
@@ -39,8 +40,9 @@ const ENTIDADES = {
   agilWorkspaces: { sheet: 'AgilWorkspaces', dominio: agilWorkspaces },
   agilBoards: { sheet: 'AgilBoards', dominio: agilBoards },
   agilColunas: { sheet: 'AgilColunas', dominio: agilColunas },
-  agilSwimlanes: { sheet: 'AgilSwimlanes', dominio: agilSwimlanes },
   agilTarefas: { sheet: 'AgilTarefas', dominio: agilTarefas },
+  agilIniciativas: { sheet: 'AgilIniciativas', dominio: agilIniciativas },
+  agilFrentes: { sheet: 'AgilFrentes', dominio: agilFrentes },
   agilSubtarefas: { sheet: 'AgilSubtarefas', dominio: agilSubtarefas },
   agilComentarios: { sheet: 'AgilComentarios', dominio: agilComentarios },
 };

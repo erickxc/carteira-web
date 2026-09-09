@@ -218,7 +218,7 @@ describe('fila/mutacao: executarMutacao', () => {
     const { PENDENTES_DIR } = carregar<typeof import('./caminhos.cjs')>('./caminhos.cjs');
 
     const criada = executarMutacao('agilTarefas', 'create', {
-      payload: { boardId: 'b1', colunaId: 'c1', swimlaneId: 's1', titulo: 'Tarefa via fila' },
+      payload: { boardId: 'b1', colunaId: 'c1', titulo: 'Tarefa via fila' },
     });
     expect(criada.titulo).toBe('Tarefa via fila');
     expect(typeof criada.id).toBe('string');
@@ -234,7 +234,7 @@ describe('fila/mutacao: executarMutacao', () => {
     const { executarMutacao } = carregar<typeof import('./mutacao.cjs')>('./mutacao.cjs');
 
     const criada = executarMutacao('agilTarefas', 'create', {
-      payload: { boardId: 'b1', colunaId: 'c1', swimlaneId: 's1', titulo: 'Tarefa' },
+      payload: { boardId: 'b1', colunaId: 'c1', titulo: 'Tarefa' },
     });
     const atualizada = executarMutacao('agilTarefas', 'update', { id: criada.id, patch: { titulo: 'Tarefa editada' } });
 
@@ -249,7 +249,7 @@ describe('fila/mutacao: executarMutacao', () => {
     const dbSqlite = carregar<typeof import('../dbSqlite.cjs')>('../dbSqlite.cjs');
 
     const criada = executarMutacao('agilTarefas', 'create', {
-      payload: { boardId: 'b1', colunaId: 'c1', swimlaneId: 's1', titulo: 'Tarefa servidor' },
+      payload: { boardId: 'b1', colunaId: 'c1', titulo: 'Tarefa servidor' },
     });
     expect(criada.titulo).toBe('Tarefa servidor');
     expect(dbSqlite.getSheetData('AgilTarefas')).toHaveLength(1);

@@ -366,15 +366,14 @@ const ACOES_HEADERS = ['id', 'clientId', 'tipo', 'segmento', 'status', 'servico'
 const MODELOS_HEADERS = ['id', 'segmento', 'titulo', 'conteudo', 'createdAt'];
 const CADENCIAS_HEADERS = ['chave', 'valor'];
 // workspaceId: área de trabalho dona do board (obrigatório dali pra frente).
-// iniciativasBoardId: opcional — outro board (da mesma workspace) que funciona
-// como o quadro de Iniciativas deste board (1 board de Iniciativas ↔ 1 board
-// de Tarefas, empilhados na mesma tela — ver AgilTarefas.iniciativaId).
-const AGIL_WORKSPACES_HEADERS = ['id', 'nome', 'descricao', 'ordem', 'createdAt'];
-// ehIniciativas: marca o board "companheiro" de Iniciativas, criado junto com
-// todo board novo (Kanbanize: Initiatives Workflow é padrão embutido, não algo
-// que se vincula manualmente) — some do seletor de boards, só aparece
-// empilhado acima do board de Tarefas que aponta pra ele.
-const AGIL_BOARDS_HEADERS = ['id', 'workspaceId', 'iniciativasBoardId', 'ehIniciativas', 'nome', 'descricao', 'createdAt'];
+// senha: PIN opcional de 4 dígitos — barreira leve de UI (nunca verificação
+// real: sem hash, sem sessão no backend), pra área de trabalho de time
+// interno. Ver CLAUDE.md "Privacidade das conversas" pro mesmo princípio.
+const AGIL_WORKSPACES_HEADERS = ['id', 'nome', 'descricao', 'ordem', 'senha', 'createdAt'];
+// camposCard: JSON string com os campos exibidos no card deste board — arrays
+// não sobrevivem ao json_to_sheet (mesmo padrão de servicos/attachments em
+// Clientes/Agenda). Vazio/ausente = todos os campos visíveis.
+const AGIL_BOARDS_HEADERS = ['id', 'workspaceId', 'nome', 'descricao', 'camposCard', 'createdAt'];
 // wipLimit: 0/vazio = sem limite (coluna sem WIP configurado).
 // parentId: vazio = coluna de topo; preenchido = sub-coluna daquele pai
 // (2 níveis, como o parent/child column do Kanbanize). Só as colunas-FOLHA
@@ -384,22 +383,27 @@ const AGIL_BOARDS_HEADERS = ['id', 'workspaceId', 'iniciativasBoardId', 'ehInici
 // colorida por tarefa vinculada, na cor da coluna onde ela está). Sem cor,
 // cinza neutro no indicador; não afeta o resto da UI (identidade preto-e-branco).
 const AGIL_COLUNAS_HEADERS = ['id', 'boardId', 'parentId', 'titulo', 'ordem', 'wipLimit', 'cor', 'createdAt'];
-// labels é string[] serializado como JSON (mesmo padrão de servicos/attachments
-// em Clientes/Agenda) — SheetJS não persiste arrays/objetos direto na célula.
 // `numero`: id curto sequencial POR BOARD (o "#12" que as pessoas usam pra
 // falar do card) — o uuid não serve pra isso.
-// iniciativaId: opcional — id de uma tarefa do board de Iniciativas vinculado
-// ao board desta tarefa (ver AgilBoards.iniciativasBoardId).
-const AGIL_TAREFAS_HEADERS = ['id', 'numero', 'boardId', 'colunaId', 'swimlaneId', 'iniciativaId', 'titulo', 'descricao', 'ordem', 'prioridade', 'labels', 'responsaveis', 'dueAt', 'clientId', 'bloqueado', 'motivoBloqueio', 'createdAt', 'updatedAt'];
+// iniciativaId: opcional — id de uma AgilIniciativa (agrupador/épico) do
+// MESMO board — não mais uma tarefa de um board companheiro (ver histórico
+// em docs/superpowers/specs/2026-09-09-agil-estrutura-design.md).
+// frenteId: opcional — uma AgilFrente (cor do card/cabeçalho do modal, com
+// precedência sobre a cor de prioridade). Substitui o antigo `labels`
+// (texto livre, removido) — uma frente só por tarefa, não múltiplas.
+const AGIL_TAREFAS_HEADERS = ['id', 'numero', 'boardId', 'colunaId', 'iniciativaId', 'frenteId', 'titulo', 'descricao', 'ordem', 'prioridade', 'responsaveis', 'dueAt', 'clientId', 'bloqueado', 'motivoBloqueio', 'createdAt', 'updatedAt'];
 // Série recorrente de agenda: guarda a REGRA (aberta, sem "durante N meses") +
 // o molde do evento. As ocorrências do mês são materializadas pelo servidor
 // (server/agendaSeries.cjs) — mesmo padrão de relatoriosAutomaticos.cjs.
 // `regra`, `monitores`, `servicos` e `lembretes` são JSON string na célula.
 const AGENDA_SERIES_HEADERS = ['id', 'clientId', 'subject', 'type', 'time', 'duracao', 'monitores', 'servicos', 'sala', 'regra', 'lembretes', 'inicio', 'ativo', 'createdAt', 'updatedAt'];
-const AGIL_SWIMLANES_HEADERS = ['id', 'boardId', 'titulo', 'ordem', 'createdAt'];
-// Frente: categoria colorida da tarefa (ex.: Bug/Correção/Implementação),
-// gerenciável pelo próprio usuário — lista de opções + cor, por board (cada
-// board tem seu próprio conjunto, como colunas e swimlanes).
+// Iniciativa: agrupador/épico de tarefas dentro do MESMO board (não é mais um
+// board companheiro — ver docs/superpowers/specs/2026-09-09-agil-estrutura-design.md).
+const AGIL_INICIATIVAS_HEADERS = ['id', 'boardId', 'titulo', 'descricao', 'cor', 'ordem', 'createdAt'];
+// Frente: marco do dia a dia da 2D (Monitoria/Análise/Alvos), GLOBAL (não por
+// board), cadastrável em Configurações do Ágil. Cor pinta o card da tarefa e o
+// cabeçalho do modal, com precedência sobre a cor de prioridade.
+const AGIL_FRENTES_HEADERS = ['id', 'nome', 'cor', 'ordem', 'createdAt'];
 const AGIL_SUBTAREFAS_HEADERS = ['id', 'tarefaId', 'titulo', 'concluida', 'ordem', 'createdAt'];
 const AGIL_COMENTARIOS_HEADERS = ['id', 'tarefaId', 'autor', 'texto', 'createdAt'];
 // fatores é string[] serializado como JSON (mesmo padrão de servicos/labels
@@ -476,7 +480,8 @@ const HEADERS_BY_SHEET = {
   AgilBoards: AGIL_BOARDS_HEADERS,
   AgilColunas: AGIL_COLUNAS_HEADERS,
   AgilTarefas: AGIL_TAREFAS_HEADERS,
-  AgilSwimlanes: AGIL_SWIMLANES_HEADERS,
+  AgilIniciativas: AGIL_INICIATIVAS_HEADERS,
+  AgilFrentes: AGIL_FRENTES_HEADERS,
   AgilSubtarefas: AGIL_SUBTAREFAS_HEADERS,
   AgilComentarios: AGIL_COMENTARIOS_HEADERS,
   AnalisesIA: ANALISES_IA_HEADERS,
@@ -540,7 +545,7 @@ module.exports = {
   CLAUDE_CLI_TIMEOUT_MS, CLAUDE_CLI_CWD, CLAUDE_MCP_SERVER,
   CLIENTES_HEADERS, AGENDA_HEADERS, LEMBRETES_HEADERS, CATEGORIAS_HEADERS, ACOES_HEADERS, MODELOS_HEADERS, CADENCIAS_HEADERS,
   AGENDA_SERIES_HEADERS,
-  AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_SWIMLANES_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS,
+  AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_INICIATIVAS_HEADERS, AGIL_FRENTES_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS,
   ANALISES_IA_HEADERS, ANALISES_IA_HISTORICO_HEADERS, ACOES_IA_HEADERS, MEMORIA_IA_HEADERS, USO_IA_HEADERS,
   HEADERS_BY_SHEET,
   CADENCIAS_SEED, MODELOS_SEED, CATEGORIAS_SEED,

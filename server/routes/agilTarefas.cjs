@@ -20,7 +20,7 @@ router.post('/', validar(agilTarefaCreateSchema), (req, res) => {
 
 // Precisa vir antes de '/:id' — senão o Express tentaria casar "reorder" como id.
 // Sem operação genérica de "reorder em lote" na fila: em modo cliente vira uma
-// sequência de updates (colunaId/swimlaneId/ordem) por tarefa movida — perde a
+// sequência de updates (colunaId/ordem) por tarefa movida — perde a
 // otimização de "um save só" que o modo servidor mantém via `reordenar`, mas
 // reaproveita o contrato create/update/delete já existente sem inventar um
 // tipo de operação novo pra fila.
@@ -28,7 +28,7 @@ router.put('/reorder', validarLote(agilReorderTarefaItemSchema), (req, res) => {
   if (!isClient) return res.json(tarefasDominio.reordenar(repo, req.body));
   res.json(req.body.map((item) => executarMutacao('agilTarefas', 'update', {
     id: item.id,
-    patch: { colunaId: item.colunaId, swimlaneId: item.swimlaneId, ordem: item.ordem },
+    patch: { colunaId: item.colunaId, ordem: item.ordem },
   })));
 });
 

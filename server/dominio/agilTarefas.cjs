@@ -2,11 +2,7 @@ const crypto = require('crypto');
 
 function criar(repo, payload, opts = {}) {
   const data = repo.get('AgilTarefas');
-  // Ordem é por CÉLULA (coluna + swimlane), não só por coluna: duas swimlanes
-  // da mesma coluna têm filas independentes.
-  const ordem = data.filter(
-    (t) => String(t.colunaId) === String(payload.colunaId) && String(t.swimlaneId) === String(payload.swimlaneId)
-  ).length;
+  const ordem = data.filter((t) => String(t.colunaId) === String(payload.colunaId)).length;
   // Número sequencial por board — é o identificador curto que as pessoas usam
   // pra falar do card ("o 12"), em vez do uuid.
   const numero = data
@@ -25,8 +21,8 @@ function atualizar(repo, id, patch) {
 
 /**
  * Cascade delete: subtarefas e comentários da tarefa também são removidos.
- * Se esta tarefa era a Iniciativa de outras (Fase B), elas NÃO são apagadas —
- * só perdem o vínculo (`iniciativaId`): remover o agrupador não pode destruir
+ * Se esta tarefa era a Iniciativa de outras, elas NÃO são apagadas — só
+ * perdem o vínculo (`iniciativaId`): remover o agrupador não pode destruir
  * o trabalho agrupado.
  */
 function remover(repo, id) {
@@ -39,9 +35,9 @@ function remover(repo, id) {
 }
 
 /**
- * Reordena em lote (drag de card, dentro da mesma célula ou entre colunas/
- * swimlanes) — um único get/save para todo o drop, em vez de uma escrita
- * completa da planilha por card movido.
+ * Reordena em lote (drag de card, dentro da mesma coluna ou entre colunas) —
+ * um único get/save para todo o drop, em vez de uma escrita completa da
+ * planilha por card movido.
  */
 function reordenar(repo, itens) {
   const data = repo.get('AgilTarefas');
@@ -49,7 +45,7 @@ function reordenar(repo, itens) {
   const now = new Date().toISOString();
   const next = data.map((t) => {
     const patch = porId.get(String(t.id));
-    return patch ? { ...t, colunaId: patch.colunaId, swimlaneId: patch.swimlaneId, ordem: patch.ordem, updatedAt: now } : t;
+    return patch ? { ...t, colunaId: patch.colunaId, ordem: patch.ordem, updatedAt: now } : t;
   });
   repo.save('AgilTarefas', next);
   return next;

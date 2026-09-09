@@ -87,8 +87,11 @@ const categoriaUpdateSchema = z.object({
 const CORREGEX = /^#[0-9a-fA-F]{6}$/;
 const corOpcional = () => z.string().regex(CORREGEX, 'cor precisa ser um hex #RRGGBB').optional();
 
-const agilWorkspaceCreateSchema = z.object({ nome: textoObrigatorio('nome') }).passthrough();
-const agilWorkspaceUpdateSchema = z.object({ nome: textoObrigatorio('nome').optional() }).passthrough();
+// PIN de 4 dígitos numéricos — barreira leve de UI, não segurança real.
+const senhaOpcional = () => z.string().regex(/^\d{4}$/, 'senha precisa ter 4 dígitos').optional().or(z.literal(''));
+
+const agilWorkspaceCreateSchema = z.object({ nome: textoObrigatorio('nome'), senha: senhaOpcional() }).passthrough();
+const agilWorkspaceUpdateSchema = z.object({ nome: textoObrigatorio('nome').optional(), senha: senhaOpcional() }).passthrough();
 const agilReorderWorkspaceItemSchema = z.object({ id: textoObrigatorio('id'), ordem: z.number() });
 
 const agilBoardCreateSchema = z.object({
@@ -99,6 +102,28 @@ const agilBoardUpdateSchema = z.object({
   nome: textoObrigatorio('nome').optional(),
   workspaceId: textoObrigatorio('workspaceId').optional(),
 }).passthrough();
+
+const agilIniciativaCreateSchema = z.object({
+  boardId: textoObrigatorio('boardId'),
+  titulo: textoObrigatorio('titulo'),
+  cor: corOpcional(),
+}).passthrough();
+const agilIniciativaUpdateSchema = z.object({
+  boardId: textoObrigatorio('boardId').optional(),
+  titulo: textoObrigatorio('titulo').optional(),
+  cor: corOpcional(),
+}).passthrough();
+const agilReorderIniciativaItemSchema = z.object({ id: textoObrigatorio('id'), ordem: z.number() });
+
+const agilFrenteCreateSchema = z.object({
+  nome: textoObrigatorio('nome'),
+  cor: z.string().regex(CORREGEX, 'cor precisa ser um hex #RRGGBB'),
+}).passthrough();
+const agilFrenteUpdateSchema = z.object({
+  nome: textoObrigatorio('nome').optional(),
+  cor: z.string().regex(CORREGEX, 'cor precisa ser um hex #RRGGBB').optional(),
+}).passthrough();
+const agilReorderFrenteItemSchema = z.object({ id: textoObrigatorio('id'), ordem: z.number() });
 
 const agilColunaCreateSchema = z.object({
   boardId: textoObrigatorio('boardId'),
@@ -122,17 +147,7 @@ const agilTarefaUpdateSchema = z.object({
   colunaId: textoObrigatorio('colunaId').optional(),
   titulo: textoObrigatorio('titulo').optional(),
 }).passthrough();
-const agilReorderTarefaItemSchema = z.object({ id: textoObrigatorio('id'), colunaId: textoObrigatorio('colunaId'), swimlaneId: textoObrigatorio('swimlaneId'), ordem: z.number() });
-
-const agilSwimlaneCreateSchema = z.object({
-  boardId: textoObrigatorio('boardId'),
-  titulo: textoObrigatorio('titulo'),
-}).passthrough();
-const agilSwimlaneUpdateSchema = z.object({
-  boardId: textoObrigatorio('boardId').optional(),
-  titulo: textoObrigatorio('titulo').optional(),
-}).passthrough();
-const agilReorderSwimlaneItemSchema = z.object({ id: textoObrigatorio('id'), ordem: z.number() });
+const agilReorderTarefaItemSchema = z.object({ id: textoObrigatorio('id'), colunaId: textoObrigatorio('colunaId'), ordem: z.number() });
 
 const agilSubtarefaCreateSchema = z.object({
   tarefaId: textoObrigatorio('tarefaId'),
@@ -195,7 +210,8 @@ module.exports = {
   agilBoardCreateSchema, agilBoardUpdateSchema,
   agilColunaCreateSchema, agilColunaUpdateSchema, agilReorderColunaItemSchema,
   agilTarefaCreateSchema, agilTarefaUpdateSchema, agilReorderTarefaItemSchema,
-  agilSwimlaneCreateSchema, agilSwimlaneUpdateSchema, agilReorderSwimlaneItemSchema,
+  agilIniciativaCreateSchema, agilIniciativaUpdateSchema, agilReorderIniciativaItemSchema,
+  agilFrenteCreateSchema, agilFrenteUpdateSchema, agilReorderFrenteItemSchema,
   agilSubtarefaCreateSchema, agilSubtarefaUpdateSchema,
   agilComentarioCreateSchema,
 };
