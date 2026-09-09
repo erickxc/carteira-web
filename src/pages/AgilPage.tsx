@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Briefcase, Plus, Settings } from 'lucide-react';
+import { Briefcase, Palette, Plus, Settings } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { KanbanBoard } from '../components/agil/KanbanBoard';
@@ -8,6 +8,7 @@ import { BoardFormModal } from '../components/agil/BoardFormModal';
 import { WorkspaceFormModal } from '../components/agil/WorkspaceFormModal';
 import { FrentesManagerModal } from '../components/agil/FrentesManagerModal';
 import { CamposPersonalizadosManagerModal } from '../components/agil/CamposPersonalizadosManagerModal';
+import { CardAparenciaModal } from '../components/agil/CardAparenciaModal';
 import { AgilSidebar } from '../components/agil/AgilSidebar';
 import { WorkspacePinModal } from '../components/agil/WorkspacePinModal';
 import { desbloquearWorkspace, workspaceDesbloqueada } from '../utils/agilWorkspacePin';
@@ -24,6 +25,7 @@ export default function AgilPage() {
   const [boardModal, setBoardModal] = useState<'novo' | AgilBoard | null>(null);
   const [configAgilAberta, setConfigAgilAberta] = useState(false);
   const [camposPersonalizadosAberta, setCamposPersonalizadosAberta] = useState(false);
+  const [aparenciaAberta, setAparenciaAberta] = useState(false);
   const [pinPendente, setPinPendente] = useState<AgilWorkspace | null>(null);
 
   // Navegação vinda de outra tela (ex.: card de tarefas Ágil na ficha do
@@ -43,18 +45,19 @@ export default function AgilPage() {
     () => agilWorkspaces.find((w) => w.id === workspaceId) ?? agilWorkspaces[0],
     [agilWorkspaces, workspaceId]
   );
-  // Exclui o board fixo de Iniciativas da navegação normal — ele só aparece
-  // via o botão "Iniciativas" (fora da lista de quadros comuns).
+  // Exclui o board fixo de Iniciativas da navegação normal — ele não é
+  // escolhido pela sidebar, aparece SEMPRE empilhado acima do quadro selecionado.
   const boardsDaWorkspace = useMemo(
     () => (workspace ? agilBoards.filter((b) => b.workspaceId === workspace.id && b.id !== workspace.iniciativasBoardId) : []),
     [agilBoards, workspace]
   );
-  // `boardId` pode ser o board fixo de Iniciativas (selecionado pelo botão
-  // "Iniciativas") — ele foi excluído de `boardsDaWorkspace` de propósito,
-  // então é resolvido à parte, contra `agilBoards` inteiro.
   const board = useMemo(
-    () => boardsDaWorkspace.find((b) => b.id === boardId) ?? agilBoards.find((b) => b.id === boardId) ?? boardsDaWorkspace[0],
-    [boardsDaWorkspace, agilBoards, boardId]
+    () => boardsDaWorkspace.find((b) => b.id === boardId) ?? boardsDaWorkspace[0],
+    [boardsDaWorkspace, boardId]
+  );
+  const boardIniciativas = useMemo(
+    () => agilBoards.find((b) => b.id === workspace?.iniciativasBoardId),
+    [agilBoards, workspace]
   );
 
   // Área com PIN e ainda não desbloqueada nesta aba: pede o PIN antes de
@@ -103,28 +106,29 @@ export default function AgilPage() {
             </div>
           ) : (
             <>
-              <div className="flex items-start justify-between gap-4 flex-wrap mb-1">
-                <div className="min-w-0">
-                  <h2 className="truncate" style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>{board?.nome ?? 'Nenhum quadro'}</h2>
-                  {board?.descricao && <p className="page-subtitle" style={{ margin: 0 }}>{board.descricao}</p>}
-                </div>
-                <div className="flex-row" style={{ gap: '0.6rem', flexShrink: 0 }}>
-                  {workspace.iniciativasBoardId && board?.id !== workspace.iniciativasBoardId && (
-                    <Button variant="secondary" onClick={() => setBoardId(workspace.iniciativasBoardId!)}>Iniciativas</Button>
-                  )}
-                  {board && (
-                    <Button variant="secondary" onClick={() => setCamposPersonalizadosAberta(true)}>Campos</Button>
-                  )}
-                  {board && (
-                    <Button variant="secondary" onClick={() => setBoardModal(board)} title="Editar quadro">
-                      <Settings size={16} />
-                    </Button>
-                  )}
-                  <Button variant="primary" onClick={() => setBoardModal('novo')}>
-                    <Plus size={16} /> Novo quadro
+              <div className="flex items-center justify-end gap-2">
+                {board && (
+                  <Button variant="secondary" onClick={() => setAparenciaAberta(true)} title="Aparência do card">
+                    <Palette size={16} /> Aparência do card
                   </Button>
-                </div>
+                )}
+                {board && (
+                  <Button variant="secondary" onClick={() => setCamposPersonalizadosAberta(true)}>Campos</Button>
+                )}
+                {board && (
+                  <Button variant="secondary" onClick={() => setBoardModal(board)} title="Editar quadro">
+                    <Settings size={16} />
+                  </Button>
+                )}
+                <Button variant="primary" onClick={() => setBoardModal('novo')}>
+                  <Plus size={16} /> Novo quadro
+                </Button>
               </div>
+
+              {/* Iniciativas — board FIXO da área de trabalho, sempre empilhado
+                  acima de qualquer quadro selecionado (idioma businessmap:
+                  "Initiatives workflow" em cima, "Cards workflow" embaixo). */}
+              {boardIniciativas && <KanbanBoard board={boardIniciativas} />}
 
               {board ? (
                 <KanbanBoard board={board} />
@@ -161,6 +165,10 @@ export default function AgilPage() {
 
       {camposPersonalizadosAberta && board && (
         <CamposPersonalizadosManagerModal boardId={board.id} boardNome={board.nome} onClose={() => setCamposPersonalizadosAberta(false)} />
+      )}
+
+      {aparenciaAberta && board && (
+        <CardAparenciaModal board={board} onClose={() => setAparenciaAberta(false)} />
       )}
 
       {pinPendente && (

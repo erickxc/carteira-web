@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronRight, Lock, Plus, Rocket, Settings, Tag } from 'lucide-react';
+import { ChevronRight, Lock, Plus, Settings, Tag } from 'lucide-react';
 import clsx from 'clsx';
 import { workspaceDesbloqueada } from '../../utils/agilWorkspacePin';
 import type { AgilBoard, AgilWorkspace } from '../../types';
@@ -72,17 +72,6 @@ export function AgilSidebar({
 
             {expandido && !bloqueada && (
               <div className="flex flex-col gap-0.5 pl-5 mt-0.5 mb-1">
-                {w.iniciativasBoardId && (
-                  <button
-                    onClick={() => onSelectBoard(w.iniciativasBoardId!)}
-                    className={clsx(
-                      'flex items-center gap-1.5 text-left px-1.5 py-1 rounded text-[0.78rem] bg-transparent border-none cursor-pointer truncate',
-                      boardId === w.iniciativasBoardId ? 'bg-accent-soft text-[color:var(--accent-fg)] font-medium' : 'text-text-secondary hover:bg-card-hover'
-                    )}
-                  >
-                    <Rocket size={12} className="shrink-0" /> Iniciativas
-                  </button>
-                )}
                 {boardsDaArea.map((b) => (
                   <button
                     key={b.id}

@@ -1,10 +1,11 @@
 import { Fragment, useMemo, useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
-import { Columns3 } from 'lucide-react';
+import { Columns3, MoreVertical } from 'lucide-react';
 import { useCarteira } from '../../context/CarteiraContext';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { montarHierarquiaColunas } from '../../utils/agilColunas';
+import { ordenarTarefasDaCelula, ORDENACAO_OPCOES } from '../../utils/agilOrdenacao';
 import { KanbanColumnHeader } from './KanbanColumnHeader';
 import { KanbanGroupHeader } from './KanbanGroupHeader';
 import { KanbanCell } from './KanbanCell';
@@ -12,8 +13,9 @@ import { ColumnFormModal } from './ColumnFormModal';
 import { TaskDetailModal } from './TaskDetailModal';
 import { AgilFiltrosBar } from './AgilFiltrosBar';
 import { AGIL_FILTROS_VAZIOS, filtrarAgilTarefas, type AgilFiltros } from '../../utils/agilFiltros';
+import { Dropdown } from '../Dropdown';
 import { Button } from '../../ui';
-import type { AgilBoard, AgilColuna, AgilTarefa } from '../../types';
+import type { AgilBoard, AgilColuna, AgilOrdenacao, AgilTarefa } from '../../types';
 
 /** Largura mínima por coluna: acima disso as colunas esticam para ocupar a
  *  janela toda (1fr); abaixo, o board ganha rolagem horizontal. */
@@ -26,11 +28,12 @@ interface KanbanBoardProps {
 }
 
 export function KanbanBoard({ board }: KanbanBoardProps) {
-  const { agilColunas, agilTarefas, reordenarAgilColunas, moverAgilTarefas } = useCarteira();
+  const { agilColunas, agilTarefas, reordenarAgilColunas, moverAgilTarefas, atualizarAgilBoard } = useCarteira();
   const [colunaModal, setColunaModal] = useState<{ initial?: AgilColuna; parentId?: string } | null>(null);
   const [tarefaModal, setTarefaModal] = useState<{ initial?: AgilTarefa; colunaId?: string } | null>(null);
   const [colunasColapsadas, setColunasColapsadas] = usePersistedState<string[]>('agil:colunasColapsadas', []);
   const [filtros, setFiltros] = usePersistedState<AgilFiltros>(`agil:filtros:${board.id}`, AGIL_FILTROS_VAZIOS);
+  const [menuAberto, setMenuAberto] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -48,9 +51,9 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
       if (!m.has(t.colunaId)) m.set(t.colunaId, []);
       m.get(t.colunaId)!.push(t);
     });
-    m.forEach((lista) => lista.sort((a, b) => a.ordem - b.ordem));
+    m.forEach((lista, colunaId) => m.set(colunaId, ordenarTarefasDaCelula(lista, board.ordenacao)));
     return m;
-  }, [tarefas]);
+  }, [tarefas, board.ordenacao]);
 
   /** Total por coluna-folha; numa agrupadora, a soma das sub-colunas (CONWIP). */
   const totalPorColuna = useMemo(() => {
@@ -128,10 +131,40 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
 
   return (
     <div className="mt-4">
+      {/* Barra de título — nome do board centralizado acima das colunas
+          (estilo businessmap: "Initiatives workflow"/"Cards workflow"). */}
+      <div className="relative flex items-center justify-center px-3 py-2">
+        <h2 className="text-[0.95rem] font-semibold text-text-primary truncate max-w-[80%]">{board.nome}</h2>
+        <div className="absolute right-1 flex items-center gap-1.5">
+          <button
+            onClick={() => setMenuAberto((v) => !v)}
+            className="flex items-center justify-center w-7 h-7 rounded-sm text-text-muted bg-transparent border-none cursor-pointer hover:bg-card-hover hover:text-text-primary"
+            title="Mais opções do quadro"
+          >
+            <MoreVertical size={16} />
+          </button>
+        </div>
+        {menuAberto && (
+          <div
+            className="absolute right-1 top-[calc(100%+2px)] z-40 flex flex-col gap-2 p-2.5 rounded border border-border-strong bg-card shadow-lg"
+            style={{ minWidth: 220 }}
+            onMouseLeave={() => setMenuAberto(false)}
+          >
+            <Button variant="secondary" onClick={() => { setColunaModal({}); setMenuAberto(false); }}>
+              <Columns3 size={14} /> Nova coluna
+            </Button>
+            <Dropdown
+              label="Ordenar por"
+              variant="campo"
+              value={board.ordenacao ?? 'manual'}
+              onChange={(v) => atualizarAgilBoard(board.id, { ordenacao: v as AgilOrdenacao })}
+              options={ORDENACAO_OPCOES}
+            />
+          </div>
+        )}
+      </div>
+
       <div className="flex items-center gap-2 mb-3 px-2.5 py-2 rounded border border-border bg-card-hover flex-wrap">
-        <Button variant="secondary" onClick={() => setColunaModal({})}>
-          <Columns3 size={14} /> Coluna
-        </Button>
         <AgilFiltrosBar boardId={board.id} filtros={filtros} onChange={setFiltros} />
         <span className="ml-auto text-[0.72rem] font-medium text-text-muted tabular-nums">
           {tarefas.length} de {tarefasDoBoard.length} tarefa(s) · {folhas.length} coluna(s)

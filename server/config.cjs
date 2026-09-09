@@ -378,7 +378,10 @@ const AGIL_WORKSPACES_HEADERS = ['id', 'nome', 'descricao', 'ordem', 'senha', 'i
 // camposCard: JSON string com os campos exibidos no card deste board — arrays
 // não sobrevivem ao json_to_sheet (mesmo padrão de servicos/attachments em
 // Clientes/Agenda). Vazio/ausente = todos os campos visíveis.
-const AGIL_BOARDS_HEADERS = ['id', 'workspaceId', 'nome', 'descricao', 'camposCard', 'createdAt'];
+// ordenacao: 'manual' (padrão, ausente) | 'prioridade' | 'prazo' | 'criacao' —
+// como as tarefas são ordenadas DENTRO de cada coluna. Ausente/'manual' = a
+// ordem que o próprio usuário definiu arrastando (campo `ordem` da tarefa).
+const AGIL_BOARDS_HEADERS = ['id', 'workspaceId', 'nome', 'descricao', 'camposCard', 'ordenacao', 'createdAt'];
 // wipLimit: 0/vazio = sem limite (coluna sem WIP configurado).
 // parentId: vazio = coluna de topo; preenchido = sub-coluna daquele pai
 // (2 níveis, como o parent/child column do Kanbanize). Só as colunas-FOLHA

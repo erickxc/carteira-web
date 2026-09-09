@@ -33,13 +33,15 @@ export function KanbanGroupHeader({ coluna, totalTarefas, ultimaColuna, arrastav
     disabled: !arrastavel,
   });
 
+  const excedeu = !!coluna.wipLimit && totalTarefas > coluna.wipLimit;
+  const corTopo = excedeu ? 'var(--danger)' : coluna.cor || 'var(--accent)';
   const estilo: CSSProperties = {
     ...style,
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    borderTopColor: corTopo,
   };
-  const excedeu = !!coluna.wipLimit && totalTarefas > coluna.wipLimit;
   // Sem `ref` na cópia: evita duas instâncias do dnd-kit registrando o mesmo
   // id de coluna (ver mesma nota em KanbanColumnHeader).
   const refDrag = arrastavel ? setNodeRef : undefined;
@@ -50,8 +52,7 @@ export function KanbanGroupHeader({ coluna, totalTarefas, ultimaColuna, arrastav
       style={estilo}
       className={clsx(
         'group flex items-center gap-1 px-2 border-t-2 border-b border-border bg-card-hover',
-        !ultimaColuna && 'border-r',
-        excedeu ? 'border-t-danger' : 'border-t-accent'
+        !ultimaColuna && 'border-r'
       )}
     >
       <span

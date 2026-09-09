@@ -626,9 +626,14 @@ export interface AgilBoard {
   /** JSON string com os campos exibidos no card deste board (ex.:
    *  '["responsaveis","dueAt","prioridade"]'). Vazio/ausente = todos visíveis. */
   camposCard?: string;
+  /** Como as tarefas são ordenadas DENTRO de cada coluna. Ausente/'manual' =
+   *  ordem que o usuário definiu arrastando. */
+  ordenacao?: AgilOrdenacao;
   createdAt: string;
 }
 export type NovoAgilBoard = Omit<AgilBoard, 'id' | 'createdAt'>;
+
+export type AgilOrdenacao = 'manual' | 'prioridade' | 'prazo' | 'criacao';
 
 export interface AgilColuna {
   id: string;

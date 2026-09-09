@@ -34,13 +34,17 @@ export function KanbanColumnHeader({
     disabled: !arrastavel,
   });
 
+  const excedeu = !!coluna.wipLimit && totalTarefas > coluna.wipLimit;
+  // Linha colorida no topo — cor própria da coluna (estilo businessmap), com
+  // vermelho de WIP estourado tendo prioridade sobre a cor cadastrada.
+  const corTopo = excedeu ? 'var(--danger)' : coluna.cor || 'var(--border)';
   const estilo: CSSProperties = {
     ...style,
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    borderTopColor: corTopo,
   };
-  const excedeu = !!coluna.wipLimit && totalTarefas > coluna.wipLimit;
 
   const contador = (
     <span
@@ -64,8 +68,7 @@ export function KanbanColumnHeader({
         className={clsx(
           'flex flex-col items-center gap-1.5 py-2 border-b border-border bg-card-hover',
           !ultimaColuna && 'border-r',
-          ocupaDuasLinhas ? 'border-t-2' : 'border-t',
-          excedeu ? 'border-t-danger' : ocupaDuasLinhas ? 'border-t-accent' : 'border-t-border'
+          ocupaDuasLinhas ? 'border-t-2' : 'border-t'
         )}
       >
         <button onClick={onToggleColapso} className={BOTAO_ICONE} title="Expandir coluna">
@@ -86,8 +89,7 @@ export function KanbanColumnHeader({
       className={clsx(
         'group flex items-center gap-1 px-2 border-b border-border',
         !ultimaColuna && 'border-r',
-        ocupaDuasLinhas ? 'border-t-2 bg-card-hover' : 'border-t bg-card',
-        excedeu ? 'border-t-danger' : ocupaDuasLinhas ? 'border-t-accent' : 'border-t-border'
+        ocupaDuasLinhas ? 'border-t-2 bg-card-hover' : 'border-t bg-card'
       )}
     >
       <button onClick={onToggleColapso} className={BOTAO_ICONE} title="Recolher coluna">
