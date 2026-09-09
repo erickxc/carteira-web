@@ -8,7 +8,6 @@ import type { AgilTarefa } from '../../types';
 
 interface KanbanCellProps {
   colunaId: string;
-  swimlaneId: string;
   tarefas: AgilTarefa[];
   colapsada: boolean;
   /** Coluna com WIP estourado — destaca a célula toda, como no Kanbanize. */
@@ -21,11 +20,11 @@ interface KanbanCellProps {
 }
 
 export function KanbanCell({
-  colunaId, swimlaneId, tarefas, colapsada, wipExcedido, ultimaColuna, style, onNovaTarefa, onEditTarefa,
+  colunaId, tarefas, colapsada, wipExcedido, ultimaColuna, style, onNovaTarefa, onEditTarefa,
 }: KanbanCellProps) {
   const { setNodeRef, isOver } = useDroppable({
-    id: `cell-${colunaId}-${swimlaneId}`,
-    data: { type: 'celula', colunaId, swimlaneId },
+    id: `cell-${colunaId}`,
+    data: { type: 'celula', colunaId },
   });
 
   if (colapsada) {

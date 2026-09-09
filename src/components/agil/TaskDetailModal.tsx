@@ -1,25 +1,23 @@
-import { useMemo, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { useMemo, useState, type FormEvent } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { montarHierarquiaColunas } from '../../utils/agilColunas';
 import { corContrastante } from '../../utils/cor';
 import { useCarteira } from '../../context/CarteiraContext';
 import { toastError } from '../../utils/toast';
 import { confirmDialog } from '../../utils/confirmDialog';
 import { ModalShell } from '../ModalShell';
-import { Badge, Button, Chip, Field, Input, Textarea } from '../../ui';
+import { Button, Chip, Field, Input, Textarea } from '../../ui';
 import { SelectField } from '../SelectField';
-import type { AgilColuna, AgilSwimlane, AgilTarefa } from '../../types';
+import type { AgilColuna, AgilTarefa } from '../../types';
 import { SubtarefasTab } from './SubtarefasTab';
 import { ComentariosTab } from './ComentariosTab';
 
 interface TaskDetailModalProps {
   boardId: string;
   colunas: AgilColuna[];
-  swimlanes: AgilSwimlane[];
   initial?: AgilTarefa;
-  /** Pré-seleciona coluna/swimlane ao criar (ex.: botão "+ tarefa" de uma célula específica). */
+  /** Pré-seleciona coluna ao criar (ex.: botão "+ tarefa" de uma coluna específica). */
   initialColunaId?: string;
-  initialSwimlaneId?: string;
   onClose: () => void;
 }
 
@@ -32,17 +30,15 @@ const PRIORIDADE_COR: Record<string, string> = {
   Urgente: 'var(--danger)',
 };
 
-export function TaskDetailModal({ boardId, colunas, swimlanes, initial, initialColunaId, initialSwimlaneId, onClose }: TaskDetailModalProps) {
-  const { clientes, agilBoards, agilTarefas, criarAgilTarefa, atualizarAgilTarefa, removerAgilTarefa, opcoesPorTipo } = useCarteira();
+export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, onClose }: TaskDetailModalProps) {
+  const { clientes, agilBoards, agilIniciativas, agilFrentes, criarAgilTarefa, atualizarAgilTarefa, removerAgilTarefa, opcoesPorTipo } = useCarteira();
   const prioridadeOpcoes = opcoesPorTipo('prioridade_tarefa');
   const monitorOpcoes = opcoesPorTipo('monitor');
   const board = agilBoards.find((b) => b.id === boardId);
   const boardNome = board?.nome ?? '';
-  // Candidatas a "Iniciativa": tarefas do quadro de Iniciativas vinculado a
-  // este board (Fase B) — só existe quando o board tem `iniciativasBoardId`.
-  const iniciativasCandidatas = useMemo(
-    () => (board?.iniciativasBoardId ? agilTarefas.filter((t) => t.boardId === board.iniciativasBoardId) : []),
-    [agilTarefas, board]
+  const iniciativasDoBoard = useMemo(
+    () => agilIniciativas.filter((i) => i.boardId === boardId).sort((a, b) => a.ordem - b.ordem),
+    [agilIniciativas, boardId]
   );
 
   // Só colunas-FOLHA recebem tarefas (uma coluna com sub-colunas é agrupadora),
@@ -52,55 +48,39 @@ export function TaskDetailModal({ boardId, colunas, swimlanes, initial, initialC
   const [titulo, setTitulo] = useState(initial?.titulo ?? '');
   const [descricao, setDescricao] = useState(initial?.descricao ?? '');
   const [colunaId, setColunaId] = useState(initial?.colunaId ?? initialColunaId ?? folhas[0]?.id ?? '');
-  const [swimlaneId, setSwimlaneId] = useState(initial?.swimlaneId ?? initialSwimlaneId ?? swimlanes[0]?.id ?? '');
   const [iniciativaId, setIniciativaId] = useState(initial?.iniciativaId ?? '');
+  const [frenteId, setFrenteId] = useState(initial?.frenteId ?? '');
   const [prioridade, setPrioridade] = useState(initial?.prioridade ?? '');
   const [responsaveis, setResponsaveis] = useState<string[]>(initial?.responsaveis ?? []);
   const [dueAt, setDueAt] = useState(initial?.dueAt ?? '');
   const [clientId, setClientId] = useState(initial?.clientId ?? '');
-  const [labels, setLabels] = useState<string[]>(initial?.labels ?? []);
-  const [labelInput, setLabelInput] = useState('');
   const [bloqueado, setBloqueado] = useState(initial?.bloqueado ?? false);
   const [motivoBloqueio, setMotivoBloqueio] = useState(initial?.motivoBloqueio ?? '');
   const [saving, setSaving] = useState(false);
 
-  // Cor do cabeçalho: a da prioridade (mesma lógica visual do card); sem
-  // prioridade, cabeçalho padrão do tema (sem override) — igual aos outros
-  // modais do app. Antes a Frente escolhida tinha prioridade aqui, mas Frente
-  // foi removida do Ágil (não era usada).
-  const corCabecalho = PRIORIDADE_COR[prioridade] ?? undefined;
+  // Cor do cabeçalho: a Frente tem precedência sobre a de prioridade (mesma
+  // lógica visual do card); sem nenhuma das duas, cabeçalho padrão do tema.
+  const frenteSelecionada = agilFrentes.find((f) => f.id === frenteId);
+  const corCabecalho = frenteSelecionada?.cor ?? PRIORIDADE_COR[prioridade] ?? undefined;
   const corTextoCabecalho = corCabecalho ? corContrastante(corCabecalho) : undefined;
 
   function toggleResponsavel(m: string) {
     setResponsaveis((prev) => (prev.includes(m) ? prev.filter((r) => r !== m) : [...prev, m]));
   }
 
-  function addLabel() {
-    const v = labelInput.trim();
-    if (v && !labels.includes(v)) setLabels((prev) => [...prev, v]);
-    setLabelInput('');
-  }
-
-  function handleLabelKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      addLabel();
-    }
-  }
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!titulo.trim() || !colunaId || !swimlaneId) return;
+    if (!titulo.trim() || !colunaId) return;
     setSaving(true);
     try {
       const payload = {
-        boardId, colunaId, swimlaneId, titulo, descricao,
+        boardId, colunaId, titulo, descricao,
         iniciativaId: iniciativaId || undefined,
+        frenteId: frenteId || undefined,
         prioridade: prioridade || undefined,
         responsaveis: responsaveis.length > 0 ? responsaveis : undefined,
         dueAt: dueAt || undefined,
         clientId: clientId || undefined,
-        labels,
         bloqueado,
         motivoBloqueio: bloqueado ? motivoBloqueio : undefined,
       };
@@ -241,43 +221,26 @@ export function TaskDetailModal({ boardId, colunas, swimlanes, initial, initialC
             options={folhas.map((c) => ({ value: c.id, label: rotuloPorFolha.get(c.id) ?? c.titulo }))}
           />
 
-          <SelectField
-            label="Swimlane"
-            value={swimlaneId}
-            onChange={setSwimlaneId}
-            options={swimlanes.map((s) => ({ value: s.id, label: s.titulo }))}
-          />
-
-          {iniciativasCandidatas.length > 0 && (
+          {iniciativasDoBoard.length > 0 && (
             <SelectField
               label="Iniciativa vinculada"
               placeholder="Nenhuma"
               value={iniciativaId}
               onChange={setIniciativaId}
-              options={[{ value: '', label: 'Nenhuma' }, ...iniciativasCandidatas.map((t) => ({ value: t.id, label: t.titulo }))]}
+              options={[{ value: '', label: 'Nenhuma' }, ...iniciativasDoBoard.map((i) => ({ value: i.id, label: i.titulo }))]}
             />
           )}
 
-          <Field label="Etiquetas" as="div">
-            <div className="flex flex-wrap gap-1.5 mb-1.5">
-              {labels.map((l) => (
-                <Badge key={l} variant="muted">
-                  {l}
-                  <button type="button" onClick={() => setLabels((prev) => prev.filter((x) => x !== l))} className="inline-flex items-center ml-1 bg-transparent border-none cursor-pointer p-0 text-inherit">
-                    <X size={11} />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-            <Input
-              tone="modal"
-              placeholder="Digite e pressione Enter"
-              value={labelInput}
-              onChange={(e) => setLabelInput(e.target.value)}
-              onKeyDown={handleLabelKeyDown}
-              onBlur={addLabel}
-            />
-          </Field>
+          <SelectField
+            label="Frente"
+            placeholder="Nenhuma"
+            value={frenteId}
+            onChange={setFrenteId}
+            options={[{ value: '', label: 'Nenhuma' }, ...agilFrentes.map((f) => ({ value: f.id, label: f.nome }))]}
+          />
+          {agilFrentes.length === 0 && (
+            <p className="text-text-muted" style={{ fontSize: 13, marginTop: -8 }}>Nenhuma Frente cadastrada — adicione em Configurações do Ágil.</p>
+          )}
 
           <Field label={<span className="flex items-center gap-2"><input type="checkbox" checked={bloqueado} onChange={(e) => setBloqueado(e.target.checked)} /> Bloqueada</span>} as="div">
             {bloqueado && (

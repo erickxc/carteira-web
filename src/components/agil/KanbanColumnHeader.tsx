@@ -13,10 +13,7 @@ interface KanbanColumnHeaderProps {
   ocupaDuasLinhas: boolean;
   /** Última coluna do board: sem borda à direita. */
   ultimaColuna: boolean;
-  /** false quando este cabeçalho é uma CÓPIA repetida (swimlanes 2ª em diante
-   *  — colunas são as mesmas do board, repetidas visualmente por swimlane).
-   *  A cópia não é arrastável: evita duas instâncias do dnd-kit disputando o
-   *  mesmo id de coluna. Reordenar sempre pela primeira swimlane. */
+  /** Sempre true hoje (board sem raias, um único cabeçalho por coluna). */
   arrastavel: boolean;
   style: CSSProperties;
   onToggleColapso: () => void;
@@ -57,10 +54,6 @@ export function KanbanColumnHeader({
     </span>
   );
 
-  // Ref só é anexada quando arrastável: se duas cópias (uma por swimlane)
-  // registrassem o MESMO id de coluna no dnd-kit, a medição de colisão do
-  // drag ficaria ambígua. Sem `ref`, a cópia nunca se registra — só existe
-  // visualmente.
   const refDrag = arrastavel ? setNodeRef : undefined;
 
   if (colapsada) {
@@ -102,7 +95,7 @@ export function KanbanColumnHeader({
       </button>
 
       {/* O título é a alça de arraste (reordenar entre irmãs) — só na cópia
-          arrastável (1ª swimlane); nas demais é só um rótulo. */}
+          arrastável (sempre true hoje); mantido pelo mesmo componente. */}
       <span
         {...(arrastavel ? attributes : {})}
         {...(arrastavel ? listeners : {})}

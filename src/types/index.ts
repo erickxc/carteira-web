@@ -607,6 +607,9 @@ export interface AgilWorkspace {
   nome: string;
   descricao?: string;
   ordem: number;
+  /** PIN opcional de 4 dígitos — barreira leve de UI (sem hash/sessão real),
+   *  pra área de trabalho de time interno. Não é autenticação. */
+  senha?: string;
   createdAt: string;
 }
 export type NovaAgilWorkspace = Omit<AgilWorkspace, 'id' | 'ordem' | 'createdAt'>;
@@ -616,17 +619,12 @@ export interface AgilBoard {
   workspaceId: string;
   nome: string;
   descricao?: string;
-  /** Opcional — outro board (da mesma workspace) que funciona como o quadro de
-   *  Iniciativas deste board: renderizado empilhado acima, na mesma tela.
-   *  1 board de Iniciativas ↔ 1 board de Tarefas (ver AgilTarefa.iniciativaId). */
-  iniciativasBoardId?: string;
-  /** true só no board companheiro de Iniciativas, criado automaticamente
-   *  junto de todo board novo — nunca aparece sozinho no seletor de boards,
-   *  só empilhado acima do board de Tarefas que aponta pra ele. */
-  ehIniciativas?: boolean;
+  /** JSON string com os campos exibidos no card deste board (ex.:
+   *  '["responsaveis","dueAt","prioridade"]'). Vazio/ausente = todos visíveis. */
+  camposCard?: string;
   createdAt: string;
 }
-export type NovoAgilBoard = Omit<AgilBoard, 'id' | 'createdAt' | 'iniciativasBoardId' | 'ehIniciativas'>;
+export type NovoAgilBoard = Omit<AgilBoard, 'id' | 'createdAt'>;
 
 export interface AgilColuna {
   id: string;
@@ -646,14 +644,31 @@ export interface AgilColuna {
 }
 export type NovaAgilColuna = Omit<AgilColuna, 'id' | 'ordem' | 'createdAt'>;
 
-export interface AgilSwimlane {
+/** Agrupador/épico de tarefas dentro do MESMO board (não é mais um board
+ *  companheiro — ver docs/superpowers/specs/2026-09-09-agil-estrutura-design.md). */
+export interface AgilIniciativa {
   id: string;
   boardId: string;
   titulo: string;
+  descricao?: string;
+  /** Hex #RRGGBB — identifica a iniciativa visualmente no card da tarefa. */
+  cor?: string;
   ordem: number;
   createdAt: string;
 }
-export type NovaAgilSwimlane = Omit<AgilSwimlane, 'id' | 'ordem' | 'createdAt'>;
+export type NovaAgilIniciativa = Omit<AgilIniciativa, 'id' | 'ordem' | 'createdAt'>;
+
+/** Marco do dia a dia da 2D (Monitoria/Análise/Alvos) — GLOBAL, não por
+ *  board, cadastrável em Configurações do Ágil. Cor pinta o card da tarefa e
+ *  o cabeçalho do modal, com precedência sobre a cor de prioridade. */
+export interface AgilFrente {
+  id: string;
+  nome: string;
+  cor: string;
+  ordem: number;
+  createdAt: string;
+}
+export type NovaAgilFrente = Omit<AgilFrente, 'id' | 'ordem' | 'createdAt'>;
 
 export interface AgilTarefa {
   id: string;
@@ -661,16 +676,16 @@ export interface AgilTarefa {
   numero?: number;
   boardId: string;
   colunaId: string;
-  swimlaneId: string;
-  /** Opcional — id de uma tarefa do board de Iniciativas vinculado ao board
-   *  desta tarefa (ver AgilBoard.iniciativasBoardId). Essa tarefa é a "Iniciativa". */
+  /** Opcional — id de uma AgilIniciativa (agrupador/épico) do MESMO board. */
   iniciativaId?: string;
+  /** Opcional — uma AgilFrente. Substitui o antigo campo `labels` (texto
+   *  livre, removido) — uma frente só por tarefa, não múltiplas. */
+  frenteId?: string;
   titulo: string;
   descricao?: string;
   ordem: number;
   /** Valor livre, editável via CRUD de Categorias (tipo 'prioridade_tarefa'). */
   prioridade?: string;
-  labels: string[];
   /** Monitores responsáveis, vindos do CRUD de monitores (mesma lista de EventoAgenda) — múltiplos, mesmo padrão de EventoAgenda.monitores. */
   responsaveis?: string[];
   /** Data de prazo (yyyy-MM-dd). */
@@ -683,7 +698,7 @@ export interface AgilTarefa {
   createdAt: string;
   updatedAt: string;
 }
-export type NovaAgilTarefa = Omit<AgilTarefa, 'id' | 'ordem' | 'labels' | 'createdAt' | 'updatedAt'> & { labels?: string[] };
+export type NovaAgilTarefa = Omit<AgilTarefa, 'id' | 'ordem' | 'createdAt' | 'updatedAt'>;
 
 export interface AgilSubtarefa {
   id: string;

@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Briefcase, ChevronRight, Plus, Settings } from 'lucide-react';
+import { Briefcase, Plus, Settings } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { KanbanBoard } from '../components/agil/KanbanBoard';
 import { BoardFormModal } from '../components/agil/BoardFormModal';
 import { WorkspaceFormModal } from '../components/agil/WorkspaceFormModal';
-import { Dropdown } from '../components/Dropdown';
+import { FrentesManagerModal } from '../components/agil/FrentesManagerModal';
+import { IniciativasManagerModal } from '../components/agil/IniciativasManagerModal';
+import { AgilSidebar } from '../components/agil/AgilSidebar';
+import { WorkspacePinModal } from '../components/agil/WorkspacePinModal';
+import { desbloquearWorkspace, workspaceDesbloqueada } from '../utils/agilWorkspacePin';
 import { Button } from '../ui';
 import type { AgilBoard, AgilWorkspace } from '../types';
 
@@ -18,6 +22,9 @@ export default function AgilPage() {
   const [boardId, setBoardId] = usePersistedState<string>('agil:boardId', '');
   const [workspaceModal, setWorkspaceModal] = useState<'nova' | AgilWorkspace | null>(null);
   const [boardModal, setBoardModal] = useState<'novo' | AgilBoard | null>(null);
+  const [configAgilAberta, setConfigAgilAberta] = useState(false);
+  const [iniciativasAberta, setIniciativasAberta] = useState(false);
+  const [pinPendente, setPinPendente] = useState<AgilWorkspace | null>(null);
 
   // Navegação vinda de outra tela (ex.: card de tarefas Ágil na ficha do
   // cliente) já chega com workspace/board escolhidos. Depende de `location.key`
@@ -36,123 +43,92 @@ export default function AgilPage() {
     () => agilWorkspaces.find((w) => w.id === workspaceId) ?? agilWorkspaces[0],
     [agilWorkspaces, workspaceId]
   );
-  // Exclui os companheiros de Iniciativas do seletor — eles não são um board
-  // "de verdade" pra escolher, só aparecem empilhados acima do board deles.
   const boardsDaWorkspace = useMemo(
-    () => (workspace ? agilBoards.filter((b) => b.workspaceId === workspace.id && !b.ehIniciativas) : []),
+    () => (workspace ? agilBoards.filter((b) => b.workspaceId === workspace.id) : []),
     [agilBoards, workspace]
   );
   const board = useMemo(
     () => boardsDaWorkspace.find((b) => b.id === boardId) ?? boardsDaWorkspace[0],
     [boardsDaWorkspace, boardId]
   );
-  // Board de Iniciativas vinculado (se houver) — renderizado empilhado ACIMA
-  // do board de tarefas, na mesma tela. Cada KanbanBoard já é autocontido por
-  // board.id (busca suas próprias colunas/swimlanes/tarefas via contexto), daí
-  // não precisar de nenhum componente novo pra isso — só renderizar dois.
-  const boardIniciativas = useMemo(
-    () => (board?.iniciativasBoardId ? agilBoards.find((b) => b.id === board.iniciativasBoardId) : undefined),
-    [agilBoards, board]
-  );
+
+  // Área com PIN e ainda não desbloqueada nesta aba: pede o PIN antes de
+  // mostrar qualquer board dela. Barreira leve de UI, não segurança real.
+  const bloqueada = !!workspace?.senha && !workspaceDesbloqueada(workspace.id);
+
+  function selecionarWorkspace(id: string) {
+    const w = agilWorkspaces.find((x) => x.id === id);
+    if (w?.senha && !workspaceDesbloqueada(w.id)) {
+      setPinPendente(w);
+      return;
+    }
+    setWorkspaceId(id);
+    setBoardId('');
+  }
 
   return (
     <div className="page-container">
-      {/* Cabeçalho único: breadcrumb clicável (Ágil › [Workspace] › Board) à
-          esquerda, ações à direita — um só nível visual em vez de duas linhas
-          soltas (rótulo pequeno + board grande) que antes exigiam o olho pular
-          entre dois pesos tipográficos bem diferentes pra entender "onde estou". */}
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-1">
-        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-          <Briefcase size={15} className="shrink-0 text-text-muted" />
-          <span className="text-[0.78rem] font-semibold text-text-muted">Ágil</span>
+      <div className="flex items-center gap-1.5 mb-4">
+        <Briefcase size={15} className="shrink-0 text-text-muted" />
+        <h1 className="page-title" style={{ margin: 0, fontSize: '1.15rem' }}>Ágil</h1>
+      </div>
 
-          {agilWorkspaces.length > 1 && (
-            <>
-              <ChevronRight size={13} className="shrink-0 text-text-muted" />
-              <Dropdown
-                label="Área de trabalho"
-                value={workspace?.id ?? ''}
-                onChange={(v) => { setWorkspaceId(v as string); setBoardId(''); }}
-                options={agilWorkspaces.map((w) => ({ value: w.id, label: w.nome }))}
-              />
-            </>
-          )}
-          {workspace && (
-            <button
-              onClick={() => setWorkspaceModal(workspace)}
-              className="flex items-center justify-center w-6 h-6 rounded-sm text-text-muted bg-transparent border-none cursor-pointer hover:bg-card-hover hover:text-text-primary"
-              title="Editar área de trabalho"
-            >
-              <Settings size={13} />
-            </button>
-          )}
+      <div className="flex gap-5">
+        <AgilSidebar
+          workspaces={agilWorkspaces}
+          boards={agilBoards}
+          workspaceId={workspace?.id ?? ''}
+          boardId={board?.id ?? ''}
+          onSelectWorkspace={selecionarWorkspace}
+          onSelectBoard={setBoardId}
+          onNovaWorkspace={() => setWorkspaceModal('nova')}
+          onNovoBoard={() => setBoardModal('novo')}
+          onEditWorkspace={(w) => setWorkspaceModal(w)}
+          onAbrirConfigAgil={() => setConfigAgilAberta(true)}
+        />
 
-          <ChevronRight size={13} className="shrink-0 text-text-muted" />
-          {boardsDaWorkspace.length > 1 ? (
-            <Dropdown
-              label="Board"
-              value={board?.id ?? ''}
-              onChange={(v) => setBoardId(v as string)}
-              options={boardsDaWorkspace.map((b) => ({ value: b.id, label: b.nome }))}
-            />
+        <div className="flex-1 min-w-0">
+          {!workspace ? (
+            <div className="empty-state" style={{ padding: '3rem', textAlign: 'center' }}>
+              Nenhuma área de trabalho ainda. Crie a primeira para começar.
+            </div>
+          ) : bloqueada ? (
+            <div className="empty-state" style={{ padding: '3rem', textAlign: 'center' }}>
+              Esta área de trabalho tem PIN. Selecione-a na barra lateral para desbloquear.
+            </div>
           ) : (
-            <h1 className="page-title truncate" style={{ margin: 0, fontSize: '1.15rem' }}>{board?.nome ?? 'Nenhum board'}</h1>
-          )}
+            <>
+              <div className="flex items-start justify-between gap-4 flex-wrap mb-1">
+                <div className="min-w-0">
+                  <h2 className="truncate" style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>{board?.nome ?? 'Nenhum quadro'}</h2>
+                  {board?.descricao && <p className="page-subtitle" style={{ margin: 0 }}>{board.descricao}</p>}
+                </div>
+                <div className="flex-row" style={{ gap: '0.6rem', flexShrink: 0 }}>
+                  {board && (
+                    <Button variant="secondary" onClick={() => setIniciativasAberta(true)}>Iniciativas</Button>
+                  )}
+                  {board && (
+                    <Button variant="secondary" onClick={() => setBoardModal(board)} title="Editar quadro">
+                      <Settings size={16} />
+                    </Button>
+                  )}
+                  <Button variant="primary" onClick={() => setBoardModal('novo')}>
+                    <Plus size={16} /> Novo quadro
+                  </Button>
+                </div>
+              </div>
 
-          <button
-            onClick={() => setWorkspaceModal('nova')}
-            className="flex items-center gap-1 text-[0.72rem] text-text-muted bg-transparent border-none cursor-pointer hover:text-accent"
-            title="Nova área de trabalho"
-          >
-            <Plus size={12} /> Área de trabalho
-          </button>
-        </div>
-
-        <div className="flex-row" style={{ gap: '0.6rem', flexShrink: 0 }}>
-          {board && (
-            <Button variant="secondary" onClick={() => setBoardModal(board)} title="Editar board">
-              <Settings size={16} />
-            </Button>
-          )}
-          {workspace && (
-            <Button variant="primary" onClick={() => setBoardModal('novo')}>
-              <Plus size={16} /> Novo board
-            </Button>
+              {board ? (
+                <KanbanBoard board={board} />
+              ) : (
+                <div className="empty-state" style={{ padding: '3rem', textAlign: 'center' }}>
+                  Nenhum quadro nesta área de trabalho ainda. Crie o primeiro para começar a organizar as tarefas da equipe.
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
-      {board?.descricao && (
-        <p className="page-subtitle" style={{ margin: '0 0 0.25rem' }}>{board.descricao}</p>
-      )}
-
-      {!workspace ? (
-        <div className="empty-state" style={{ padding: '3rem', textAlign: 'center' }}>
-          Nenhuma área de trabalho ainda. Crie a primeira para começar.
-        </div>
-      ) : board ? (
-        <>
-          {boardIniciativas && (
-            <div className="mb-1">
-              <div className="text-[0.72rem] font-semibold uppercase tracking-[0.06em] text-text-muted mb-1">
-                Iniciativas · {boardIniciativas.nome}
-              </div>
-              <KanbanBoard board={boardIniciativas} />
-            </div>
-          )}
-          <div className={boardIniciativas ? 'mt-5' : undefined}>
-            {boardIniciativas && (
-              <div className="text-[0.72rem] font-semibold uppercase tracking-[0.06em] text-text-muted mb-1">
-                Tarefas · {board.nome}
-              </div>
-            )}
-            <KanbanBoard board={board} />
-          </div>
-        </>
-      ) : (
-        <div className="empty-state" style={{ padding: '3rem', textAlign: 'center' }}>
-          Nenhum board nesta área de trabalho ainda. Crie o primeiro para começar a organizar as tarefas da equipe.
-        </div>
-      )}
 
       {workspaceModal && (
         <WorkspaceFormModal
@@ -170,6 +146,26 @@ export default function AgilPage() {
           onClose={() => setBoardModal(null)}
           onCreated={(novo) => setBoardId(novo.id)}
           onDeleted={() => setBoardId('')}
+        />
+      )}
+
+      {configAgilAberta && <FrentesManagerModal onClose={() => setConfigAgilAberta(false)} />}
+
+      {iniciativasAberta && board && (
+        <IniciativasManagerModal boardId={board.id} boardNome={board.nome} onClose={() => setIniciativasAberta(false)} />
+      )}
+
+      {pinPendente && (
+        <WorkspacePinModal
+          workspaceNome={pinPendente.nome}
+          onConfirm={(pin) => {
+            if (pin !== pinPendente.senha) return false;
+            desbloquearWorkspace(pinPendente.id);
+            setWorkspaceId(pinPendente.id);
+            setBoardId('');
+            return true;
+          }}
+          onClose={() => setPinPendente(null)}
         />
       )}
     </div>

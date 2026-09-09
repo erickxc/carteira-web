@@ -11,7 +11,7 @@ interface KanbanGroupHeaderProps {
   totalTarefas: number;
   /** Grupo encerra na última coluna do board: sem borda à direita. */
   ultimaColuna: boolean;
-  /** false quando este cabeçalho é uma CÓPIA repetida (swimlanes 2ª em diante). */
+  /** Sempre true hoje (board sem raias) — mantido pelo mesmo componente que KanbanColumnHeader usa. */
   arrastavel: boolean;
   style: CSSProperties;
   onEdit: () => void;

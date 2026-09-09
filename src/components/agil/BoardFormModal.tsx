@@ -16,11 +16,6 @@ interface BoardFormModalProps {
   onDeleted?: () => void;
 }
 
-/**
- * O quadro de Iniciativas não é mais escolhido aqui — é criado e vinculado
- * automaticamente pelo servidor a cada board novo (workflow padrão embutido,
- * como no Kanbanize; "tem que ter", não é configuração opcional).
- */
 export function BoardFormModal({ initial, workspaceIdInicial, onClose, onCreated, onDeleted }: BoardFormModalProps) {
   const { agilWorkspaces, criarAgilBoard, atualizarAgilBoard, removerAgilBoard } = useCarteira();
   const [nome, setNome] = useState(initial?.nome ?? '');
@@ -50,7 +45,7 @@ export function BoardFormModal({ initial, workspaceIdInicial, onClose, onCreated
 
   async function handleDelete() {
     if (!initial) return;
-    if (!(await confirmDialog(`Excluir o board "${initial.nome}"? Isso também remove todas as colunas, tarefas e o quadro de Iniciativas dele.`, { danger: true, confirmLabel: 'Excluir' }))) return;
+    if (!(await confirmDialog(`Excluir o board "${initial.nome}"? Isso também remove todas as colunas, tarefas e iniciativas dele.`, { danger: true, confirmLabel: 'Excluir' }))) return;
     await removerAgilBoard(initial.id);
     onDeleted?.();
     onClose();
@@ -88,7 +83,7 @@ export function BoardFormModal({ initial, workspaceIdInicial, onClose, onCreated
 
       {!initial && (
         <p className="text-[0.76rem] text-text-muted">
-          Um quadro de Iniciativas é criado automaticamente junto, empilhado acima deste board.
+          O board nasce com 5 colunas de período (Backlog, A fazer, Em andamento, Validação, Concluído) — editáveis depois.
         </p>
       )}
     </ModalShell>

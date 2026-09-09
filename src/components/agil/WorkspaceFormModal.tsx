@@ -17,17 +17,23 @@ export function WorkspaceFormModal({ initial, onClose, onCreated, onDeleted }: W
   const { agilBoards, criarAgilWorkspace, atualizarAgilWorkspace, removerAgilWorkspace } = useCarteira();
   const [nome, setNome] = useState(initial?.nome ?? '');
   const [descricao, setDescricao] = useState(initial?.descricao ?? '');
+  const [senha, setSenha] = useState(initial?.senha ?? '');
   const [saving, setSaving] = useState(false);
+
+  function handleSenhaChange(v: string) {
+    setSenha(v.replace(/\D/g, '').slice(0, 4));
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!nome.trim()) return;
+    if (senha && senha.length !== 4) { toastError('O PIN precisa ter exatamente 4 dígitos.'); return; }
     setSaving(true);
     try {
       if (initial) {
-        await atualizarAgilWorkspace(initial.id, { nome, descricao });
+        await atualizarAgilWorkspace(initial.id, { nome, descricao, senha });
       } else {
-        const nova = await criarAgilWorkspace({ nome, descricao });
+        const nova = await criarAgilWorkspace({ nome, descricao, senha: senha || undefined });
         onCreated?.(nova);
       }
       onClose();
@@ -74,6 +80,12 @@ export function WorkspaceFormModal({ initial, onClose, onCreated, onDeleted }: W
       <Field label="Descrição (opcional)">
         <Textarea tone="modal" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
       </Field>
+      <Field label="PIN de 4 dígitos (opcional)">
+        <Input tone="modal" inputMode="numeric" placeholder="Nenhum" value={senha} onChange={(e) => handleSenhaChange(e.target.value)} />
+      </Field>
+      <p className="text-[0.72rem] text-text-muted -mt-2">
+        Barreira leve pra evitar abrir por engano — não é senha de verdade (sem criptografia, qualquer um com acesso à API vê os dados). Não use pra proteger informação sensível.
+      </p>
     </ModalShell>
   );
 }

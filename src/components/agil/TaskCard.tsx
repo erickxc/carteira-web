@@ -5,6 +5,7 @@ import { differenceInCalendarDays, format, isPast, isToday, parse, parseISO, sta
 import { AlertTriangle, ArrowUp, CalendarClock, Clock, ListChecks, Plus } from 'lucide-react';
 import clsx from 'clsx';
 import { useCarteira } from '../../context/CarteiraContext';
+import { corContrastante } from '../../utils/cor';
 import type { AgilTarefa } from '../../types';
 
 /** Barra de prioridade (idioma `stat-card-accent-bar` do app) — junto do
@@ -32,19 +33,14 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ tarefa, onClick }: TaskCardProps) {
-  const { clientes, agilColunas, agilTarefas, agilSubtarefas, criarAgilSubtarefa, atualizarAgilSubtarefa } = useCarteira();
-  // Iniciativas → Tarefas (Fase B): puramente derivado do dado, sem precisar
-  // saber "em qual grid" o card está sendo renderizado.
-  // - Se OUTRAS tarefas apontam pra esta (`iniciativaId === tarefa.id`), esta é
-  //   uma Iniciativa: mostra uma bolinha por tarefa vinculada, na cor da coluna
-  //   onde ela está agora.
-  const tarefasVinculadas = agilTarefas.filter((t) => t.iniciativaId === tarefa.id);
-  // - Se esta tarefa TEM `iniciativaId`, ela é filha de uma Iniciativa (de outro
-  //   board): mostra uma linha de referência, mesmo idioma do "↑ {cliente}".
-  const iniciativa = tarefa.iniciativaId ? agilTarefas.find((t) => t.id === tarefa.iniciativaId) : undefined;
+  const { clientes, agilIniciativas, agilFrentes, agilSubtarefas, criarAgilSubtarefa, atualizarAgilSubtarefa } = useCarteira();
+  // Se esta tarefa TEM `iniciativaId`, ela é filha de uma Iniciativa (agrupador
+  // do mesmo board): mostra uma linha de referência, mesmo idioma do "↑ {cliente}".
+  const iniciativa = tarefa.iniciativaId ? agilIniciativas.find((i) => i.id === tarefa.iniciativaId) : undefined;
+  const frente = tarefa.frenteId ? agilFrentes.find((f) => f.id === tarefa.frenteId) : undefined;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: tarefa.id,
-    data: { type: 'tarefa', colunaId: tarefa.colunaId, swimlaneId: tarefa.swimlaneId },
+    data: { type: 'tarefa', colunaId: tarefa.colunaId },
   });
   const [novaSub, setNovaSub] = useState<string | null>(null);
 
@@ -98,11 +94,12 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
         isDragging && 'shadow-lg'
       )}
     >
-      {/* Barra de prioridade */}
-      <span
-        aria-hidden
-        className={clsx('absolute left-0 top-0 bottom-0 w-[3px]', PRIORIDADE_BARRA[tarefa.prioridade ?? ''] ?? 'bg-border')}
-      />
+      {/* Barra lateral: cor da Frente tem precedência sobre a de prioridade. */}
+      {frente ? (
+        <span aria-hidden className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: frente.cor }} />
+      ) : (
+        <span aria-hidden className={clsx('absolute left-0 top-0 bottom-0 w-[3px]', PRIORIDADE_BARRA[tarefa.prioridade ?? ''] ?? 'bg-border')} />
+      )}
 
       {/* Linha 1: número do card + prioridade */}
       <div className="flex items-center gap-1.5">
@@ -168,31 +165,11 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
         )}
       </div>
 
-      {/* Iniciativa vinculada (esta tarefa é filha de uma Iniciativa de outro board) */}
+      {/* Iniciativa vinculada (agrupador/épico do mesmo board) */}
       {iniciativa && (
         <div className="flex items-center gap-1 text-[0.66rem] text-text-secondary min-w-0" title={`Iniciativa: ${iniciativa.titulo}`}>
           <ArrowUp size={10} className="shrink-0 text-text-muted" />
           <span className="truncate">Iniciativa: {iniciativa.titulo}</span>
-        </div>
-      )}
-
-      {/* Bolinhas de progresso (esta tarefa É uma Iniciativa) — uma por tarefa
-          vinculada, na cor da coluna onde ela está agora; sem cor definida na
-          coluna, cinza neutro. Só indicador (a tarefa filha pode estar em outro
-          board — abrir daqui exigiria trocar de board, fora de escopo aqui). */}
-      {tarefasVinculadas.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1">
-          {tarefasVinculadas.map((filha) => {
-            const corColuna = agilColunas.find((c) => c.id === filha.colunaId)?.cor;
-            return (
-              <span
-                key={filha.id}
-                title={filha.titulo}
-                className="w-3 h-3 rounded-full border border-border-strong"
-                style={{ background: corColuna ?? '#8a8a92' }}
-              />
-            );
-          })}
         </div>
       )}
 
@@ -204,13 +181,14 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
         </div>
       )}
 
-      {/* Etiquetas */}
-      {tarefa.labels.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {tarefa.labels.map((l) => (
-            <span key={l} className="px-1.5 rounded-full bg-bg border border-border text-[0.62rem] text-text-secondary leading-[1.55]">{l}</span>
-          ))}
-        </div>
+      {/* Frente — substitui o antigo campo Etiquetas (texto livre) */}
+      {frente && (
+        <span
+          className="self-start px-1.5 rounded-full text-[0.62rem] font-medium leading-[1.55]"
+          style={{ background: frente.cor, color: corContrastante(frente.cor) }}
+        >
+          {frente.nome}
+        </span>
       )}
 
       {/* Subtarefas inline */}
