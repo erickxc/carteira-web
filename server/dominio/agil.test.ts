@@ -9,6 +9,7 @@ const boardsDominio = require('./agilBoards.cjs');
 const tarefasDominio = require('./agilTarefas.cjs');
 const iniciativasDominio = require('./agilIniciativas.cjs');
 const frentesDominio = require('./agilFrentes.cjs');
+const camposPersonalizadosDominio = require('./agilCamposPersonalizados.cjs');
 
 describe('dominio/agilIniciativas', () => {
   it('criar gera id, ordem por board e createdAt', () => {
@@ -65,6 +66,34 @@ describe('dominio/agilFrentes', () => {
   });
 });
 
+describe('dominio/agilCamposPersonalizados', () => {
+  it('criar gera id, ordem por board e createdAt', () => {
+    const repo = repoMemoria({ AgilCamposPersonalizados: [] });
+    const novo = camposPersonalizadosDominio.criar(repo, { boardId: 'b1', nome: 'Valor do contrato', tipo: 'numero' });
+    expect(novo.id).toBeTruthy();
+    expect(novo.ordem).toBe(0);
+    expect(repo.get('AgilCamposPersonalizados')).toHaveLength(1);
+  });
+
+  it('atualizar faz merge (ex.: trocar tipo pra selecao e gravar opcoes)', () => {
+    const repo = repoMemoria({ AgilCamposPersonalizados: [{ id: 'c1', boardId: 'b1', nome: 'Status', tipo: 'texto', ordem: 0 }] });
+    const salvo = camposPersonalizadosDominio.atualizar(repo, 'c1', { tipo: 'selecao', opcoes: JSON.stringify(['A', 'B']) });
+    expect(salvo.tipo).toBe('selecao');
+    expect(salvo.opcoes).toBe(JSON.stringify(['A', 'B']));
+  });
+
+  it('remover NÃO limpa o valor gravado nas tarefas — só some da lista de campos', () => {
+    const repo = repoMemoria({
+      AgilCamposPersonalizados: [{ id: 'c1', boardId: 'b1', nome: 'Status', tipo: 'texto', ordem: 0 }],
+      AgilTarefas: [{ id: 't1', boardId: 'b1', colunaId: 'col1', titulo: 'Tarefa', camposPersonalizados: JSON.stringify({ c1: 'em dia' }) }],
+    });
+    const found = camposPersonalizadosDominio.remover(repo, 'c1');
+    expect(found).toBe(true);
+    expect(repo.get('AgilCamposPersonalizados')).toHaveLength(0);
+    expect(repo.get('AgilTarefas')[0].camposPersonalizados).toBe(JSON.stringify({ c1: 'em dia' }));
+  });
+});
+
 describe('dominio/agilBoards', () => {
   it('criar já nasce com as 5 colunas de período padrão, sem criar board companheiro', () => {
     const repo = repoMemoria({ AgilBoards: [], AgilColunas: [] });
@@ -76,7 +105,7 @@ describe('dominio/agilBoards', () => {
     expect(colunas.map((c: { titulo: string }) => c.titulo)).toEqual(['Backlog', 'A fazer', 'Em andamento', 'Validação', 'Concluído']);
   });
 
-  it('remover faz cascade: colunas, tarefas, subtarefas, comentários e iniciativas do board somem', () => {
+  it('remover faz cascade: colunas, tarefas, subtarefas, comentários, iniciativas e campos personalizados do board somem', () => {
     const repo = repoMemoria({
       AgilBoards: [{ id: 'b1', workspaceId: 'w1', nome: 'Board' }],
       AgilColunas: [{ id: 'c1', boardId: 'b1', titulo: 'Backlog', ordem: 0 }],
@@ -84,6 +113,7 @@ describe('dominio/agilBoards', () => {
       AgilSubtarefas: [{ id: 's1', tarefaId: 't1', titulo: 'Sub' }],
       AgilComentarios: [{ id: 'co1', tarefaId: 't1', autor: 'x', texto: 'oi' }],
       AgilIniciativas: [{ id: 'i1', boardId: 'b1', titulo: 'Épico' }],
+      AgilCamposPersonalizados: [{ id: 'cp1', boardId: 'b1', nome: 'Status', tipo: 'texto' }],
     });
     const found = boardsDominio.remover(repo, 'b1');
     expect(found).toBe(true);
@@ -92,6 +122,7 @@ describe('dominio/agilBoards', () => {
     expect(repo.get('AgilSubtarefas')).toHaveLength(0);
     expect(repo.get('AgilComentarios')).toHaveLength(0);
     expect(repo.get('AgilIniciativas')).toHaveLength(0);
+    expect(repo.get('AgilCamposPersonalizados')).toHaveLength(0);
   });
 
   it('remover board NÃO apaga Frentes (globais) — elas sobrevivem ao board', () => {

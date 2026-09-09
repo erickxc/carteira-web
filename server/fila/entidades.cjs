@@ -18,6 +18,7 @@ const agilColunas = require('../dominio/agilColunas.cjs');
 const agilTarefas = require('../dominio/agilTarefas.cjs');
 const agilIniciativas = require('../dominio/agilIniciativas.cjs');
 const agilFrentes = require('../dominio/agilFrentes.cjs');
+const agilCamposPersonalizados = require('../dominio/agilCamposPersonalizados.cjs');
 const agilSubtarefas = require('../dominio/agilSubtarefas.cjs');
 const agilComentarios = require('../dominio/agilComentarios.cjs');
 
@@ -43,6 +44,7 @@ const ENTIDADES = {
   agilTarefas: { sheet: 'AgilTarefas', dominio: agilTarefas },
   agilIniciativas: { sheet: 'AgilIniciativas', dominio: agilIniciativas },
   agilFrentes: { sheet: 'AgilFrentes', dominio: agilFrentes },
+  agilCamposPersonalizados: { sheet: 'AgilCamposPersonalizados', dominio: agilCamposPersonalizados },
   agilSubtarefas: { sheet: 'AgilSubtarefas', dominio: agilSubtarefas },
   agilComentarios: { sheet: 'AgilComentarios', dominio: agilComentarios },
 };

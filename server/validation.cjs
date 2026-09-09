@@ -125,6 +125,22 @@ const agilFrenteUpdateSchema = z.object({
 }).passthrough();
 const agilReorderFrenteItemSchema = z.object({ id: textoObrigatorio('id'), ordem: z.number() });
 
+const AGIL_CAMPO_TIPOS = ['texto', 'numero', 'data', 'selecao', 'pessoa'];
+// `opcoes` chega como JSON string já serializada pelo frontend (mesmo padrão
+// de camposCard/servicos — SheetJS não persiste array direto na célula), por
+// isso passa por `.passthrough()` sem schema de array aqui.
+const agilCampoPersonalizadoCreateSchema = z.object({
+  boardId: textoObrigatorio('boardId'),
+  nome: textoObrigatorio('nome'),
+  tipo: z.enum(AGIL_CAMPO_TIPOS),
+}).passthrough();
+const agilCampoPersonalizadoUpdateSchema = z.object({
+  boardId: textoObrigatorio('boardId').optional(),
+  nome: textoObrigatorio('nome').optional(),
+  tipo: z.enum(AGIL_CAMPO_TIPOS).optional(),
+}).passthrough();
+const agilReorderCampoPersonalizadoItemSchema = z.object({ id: textoObrigatorio('id'), ordem: z.number() });
+
 const agilColunaCreateSchema = z.object({
   boardId: textoObrigatorio('boardId'),
   titulo: textoObrigatorio('titulo'),
@@ -212,6 +228,7 @@ module.exports = {
   agilTarefaCreateSchema, agilTarefaUpdateSchema, agilReorderTarefaItemSchema,
   agilIniciativaCreateSchema, agilIniciativaUpdateSchema, agilReorderIniciativaItemSchema,
   agilFrenteCreateSchema, agilFrenteUpdateSchema, agilReorderFrenteItemSchema,
+  agilCampoPersonalizadoCreateSchema, agilCampoPersonalizadoUpdateSchema, agilReorderCampoPersonalizadoItemSchema,
   agilSubtarefaCreateSchema, agilSubtarefaUpdateSchema,
   agilComentarioCreateSchema,
 };

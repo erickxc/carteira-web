@@ -391,7 +391,9 @@ const AGIL_COLUNAS_HEADERS = ['id', 'boardId', 'parentId', 'titulo', 'ordem', 'w
 // frenteId: opcional — uma AgilFrente (cor do card/cabeçalho do modal, com
 // precedência sobre a cor de prioridade). Substitui o antigo `labels`
 // (texto livre, removido) — uma frente só por tarefa, não múltiplas.
-const AGIL_TAREFAS_HEADERS = ['id', 'numero', 'boardId', 'colunaId', 'iniciativaId', 'frenteId', 'titulo', 'descricao', 'ordem', 'prioridade', 'responsaveis', 'dueAt', 'clientId', 'bloqueado', 'motivoBloqueio', 'createdAt', 'updatedAt'];
+// camposPersonalizados: JSON string `{ campoId: valor }` — arrays/objetos não
+// sobrevivem ao json_to_sheet do SheetJS (mesmo padrão de camposCard/servicos).
+const AGIL_TAREFAS_HEADERS = ['id', 'numero', 'boardId', 'colunaId', 'iniciativaId', 'frenteId', 'titulo', 'descricao', 'ordem', 'prioridade', 'responsaveis', 'dueAt', 'clientId', 'bloqueado', 'motivoBloqueio', 'camposPersonalizados', 'createdAt', 'updatedAt'];
 // Série recorrente de agenda: guarda a REGRA (aberta, sem "durante N meses") +
 // o molde do evento. As ocorrências do mês são materializadas pelo servidor
 // (server/agendaSeries.cjs) — mesmo padrão de relatoriosAutomaticos.cjs.
@@ -404,6 +406,9 @@ const AGIL_INICIATIVAS_HEADERS = ['id', 'boardId', 'titulo', 'descricao', 'cor',
 // board), cadastrável em Configurações do Ágil. Cor pinta o card da tarefa e o
 // cabeçalho do modal, com precedência sobre a cor de prioridade.
 const AGIL_FRENTES_HEADERS = ['id', 'nome', 'cor', 'ordem', 'createdAt'];
+// Por board: campo que o usuário define pra aquele quadro (ex.: "Valor do
+// contrato"). opcoes: JSON string (array), só relevante quando tipo='selecao'.
+const AGIL_CAMPOS_PERSONALIZADOS_HEADERS = ['id', 'boardId', 'nome', 'tipo', 'opcoes', 'ordem', 'createdAt'];
 const AGIL_SUBTAREFAS_HEADERS = ['id', 'tarefaId', 'titulo', 'concluida', 'ordem', 'createdAt'];
 const AGIL_COMENTARIOS_HEADERS = ['id', 'tarefaId', 'autor', 'texto', 'createdAt'];
 // fatores é string[] serializado como JSON (mesmo padrão de servicos/labels
@@ -482,6 +487,7 @@ const HEADERS_BY_SHEET = {
   AgilTarefas: AGIL_TAREFAS_HEADERS,
   AgilIniciativas: AGIL_INICIATIVAS_HEADERS,
   AgilFrentes: AGIL_FRENTES_HEADERS,
+  AgilCamposPersonalizados: AGIL_CAMPOS_PERSONALIZADOS_HEADERS,
   AgilSubtarefas: AGIL_SUBTAREFAS_HEADERS,
   AgilComentarios: AGIL_COMENTARIOS_HEADERS,
   AnalisesIA: ANALISES_IA_HEADERS,
@@ -545,7 +551,7 @@ module.exports = {
   CLAUDE_CLI_TIMEOUT_MS, CLAUDE_CLI_CWD, CLAUDE_MCP_SERVER,
   CLIENTES_HEADERS, AGENDA_HEADERS, LEMBRETES_HEADERS, CATEGORIAS_HEADERS, ACOES_HEADERS, MODELOS_HEADERS, CADENCIAS_HEADERS,
   AGENDA_SERIES_HEADERS,
-  AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_INICIATIVAS_HEADERS, AGIL_FRENTES_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS,
+  AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_INICIATIVAS_HEADERS, AGIL_FRENTES_HEADERS, AGIL_CAMPOS_PERSONALIZADOS_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS,
   ANALISES_IA_HEADERS, ANALISES_IA_HISTORICO_HEADERS, ACOES_IA_HEADERS, MEMORIA_IA_HEADERS, USO_IA_HEADERS,
   HEADERS_BY_SHEET,
   CADENCIAS_SEED, MODELOS_SEED, CATEGORIAS_SEED,
