@@ -8,6 +8,10 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.26
+
+- Corrigido: tarefa sem prazo não impede mais concluir uma Iniciativa (Ágil).
+
 ## 1.4.25
 
 - **Notificações do Windows**, configuráveis por categoria (Configurações →
