@@ -10,18 +10,13 @@ teste, ajuste interno), não entra aqui.
 
 ## 1.4.25
 
-- **Notificações do Windows**: em Configurações → Sistema, dá pra ligar/desligar
-  o aviso nativo do Windows (fora da tela do app) por categoria — reuniões,
-  lembretes, relatórios, análises de IA atualizadas, cliente novo cadastrado
-  e novo evento. Só funciona em quem abre o sistema pelo `.exe` local.
-- Ágil: filtros do quadro ficaram num painel fixo do lado direito, separados
-  do board.
-- Ágil: a Frente da tarefa agora aparece como um ícone no canto do card, em
-  vez de precisar abrir um seletor.
-- Ágil: uma Iniciativa não pode mais ser marcada como concluída enquanto
-  tiver tarefa pendente vinculada a ela.
-- Ágil: card de tarefa com espaçamento mais compacto, e correção de uma
-  coluna duplicada que podia aparecer na migração do quadro.
+- **Notificações do Windows**, configuráveis por categoria (Configurações →
+  Sistema): reuniões, lembretes, relatórios, análises de IA, cliente novo,
+  novo evento.
+- Ágil: filtros num painel fixo à direita, separados do board.
+- Ágil: Frente vira ícone no card, sem precisar abrir seletor.
+- Ágil: Iniciativa não pode ser concluída com tarefa pendente.
+- Ágil: card mais compacto + correção de coluna duplicada na migração.
 
 ## 1.4.24
 
