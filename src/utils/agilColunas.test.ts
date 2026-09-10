@@ -44,10 +44,10 @@ describe('tarefaPendenteBloqueiaConclusao', () => {
     expect(tarefaPendenteBloqueiaConclusao('i1', tarefas, colunas)).toBeNull();
   });
 
-  it('devolve o título da tarefa pendente quando há uma em coluna não concluída', () => {
+  it('devolve o título da tarefa pendente COM PRAZO quando há uma em coluna não concluída', () => {
     const colunas = [coluna({ id: 'c1', titulo: 'Em andamento' }), coluna({ id: 'c2', titulo: 'Concluído' })];
     const tarefas = [
-      tarefa({ id: 't1', titulo: 'Fazer X', iniciativaId: 'i1', colunaId: 'c1' }),
+      tarefa({ id: 't1', titulo: 'Fazer X', iniciativaId: 'i1', colunaId: 'c1', dueAt: '2026-12-01' }),
       tarefa({ id: 't2', titulo: 'Fazer Y', iniciativaId: 'i1', colunaId: 'c2' }),
     ];
     expect(tarefaPendenteBloqueiaConclusao('i1', tarefas, colunas)).toBe('Fazer X');
@@ -55,7 +55,22 @@ describe('tarefaPendenteBloqueiaConclusao', () => {
 
   it('ignora tarefas de OUTRA iniciativa', () => {
     const colunas = [coluna({ id: 'c1', titulo: 'Em andamento' })];
-    const tarefas = [tarefa({ id: 't1', iniciativaId: 'outra-iniciativa', colunaId: 'c1' })];
+    const tarefas = [tarefa({ id: 't1', iniciativaId: 'outra-iniciativa', colunaId: 'c1', dueAt: '2026-12-01' })];
     expect(tarefaPendenteBloqueiaConclusao('i1', tarefas, colunas)).toBeNull();
+  });
+
+  it('não bloqueia com tarefa pendente SEM prazo (backlog/informal)', () => {
+    const colunas = [coluna({ id: 'c1', titulo: 'Em andamento' })];
+    const tarefas = [tarefa({ id: 't1', titulo: 'Fazer X', iniciativaId: 'i1', colunaId: 'c1' })];
+    expect(tarefaPendenteBloqueiaConclusao('i1', tarefas, colunas)).toBeNull();
+  });
+
+  it('bloqueia com uma tarefa sem prazo e outra com prazo pendentes — reporta a com prazo', () => {
+    const colunas = [coluna({ id: 'c1', titulo: 'Em andamento' })];
+    const tarefas = [
+      tarefa({ id: 't1', titulo: 'Sem prazo', iniciativaId: 'i1', colunaId: 'c1' }),
+      tarefa({ id: 't2', titulo: 'Com prazo', iniciativaId: 'i1', colunaId: 'c1', dueAt: '2026-12-01' }),
+    ];
+    expect(tarefaPendenteBloqueiaConclusao('i1', tarefas, colunas)).toBe('Com prazo');
   });
 });

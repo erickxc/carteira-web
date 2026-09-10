@@ -9,8 +9,9 @@ export const colunaConcluida = (titulo?: string) => /conclu|feito|pronto|final|d
 /**
  * Regra de negócio: uma Iniciativa (tarefa do board fixo de Iniciativas) não
  * pode ser movida pra uma coluna concluída enquanto houver tarefa vinculada
- * (`AgilTarefa.iniciativaId === iniciativaId`) numa coluna que NÃO é
- * concluída — ainda tem trabalho em andamento/pendente por baixo dela.
+ * (`AgilTarefa.iniciativaId === iniciativaId`) COM PRAZO (`dueAt`) numa
+ * coluna que NÃO é concluída — só compromisso com data assumida conta como
+ * bloqueio; card de backlog/informal sem prazo não impede a conclusão.
  * Devolve o título da primeira tarefa pendente encontrada (pra mensagem de
  * erro), ou `null` se pode concluir.
  */
@@ -20,7 +21,7 @@ export function tarefaPendenteBloqueiaConclusao(
   agilColunas: AgilColuna[]
 ): string | null {
   const pendente = agilTarefas.find((t) => {
-    if (t.iniciativaId !== iniciativaId) return false;
+    if (t.iniciativaId !== iniciativaId || !t.dueAt) return false;
     const coluna = agilColunas.find((c) => c.id === t.colunaId);
     return !colunaConcluida(coluna?.titulo);
   });
