@@ -10,6 +10,7 @@ import { ReminderFormModal } from './components/ReminderFormModal';
 import { RegistroContatoModal } from './components/RegistroContatoModal';
 import { ImportarResumoModal } from './components/ImportarResumoModal';
 import { ReminderPopup } from './components/ReminderPopup';
+import { NotificacoesEventos } from './components/NotificacoesEventos';
 import { BaseSincronizadaCard } from './components/dashboard/BaseSincronizadaCard';
 import { ReunioesHojeCard } from './components/ReunioesHojeCard';
 import { ToastHost } from './components/ToastHost';
@@ -123,6 +124,7 @@ function Layout({ children }: { children: ReactNode }) {
       {importarResumoOpen && <ImportarResumoModal onClose={() => setImportarResumoOpen(false)} />}
       {registroContatoOpen && <RegistroContatoModal onClose={() => setRegistroContatoOpen(false)} />}
       <ReminderPopup />
+      <NotificacoesEventos />
       <ToastHost />
       <ConfirmHost />
     </div>

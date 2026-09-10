@@ -15,6 +15,7 @@
  */
 const fs = require('fs');
 const { execFileSync } = require('child_process');
+const { notificar } = require('../notificacoes.cjs');
 
 const CHAVE_RUN = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
 const NOME_VALOR = 'CarteiraWeb';
@@ -89,6 +90,20 @@ router.put('/iniciar-com-windows', (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Notificações nativas do Windows: mesmo domínio "config local desta
+// máquina" — o toast só aparece na tela de quem hospeda ESTE processo, então
+// o mesmo critério de "suportado" (aberto pelo .exe local) vale aqui.
+router.get('/notificacoes/suportado', (req, res) => {
+  res.json({ suportado: suportado() });
+});
+
+router.post('/notificacoes', (req, res) => {
+  const { titulo, mensagem } = req.body || {};
+  if (!titulo || typeof titulo !== 'string') return res.status(400).json({ error: 'titulo é obrigatório.' });
+  notificar({ titulo, mensagem: typeof mensagem === 'string' ? mensagem : '' });
+  res.json({ success: true });
 });
 
 /**

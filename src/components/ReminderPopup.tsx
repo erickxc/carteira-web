@@ -5,6 +5,7 @@ import { Bell, User, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { previousBusinessDay } from '../utils/holidays';
 import { prepararSom, tocarSomNotificacao } from '../utils/som';
+import { notificarSeHabilitado } from '../utils/notificacoesNativas';
 import { Badge, Button, Card } from '../ui';
 import type { Lembrete, Recorrencia } from '../types';
 
@@ -58,6 +59,9 @@ export function ReminderPopup() {
           firingRef.current.add(reminder.id);
           setQueue((prev) => [...prev, reminder]);
           tocarSomNotificacao(); // barulho ao disparar o lembrete
+          // Lembrete nascido junto de um evento (eventId) é tratado como categoria
+          // "reuniões" nas preferências; lembrete solto é "lembretes".
+          notificarSeHabilitado(reminder.eventId ? 'reunioes' : 'lembretes', reminder.title, reminder.description);
           setTimeout(() => dismiss(reminder.id), TOAST_TIMEOUT_MS);
 
           const next = nextOccurrence(original, reminder.recurrence);

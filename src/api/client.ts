@@ -87,6 +87,12 @@ export const verificarIniciarComWindows = () => request<StatusIniciarComWindows>
 export const definirIniciarComWindows = (ativo: boolean) =>
   request<StatusIniciarComWindows>('/sistema/iniciar-com-windows', { method: 'PUT', body: JSON.stringify({ ativo }) });
 
+// Notificações nativas do Windows — mesmo critério de "suportado" que
+// "Iniciar com o Windows" (só true quando o app foi aberto pelo .exe local).
+export const verificarNotificacoesSuportadas = () => request<{ suportado: boolean }>('/sistema/notificacoes/suportado');
+export const dispararNotificacaoNativa = (titulo: string, mensagem?: string) =>
+  request<{ success: boolean }>('/sistema/notificacoes', { method: 'POST', body: JSON.stringify({ titulo, mensagem }) });
+
 async function tratarResposta<T>(res: Response): Promise<T> {
   if (!res.ok) {
     // As rotas respondem `{ error: '...' }` em 400/404/409 — sem isso, o usuário

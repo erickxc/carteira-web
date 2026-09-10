@@ -14,6 +14,7 @@ import ProvedorIACard from '../components/config/ProvedorIACard';
 import LimiteContaCard from '../components/config/LimiteContaCard';
 import McpClaudeCard from '../components/config/McpClaudeCard';
 import UsoIACard from '../components/config/UsoIACard';
+import NotificacoesWindowsCard from '../components/config/NotificacoesWindowsCard';
 import { CATEGORIA_TIPO_LABEL, SEGMENTO_LABEL, type Cadencias, type Categoria, type CategoriaTipo, type Modelo, type Segmento, type TipoLinkServico } from '../types';
 
 const TIPOS: CategoriaTipo[] = ['servico', 'tipo_evento', 'status_cliente', 'status_evento', 'monitor', 'tipo_lembrete', 'sala', 'local_cliente', 'grupo_referencia'];
@@ -650,6 +651,9 @@ export default function ConfiguracoesPage() {
           </div>
           <div className="section">
             <IniciarComWindowsCard />
+          </div>
+          <div className="section">
+            <NotificacoesWindowsCard />
           </div>
           <div className="section">
             <ProvedorIACard />

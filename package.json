@@ -1,7 +1,7 @@
 {
   "name": "carteira-web",
   "private": true,
-  "version": "1.4.24",
+  "version": "1.4.25",
   "type": "module",
   "scripts": {
     "start": "concurrently \"node server.cjs\" \"vite\"",
@@ -15,12 +15,12 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "carteira-shared": "file:./shared",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "adm-zip": "^0.6.0",
     "better-sqlite3": "^13.0.3",
+    "carteira-shared": "file:./shared",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "concurrently": "^9.2.1",
@@ -32,6 +32,7 @@
     "lucide-react": "^1.16.0",
     "multer": "^2.0.1",
     "node-cron": "^4.6.0",
+    "node-notifier": "^10.0.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.18.1",
