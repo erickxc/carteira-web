@@ -80,7 +80,7 @@ const SUGESTOES: { titulo: string; pergunta: string }[] = [
  * audita o que ele já fez.
  */
 export default function AssistenteIAPage() {
-  const { clientes, filtroMonitor, recarregar } = useCarteira();
+  const { clientes, filtroMonitor, revalidarSilencioso } = useCarteira();
   const location = useLocation();
   // Cliente em foco também persiste: voltar pra tela com a conversa de um
   // cliente mas o seletor zerado faria a próxima pergunta perder o contexto.
@@ -236,7 +236,15 @@ export default function AssistenteIAPage() {
       // uma pergunta de leitura paga um refetch a mais (barato — LAN, SQLite
       // local, e a resposta do agente já levou segundos), enquanto errar a
       // adivinhação traz de volta exatamente o bug acima.
-      void recarregar();
+      //
+      // `revalidarSilencioso`, NUNCA `recarregar()`: aquele liga `loading`
+      // global, e `App.tsx` troca a tela INTEIRA por `<LoadingScreen />`
+      // enquanto `loading` é true — desmontava esta própria página no meio
+      // do caminho, perdendo a resposta que acabou de chegar (nunca gravada
+      // no histórico). Bug real relatado como "trava: manda a pergunta, a
+      // tela recarrega, some tudo" — a resposta chegava (por isso os passos
+      // apareciam), só sumia ~1 tick depois.
+      void revalidarSilencioso();
     } catch (err) {
       toastError(err instanceof Error ? err.message : 'Falha ao falar com o monitorIA.');
       setMensagens((prev) => prev.slice(0, -1));

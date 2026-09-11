@@ -91,6 +91,8 @@ interface CarteiraContextValue {
   loading: boolean;
   error: string | null;
   recarregar: () => Promise<void>;
+  /** Revalidação sem afetar `loading`/tela cheia — ver comentário na implementação. */
+  revalidarSilencioso: () => Promise<void>;
 
   /** Camada isolada e somente-leitura: nunca afeta `loading`/`error` acima —
    *  uma falha aqui (Google fora do ar, link não configurado) não pode
@@ -290,6 +292,27 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar dados.');
     } finally {
       setLoading(false);
+    }
+  }, [buscarTudo, aplicarDados]);
+
+  /**
+   * Revalidação SILENCIOSA — busca tudo de novo sem tocar em `loading`.
+   * `recarregar` (acima) liga `loading`, e `App.tsx` troca a tela inteira por
+   * `<LoadingScreen />` enquanto `loading` é true — certo pra carga inicial,
+   * mas um bug real quando chamado depois de uma ação em segundo plano: o
+   * monitorIA (`AssistenteIAPage`) chamava `recarregar()` só pra atualizar o
+   * estado global depois de responder uma pergunta, e isso desmontava a
+   * própria tela do chat no meio do caminho — a resposta que acabou de
+   * chegar nunca era gravada no histórico (relatado como "trava: manda a
+   * pergunta, a tela recarrega, some tudo"). Use esta função em qualquer
+   * revalidação disparada por uma ação do usuário que não deva interromper
+   * a tela; `recarregar` fica só para a carga inicial e o retry manual.
+   */
+  const revalidarSilencioso = useCallback(async () => {
+    try {
+      aplicarDados(await buscarTudo());
+    } catch (err) {
+      console.warn('Revalidação silenciosa falhou (mantendo dados atuais):', err);
     }
   }, [buscarTudo, aplicarDados]);
 
@@ -777,6 +800,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       recarregar,
+      revalidarSilencioso,
       ceoAgenda,
       opcoesPorTipo,
       categoriasPorTipo,
@@ -837,7 +861,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     [
       clientes, filtroMonitor, definirFiltroMonitor, monitoresDisponiveis, agenda, agendaSeries, lembretes, categorias, acoes, analisesIA, modelos, cadencias,
       agilWorkspaces, agilBoards, agilColunas, agilFrentes, agilCamposPersonalizados, agilTarefas, agilSubtarefas, agilComentarios,
-      loading, error, recarregar, ceoAgenda, opcoesPorTipo, categoriasPorTipo,
+      loading, error, recarregar, revalidarSilencioso, ceoAgenda, opcoesPorTipo, categoriasPorTipo,
       criarCliente, criarClientesEmLote, atualizarClienteFn, removerClienteFn,
       criarEventoFn, atualizarEventoFn, removerEventoFn, enviarAnexoEvento, removerAnexoEvento,
       criarAgendaSerieFn, atualizarAgendaSerieFn, removerAgendaSerieFn,
