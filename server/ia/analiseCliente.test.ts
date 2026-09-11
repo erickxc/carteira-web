@@ -197,6 +197,21 @@ describe('analiseCliente: montarPrompt inclui o segmento do cliente (campo Local
   });
 });
 
+describe('analiseCliente: não inventar segmento de negócio a partir de jargão ambíguo', () => {
+  /**
+   * Bug real de produção (cliente MEGA, segmento cadastrado "Autopeça"): as
+   * reuniões novas tinham conteúdo praticamente vazio (assunto genérico
+   * repetido "Alvo Mais Atacado", sem pauta/decisão) e o modelo preencheu a
+   * lacuna inventando "Empresa de segurança cibernética" no Perfil —
+   * contradizendo o segmento explicitamente informado no prompt.
+   */
+  it('instrui o modelo a nunca contradizer o segmento informado', () => {
+    const prompt = montarPrompt({ cliente: { id: 'c1', empresa: 'Empresa Teste', local: 'Autopeça' }, eventosNovos: [], dossieAnterior: '' });
+    expect(prompt).toMatch(/Perfil.*NUNCA contradiz o segmento/i);
+    expect(prompt).toMatch(/Alvo Mais Atacado/);
+  });
+});
+
 describe('truncarSemQuebrarFrase', () => {
   /**
    * Caso real de produção (lote de 03/09): `.slice()` puro cortou um dossiê
