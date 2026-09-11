@@ -94,7 +94,14 @@ export function detectarNovidades(
     const anterior = snapshot.geradoEmPorCliente.get(analise.clientId);
     if (anterior === analise.geradoEm) continue;
     snapshot.geradoEmPorCliente.set(analise.clientId, analise.geradoEm);
-    novidades.push({ categoria: 'analises_ia', titulo: 'Análise de IA atualizada', mensagem: analise.resumo });
+    // Pedido do usuário: sem o nome da loja no título, o toast não dizia de
+    // qual cliente era a análise — só dava pra saber abrindo o app.
+    const empresa = dados.clientes.find((c) => c.id === analise.clientId)?.empresa;
+    novidades.push({
+      categoria: 'analises_ia',
+      titulo: empresa ? `Análise de IA atualizada — ${empresa}` : 'Análise de IA atualizada',
+      mensagem: analise.resumo,
+    });
   }
 
   return novidades;

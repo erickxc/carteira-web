@@ -52,7 +52,14 @@ describe('detectarNovidades', () => {
     ]);
   });
 
-  it('detecta análise de IA atualizada quando geradoEm muda pro mesmo cliente', () => {
+  it('detecta análise de IA atualizada quando geradoEm muda pro mesmo cliente — título inclui a loja', () => {
+    const snap = snapshotVazio();
+    detectarNovidades(snap, { clientes: [cliente('c1', 'Loja Teste')], agenda: [], analisesIA: [analise('c1', '2026-01-01T00:00:00Z')] });
+    const novidades = detectarNovidades(snap, { clientes: [cliente('c1', 'Loja Teste')], agenda: [], analisesIA: [analise('c1', '2026-02-01T00:00:00Z')] });
+    expect(novidades).toEqual([{ categoria: 'analises_ia', titulo: 'Análise de IA atualizada — Loja Teste', mensagem: 'resumo' }]);
+  });
+
+  it('análise de IA sem cliente correspondente cai no título genérico', () => {
     const snap = snapshotVazio();
     detectarNovidades(snap, { clientes: [], agenda: [], analisesIA: [analise('c1', '2026-01-01T00:00:00Z')] });
     const novidades = detectarNovidades(snap, { clientes: [], agenda: [], analisesIA: [analise('c1', '2026-02-01T00:00:00Z')] });
