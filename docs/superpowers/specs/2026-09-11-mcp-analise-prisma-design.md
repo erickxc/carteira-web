@@ -129,6 +129,13 @@ aproximação. Rodei o motor real (extraído do `.git` do projeto) contra o
 `Base.csv` de um cliente real pra confirmar estrutura e valores antes de
 especificar — ver Validação abaixo.
 
+**A implementação continua em JS, dentro deste projeto** — nada aqui chama
+Python em runtime. É reescrever `server/alvos/analiseEstrategica.cjs` (as 3
+funções do MVP) pra bater com a fórmula real, usando a MESMA fonte de dados
+que a Carteira já lê (`Dados Mais Atacado.xlsx`, não o CSV do analisador). O
+Python só foi usado agora, no desenho, como referência de comportamento
+correto.
+
 **MVP — 3 relatórios** (de um catálogo de 14; os demais ficam para uma
 rodada futura, fora deste escopo):
 
@@ -207,7 +214,10 @@ contra o mesmo cliente antes de considerar a reescrita pronta.
 Conjunto **diferente** do da Carteira (que é sobre cadência/reunião). Aqui o
 recorte é comercial. Os 3 relatórios do MVP viram cartão de alerta (um por
 achado, com uma `pergunta` pronta), mesmo padrão de `server/ia/alertas.cjs`.
-Nada é gravado: alerta é derivado, recalculado a cada chamada.
+Nada é gravado: alerta é derivado, recalculado a cada chamada. `--alertas`
+devolve só os cartões (sem `tabelas`) — a tabela aparece quando o Prisma usa
+a `pergunta` do cartão em `--pergunta`, e o agente chama a ferramenta de
+análise correspondente.
 
 ### Provedor de LLM
 
