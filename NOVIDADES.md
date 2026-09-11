@@ -8,6 +8,10 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.33
+
+- Corrigido: "Gerar ata com IA" podia deixar Decisões vazias mesmo quando a reunião teve uma decisão real (o corte de transcrição longa estava descartando decisões ditas no meio da reunião).
+
 ## 1.4.32
 
 - Ágil: campo "Cliente vinculado" da tarefa agora tem busca por texto (era um menu sem busca).
