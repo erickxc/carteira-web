@@ -8,6 +8,12 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.29
+
+- Registro da Monitoria agora também vale pra Precificação (era um campo separado) — inclui a opção "manteve", e cliente/grupo ficam preenchidos ao lançar vários produtos do mesmo cliente.
+- Corrigido: tremor ao passar o mouse perto da borda em vários lugares (sidebar, cards, badges, linhas da Agenda, Kanban).
+- Corrigido: "Gerar ata com IA" podia deixar Decisões/Próximos Passos vazios em reuniões longas.
+
 ## 1.4.28
 
 - Dossiê do cliente: entre pendências, um erro/inconsistência encontrada (ex.: parâmetro de estoque errado) agora tem prioridade sobre tarefa administrativa de rotina.
