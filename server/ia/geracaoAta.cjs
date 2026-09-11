@@ -6,6 +6,25 @@ const { textoDirecaoOuLegado } = require('./formatoRegistroMonitoria.cjs');
 // não o controle real (o prompt já pede texto enxuto).
 const SECAO_MAX_CHARS = 4000;
 
+// Teto da TRANSCRIÇÃO enviada ao modelo — pedido real do usuário: gerar ata
+// media 106s, e prompt grande é o principal fator (mais tokens de entrada,
+// mais tempo de resposta). Dois tetos:
+//  - COM Registro da Monitoria preenchido, os fatos por cliente/produto já
+//    estão cobertos ali (fonte de maior confiança, ver prompt abaixo) — a
+//    transcrição vira só contexto/nuance, então corta bem mais curto.
+//  - SEM registro, a transcrição é a ÚNICA fonte dos fatos — mantém quase
+//    inteira, só um teto de segurança bem generoso pra reunião de horas não
+//    estourar o prompt/tempo de resposta de forma patológica.
+const TRANSCRICAO_MAX_CHARS_COM_REGISTROS = 3000;
+const TRANSCRICAO_MAX_CHARS_SEM_REGISTROS = 12000;
+
+function truncarTranscricao(transcricaoTrim, temRegistros) {
+  if (!transcricaoTrim) return '';
+  const teto = temRegistros ? TRANSCRICAO_MAX_CHARS_COM_REGISTROS : TRANSCRICAO_MAX_CHARS_SEM_REGISTROS;
+  if (transcricaoTrim.length <= teto) return transcricaoTrim;
+  return `${transcricaoTrim.slice(0, teto).trim()}\n[transcrição truncada — ${temRegistros ? 'os registros estruturados acima já cobrem os fatos por cliente/produto' : 'reunião muito longa'}]`;
+}
+
 function textoChecklist(checklist) {
   const itens = Array.isArray(checklist) ? checklist : [];
   if (itens.length === 0) return '(nenhum item de pauta registrado)';
@@ -53,8 +72,8 @@ function montarPromptAta({ subject, resumo, description, checklist, produtosSitu
   // "[Negócios 2D]" nas tarefas internas, e o usuário quer o NOME da pessoa —
   // "2D" é a própria casa, não identifica responsável.
   const responsavelInterno = (Array.isArray(monitores) ? monitores.filter(Boolean) : []).join(', ') || '2D';
-  const transcricaoTrim = transcricao?.trim();
   const temRegistros = Array.isArray(produtosSituacao) && produtosSituacao.length > 0;
+  const transcricaoTrim = truncarTranscricao(transcricao?.trim(), temRegistros);
 
   return `Você ajuda um monitor da 2D Consultores a redigir trechos da ata de uma reunião de monitoria. Escreva em português do Brasil, revisado, sem erros de ortografia/gramática.
 

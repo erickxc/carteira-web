@@ -3,6 +3,7 @@ import { endOfWeek, format, isValid, parse, setHours, setMinutes, startOfWeek } 
 import { AlertTriangle, Ban, Bot, Check, FileText, Loader2 } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { gerarAta } from '../utils/ata';
+import { limparStreamAtaIA } from '../utils/limparStreamAtaIA';
 import { registrarRemarcacao } from '../utils/reagendamento';
 import { ehServicoDeReuniao } from '../utils/cadenciaServico';
 import { gerarAtaPdf } from '../utils/ataPdf';
@@ -110,6 +111,17 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [gerandoAtaIA, setGerandoAtaIA] = useState(false);
+  // Cronômetro visível durante a geração — a média real medida (ver
+  // `server/ia/geracaoAta.cjs`) é ~106s, então "Gerando..." parado sem
+  // nenhuma noção de tempo parecia travado. Reforça o texto crescendo ao
+  // vivo no campo Ata (limparStreamAtaIA), não substitui.
+  const [gerandoAtaSegundos, setGerandoAtaSegundos] = useState(0);
+  useEffect(() => {
+    if (!gerandoAtaIA) return;
+    const inicio = Date.now();
+    const timer = window.setInterval(() => setGerandoAtaSegundos(Math.floor((Date.now() - inicio) / 1000)), 1000);
+    return () => window.clearInterval(timer);
+  }, [gerandoAtaIA]);
   const [catalogoAlvos, setCatalogoAlvos] = useState<{ clientId: string; catalogo: CatalogoAlvosCliente | null } | null>(null);
   const [mostrarPopupCancelamento, setMostrarPopupCancelamento] = useState(false);
 
@@ -238,6 +250,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   // mesma forma determinística. Sobrescreve a ata direto (sem confirmação):
   // decisão do usuário, o campo continua editável depois.
   async function gerarAtaComIAHandler() {
+    setGerandoAtaSegundos(0);
     setGerandoAtaIA(true);
     try {
       const secoes = await gerarAtaComIAStream({
@@ -247,7 +260,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         // Sem isto a IA não sabe o nome de quem responde pelo lado da 2D e
         // volta a escrever "[2D]"/"[Negócios 2D]" nos próximos passos.
         monitores,
-      }, (textoAcumulado) => setAta(textoAcumulado)); // texto cru aparecendo no campo enquanto gera — substituído pela versão formatada abaixo quando terminar.
+      }, (textoAcumulado) => setAta(limparStreamAtaIA(textoAcumulado))); // texto (já sem sintaxe de JSON) crescendo no campo enquanto gera — substituído pela versão formatada abaixo quando terminar.
       const novaAta = gerarAta(
         {
           clientName: clienteSelecionado?.empresa ?? '',
@@ -693,7 +706,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                     onClick={() => void gerarAtaComIAHandler()}
                     title="A IA lê resumo, pauta, produtos/situação e a transcrição (se houver) e escreve o que foi tratado, decisões e próximos passos — substitui o texto da ata."
                   >
-                    {gerandoAtaIA ? (<><Loader2 size={12} className="animate-spin" /> Gerando...</>) : (<><Bot size={12} /> Gerar ata com IA</>)}
+                    {gerandoAtaIA
+                      ? (<><Loader2 size={12} className="animate-spin" /> Gerando... {Math.floor(gerandoAtaSegundos / 60)}:{String(gerandoAtaSegundos % 60).padStart(2, '0')}</>)
+                      : (<><Bot size={12} /> Gerar ata com IA</>)}
                   </Button>
                 </span>
               </span>

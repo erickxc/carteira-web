@@ -190,6 +190,36 @@ describe('geracaoAta: montarPromptAta', () => {
   });
 });
 
+describe('geracaoAta: truncamento da transcrição (prompt menor = resposta mais rápida)', () => {
+  it('transcrição curta não é truncada, com ou sem registros', () => {
+    const prompt = montarPromptAta({ subject: 'Reunião', transcricao: 'Transcrição curta.' });
+    expect(prompt).toContain('Transcrição curta.');
+    expect(prompt).not.toContain('transcrição truncada');
+  });
+
+  it('SEM registros, corta num teto bem mais generoso (fonte única dos fatos)', () => {
+    const transcricaoGrande = 'Frase da transcrição. '.repeat(1000); // ~23000 chars
+    const prompt = montarPromptAta({ subject: 'Reunião', transcricao: transcricaoGrande, produtosSituacao: [] });
+    expect(prompt).toContain('[transcrição truncada — reunião muito longa]');
+    // Truncou, mas manteve MUITO mais transcrição que o teto "com registros" abaixo.
+    const repeticoes = prompt.split('Frase da transcrição.').length - 1;
+    expect(repeticoes).toBeGreaterThan(400);
+    expect(repeticoes).toBeLessThan(1000);
+  });
+
+  it('COM registros preenchidos, corta bem mais curto (fatos já cobertos ali)', () => {
+    const transcricaoMedia = 'Frase da transcrição. '.repeat(300); // ~6900 chars
+    const prompt = montarPromptAta({
+      subject: 'Reunião',
+      transcricao: transcricaoMedia,
+      produtosSituacao: [{ cliente: 'Comac', produto: 'Filtro', direcao: 'queda' }],
+    });
+    expect(prompt).toContain('[transcrição truncada — os registros estruturados acima já cobrem os fatos por cliente/produto]');
+    const repeticoes = prompt.split('Frase da transcrição.').length - 1;
+    expect(repeticoes).toBeLessThan(150); // bem menos que as 300 originais
+  });
+});
+
 describe('geracaoAta: streaming (progresso ao vivo)', () => {
   /** Fake com `gerarJSONStream` — dispara onDelta em pedaços antes de devolver
    *  o resultado final, simulando o que o Claude CLI real faz. */
