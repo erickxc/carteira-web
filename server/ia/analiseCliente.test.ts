@@ -384,3 +384,11 @@ describe('analiseCliente: norma de cancelamento repetido como desengajamento', (
     expect(prompt).toMatch(/2\+ ocorrências/);
   });
 });
+
+describe('analiseCliente: prioridade em "Pendências" — achado técnico sobre tarefa administrativa', () => {
+  it('instrui o modelo a priorizar erro/inconsistência concreta sobre tarefa de rotina quando competem pelo mesmo slot', () => {
+    const prompt = montarPrompt({ cliente, eventosNovos: [], dossieAnterior: '' });
+    expect(prompt).toMatch(/erro ou inconsist[êe]ncia concreta/i);
+    expect(prompt).toMatch(/pesa mais que uma tarefa administrativa de rotina/i);
+  });
+});
