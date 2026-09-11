@@ -777,13 +777,16 @@ textarea:focus-visible {
   cursor: pointer;
   font: inherit;
   color: inherit;
-  transition: background 0.14s ease, border-color 0.14s ease, transform 0.14s ease, box-shadow 0.14s ease;
+  transition: background 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
 }
 
+/* Sem translate no hover de propósito: deslocar a própria caixa que recebe o
+   hover é auto-referente — perto da borda, o deslocamento tira a caixa de
+   baixo do cursor, o hover cai, ela volta, o cursor cai dentro de novo, e por
+   aí vai (tremor visível, reportado pelo usuário em vários lugares do app). */
 .agenda-row:hover {
   background: var(--card-hover);
   border-color: var(--accent);
-  transform: translateX(4px);
   box-shadow: var(--shadow-md);
 }
 
@@ -1466,10 +1469,10 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .calendar-chip.is-ghost:hover { background: transparent; border-color: var(--border); transform: none; box-shadow: none; }
 .calendar-chip.is-ghost .calendar-chip-title { color: var(--text-muted); }
 
+/* Sem translate no hover de propósito (ver .agenda-row:hover acima). */
 .calendar-chip:hover {
   background: var(--card-hover);
   border-color: var(--border-strong);
-  transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(0,0,0,0.4);
 }
 .calendar-chip.is-dragging { opacity: 0.4; }
@@ -1802,9 +1805,11 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
   display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
   padding: 7px 9px 7px 11px; border: 1px solid var(--border-strong); border-left: 4px solid var(--text-muted);
   border-radius: 7px; background: var(--card-hover); cursor: grab;
-  transition: transform 0.1s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  transition: box-shadow 0.12s ease, border-color 0.12s ease;
 }
-.kanban-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+/* Sem translate no hover de propósito: deslocar a própria caixa que recebe o
+   hover é auto-referente (tremor perto da borda — ver Card.tsx/Badge.tsx). */
+.kanban-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-strong); }
 .kanban-card.is-dragging { opacity: 0.4; }
 .kanban-card-top { display: flex; align-items: center; gap: 6px; }
 .kanban-card-time { font-size: 0.72rem; font-weight: 700; color: var(--accent); flex: 1; }

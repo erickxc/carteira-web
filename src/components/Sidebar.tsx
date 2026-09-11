@@ -40,7 +40,7 @@ const QUICK_BTN = 'sidebar-action sidebar-quick-btn flex flex-col items-center j
 function linkClass(isActive: boolean): string {
   return isActive
     ? `${LINK_BASE} bg-accent-soft text-accent font-semibold`
-    : `${LINK_BASE} text-text-secondary hover:bg-card-hover hover:text-accent hover:translate-x-1`;
+    : `${LINK_BASE} text-text-secondary hover:bg-card-hover hover:text-accent`;
 }
 
 export function Sidebar({ onOpenSearch, onNewEvent, onNewReminder, onImportarResumo, onRegistrarContatoCliente, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: SidebarProps) {

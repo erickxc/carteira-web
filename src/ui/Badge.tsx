@@ -2,9 +2,15 @@ import type { HTMLAttributes } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
 
-/** Pílula de status (equivale a .badge/.badge-* do index.css). */
+/**
+ * Pílula de status (equivale a .badge/.badge-* do index.css). Sem `scale` no
+ * hover de propósito: crescer a própria caixa que recebe o hover é
+ * auto-referente — perto da borda, o crescimento tira o cursor de cima do
+ * badge, o hover cai, ele volta ao tamanho normal, o cursor cai dentro de
+ * novo, e por aí vai (tremor visível, reportado pelo usuário).
+ */
 const badge = cva(
-  'inline-flex items-center gap-1 px-[9px] py-[2px] rounded-full text-[0.72rem] font-medium leading-[1.5] transition-[filter,transform] duration-100 hover:brightness-[1.3] hover:scale-[1.06]',
+  'inline-flex items-center gap-1 px-[9px] py-[2px] rounded-full text-[0.72rem] font-medium leading-[1.5] transition-[filter] duration-100 hover:brightness-[1.3]',
   {
     variants: {
       variant: {

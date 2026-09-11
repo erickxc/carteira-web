@@ -92,8 +92,10 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
       onClick={onClick}
       className={clsx(
         'group/card relative flex flex-col gap-1.5 pl-3 pr-2.5 py-2 rounded bg-card border border-border shadow-sm cursor-pointer overflow-hidden',
-        'transition-[box-shadow,border-color,transform] duration-150',
-        'hover:border-border-strong hover:shadow-md hover:-translate-y-[1px]',
+        'transition-[box-shadow,border-color] duration-150',
+        // Sem translate no hover: deslocar a própria caixa que recebe o hover
+        // é auto-referente (tremor perto da borda — ver Card.tsx).
+        'hover:border-border-strong hover:shadow-md',
         isDragging && 'shadow-lg'
       )}
     >
