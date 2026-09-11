@@ -1,4 +1,5 @@
 const { addMinutes, format, parseISO } = require('date-fns');
+const { textoDirecaoOuLegado } = require('./formatoRegistroMonitoria.cjs');
 
 /**
  * Port server-side (CommonJS) de `src/utils/ata.ts` (`gerarAta`) — usado por
@@ -108,9 +109,8 @@ function gerarAta(ev, ctx = {}, ia) {
     L.push('', 'REGISTRO DA MONITORIA');
     registros.forEach((r) => {
       const quem = [r.cliente, r.produto].filter(Boolean).join(' · ') || '(sem identificação)';
-      const tag = r.tag ? ` [${r.tag}]` : '';
       const grupo = r.grupo ? ` (${r.grupo})` : '';
-      L.push(`   ${TRACO} ${quem}: ${r.situacao}${tag}${grupo}`);
+      L.push(`   ${TRACO} ${quem}: ${textoDirecaoOuLegado(r)}${grupo}`);
     });
   }
 

@@ -7,8 +7,8 @@ import { registrarRemarcacao } from '../utils/reagendamento';
 import { ehServicoDeReuniao } from '../utils/cadenciaServico';
 import { gerarAtaPdf } from '../utils/ataPdf';
 import {
-  gerarAtaComIAStream, buscarCatalogoAlvos, buscarTagsClienteFinal,
-  type CatalogoAlvosCliente, type TagClienteFinal,
+  gerarAtaComIAStream, buscarCatalogoAlvos,
+  type CatalogoAlvosCliente,
 } from '../api/client';
 import { toastError, toastInfo, toastSuccess } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
@@ -111,7 +111,6 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const [uploading, setUploading] = useState(false);
   const [gerandoAtaIA, setGerandoAtaIA] = useState(false);
   const [catalogoAlvos, setCatalogoAlvos] = useState<{ clientId: string; catalogo: CatalogoAlvosCliente | null } | null>(null);
-  const [tagsClienteFinal, setTagsClienteFinal] = useState<TagClienteFinal[]>([]);
   const [mostrarPopupCancelamento, setMostrarPopupCancelamento] = useState(false);
 
   const eventoAtual = initial ? agenda.find((a) => a.id === initial.id) : undefined;
@@ -149,10 +148,6 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
       .then((c) => setCatalogoAlvos({ clientId, catalogo: c }))
       .catch(() => setCatalogoAlvos({ clientId, catalogo: null }));
   }, [clientId]);
-
-  useEffect(() => {
-    buscarTagsClienteFinal().then(setTagsClienteFinal).catch(() => setTagsClienteFinal([]));
-  }, []);
 
   // Interação pontual (Contato/Ligação) — a única em que "quem procurou quem"
   // faz sentido. Relatório é entrega nossa; reunião é agendamento.
@@ -643,7 +638,6 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                 ps={ps}
                 produtosDisponiveis={catalogoAlvos?.clientId === clientId ? (catalogoAlvos.catalogo?.produtos ?? []) : []}
                 clientesDisponiveis={catalogoAlvos?.clientId === clientId ? (catalogoAlvos.catalogo?.clientes ?? []) : []}
-                tags={tagsClienteFinal}
                 gruposReferencia={opcoesPorTipo('grupo_referencia')}
               />
             )}

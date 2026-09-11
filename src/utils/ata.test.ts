@@ -132,22 +132,38 @@ describe('gerarAta: Registro da Monitoria (produtosSituacao) vira seção própr
     expect(texto).not.toContain('REGISTRO DA MONITORIA');
   });
 
-  it('registro com cliente + produto + tag', () => {
+  it('registro com cliente + produto + direção (queda) + observação', () => {
     const texto = gerarAta({
       ...evBase,
-      produtosSituacao: [{ id: '1', cliente: 'GSM Logística', produto: 'Amortecedor', situacao: 'queda em agosto', tag: 'Alerta' }],
+      produtosSituacao: [{ id: '1', cliente: 'GSM Logística', produto: 'Amortecedor', direcao: 'queda', observacao: 'caiu em agosto' }],
     });
     expect(texto).toContain('REGISTRO DA MONITORIA');
-    expect(texto).toContain('— GSM Logística · Amortecedor: queda em agosto [Alerta]');
+    expect(texto).toContain('— GSM Logística · Amortecedor: ↓ queda — caiu em agosto');
+  });
+
+  it('registro com direção (aumento) sem observação', () => {
+    const texto = gerarAta({
+      ...evBase,
+      produtosSituacao: [{ id: '1', cliente: 'Comac', produto: 'Filtro', direcao: 'aumento' }],
+    });
+    expect(texto).toContain('— Comac · Filtro: ↑ aumento');
   });
 
   it('registro só de cliente final (sem produto) não imprime "undefined"', () => {
     const texto = gerarAta({
       ...evBase,
+      produtosSituacao: [{ id: '1', cliente: 'Comac', direcao: 'queda' }],
+    });
+    expect(texto).toContain('— Comac: ↓ queda');
+    expect(texto).not.toContain('undefined');
+  });
+
+  it('registro ANTIGO (sem direcao, só situacao legado) continua exibindo o texto livre', () => {
+    const texto = gerarAta({
+      ...evBase,
       produtosSituacao: [{ id: '1', cliente: 'Comac', situacao: 'encerrou operação' }],
     });
     expect(texto).toContain('— Comac: encerrou operação');
-    expect(texto).not.toContain('undefined');
   });
 });
 

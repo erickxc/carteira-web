@@ -228,17 +228,22 @@ export interface ChecklistItem {
  *  - cliente final + produto + situação — ex.: "GSM: amortecedor caiu em agosto"
  *  - só produto + situação (`cliente` vazio) — ex.: "coxim: queda geral"
  */
+export type DirecaoSituacao = 'aumento' | 'queda';
+
 export interface ProdutoSituacaoItem {
   id: string;
   produto?: string;
   cliente?: string;
-  /** O que foi conversado/mudou — TEXTO LIVRE. Não confundir com `tag`: a
-   *  situação é o relato ("cliente disse que vai reduzir compra"), a tag é
-   *  classificação do cliente final (vocabulário do Ecossistema). */
-  situacao: string;
-  /** Classificação opcional do cliente final (rótulo de `tags.json`:
-   *  Alerta, Inadimplente, Cliente Balcão, Encerrou operação). */
-  tag?: string;
+  /** Aumento ou queda — substituiu o texto livre de `situacao` (ver abaixo).
+   *  Registro NOVO sempre preenche isto (obrigatório no form). */
+  direcao?: DirecaoSituacao;
+  /** Observação opcional em texto livre, complementar à seta de `direcao`. */
+  observacao?: string;
+  /** @deprecated Texto livre do relato ("cliente disse que vai reduzir
+   *  compra") — campo antigo, substituído por `direcao` + `observacao`.
+   *  Mantido só pra não perder o texto de registros já salvos (só leitura;
+   *  registro novo nunca grava isto, grava `direcao`/`observacao`). */
+  situacao?: string;
   /** Grupo referência do cliente final (G1/G2/G3 — categoria `grupo_referencia`).
    *  É do CLIENTE FINAL (a loja/empresa citada na reunião), não do cliente da
    *  carteira — por isso só aparece quando o modo de registro inclui cliente. */

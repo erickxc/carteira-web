@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { clienteLLM, provedorAtivo } = require('./provider.cjs');
+const { textoDirecaoOuLegado } = require('./formatoRegistroMonitoria.cjs');
 
 // Mesmo espírito de DOSSIE_MAX_CHARS (analiseCliente.cjs): rede de segurança,
 // não o controle real (o prompt já pede texto enxuto).
@@ -20,7 +21,7 @@ function textoProdutosSituacao(itens) {
   if (!Array.isArray(itens) || itens.length === 0) return '(nenhum)';
   return itens.map((i) => {
     const quem = [i?.cliente, i?.produto].filter(Boolean).join(' · ') || '(sem identificação)';
-    return `- ${quem}: ${i?.situacao ?? ''}${i?.tag ? ` [tag: ${i.tag}]` : ''}${i?.grupo ? ` [grupo: ${i.grupo}]` : ''}`;
+    return `- ${quem}: ${textoDirecaoOuLegado(i || {})}${i?.grupo ? ` [grupo: ${i.grupo}]` : ''}`;
   }).join('\n');
 }
 

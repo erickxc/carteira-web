@@ -1,5 +1,15 @@
 import { addMinutes, format, parseISO } from 'date-fns';
-import type { Cliente, EventoAgenda } from '../types';
+import type { Cliente, EventoAgenda, ProdutoSituacaoItem } from '../types';
+
+/** Direção (aumento/queda) + observação, com fallback pro texto livre legado
+ *  de `situacao` (registro salvo antes de `direcao` existir). Duplicado de
+ *  propósito em `server/ia/ataTexto.cjs` — ver CLAUDE.md sobre o par
+ *  ata.ts/ataTexto.cjs (fronteira ESM/CJS, sem build step no servidor). */
+function textoDirecaoOuLegado(item: ProdutoSituacaoItem): string {
+  if (item.direcao === 'aumento') return `↑ aumento${item.observacao ? ` — ${item.observacao}` : ''}`;
+  if (item.direcao === 'queda') return `↓ queda${item.observacao ? ` — ${item.observacao}` : ''}`;
+  return item.situacao || '';
+}
 
 /** Contexto opcional: sem ele a ata ainda sai, só perde participantes do cliente. */
 export interface AtaContexto {
@@ -160,9 +170,8 @@ export function gerarAta(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}, ia?: 
     L.push('', 'REGISTRO DA MONITORIA');
     registros.forEach((r) => {
       const quem = [r.cliente, r.produto].filter(Boolean).join(' · ') || '(sem identificação)';
-      const tag = r.tag ? ` [${r.tag}]` : '';
       const grupo = r.grupo ? ` (${r.grupo})` : '';
-      L.push(`   ${TRACO} ${quem}: ${r.situacao}${tag}${grupo}`);
+      L.push(`   ${TRACO} ${quem}: ${textoDirecaoOuLegado(r)}${grupo}`);
     });
   }
 

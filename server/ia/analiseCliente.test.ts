@@ -352,7 +352,7 @@ describe('analiseCliente: textoEvento inclui motivo e histórico de remarcação
 });
 
 describe('analiseCliente: registro da monitoria (cliente final / produto / tag)', () => {
-  it('registro SÓ de cliente final (sem produto) aparece no prompt', () => {
+  it('registro SÓ de cliente final (sem produto) aparece no prompt (legado, sem direcao)', () => {
     const texto = textoEvento({
       date: '2026-09-01', status: 'Concluído',
       produtosSituacao: [{ cliente: 'Comac', situacao: 'parou de comprar, migrou pra distribuição direta' }],
@@ -360,23 +360,20 @@ describe('analiseCliente: registro da monitoria (cliente final / produto / tag)'
     expect(texto).toContain('- Comac: parou de comprar, migrou pra distribuição direta');
   });
 
-  /** Situação e tag são coisas diferentes: a situação é o relato, a tag é
-   *  classificação do cliente final — as duas têm de chegar ao modelo. */
-  it('tag do cliente final entra junto da situação, sem substituí-la', () => {
+  it('cliente + produto + direção (queda) + observação sai identificado', () => {
     const texto = textoEvento({
       date: '2026-09-01', status: 'Concluído',
-      produtosSituacao: [{ cliente: 'Comac', situacao: 'sem retorno desde julho', tag: 'Encerrou operação' }],
+      produtosSituacao: [{ cliente: 'GSM Logística', produto: 'Amortecedor', direcao: 'queda', observacao: 'caiu em agosto' }],
     });
-    expect(texto).toContain('sem retorno desde julho');
-    expect(texto).toContain('[tag: Encerrou operação]');
+    expect(texto).toContain('- GSM Logística · Amortecedor: ↓ queda — caiu em agosto');
   });
 
-  it('cliente + produto sai identificado nos dois', () => {
+  it('direção sem observação sai só com o rótulo', () => {
     const texto = textoEvento({
       date: '2026-09-01', status: 'Concluído',
-      produtosSituacao: [{ cliente: 'GSM Logística', produto: 'Amortecedor', situacao: 'queda em agosto' }],
+      produtosSituacao: [{ cliente: 'Comac', direcao: 'aumento' }],
     });
-    expect(texto).toContain('- GSM Logística · Amortecedor: queda em agosto');
+    expect(texto).toContain('- Comac: ↑ aumento');
   });
 });
 

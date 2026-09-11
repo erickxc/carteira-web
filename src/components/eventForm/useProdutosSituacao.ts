@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { ModoProdutoSituacao, ProdutoSituacaoItem } from '../../types';
+import type { DirecaoSituacao, ModoProdutoSituacao, ProdutoSituacaoItem } from '../../types';
 
 /**
  * Estado da tabela "Registro da Monitoria" (serviço Monitoria, dentro de uma
@@ -14,21 +14,19 @@ export function useProdutosSituacao(initial: ProdutoSituacaoItem[] = []) {
   const [modo, setModo] = useState<ModoProdutoSituacao>('cliente_produto');
   const [produto, setProduto] = useState('');
   const [cliente, setCliente] = useState('');
-  const [situacao, setSituacao] = useState('');
-  // Tag é OPCIONAL e separada da situação: situação é o relato do que foi
-  // conversado (texto livre), tag é classificação do cliente final
-  // (vocabulário compartilhado do Ecossistema). Confundir as duas foi um erro
-  // meu — o campo de situação tinha virado um seletor de tag.
-  const [tag, setTag] = useState('');
-  // Grupo referência (G1/G2/G3) é do CLIENTE FINAL, igual a tag — não do
-  // produto. Mesmo tratamento: opcional, só existe quando o modo inclui cliente.
+  // Substituiu o texto livre de "situação": aumento/queda, obrigatório pra
+  // liberar o botão de adicionar (mesma regra que o texto livre tinha antes).
+  const [direcao, setDirecao] = useState<DirecaoSituacao | null>(null);
+  const [observacao, setObservacao] = useState('');
+  // Grupo referência (G1/G2/G3) é do CLIENTE FINAL — opcional, só existe
+  // quando o modo inclui cliente. (Tag foi removida — pedido do usuário.)
   const [grupo, setGrupo] = useState('');
 
   const precisaProduto = modo !== 'cliente';
   const precisaCliente = modo !== 'produto';
 
   /** Falta algo pro modo escolhido? Usado pra desabilitar o botão de adicionar. */
-  const incompleto = !situacao.trim()
+  const incompleto = !direcao
     || (precisaProduto && !produto.trim())
     || (precisaCliente && !cliente.trim());
 
@@ -38,7 +36,7 @@ export function useProdutosSituacao(initial: ProdutoSituacaoItem[] = []) {
     // gravado junto (ex.: trocar pra "só produto" e o cliente digitado antes
     // continuar indo no item).
     if (novo === 'cliente') setProduto('');
-    if (novo === 'produto') { setCliente(''); setTag(''); setGrupo(''); }
+    if (novo === 'produto') { setCliente(''); setGrupo(''); }
   }
 
   function addItem() {
@@ -47,14 +45,14 @@ export function useProdutosSituacao(initial: ProdutoSituacaoItem[] = []) {
       id: uuidv4(),
       produto: precisaProduto ? produto.trim() : undefined,
       cliente: precisaCliente ? cliente.trim() : undefined,
-      situacao: situacao.trim(),
-      tag: precisaCliente && tag ? tag : undefined,
+      direcao: direcao ?? undefined,
+      observacao: observacao.trim() || undefined,
       grupo: precisaCliente && grupo ? grupo : undefined,
     }]);
     setProduto('');
     setCliente('');
-    setSituacao('');
-    setTag('');
+    setDirecao(null);
+    setObservacao('');
     setGrupo('');
   }
   const removeItem = (id: string) => setItens((prev) => prev.filter((i) => i.id !== id));
@@ -62,7 +60,7 @@ export function useProdutosSituacao(initial: ProdutoSituacaoItem[] = []) {
   return {
     itens, setItens,
     modo, trocarModo, precisaProduto, precisaCliente, incompleto,
-    produto, setProduto, cliente, setCliente, situacao, setSituacao, tag, setTag, grupo, setGrupo,
+    produto, setProduto, cliente, setCliente, direcao, setDirecao, observacao, setObservacao, grupo, setGrupo,
     addItem, removeItem,
   };
 }

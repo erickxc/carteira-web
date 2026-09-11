@@ -1605,6 +1605,16 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .acao-dot.is-ok { background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 18%, transparent); }
 .acao-dot.is-warn { background: var(--warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 18%, transparent); }
 .acao-dot.is-danger { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent); }
+/* Toggle aumento/queda do "Registro da Monitoria" (ProdutosSituacaoField). */
+.direcao-toggle-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 8px;
+  background: transparent; border: 1px solid var(--border-strong);
+  color: var(--text-muted); cursor: pointer;
+}
+.direcao-toggle-btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+.direcao-toggle-btn.is-active-aumento { color: var(--success); border-color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.direcao-toggle-btn.is-active-queda { color: var(--danger); border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 /* Vários relógios (cadência por serviço) empilhados dentro do card. */
 .acao-card-info.is-stack { flex-direction: column; align-items: stretch; gap: 7px; }
 .acao-clock { display: flex; align-items: center; gap: 8px; }

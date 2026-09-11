@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
+import clsx from 'clsx';
 import { Badge, Button, Chip, Field, Input } from '../../ui';
 import { Dropdown } from '../Dropdown';
 import { AutocompleteInput } from '../AutocompleteInput';
-import { MODO_PRODUTO_SITUACAO_LABEL, type ModoProdutoSituacao } from '../../types';
-import type { TagClienteFinal } from '../../api/client';
+import { MODO_PRODUTO_SITUACAO_LABEL, type DirecaoSituacao, type ModoProdutoSituacao } from '../../types';
 import type { useProdutosSituacao } from './useProdutosSituacao';
 
 const MODOS: ModoProdutoSituacao[] = ['cliente', 'cliente_produto', 'produto'];
@@ -15,9 +15,6 @@ interface ProdutosSituacaoFieldProps {
    *  a integração não está disponível/aquecida: aí o campo é só texto livre. */
   produtosDisponiveis?: string[];
   clientesDisponiveis?: string[];
-  /** Vocabulário compartilhado do Ecossistema (tags.json) — usado como situação
-   *  no modo "Cliente × Situação". */
-  tags?: TagClienteFinal[];
   /** Opções de grupo referência (categoria `grupo_referencia`: G1/G2/G3) — do
    *  CLIENTE FINAL, não do cliente da carteira. */
   gruposReferencia?: string[];
@@ -30,17 +27,17 @@ interface ProdutosSituacaoFieldProps {
  *
  * Três modos (pedido do usuário): só cliente final, cliente + produto, ou só
  * produto. Nome de produto/cliente final vem por AUTOCOMPLETE do catálogo real
- * — digitar às cegas gerava nome que nenhum cálculo encontra depois. No modo
- * "só cliente", a situação vem das TAGS compartilhadas (Alerta, Inadimplente,
- * Cliente Balcão, Encerrou operação) em vez de texto livre, pra harmonizar com
- * o resto do Ecossistema.
+ * — digitar às cegas gerava nome que nenhum cálculo encontra depois.
+ *
+ * A situação virou um indicador de direção (seta ↑ verde = aumento, ↓ vermelha
+ * = queda) em vez de texto livre — pedido do usuário, pra ficar rápido de
+ * registrar e visualmente óbvio na lista. `observacao` (opcional) cobre o que
+ * antes ia no texto livre, quando há algo a detalhar. Registro ANTIGO
+ * (`situacao` de texto livre, sem `direcao`) continua exibido como estava —
+ * ver renderização condicional abaixo.
  */
-export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDisponiveis = [], tags = [], gruposReferencia = [] }: ProdutosSituacaoFieldProps) {
-  // Tag aparece como campo PRÓPRIO e opcional, ao lado da situação — nunca no
-  // lugar dela: situação é o relato do que foi conversado (texto livre), tag é
-  // classificação do cliente final. Só faz sentido quando há cliente final.
-  const mostrarTag = ps.precisaCliente && tags.length > 0;
-  // Grupo referência (G1/G2/G3) também é do CLIENTE FINAL — mesma regra da tag.
+export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDisponiveis = [], gruposReferencia = [] }: ProdutosSituacaoFieldProps) {
+  // Grupo referência (G1/G2/G3) é do CLIENTE FINAL — só faz sentido quando há cliente final.
   const mostrarGrupo = ps.precisaCliente && gruposReferencia.length > 0;
 
   // Recolhido por padrão quando já há vários registros (edição de reunião
@@ -84,13 +81,18 @@ export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDi
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 260, overflowY: 'auto', paddingRight: 2 }}>
               {ps.itens.map((it) => (
                 <div key={it.id} className="check-item">
-                  <span style={{ flex: 1 }}>
-                    {it.cliente && <strong>{it.cliente}</strong>}
-                    {it.cliente && it.produto ? ' · ' : null}
-                    {it.produto && <strong>{it.produto}</strong>}
-                    {': '}{it.situacao}
-                    {it.tag && <Badge variant="muted" style={{ marginLeft: 6 }}>{it.tag}</Badge>}
-                    {it.grupo && <Badge variant="warning" style={{ marginLeft: 6 }}>{it.grupo}</Badge>}
+                  <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {it.direcao === 'aumento' && <ArrowUpCircle size={14} style={{ color: 'var(--success)', flexShrink: 0 }} />}
+                    {it.direcao === 'queda' && <ArrowDownCircle size={14} style={{ color: 'var(--danger)', flexShrink: 0 }} />}
+                    <span>
+                      {it.cliente && <strong>{it.cliente}</strong>}
+                      {it.cliente && it.produto ? ' · ' : null}
+                      {it.produto && <strong>{it.produto}</strong>}
+                      {(it.cliente || it.produto) && ': '}
+                      {/* Registro antigo (sem direcao) mostra o texto livre legado. */}
+                      {it.direcao ? (it.observacao || '—') : it.situacao}
+                      {it.grupo && <Badge variant="warning" style={{ marginLeft: 6 }}>{it.grupo}</Badge>}
+                    </span>
                   </span>
                   <Button variant="secondary" size="icon" onClick={() => ps.removeItem(it.id)} aria-label="Remover"><X size={12} /></Button>
                 </div>
@@ -129,25 +131,15 @@ export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDi
             opcoes={produtosDisponiveis}
           />
         )}
+        <DirecaoToggle value={ps.direcao} onChange={ps.setDirecao} />
         <Input
           tone="modal"
           style={{ flex: '2 1 200px' }}
-          placeholder="Situação — o que foi conversado/mudou"
-          value={ps.situacao}
-          onChange={(e) => ps.setSituacao(e.target.value)}
+          placeholder="Observação (opcional)"
+          value={ps.observacao}
+          onChange={(e) => ps.setObservacao(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ps.addItem(); } }}
         />
-        {mostrarTag && (
-          <div style={{ flex: '0 1 170px' }}>
-            <Dropdown
-              variant="campo"
-              label="Tag (opcional)"
-              value={ps.tag}
-              onChange={(v) => ps.setTag(v as string)}
-              options={[{ value: '', label: 'Tag (opcional)' }, ...tags.map((t) => ({ value: t.rotulo, label: t.rotulo }))]}
-            />
-          </div>
-        )}
         {mostrarGrupo && (
           <div style={{ flex: '0 1 150px' }}>
             <Dropdown
@@ -167,11 +159,34 @@ export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDi
           Ainda sem lista de clientes finais para este cliente (sem dados de venda vinculados). Digite o nome manualmente — a lista passa a aparecer aqui depois da primeira leitura dos dados.
         </span>
       )}
-      {mostrarTag && (
-        <span className="text-text-muted" style={{ fontSize: 11, textTransform: 'none', letterSpacing: 'normal', marginTop: 6, display: 'block' }}>
-          A tag classifica o cliente final (vocabulário do Ecossistema) e é opcional — a situação é o relato do que foi conversado.
-        </span>
-      )}
     </Field>
+  );
+}
+
+/** Toggle exclusivo aumento (seta verde) / queda (seta vermelha) — nenhuma
+ *  das duas marcada por padrão, exatamente uma escolhida é obrigatório
+ *  (`useProdutosSituacao.incompleto`). */
+function DirecaoToggle({ value, onChange }: { value: DirecaoSituacao | null; onChange: (v: DirecaoSituacao) => void }) {
+  return (
+    <div className="flex-row" style={{ gap: 4, flex: '0 0 auto' }}>
+      <button
+        type="button"
+        title="Aumento"
+        aria-pressed={value === 'aumento'}
+        onClick={() => onChange('aumento')}
+        className={clsx('direcao-toggle-btn', value === 'aumento' && 'is-active-aumento')}
+      >
+        <ArrowUpCircle size={18} />
+      </button>
+      <button
+        type="button"
+        title="Queda"
+        aria-pressed={value === 'queda'}
+        onClick={() => onChange('queda')}
+        className={clsx('direcao-toggle-btn', value === 'queda' && 'is-active-queda')}
+      >
+        <ArrowDownCircle size={18} />
+      </button>
+    </div>
   );
 }

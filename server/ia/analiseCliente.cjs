@@ -1,5 +1,6 @@
 const { clienteLLM } = require('./provider.cjs');
 const { listaJSON } = require('../dominio/cadenciaServico.cjs');
+const { textoDirecaoOuLegado } = require('./formatoRegistroMonitoria.cjs');
 
 const NIVEIS_RISCO = ['baixo', 'medio', 'alto'];
 
@@ -21,12 +22,12 @@ const DOSSIE_MAX_CHARS = 1100;
 function textoProdutosSituacao(itensRaw) {
   const itens = listaJSON(itensRaw);
   if (itens.length === 0) return '';
-  // `produto` é opcional (registro pode ser só de cliente final) e `tag` é a
-  // classificação do cliente final (vocabulário do Ecossistema) — separada da
-  // situação, que é o relato do que foi conversado.
+  // `produto` é opcional (registro pode ser só de cliente final). Direção
+  // (aumento/queda) + observação substituíram o texto livre de `situacao`
+  // (registro antigo cai no fallback — ver `textoDirecaoOuLegado`).
   const linhas = itens.map((i) => {
     const quem = [i.cliente, i.produto].filter(Boolean).join(' · ') || '(sem identificação)';
-    return `- ${quem}: ${i.situacao}${i.tag ? ` [tag: ${i.tag}]` : ''}${i.grupo ? ` [grupo: ${i.grupo}]` : ''}`;
+    return `- ${quem}: ${textoDirecaoOuLegado(i)}${i.grupo ? ` [grupo: ${i.grupo}]` : ''}`;
   });
   return `\nRegistro da monitoria (cliente final / produto):\n${linhas.join('\n')}`;
 }
