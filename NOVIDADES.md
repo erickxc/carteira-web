@@ -8,6 +8,10 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.28
+
+- Dossiê do cliente: entre pendências, um erro/inconsistência encontrada (ex.: parâmetro de estoque errado) agora tem prioridade sobre tarefa administrativa de rotina.
+
 ## 1.4.27
 
 - Registro da Monitoria: seta de aumento/queda em vez de texto livre + observação opcional (tag removida).
