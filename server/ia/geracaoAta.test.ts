@@ -198,13 +198,21 @@ describe('geracaoAta: truncamento da transcrição (prompt menor = resposta mais
   });
 
   it('SEM registros, corta num teto bem mais generoso (fonte única dos fatos)', () => {
-    const transcricaoGrande = 'Frase da transcrição. '.repeat(1000); // ~23000 chars
+    const transcricaoGrande = 'Frase da transcrição. '.repeat(3000); // ~69000 chars
     const prompt = montarPromptAta({ subject: 'Reunião', transcricao: transcricaoGrande, produtosSituacao: [] });
     expect(prompt).toContain('[...transcrição truncada no meio — reunião muito longa...]');
     // Truncou, mas manteve MUITO mais transcrição que o teto "com registros" abaixo.
     const repeticoes = prompt.split('Frase da transcrição.').length - 1;
-    expect(repeticoes).toBeGreaterThan(400);
-    expect(repeticoes).toBeLessThan(1000);
+    expect(repeticoes).toBeGreaterThan(1000);
+    expect(repeticoes).toBeLessThan(2500);
+  });
+
+  it('transcrição real de ~23000 chars (tamanho de uma reunião de 1h) NÃO é truncada', () => {
+    // Bug real (Guscar, 10/09): o teto anterior (12000) truncava reuniões
+    // desse tamanho, mesmo sem ser patologicamente longas.
+    const transcricaoRealista = 'Fala de um participante da reunião discutindo números e clientes. '.repeat(340); // ~23000 chars
+    const prompt = montarPromptAta({ subject: 'Reunião', transcricao: transcricaoRealista, produtosSituacao: [] });
+    expect(prompt).not.toContain('transcrição truncada');
   });
 
   it('COM registros preenchidos, corta bem mais curto (fatos já cobertos ali)', () => {
@@ -226,12 +234,30 @@ describe('geracaoAta: truncamento da transcrição (prompt menor = resposta mais
    * Agora mantém início E fim, descartando só o meio.
    */
   it('mantém tanto o INÍCIO quanto o FIM da transcrição, descartando o meio', () => {
-    const meio = 'conteúdo de preenchimento sem importância. '.repeat(600); // ~26000 chars, força truncamento
+    const meio = 'conteúdo de preenchimento sem importância. '.repeat(1200); // ~53000 chars, força truncamento mesmo com o teto maior
     const transcricao = `ABERTURA DA REUNIÃO — contexto inicial.\n${meio}\nFICOU DECIDIDO: aprovar o orçamento. PRÓXIMO PASSO: Erick envia o relatório.`;
     const prompt = montarPromptAta({ subject: 'Reunião', transcricao, produtosSituacao: [] });
     expect(prompt).toContain('ABERTURA DA REUNIÃO');
     expect(prompt).toContain('FICOU DECIDIDO: aprovar o orçamento. PRÓXIMO PASSO: Erick envia o relatório.');
     expect(prompt).toContain('[...transcrição truncada no meio');
+  });
+
+  /**
+   * Bug real de produção (Guscar, 10/09): a ÚNICA decisão real da reunião
+   * ("conversou com o Marco pra encaixar numa tabela de preço mais
+   * agressiva") estava a 47% da transcrição (22794 chars) — nem no início
+   * nem no fim. O teto anterior (12000) cortava exatamente essa região.
+   * Trava aqui o cenário real: conteúdo no MEIO de uma transcrição desse
+   * tamanho tem que sobreviver.
+   */
+  it('conteúdo no MEIO de uma transcrição de tamanho realista (~23000 chars) sobrevive', () => {
+    const antes = 'Discussão inicial sobre números do mês. '.repeat(270); // ~11000 chars
+    const decisao = 'FICOU DECIDIDO: aplicar tabela de preço mais agressiva para o cliente.';
+    const depois = 'Discussão final sobre próximos passos. '.repeat(270); // ~11000 chars
+    const transcricao = `${antes}\n${decisao}\n${depois}`; // ~23000 chars, decisão a ~48%
+    const prompt = montarPromptAta({ subject: 'Reunião', transcricao, produtosSituacao: [] });
+    expect(prompt).toContain(decisao);
+    expect(prompt).not.toContain('transcrição truncada');
   });
 });
 

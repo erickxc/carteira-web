@@ -6,17 +6,21 @@ const { textoDirecaoOuLegado } = require('./formatoRegistroMonitoria.cjs');
 // não o controle real (o prompt já pede texto enxuto).
 const SECAO_MAX_CHARS = 4000;
 
-// Teto da TRANSCRIÇÃO enviada ao modelo — pedido real do usuário: gerar ata
-// media 106s, e prompt grande é o principal fator (mais tokens de entrada,
-// mais tempo de resposta). Dois tetos:
+// Teto da TRANSCRIÇÃO enviada ao modelo. Dois tetos:
 //  - COM Registro da Monitoria preenchido, os fatos por cliente/produto já
 //    estão cobertos ali (fonte de maior confiança, ver prompt abaixo) — a
 //    transcrição vira só contexto/nuance, então corta bem mais curto.
-//  - SEM registro, a transcrição é a ÚNICA fonte dos fatos — mantém quase
-//    inteira, só um teto de segurança bem generoso pra reunião de horas não
-//    estourar o prompt/tempo de resposta de forma patológica.
+//  - SEM registro, a transcrição é a ÚNICA fonte dos fatos — o teto aqui é só
+//    uma rede de segurança pra reunião de HORAS não estourar o prompt, não um
+//    controle de velocidade: bug real (Guscar, 10/09) — um teto de 12000
+//    (pensado pra "gerar mais rápido") cortou o MEIO de uma transcrição de
+//    22794 chars, e a única decisão real da reunião estava a 47% do texto —
+//    nem no início nem no fim, cortada pelo `truncarTranscricao` mesmo esse
+//    já mantendo início+fim. Decisão pode estar em QUALQUER ponto da reunião;
+//    não tem posição "seguro cortar" sem uma extração mais esperta (fora de
+//    escopo agora). 40000 chars cobre reuniões de até ~1h30-2h sem cortar.
 const TRANSCRICAO_MAX_CHARS_COM_REGISTROS = 3000;
-const TRANSCRICAO_MAX_CHARS_SEM_REGISTROS = 12000;
+const TRANSCRICAO_MAX_CHARS_SEM_REGISTROS = 40000;
 
 /**
  * Corta MANTENDO INÍCIO + FIM, descartando o meio — bug real: cortar só do
