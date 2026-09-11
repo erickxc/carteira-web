@@ -8,6 +8,10 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.30
+
+- Corrigido: a resposta do monitorIA no chat podia sumir sem aparecer (a tela recarregava sozinha logo depois de responder).
+
 ## 1.4.29
 
 - Registro da Monitoria agora também vale pra Precificação (era um campo separado) — inclui a opção "manteve", e cliente/grupo ficam preenchidos ao lançar vários produtos do mesmo cliente.
