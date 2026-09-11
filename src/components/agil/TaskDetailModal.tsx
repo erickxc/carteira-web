@@ -8,6 +8,7 @@ import { confirmDialog } from '../../utils/confirmDialog';
 import { ModalShell } from '../ModalShell';
 import { Button, Chip, Field, Input, Textarea } from '../../ui';
 import { SelectField } from '../SelectField';
+import { ClienteCombobox } from '../ClienteCombobox';
 import type { AgilColuna, AgilTarefa } from '../../types';
 import { SubtarefasTab } from './SubtarefasTab';
 import { ComentariosTab } from './ComentariosTab';
@@ -275,13 +276,9 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
             <Input tone="modal" type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
           </Field>
 
-          <SelectField
-            label="Cliente vinculado"
-            placeholder="Nenhum"
-            value={clientId}
-            onChange={setClientId}
-            options={[{ value: '', label: 'Nenhum' }, ...clientes.map((c) => ({ value: c.id, label: c.empresa }))]}
-          />
+          <Field label="Cliente vinculado">
+            <ClienteCombobox clientes={clientes} value={clientId} onChange={setClientId} tone="modal" placeholder="Nenhum" limpavel />
+          </Field>
 
           <SelectField
             label="Coluna"

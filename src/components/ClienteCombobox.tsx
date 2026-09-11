@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
 import { Input } from '../ui';
 import { calcularPosicaoPopover } from '../utils/popoverPosicao';
 
@@ -14,6 +15,10 @@ interface ClienteComboboxProps {
   onChange: (id: string) => void;
   tone?: 'default' | 'modal';
   placeholder?: string;
+  /** Mostra um "×" pra voltar a `value === ''` quando há cliente selecionado —
+   *  só faz sentido quando o vínculo é OPCIONAL (ex.: cliente de uma tarefa
+   *  do Ágil). Vínculo obrigatório (ex.: cliente de um evento) não usa isto. */
+  limpavel?: boolean;
 }
 
 /**
@@ -23,7 +28,7 @@ interface ClienteComboboxProps {
  * Popover via portal (mesmo padrão de Dropdown.tsx) pra não ficar preso atrás
  * do conteúdo do modal.
  */
-export function ClienteCombobox({ clientes, value, onChange, tone, placeholder = 'Selecione...' }: ClienteComboboxProps) {
+export function ClienteCombobox({ clientes, value, onChange, tone, placeholder = 'Selecione...', limpavel }: ClienteComboboxProps) {
   const ordenados = useMemo(
     () => [...clientes].sort((a, b) => a.empresa.localeCompare(b.empresa, 'pt-BR')),
     [clientes]
@@ -93,7 +98,23 @@ export function ClienteCombobox({ clientes, value, onChange, tone, placeholder =
         onChange={(e) => { setQuery(e.target.value); setAtivo(0); if (!open) setOpen(true); }}
         onKeyDown={onKeyDown}
         autoComplete="off"
+        style={limpavel && selecionado && !open ? { paddingRight: 28 } : undefined}
       />
+      {limpavel && selecionado && !open && (
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          aria-label="Remover cliente vinculado"
+          title="Remover cliente vinculado"
+          style={{
+            position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+            background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)',
+            display: 'flex', padding: 2,
+          }}
+        >
+          <X size={14} />
+        </button>
+      )}
       {open && rect && pos && createPortal(
         <div
           ref={popRef}
