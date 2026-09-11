@@ -8,6 +8,10 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.32
+
+- Ágil: campo "Cliente vinculado" da tarefa agora tem busca por texto (era um menu sem busca).
+
 ## 1.4.31
 
 - Notificação de análise de IA atualizada agora mostra o nome da loja no título.
