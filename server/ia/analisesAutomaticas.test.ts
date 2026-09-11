@@ -83,7 +83,7 @@ describe('analisesAutomaticas: gerarAnalisesPendentes', () => {
     expect(processados).toBe(0);
   });
 
-  it('ignora eventos que não são conclusão/cancelamento/reagendamento/agendamento (ex.: Pendente)', async () => {
+  it('ignora eventos que não são conclusão/cancelamento/reagendamento (ex.: Pendente)', async () => {
     const repo = repoMemoria({
       Clientes: [{ id: 'c1', empresa: 'Empresa Teste' }],
       Agenda: [{ id: 'e1', clientId: 'c1', date: '2026-08-01T10:00:00.000Z', status: 'Pendente', ata: '' }],
@@ -95,15 +95,28 @@ describe('analisesAutomaticas: gerarAnalisesPendentes', () => {
   });
 
   /**
-   * Pedido do usuário: agendar uma reunião NOVA também deve forçar a
-   * atualização do dossiê — é o sinal de que uma "próxima pauta" sugerida
-   * virou ação (ver `server/ia/alertas.cjs`, "Pauta recomendada que morreu").
-   * Antes só concluir/cancelar/reagendar contava.
+   * Bug real: uma versão anterior tratava "Agendado" puro como relevante (de
+   * propósito, pra atualizar o alerta "Pauta recomendada que morreu" assim
+   * que uma reunião nova era marcada) — mas isso disparava a análise do
+   * dossiê ao simplesmente SALVAR uma reunião já agendada (editar
+   * informações, sem gerar ata), sem o usuário ter pedido isso. "Agendado"
+   * puro não conta mais — só Concluído/Realizado/Cancelado/Reagendado.
    */
-  it('conta reunião recém-agendada (status Agendado) como evento relevante', async () => {
+  it('NÃO conta reunião com status Agendado (puro) como evento relevante', async () => {
     const repo = repoMemoria({
       Clientes: [{ id: 'c1', empresa: 'Empresa Teste' }],
       Agenda: [{ id: 'e1', clientId: 'c1', date: '2026-08-01T10:00:00.000Z', status: 'Agendado', ata: '' }],
+      AnalisesIA: [],
+    });
+
+    const processados = await gerarAnalisesPendentes({ repo, ollama: ollamaFake({}) });
+    expect(processados).toBe(0);
+  });
+
+  it('conta reunião com status Reagendado como evento relevante', async () => {
+    const repo = repoMemoria({
+      Clientes: [{ id: 'c1', empresa: 'Empresa Teste' }],
+      Agenda: [{ id: 'e1', clientId: 'c1', date: '2026-08-01T10:00:00.000Z', status: 'Reagendado', ata: '' }],
       AnalisesIA: [],
     });
 

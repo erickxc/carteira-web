@@ -6,12 +6,17 @@ const { DOSSIES_DIR } = require('../config.cjs');
 const { gerarAnaliseIA, DOSSIE_MAX_CHARS } = require('./analiseCliente.cjs');
 
 // Mesmos regexes de classificação de status já usados no resto do projeto
-// (ver CLAUDE.md — "Evento de Agenda"): concluído/cancelado/reagendado, e
-// agora também AGENDADO (pedido do usuário: marcar uma reunião nova também
-// deve atualizar o dossiê — é justamente o sinal de que uma "próxima pauta"
-// sugerida virou ação, ver `server/ia/alertas.cjs`, "Pauta recomendada que
-// morreu"). `agend` sozinho já cobre "Agendado" E "Reagendado" (substring).
-const EVENTO_RELEVANTE = /conclu|realiz|cancel|agend/i;
+// (ver CLAUDE.md — "Evento de Agenda"): concluído/realizado/cancelado/reagendado.
+//
+// Já existiu uma versão que casava só `agend` (sem "re"), de propósito, pra
+// também cobrir "Agendado" puro (marcar reunião nova) — a ideia era que isso
+// já seria sinal de que uma "próxima pauta" sugerida virou ação (ver
+// `server/ia/alertas.cjs`, "Pauta recomendada que morreu"). Bug real: isso
+// disparava a análise do dossiê ao simplesmente SALVAR uma reunião já
+// agendada (editar informações, sem gerar ata nenhuma) — o usuário nunca
+// pediu isso, só queria marcar/reagendar sem re-analisar o dossiê no meio do
+// caminho. `reagend` continua casando "Reagendado" sem casar "Agendado" puro.
+const EVENTO_RELEVANTE = /conclu|realiz|cancel|reagend/i;
 
 // Nome do arquivo carrega o clientId (chave estável, usada na busca) e um
 // slug do nome da loja (só para o arquivo ficar legível no disco). Se a loja
