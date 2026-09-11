@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { SQLITE_DIR, ALVOS_DIR } = require('../config.cjs');
-const { caminhoDaEmpresa, lerEAgregar } = require('./leitor.cjs');
+const { arquivosDaEmpresa, lerEAgregar } = require('./leitor.cjs');
 
 /**
  * Cache do agregado por empresa.
@@ -42,8 +42,8 @@ const mesmaAssinatura = (a, b) => !!a && !!b
  */
 function agregadoDaEmpresa(empresa, opts = {}) {
   const raiz = opts.raiz || ALVOS_DIR;
-  const origem = caminhoDaEmpresa(empresa, raiz);
-  if (!fs.existsSync(origem)) {
+  const origem = arquivosDaEmpresa(empresa, raiz).movimento;
+  if (!origem || !fs.existsSync(origem)) {
     throw new Error(`Arquivo de dados não encontrado para "${empresa}".`);
   }
   const atual = assinatura(origem);
@@ -68,8 +68,8 @@ function agregadoDaEmpresa(empresa, opts = {}) {
 
 /** Só o estado do cache, sem ler o xlsx — para a tela dizer se está frio. */
 function estadoDoCache(empresa, raiz = ALVOS_DIR) {
-  const origem = caminhoDaEmpresa(empresa, raiz);
-  if (!fs.existsSync(origem)) return { existe: false };
+  const origem = arquivosDaEmpresa(empresa, raiz).movimento;
+  if (!origem || !fs.existsSync(origem)) return { existe: false };
   const atual = assinatura(origem);
   try {
     const salvo = JSON.parse(fs.readFileSync(arquivoCache(empresa), 'utf8'));

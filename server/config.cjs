@@ -133,12 +133,6 @@ const ALVOS_DIR = process.env.ALVOS_DIR
  */
 const TAGS_CLIENTE_FINAL_PATH = process.env.TAGS_CLIENTE_FINAL_PATH
   || path.join(ONEDRIVE_ROOT, '..', 'Ecossistema-Monitoria', 'Bancos', 'tags.json');
-// Nome do arquivo dentro da pasta de cada empresa — igual nas 4 pastas
-// verificadas. A ABA, ao contrário, varia ("Sheet1", "Dados", "Dados (2)") e no
-// Gomec a PRIMEIRA aba está vazia: por isso a aba é escolhida pelo conteúdo,
-// nunca pela posição (ver server/alvos/leitor.cjs).
-const ALVOS_ARQUIVO = 'Dados Mais Atacado.xlsx';
-
 // Falha alto e claro se o OneDrive não estiver sincronizado nesta máquina —
 // nunca cria essa árvore de pastas do zero, para não fingir estar "salvo no
 // OneDrive" quando na verdade é só uma pasta local desconectada da nuvem.
@@ -547,7 +541,7 @@ const CATEGORIAS_SEED = [
 module.exports = {
   HOST, PORT, CEO_AGENDA_CALENDAR_ID, CEO_AGENDA_OAUTH_CLIENT_PATH, CEO_AGENDA_OAUTH_TOKEN_PATH,
   ONEDRIVE_ROOT, DATA_DIR, REUNIOES_DIR, DB_FILE, UPLOADS_DIR, SQLITE_DIR, SQLITE_FILE, BACKUP_ONEDRIVE_DIR,
-  ALVOS_DIR, ALVOS_ARQUIVO, TAGS_CLIENTE_FINAL_PATH,
+  ALVOS_DIR, TAGS_CLIENTE_FINAL_PATH,
   SNAPSHOT_DIR, SNAPSHOT_FILE, DOSSIES_DIR, OLLAMA_URL, OLLAMA_MODEL, OLLAMA_MODELS, OLLAMA_API_KEY,
   CONFIG_IA_COMPARTILHADO,
   IA_PROVIDER, IA_PROVIDERS, CLAUDE_STATE_FILE, CLAUDE_CLI_PATH, CLAUDE_CLI_MODEL, PRICE_CREDENCIAIS_CHAVE, PRICE_CREDENCIAIS_CHAVE_PATH,

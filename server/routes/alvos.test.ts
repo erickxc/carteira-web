@@ -64,18 +64,22 @@ afterEach(() => {
 });
 
 function criarEmpresaDeTeste(nome: string) {
-  const xlsx = require('xlsx');
-  const { ALVOS_ARQUIVO } = require('../config.cjs');
-  const linha = {
-    ID_LOJA: 'loja_teste', NOME_CLIENTE: 'CONSUMIDOR TESTE (SA)', DESCRICAO_PRODUTO: 'Kit Amortecedor',
-    ANO: 2026, 'MÊS': 'Julho', CODIGO_INTERNO_PRODUTO: '1', CODIGO_REFERENCIA_PRODUTO: 'X',
-    NOME_FABRICANTE: 'FAB', 'Receita Acumulada 11 Meses': 1000, QTD: 10,
+  const escapar = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const header = [
+    'ID_LOJA', 'TIPO_MOVIMENTO', 'CODIGO_PRODUTO', 'CODIGO_REFERENCIA_PRODUTO',
+    'DESCRICAO_PRODUTO', 'NOME_FABRICANTE', 'NOME_CLIENTE', 'NOME_VENDEDOR',
+    'DATA_MOVIMENTO', 'DIA', 'MES', 'ANO', 'TOTAL', 'QUANTIDADE', 'CMV',
+  ];
+  const linha: Record<string, unknown> = {
+    ID_LOJA: 'loja_teste', TIPO_MOVIMENTO: 'VENDA', CODIGO_PRODUTO: '1', CODIGO_REFERENCIA_PRODUTO: 'X',
+    DESCRICAO_PRODUTO: 'Kit Amortecedor', NOME_FABRICANTE: 'FAB', NOME_CLIENTE: 'CONSUMIDOR TESTE (SA)',
+    NOME_VENDEDOR: 'Vendedor Teste', DATA_MOVIMENTO: '2026-07-01', DIA: 1, MES: 7, ANO: 2026,
+    TOTAL: '1000,00', QUANTIDADE: 10, CMV: '0',
   };
   const dir = path.join(alvosDir, nome);
   fs.mkdirSync(dir, { recursive: true });
-  const wb = xlsx.utils.book_new();
-  xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet([linha]), 'Dados');
-  xlsx.writeFile(wb, path.join(dir, ALVOS_ARQUIVO));
+  const csv = [header.join(';'), header.map((c) => escapar(linha[c])).join(';')].join('\n');
+  fs.writeFileSync(path.join(dir, `${nome}_MOVIMENTO_ATUAL.csv`), csv);
 }
 
 async function subirAppDeTeste() {

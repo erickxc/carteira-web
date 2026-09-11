@@ -1019,22 +1019,27 @@ describe('buscar_fatos_alvos / definir_status_acompanhamento', () => {
    * bastante para ler em milissegundos em vez dos ~20s do arquivo real.
    */
   function criarEmpresaDeTeste(clientId: string) {
-    const xlsx = require('xlsx');
-    const linha = (mes: string, receita: number, qtd: number, produto = 'Kit Amortecedor') => ({
-      ID_LOJA: 'loja_teste', NOME_CLIENTE: 'EDUARDO MECANICO (CM)', DESCRICAO_PRODUTO: produto,
-      ANO: 2026, 'MÊS': mes, CODIGO_INTERNO_PRODUTO: '1', CODIGO_REFERENCIA_PRODUTO: 'X',
-      NOME_FABRICANTE: 'FAB', 'Receita Acumulada 11 Meses': receita, QTD: qtd,
+    const escapar = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const header = [
+      'ID_LOJA', 'TIPO_MOVIMENTO', 'CODIGO_PRODUTO', 'CODIGO_REFERENCIA_PRODUTO',
+      'DESCRICAO_PRODUTO', 'NOME_FABRICANTE', 'NOME_CLIENTE', 'NOME_VENDEDOR',
+      'DATA_MOVIMENTO', 'DIA', 'MES', 'ANO', 'TOTAL', 'QUANTIDADE', 'CMV',
+    ];
+    const linha = (mes: number, receita: number, qtd: number, produto = 'Kit Amortecedor') => ({
+      ID_LOJA: 'loja_teste', TIPO_MOVIMENTO: 'VENDA', CODIGO_PRODUTO: '1', CODIGO_REFERENCIA_PRODUTO: 'X',
+      DESCRICAO_PRODUTO: produto, NOME_FABRICANTE: 'FAB', NOME_CLIENTE: 'EDUARDO MECANICO (CM)',
+      NOME_VENDEDOR: 'Vendedor Teste', DATA_MOVIMENTO: `2026-${String(mes).padStart(2, '0')}-01`,
+      DIA: 1, MES: mes, ANO: 2026, TOTAL: String(receita).replace('.', ','), QUANTIDADE: qtd, CMV: '0',
     });
     const linhas = [
-      linha('Março', 1000, 10), linha('Abril', 1000, 10), linha('Maio', 1000, 10),
-      linha('Julho', 1000, 10), linha('Agosto', 1000, 10),
+      linha(3, 1000, 10), linha(4, 1000, 10), linha(5, 1000, 10),
+      linha(7, 1000, 10), linha(8, 1000, 10),
     ];
-    const { ALVOS_DIR, ALVOS_ARQUIVO } = require('../config.cjs');
+    const { ALVOS_DIR } = require('../config.cjs');
     const dir = path.join(ALVOS_DIR, 'Empresa Teste');
     fs.mkdirSync(dir, { recursive: true });
-    const wb = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(linhas), 'Dados');
-    xlsx.writeFile(wb, path.join(dir, ALVOS_ARQUIVO));
+    const csv = [header.join(';'), ...linhas.map((l) => header.map((c) => escapar((l as Record<string, unknown>)[c])).join(';'))].join('\n');
+    fs.writeFileSync(path.join(dir, 'Empresa Teste_MOVIMENTO_ATUAL.csv'), csv);
 
     const { vincular } = require('../alvos/mapa.cjs');
     vincular('Empresa Teste', 'loja_teste', clientId);

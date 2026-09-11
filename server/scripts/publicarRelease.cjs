@@ -49,7 +49,7 @@ function lerVersaoPackageJson(raiz = RAIZ) {
  * abaixo falha o build se alguém esquecer.
  */
 const DEPS_SERVIDOR = [
-  'adm-zip', 'better-sqlite3', 'cors', 'date-fns', 'express',
+  'adm-zip', 'better-sqlite3', 'cors', 'csv-parse', 'date-fns', 'express',
   'google-auth-library', 'jspdf', 'multer', 'node-cron', 'node-notifier', 'xlsx', 'zod',
 ];
 

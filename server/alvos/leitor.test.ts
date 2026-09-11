@@ -6,7 +6,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // `server/` é CommonJS (sem build step) — ver comentário em dbSqlite.test.ts.
 const require = createRequire(import.meta.url);
-const xlsx = require('xlsx');
 
 /**
  * Toda leitura aqui é sobre uma pasta TEMPORÁRIA montada pelo teste, nunca sobre
@@ -18,32 +17,69 @@ const leitor: typeof import('./leitor.cjs') = require('./leitor.cjs');
 
 let raiz: string;
 
+const MOVIMENTO_HEADER = [
+  'ID_LOJA', 'TIPO_MOVIMENTO', 'CODIGO_PRODUTO', 'CODIGO_REFERENCIA_PRODUTO',
+  'DESCRICAO_PRODUTO', 'NOME_FABRICANTE', 'NOME_CLIENTE', 'NOME_VENDEDOR',
+  'DATA_MOVIMENTO', 'DIA', 'MES', 'ANO', 'TOTAL', 'QUANTIDADE', 'CMV',
+];
+const PRODUTO_HEADER = [
+  'ID_LOJA', 'CODIGO_INTERNO_PRODUTO', 'CODIGO_REFERENCIA_PRODUTO',
+  'DESCRICAO_PRODUTO', 'DESCRICAO_HARMONIZADA', 'QUANTIDADE_ESTOQUE',
+];
+
 /** Linha no formato exato do arquivo de origem (nomes de coluna incluídos). */
-function linha(over: Record<string, unknown> = {}) {
+function linhaMovimento(over: Record<string, unknown> = {}) {
   return {
     ID_LOJA: 'loja_a',
-    NOME_CLIENTE: 'OFICINA X (CM)',
-    DESCRICAO_PRODUTO: 'Lubrificante',
-    ANO: 2026,
-    'MÊS': 'Julho',
-    CODIGO_INTERNO_PRODUTO: 49953,
+    TIPO_MOVIMENTO: 'VENDA',
+    CODIGO_PRODUTO: '49953',
     CODIGO_REFERENCIA_PRODUTO: '15W40',
+    DESCRICAO_PRODUTO: 'Lubrificante',
     NOME_FABRICANTE: 'HEXXLUB',
-    'Receita Acumulada 11 Meses': 100,
-    QTD: 4,
+    NOME_CLIENTE: 'OFICINA X (CM)',
+    NOME_VENDEDOR: 'João',
+    DATA_MOVIMENTO: '2026-07-15',
+    DIA: 15,
+    MES: 7,
+    ANO: 2026,
+    TOTAL: '100,00',
+    QUANTIDADE: 4,
+    CMV: '60,00',
     ...over,
   };
 }
 
-function criarEmpresa(nome: string, abas: Record<string, Record<string, unknown>[]>) {
+function linhaProduto(over: Record<string, unknown> = {}) {
+  return {
+    ID_LOJA: 'loja_a',
+    CODIGO_INTERNO_PRODUTO: '49953',
+    CODIGO_REFERENCIA_PRODUTO: '15W40',
+    DESCRICAO_PRODUTO: 'Lubrificante bruto',
+    DESCRICAO_HARMONIZADA: 'Lubrificante',
+    QUANTIDADE_ESTOQUE: 10,
+    ...over,
+  };
+}
+
+function paraCsv(header: string[], linhas: Record<string, unknown>[]) {
+  const escapar = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const corpo = linhas.map((l) => header.map((c) => escapar(l[c])).join(';'));
+  return [header.join(';'), ...corpo].join('\n');
+}
+
+function criarEmpresa(nome: string, opts: {
+  movimento?: Record<string, unknown>[];
+  produto?: Record<string, unknown>[];
+  semArquivos?: boolean;
+} = {}) {
   const dir = path.join(raiz, nome);
   fs.mkdirSync(dir, { recursive: true });
-  const wb = xlsx.utils.book_new();
-  for (const [aba, linhas] of Object.entries(abas)) {
-    // Aba vazia de verdade (é o caso do Gomec): folha sem `!ref`.
-    xlsx.utils.book_append_sheet(wb, linhas.length ? xlsx.utils.json_to_sheet(linhas) : xlsx.utils.aoa_to_sheet([]), aba);
+  if (opts.semArquivos) return dir;
+  fs.writeFileSync(path.join(dir, `${nome}_MOVIMENTO_ATUAL.csv`), paraCsv(MOVIMENTO_HEADER, opts.movimento ?? [linhaMovimento()]));
+  if (opts.produto) {
+    fs.writeFileSync(path.join(dir, `${nome}_PRODUTO.csv`), paraCsv(PRODUTO_HEADER, opts.produto));
   }
-  xlsx.writeFile(wb, path.join(dir, leitor.ALVOS_ARQUIVO));
+  return dir;
 }
 
 beforeAll(() => {
@@ -54,30 +90,20 @@ afterAll(() => {
   fs.rmSync(raiz, { recursive: true, force: true });
 });
 
-describe('leitor: escolha da aba', () => {
-  it('ignora a primeira aba quando ela está vazia (caso Gomec)', () => {
-    criarEmpresa('Gomecoide', { Dados: [], 'Dados (2)': [linha(), linha()] });
-    const { aba, linhas } = leitor.lerLinhas(leitor.caminhoDaEmpresa('Gomecoide', raiz));
-    expect(aba).toBe('Dados (2)');
-    expect(linhas).toHaveLength(2);
+describe('leitor: localização de arquivos', () => {
+  it('acha os 3 arquivos por padrão de nome, independente de caixa', () => {
+    criarEmpresa('IBAD', { movimento: [linhaMovimento()], produto: [linhaProduto()] });
+    const arquivos = leitor.arquivosDaEmpresa('IBAD', raiz);
+    expect(arquivos.movimento).toMatch(/MOVIMENTO_ATUAL\.csv$/);
+    expect(arquivos.produto).toMatch(/PRODUTO\.csv$/);
   });
 
-  it('escolhe a aba com mais linhas entre as compatíveis', () => {
-    criarEmpresa('Duas', { Pequena: [linha()], Grande: [linha(), linha(), linha()] });
-    expect(leitor.lerLinhas(leitor.caminhoDaEmpresa('Duas', raiz)).aba).toBe('Grande');
-  });
-
-  it('falha explícito quando nenhuma aba tem o header esperado', () => {
-    criarEmpresa('Errada', { Outra: [{ Foo: 1, Bar: 2 }] });
-    expect(() => leitor.lerLinhas(leitor.caminhoDaEmpresa('Errada', raiz)))
-      .toThrow(/Nenhuma aba com o header esperado/);
-  });
-
-  it('lista só pastas que têm o arquivo', () => {
-    fs.mkdirSync(path.join(raiz, 'PastaSemArquivo'), { recursive: true });
+  it('lista só pastas que têm o arquivo de movimento', () => {
+    criarEmpresa('ComMovimento');
+    criarEmpresa('SemArquivo', { semArquivos: true });
     const empresas = leitor.empresasDisponiveis(raiz);
-    expect(empresas).toContain('Gomecoide');
-    expect(empresas).not.toContain('PastaSemArquivo');
+    expect(empresas).toContain('ComMovimento');
+    expect(empresas).not.toContain('SemArquivo');
   });
 
   it('empresasDisponiveis devolve vazio (não lança) quando a pasta não existe', () => {
@@ -85,54 +111,79 @@ describe('leitor: escolha da aba', () => {
   });
 
   it('não deixa o nome da empresa escapar da raiz', () => {
-    const alvo = leitor.caminhoDaEmpresa('../../fora', raiz);
-    expect(alvo.startsWith(raiz)).toBe(true);
+    const arquivos = leitor.arquivosDaEmpresa('../../fora', raiz);
+    expect(arquivos.movimento).toBeNull();
   });
 });
 
 describe('leitor: normalização de linha', () => {
-  it('traduz o mês em português para número', () => {
-    expect(leitor.normalizarLinha(linha({ 'MÊS': 'Março' }))?.mes).toBe(3);
-    expect(leitor.normalizarLinha(linha({ 'MÊS': 'MARCO' }))?.mes).toBe(3);
+  it('mês e ano já vêm numéricos, sem parsing de nome em português', () => {
+    expect(leitor.normalizarLinha(linhaMovimento({ MES: 3 }), null)?.mes).toBe(3);
   });
 
-  it('mês ausente vira 0 sem descartar a venda', () => {
-    const n = leitor.normalizarLinha(linha({ 'MÊS': null }));
+  it('mês ausente/ilegível vira 0 sem descartar a venda', () => {
+    const n = leitor.normalizarLinha(linhaMovimento({ MES: null }), null);
     expect(n?.mes).toBe(0);
     expect(n?.receita).toBe(100);
   });
 
-  it('renomeia "Receita Acumulada 11 Meses" para receita da linha', () => {
-    expect(leitor.normalizarLinha(linha({ 'Receita Acumulada 11 Meses': 42.5 }))?.receita).toBe(42.5);
+  it('parseia decimal com vírgula, sem separador de milhar', () => {
+    expect(leitor.normalizarLinha(linhaMovimento({ TOTAL: '1234,56' }), null)?.receita).toBe(1234.56);
+    expect(leitor.normalizarLinha(linhaMovimento({ TOTAL: '-23,90' }), null)?.receita).toBe(-23.9);
   });
 
   it('cliente vazio recebe rótulo explícito', () => {
-    expect(leitor.normalizarLinha(linha({ NOME_CLIENTE: '   ' }))?.cliente).toBe('(sem cliente)');
+    expect(leitor.normalizarLinha(linhaMovimento({ NOME_CLIENTE: '   ' }), null)?.cliente).toBe('(sem cliente)');
   });
 
   it('descarta só linha sem loja ou sem ano', () => {
-    expect(leitor.normalizarLinha(linha({ ID_LOJA: '' }))).toBeNull();
-    expect(leitor.normalizarLinha(linha({ ANO: null }))).toBeNull();
-    expect(leitor.normalizarLinha(linha({ QTD: null }))).not.toBeNull();
+    expect(leitor.normalizarLinha(linhaMovimento({ ID_LOJA: '' }), null)).toBeNull();
+    expect(leitor.normalizarLinha(linhaMovimento({ ANO: null }), null)).toBeNull();
+    expect(leitor.normalizarLinha(linhaMovimento({ QUANTIDADE: null }), null)).not.toBeNull();
+  });
+
+  it('expõe vendedor e cmv', () => {
+    const n = leitor.normalizarLinha(linhaMovimento({ NOME_VENDEDOR: 'Maria', CMV: '10,00' }), null);
+    expect(n?.vendedor).toBe('Maria');
+    expect(n?.cmv).toBe(10);
   });
 });
 
-describe('leitor: produto não harmonizado', () => {
-  it('marca AUSENTE DO MAPA, NÃO HARMONIZADO e vazio como não harmonizados', () => {
-    for (const desc of ['AUSENTE DO MAPA', 'NÃO HARMONIZADO', 'nao harmonizado', '']) {
-      expect(leitor.classificarProduto(desc).harmonizado, `${desc} deveria ser não harmonizado`).toBe(false);
-    }
-    expect(leitor.classificarProduto('Lubrificante').harmonizado).toBe(true);
+describe('leitor: harmonização via catálogo de produto', () => {
+  it('usa a descrição harmonizada quando (loja, código) está no catálogo', () => {
+    const catalogo = leitor.lerCatalogoProduto(
+      criarCatalogoTemp([linhaProduto({ DESCRICAO_HARMONIZADA: 'Lubrificante 15W40' })]),
+    );
+    const r = leitor.resolverProduto('loja_a', '49953', 'texto cru', catalogo);
+    expect(r).toEqual({ produto: 'Lubrificante 15W40', harmonizado: true, estoque: 10 });
   });
 
-  it('não descarta a venda não harmonizada — ela entra no agregado', () => {
-    const ag = leitor.agregar([
-      leitor.normalizarLinha(linha({ DESCRICAO_PRODUTO: 'AUSENTE DO MAPA', 'Receita Acumulada 11 Meses': 10 })),
-      leitor.normalizarLinha(linha({ 'Receita Acumulada 11 Meses': 90 })),
-    ]);
-    expect(ag.lojas[0].receita).toBe(100);
-    expect(ag.produtos.find((p) => !p.harmonizado)?.receita).toBe(10);
+  it('mesmo código em lojas diferentes não se confunde (chave é loja+código)', () => {
+    const catalogo = leitor.lerCatalogoProduto(criarCatalogoTemp([
+      linhaProduto({ ID_LOJA: 'loja_a', QUANTIDADE_ESTOQUE: 10 }),
+      linhaProduto({ ID_LOJA: 'loja_b', QUANTIDADE_ESTOQUE: 999 }),
+    ]));
+    expect(leitor.resolverProduto('loja_a', '49953', '', catalogo).estoque).toBe(10);
+    expect(leitor.resolverProduto('loja_b', '49953', '', catalogo).estoque).toBe(999);
   });
+
+  it('cai no texto bruto (não harmonizado) quando código não está no catálogo', () => {
+    const catalogo = leitor.lerCatalogoProduto(criarCatalogoTemp([linhaProduto()]));
+    const r = leitor.resolverProduto('loja_a', 'inexistente', 'Vela Ignição', catalogo);
+    expect(r).toEqual({ produto: 'Vela Ignição', harmonizado: false, estoque: 0 });
+  });
+
+  it('sem descrição bruta nem catálogo, usa rótulo explícito e ainda conta como produto real', () => {
+    const r = leitor.resolverProduto('loja_a', 'x', '', null);
+    expect(r.produto).toBe('AUSENTE DO MAPA');
+    expect(r.harmonizado).toBe(false);
+  });
+
+  function criarCatalogoTemp(linhas: Record<string, unknown>[]) {
+    const arq = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'carteira-catalogo-')), 'p.csv');
+    fs.writeFileSync(arq, paraCsv(PRODUTO_HEADER, linhas));
+    return arq;
+  }
 });
 
 describe('leitor: agregação', () => {
@@ -144,10 +195,10 @@ describe('leitor: agregação', () => {
    */
   it('soma as vendas repetidas da mesma chave em vez de contar linhas', () => {
     const linhas = [
-      linha({ 'Receita Acumulada 11 Meses': 99.6, QTD: 4 }),
-      linha({ 'Receita Acumulada 11 Meses': 74.7, QTD: 3 }),
-      linha({ 'Receita Acumulada 11 Meses': 49.8, QTD: 2 }),
-    ].map((l) => leitor.normalizarLinha(l));
+      linhaMovimento({ TOTAL: '99,60', QUANTIDADE: 4 }),
+      linhaMovimento({ TOTAL: '74,70', QUANTIDADE: 3 }),
+      linhaMovimento({ TOTAL: '49,80', QUANTIDADE: 2 }),
+    ].map((l) => leitor.normalizarLinha(l, null));
     const ag = leitor.agregar(linhas);
 
     expect(ag.cruzamento).toHaveLength(1);
@@ -157,81 +208,67 @@ describe('leitor: agregação', () => {
     expect(ag.totalLinhas).toBe(3);
   });
 
-  it('separa por loja, cliente, produto e mês', () => {
+  it('devolução com valores negativos neutraliza a venda, sem tratamento especial', () => {
     const linhas = [
-      linha(),
-      linha({ ID_LOJA: 'loja_b' }),
-      linha({ NOME_CLIENTE: 'OFICINA Y (CM)' }),
-      linha({ DESCRICAO_PRODUTO: 'Vela Ignição' }),
-      linha({ 'MÊS': 'Agosto' }),
-    ].map((l) => leitor.normalizarLinha(l));
+      linhaMovimento({ TIPO_MOVIMENTO: 'VENDA', TOTAL: '100,00', QUANTIDADE: 4 }),
+      linhaMovimento({ TIPO_MOVIMENTO: 'DEVOLUCAO', TOTAL: '-100,00', QUANTIDADE: -4 }),
+    ].map((l) => leitor.normalizarLinha(l, null));
+    const ag = leitor.agregar(linhas);
+    expect(ag.cruzamento[0].receita).toBe(0);
+    expect(ag.cruzamento[0].qtd).toBe(0);
+  });
+
+  it('separa por loja, cliente, produto, vendedor e mês', () => {
+    const linhas = [
+      linhaMovimento(),
+      linhaMovimento({ ID_LOJA: 'loja_b' }),
+      linhaMovimento({ NOME_CLIENTE: 'OFICINA Y (CM)' }),
+      linhaMovimento({ DESCRICAO_PRODUTO: 'Vela Ignição', CODIGO_PRODUTO: 'x2' }),
+      linhaMovimento({ NOME_VENDEDOR: 'Maria' }),
+      linhaMovimento({ MES: 8 }),
+    ].map((l) => leitor.normalizarLinha(l, null));
     const ag = leitor.agregar(linhas);
 
     expect(ag.lojas.map((l) => l.loja).sort()).toEqual(['loja_a', 'loja_b']);
     expect(ag.periodos).toEqual(['2026-07', '2026-08']);
     expect(ag.clientes.filter((c) => c.loja === 'loja_a').length).toBe(2);
     expect(ag.produtos.filter((p) => p.loja === 'loja_a').length).toBe(2);
+    expect(new Set(ag.vendedores.map((v) => v.vendedor)).size).toBe(2);
+    // "vendedor" não entra na chave do cruzamento (loja+cliente+produto+ano+mês)
+    // de propósito, então a linha só-com-vendedor-diferente cai na mesma
+    // chave da linha default: 6 linhas, 5 chaves distintas.
     expect(ag.cruzamento).toHaveLength(5);
   });
 
   it('ordena clientes e produtos por receita, do maior para o menor', () => {
     const ag = leitor.agregar([
-      linha({ NOME_CLIENTE: 'PEQUENO', 'Receita Acumulada 11 Meses': 10 }),
-      linha({ NOME_CLIENTE: 'GRANDE', 'Receita Acumulada 11 Meses': 1000 }),
-    ].map((l) => leitor.normalizarLinha(l)));
+      linhaMovimento({ NOME_CLIENTE: 'PEQUENO', TOTAL: '10,00' }),
+      linhaMovimento({ NOME_CLIENTE: 'GRANDE', TOTAL: '1000,00' }),
+    ].map((l) => leitor.normalizarLinha(l, null)));
     expect(ag.clientes.map((c) => c.cliente)).toEqual(['GRANDE', 'PEQUENO']);
   });
 
-  it('lerEAgregar informa a aba usada e quantas linhas foram descartadas', () => {
-    criarEmpresa('ComRuim', { Dados: [linha(), linha({ ID_LOJA: '' })] });
+  it('lerEAgregar lê movimento + catálogo e informa quantas linhas foram descartadas', () => {
+    criarEmpresa('ComRuim', {
+      movimento: [linhaMovimento(), linhaMovimento({ ID_LOJA: '' })],
+      produto: [linhaProduto()],
+    });
     const ag = leitor.lerEAgregar('ComRuim', raiz);
-    expect(ag.aba).toBe('Dados');
     expect(ag.brutas).toBe(2);
     expect(ag.descartadas).toBe(1);
     expect(ag.totalLinhas).toBe(1);
-  });
-});
-
-/**
- * O caminho por bytes (`leitorBytes.cjs`) existe por um bug real de produção:
- * o SheetJS engolia em silêncio o erro de "aba grande demais" e usava uma
- * aba menor errada (medido em Altese, Gomec, Motobras — vínculo gravado com
- * dado incompleto antes de existir essa ligação). Como não dá pra ter um
- * fixture de 400+ MB no teste, `opts.limiteFallback` força esse caminho num
- * arquivo pequeno — o que garante é a LIGAÇÃO entre `lerLinhas` e
- * `leitorBytes`, não o parser em si (esse já tem sua própria suíte).
- */
-describe('leitor: caminho por bytes (arquivo "grande demais")', () => {
-  it('com o limite baixo, usa leitorBytes e chega ao mesmo resultado do caminho normal', () => {
-    criarEmpresa('Grandona', { Dados: [linha(), linha({ ID_LOJA: 'loja_b', QTD: 7 })] });
-    const caminho = leitor.caminhoDaEmpresa('Grandona', raiz);
-
-    const normal = leitor.lerLinhas(caminho);
-    const porBytes = leitor.lerLinhas(caminho, { limiteFallback: 1 });
-
-    expect(porBytes.linhas).toEqual(normal.linhas);
-    expect(porBytes.aba).toBe(normal.aba);
-    expect(porBytes.descartadas).toBe(0);
+    expect(ag.temCatalogoProduto).toBe(true);
   });
 
-  it('descarta linha inválida também no caminho por bytes', () => {
-    criarEmpresa('GrandonaRuim', { Dados: [linha(), linha({ ID_LOJA: '' })] });
-    const caminho = leitor.caminhoDaEmpresa('GrandonaRuim', raiz);
-    const r = leitor.lerLinhas(caminho, { limiteFallback: 1 });
-    expect(r.brutas).toBe(2);
-    expect(r.descartadas).toBe(1);
+  it('funciona sem o arquivo de produto (harmonização cai pro texto bruto)', () => {
+    criarEmpresa('SemCatalogo', { movimento: [linhaMovimento()] });
+    const ag = leitor.lerEAgregar('SemCatalogo', raiz);
+    expect(ag.temCatalogoProduto).toBe(false);
+    expect(ag.totalLinhas).toBe(1);
   });
 
-  it('sem aba com header compatível, falha explícito também no caminho por bytes', () => {
-    criarEmpresa('GrandonaSemHeader', { Dados: [{ Foo: 1, Bar: 2 }] });
-    const caminho = leitor.caminhoDaEmpresa('GrandonaSemHeader', raiz);
-    expect(() => leitor.lerLinhas(caminho, { limiteFallback: 1 }))
-      .toThrow(/Nenhuma aba com o header esperado/);
-  });
-
-  it('lerEAgregar repassa opts.limiteFallback até o fim da cadeia', () => {
-    criarEmpresa('GrandonaAgregada', { Dados: [linha(), linha({ ID_LOJA: 'loja_b' })] });
-    const ag = leitor.lerEAgregar('GrandonaAgregada', raiz, { limiteFallback: 1 });
-    expect(ag.lojas.map((l) => l.loja).sort()).toEqual(['loja_a', 'loja_b']);
+  it('lança erro explícito quando a empresa não tem arquivo de movimento', () => {
+    criarEmpresa('SemNada', { semArquivos: true });
+    expect(() => leitor.lerEAgregar('SemNada', raiz)).toThrow(/Arquivo de movimento não encontrado/);
   });
 });
