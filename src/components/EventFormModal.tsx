@@ -326,6 +326,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         servicos: modoSimples ? [] : servicos,
         preAnalise: modoSimples ? undefined : pa.preAnalise,
         resumo: modoSimples ? '' : resumo,
+        transcricao: modoSimples ? '' : transcricao,
         monitores,
         sala: ehReuniao ? (sala || undefined) : undefined,
         motivo: /reagend|cancel/i.test(statusFinal) ? motivoFinal : undefined,
