@@ -58,7 +58,7 @@ const RESUMO_MINI_MAX_CHARS = 600;
 function extrairResumoCurto(resumoMonitor: string): string {
   if (resumoMonitor.length <= RESUMO_MINI_MAX_CHARS) return resumoMonitor;
 
-  const doExport = /Resumo:\s*\n([\s\S]*?)\n\s*(?:Cap[ií]tulos e t[óo]picos|Tarefas|Perguntas-chave|Bloco de Notas):/i.exec(resumoMonitor);
+  const doExport = /Resumo:\s*\n([\s\S]*?)\n\s*(?:Cap[ií]tulos e t[óo]picos|Tarefas|Itens de a[çc][ãa]o|Perguntas-chave|Pontos principais da discuss[ãa]o|Bloco de [Nn]otas):/i.exec(resumoMonitor);
   const extraido = doExport?.[1]?.trim();
   if (extraido) return extraido.length > RESUMO_MINI_MAX_CHARS ? `${extraido.slice(0, RESUMO_MINI_MAX_CHARS).trim()}…` : extraido;
 

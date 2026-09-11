@@ -218,4 +218,45 @@ describe('gerarAta: seção 1 (RESUMO) não vira dump de export de transcrição
     expect(secao1.length).toBeLessThan(700);
     expect(secao1).toContain('resumo completo no campo Resumo do evento');
   });
+
+  /**
+   * Caso REAL de produção (Guscar, 10/09/2026): mesmo export automático
+   * (Gemini Notes), mas com rótulos DIFERENTES do caso Renocar — "Itens de
+   * ação:" e "Pontos principais da discussão:" em vez de "Tarefas:"/
+   * "Capítulos e tópicos:". A regex só reconhecia o primeiro conjunto de
+   * rótulos, caiu no corte bruto por caractere e cortou no meio de uma frase
+   * ("Avalie ações comercia…").
+   */
+  const exportGeminiItensDeAcao = [
+    'Guscar',
+    'Qui., 10 de set. de 2026',
+    '',
+    'Resumo:',
+    '',
+    'Revisão da carteira e dos dados de liquidez.',
+    '• GPS será disponibilizado via Power BI.',
+    '',
+    '',
+    'Itens de ação:',
+    '',
+    '* Erick: Envie o link de acesso ao GPS assim que a configuração estiver concluída',
+    '* Gustavo: Avalie ações comerciais e tabelas de preço específicas para clientes que estejam perdendo compras para concorrentes',
+    '',
+    '',
+    'Pontos principais da discussão:',
+    'Transição da monitoria e necessidades de informação. '.repeat(80),
+    '',
+    'Bloco de notas:',
+    '* Sem notas',
+  ].join('\n');
+
+  it('reconhece também os rótulos "Itens de ação:"/"Pontos principais da discussão:" (outro formato do mesmo export)', () => {
+    const texto = gerarAta({ ...evBase, resumo: exportGeminiItensDeAcao });
+    expect(texto).toContain('Revisão da carteira e dos dados de liquidez.');
+    expect(texto).not.toContain('Itens de ação:');
+    expect(texto).not.toContain('Pontos principais da discussão:');
+    expect(texto).not.toContain('Transição da monitoria');
+    const secao1 = texto.split('1. RESUMO')[1].split('2. O QUE FOI TRATADO')[0];
+    expect(secao1.length).toBeLessThan(700);
+  });
 });

@@ -53,4 +53,20 @@ describe('ataTexto.cjs: seção 1 (RESUMO) não vira dump de export de transcri�
     expect(secao1.length).toBeLessThan(700);
     expect(secao1).toContain('resumo completo no campo Resumo do evento');
   });
+
+  // Caso REAL de produção (Guscar, 10/09/2026) — mesmo export automático,
+  // rótulos diferentes ("Itens de ação:"/"Pontos principais da discussão:"
+  // em vez de "Tarefas:"/"Capítulos e tópicos:") não eram reconhecidos.
+  it('reconhece também os rótulos "Itens de ação:"/"Pontos principais da discussão:"', () => {
+    const exportItensDeAcao = [
+      'Guscar', 'Qui., 10 de set. de 2026', '',
+      'Resumo:', '', 'Revisão da carteira e dos dados de liquidez.', '',
+      'Itens de ação:', '* Erick: Envie o link de acesso ao GPS', '',
+      'Pontos principais da discussão:', 'Transição da monitoria. '.repeat(80),
+    ].join('\n');
+    const texto = gerarAta({ ...evBase, resumo: exportItensDeAcao });
+    expect(texto).toContain('Revisão da carteira e dos dados de liquidez.');
+    expect(texto).not.toContain('Itens de ação:');
+    expect(texto).not.toContain('Pontos principais da discussão:');
+  });
 });
