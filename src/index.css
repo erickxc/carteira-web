@@ -1617,6 +1617,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 }
 .direcao-toggle-btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
 .direcao-toggle-btn.is-active-aumento { color: var(--success); border-color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.direcao-toggle-btn.is-active-manteve { color: var(--text-primary); border-color: var(--text-secondary); background: var(--card-hover); }
 .direcao-toggle-btn.is-active-queda { color: var(--danger); border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 /* Vários relógios (cadência por serviço) empilhados dentro do card. */
 .acao-card-info.is-stack { flex-direction: column; align-items: stretch; gap: 7px; }

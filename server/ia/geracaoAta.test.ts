@@ -200,7 +200,7 @@ describe('geracaoAta: truncamento da transcrição (prompt menor = resposta mais
   it('SEM registros, corta num teto bem mais generoso (fonte única dos fatos)', () => {
     const transcricaoGrande = 'Frase da transcrição. '.repeat(1000); // ~23000 chars
     const prompt = montarPromptAta({ subject: 'Reunião', transcricao: transcricaoGrande, produtosSituacao: [] });
-    expect(prompt).toContain('[transcrição truncada — reunião muito longa]');
+    expect(prompt).toContain('[...transcrição truncada no meio — reunião muito longa...]');
     // Truncou, mas manteve MUITO mais transcrição que o teto "com registros" abaixo.
     const repeticoes = prompt.split('Frase da transcrição.').length - 1;
     expect(repeticoes).toBeGreaterThan(400);
@@ -214,9 +214,24 @@ describe('geracaoAta: truncamento da transcrição (prompt menor = resposta mais
       transcricao: transcricaoMedia,
       produtosSituacao: [{ cliente: 'Comac', produto: 'Filtro', direcao: 'queda' }],
     });
-    expect(prompt).toContain('[transcrição truncada — os registros estruturados acima já cobrem os fatos por cliente/produto]');
+    expect(prompt).toContain('[...transcrição truncada no meio — os registros estruturados acima já cobrem os fatos por cliente/produto...]');
     const repeticoes = prompt.split('Frase da transcrição.').length - 1;
     expect(repeticoes).toBeLessThan(150); // bem menos que as 300 originais
+  });
+
+  /**
+   * Bug real: cortar só do INÍCIO (`.slice(0, teto)`) perdia decisões/
+   * próximos passos, tipicamente ditos no FECHAMENTO da reunião — "Decisões"
+   * e "Próximos passos" voltavam vazios mesmo quando a transcrição os tinha.
+   * Agora mantém início E fim, descartando só o meio.
+   */
+  it('mantém tanto o INÍCIO quanto o FIM da transcrição, descartando o meio', () => {
+    const meio = 'conteúdo de preenchimento sem importância. '.repeat(600); // ~26000 chars, força truncamento
+    const transcricao = `ABERTURA DA REUNIÃO — contexto inicial.\n${meio}\nFICOU DECIDIDO: aprovar o orçamento. PRÓXIMO PASSO: Erick envia o relatório.`;
+    const prompt = montarPromptAta({ subject: 'Reunião', transcricao, produtosSituacao: [] });
+    expect(prompt).toContain('ABERTURA DA REUNIÃO');
+    expect(prompt).toContain('FICOU DECIDIDO: aprovar o orçamento. PRÓXIMO PASSO: Erick envia o relatório.');
+    expect(prompt).toContain('[...transcrição truncada no meio');
   });
 });
 

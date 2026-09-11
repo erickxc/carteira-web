@@ -8,6 +8,7 @@ import type { Cliente, EventoAgenda, ProdutoSituacaoItem } from '../types';
 function textoDirecaoOuLegado(item: ProdutoSituacaoItem): string {
   if (item.direcao === 'aumento') return `↑ aumento${item.observacao ? ` — ${item.observacao}` : ''}`;
   if (item.direcao === 'queda') return `↓ queda${item.observacao ? ` — ${item.observacao}` : ''}`;
+  if (item.direcao === 'manteve') return `→ manteve${item.observacao ? ` — ${item.observacao}` : ''}`;
   return item.situacao || '';
 }
 

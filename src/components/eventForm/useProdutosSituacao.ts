@@ -9,9 +9,9 @@ import type { DirecaoSituacao, ModoProdutoSituacao, ProdutoSituacaoItem } from '
  * cliente" (antes o produto era obrigatório, então não dava pra registrar
  * "Comac encerrou operação" sem inventar um produto).
  */
-export function useProdutosSituacao(initial: ProdutoSituacaoItem[] = []) {
+export function useProdutosSituacao(initial: ProdutoSituacaoItem[] = [], modoInicial: ModoProdutoSituacao = 'cliente_produto') {
   const [itens, setItens] = useState<ProdutoSituacaoItem[]>(initial);
-  const [modo, setModo] = useState<ModoProdutoSituacao>('cliente_produto');
+  const [modo, setModo] = useState<ModoProdutoSituacao>(modoInicial);
   const [produto, setProduto] = useState('');
   const [cliente, setCliente] = useState('');
   // Substituiu o texto livre de "situação": aumento/queda, obrigatório pra
@@ -39,6 +39,15 @@ export function useProdutosSituacao(initial: ProdutoSituacaoItem[] = []) {
     if (novo === 'produto') { setCliente(''); setGrupo(''); }
   }
 
+  /**
+   * Cliente/grupo NÃO são limpos aqui de propósito (pedido do usuário): o
+   * grupo referência é do cliente, não do produto, e digitar o mesmo cliente
+   * de novo pra cada produto que ele comprou/deixou de comprar era o
+   * problema relatado ("não tem como eu ficar criando toda hora uma linha
+   * nova"). Só produto/direção/observação (o que muda por PRODUTO) são
+   * limpos — cliente/grupo ficam prontos pro próximo produto do MESMO
+   * cliente. Trocar de cliente é só sobrescrever o campo (digitar outro nome).
+   */
   function addItem() {
     if (incompleto) return;
     setItens((prev) => [...prev, {
@@ -50,10 +59,8 @@ export function useProdutosSituacao(initial: ProdutoSituacaoItem[] = []) {
       grupo: precisaCliente && grupo ? grupo : undefined,
     }]);
     setProduto('');
-    setCliente('');
     setDirecao(null);
     setObservacao('');
-    setGrupo('');
   }
   const removeItem = (id: string) => setItens((prev) => prev.filter((i) => i.id !== id));
 

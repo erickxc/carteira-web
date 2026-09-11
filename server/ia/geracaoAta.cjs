@@ -18,11 +18,23 @@ const SECAO_MAX_CHARS = 4000;
 const TRANSCRICAO_MAX_CHARS_COM_REGISTROS = 3000;
 const TRANSCRICAO_MAX_CHARS_SEM_REGISTROS = 12000;
 
+/**
+ * Corta MANTENDO INÍCIO + FIM, descartando o meio — bug real: cortar só do
+ * início (`.slice(0, teto)`) perdia decisões/próximos passos, que tipicamente
+ * são ditos no FECHAMENTO da reunião, no fim da transcrição. "Decisões" e
+ * "Próximos passos" voltavam vazios mesmo quando a transcrição os tinha,
+ * porque a parte final nunca chegava no prompt.
+ */
 function truncarTranscricao(transcricaoTrim, temRegistros) {
   if (!transcricaoTrim) return '';
   const teto = temRegistros ? TRANSCRICAO_MAX_CHARS_COM_REGISTROS : TRANSCRICAO_MAX_CHARS_SEM_REGISTROS;
   if (transcricaoTrim.length <= teto) return transcricaoTrim;
-  return `${transcricaoTrim.slice(0, teto).trim()}\n[transcrição truncada — ${temRegistros ? 'os registros estruturados acima já cobrem os fatos por cliente/produto' : 'reunião muito longa'}]`;
+  const motivo = temRegistros ? 'os registros estruturados acima já cobrem os fatos por cliente/produto' : 'reunião muito longa';
+  const metadeInicio = Math.floor(teto * 0.55); // um pouco mais de espaço pro início (contexto costuma precisar de mais texto que o fechamento)
+  const metadeFim = teto - metadeInicio;
+  const inicio = transcricaoTrim.slice(0, metadeInicio).trim();
+  const fim = transcricaoTrim.slice(-metadeFim).trim();
+  return `${inicio}\n\n[...transcrição truncada no meio — ${motivo}...]\n\n${fim}`;
 }
 
 function textoChecklist(checklist) {

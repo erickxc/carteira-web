@@ -228,14 +228,17 @@ export interface ChecklistItem {
  *  - cliente final + produto + situação — ex.: "GSM: amortecedor caiu em agosto"
  *  - só produto + situação (`cliente` vazio) — ex.: "coxim: queda geral"
  */
-export type DirecaoSituacao = 'aumento' | 'queda';
+export type DirecaoSituacao = 'aumento' | 'queda' | 'manteve';
 
 export interface ProdutoSituacaoItem {
   id: string;
   produto?: string;
   cliente?: string;
-  /** Aumento ou queda — substituiu o texto livre de `situacao` (ver abaixo).
-   *  Registro NOVO sempre preenche isto (obrigatório no form). */
+  /** Aumento, queda ou manteve — substituiu o texto livre de `situacao` (ver
+   *  abaixo) e também a antiga `MargemPrecificacao` (subiu/desceu/manteve),
+   *  unificada aqui: evento tipo Precificação usa este mesmo campo, só que
+   *  travado no modo 'produto'. Registro NOVO sempre preenche isto
+   *  (obrigatório no form). */
   direcao?: DirecaoSituacao;
   /** Observação opcional em texto livre, complementar à seta de `direcao`. */
   observacao?: string;
@@ -258,15 +261,21 @@ export const MODO_PRODUTO_SITUACAO_LABEL: Record<ModoProdutoSituacao, string> = 
   produto: 'Produto × Situação',
 };
 
+/** @deprecated Substituído pelo Registro da Monitoria unificado
+ *  (`ProdutoSituacaoItem`, modo 'produto') — evento tipo Precificação passou
+ *  a usar `produtosSituacao`, não mais este campo. Tipo/campo mantidos só
+ *  pra continuar lendo/editando eventos antigos já salvos (ver migração em
+ *  `EventFormModal`). */
 export type MargemPrecificacao = 'subiu' | 'desceu' | 'manteve';
 
+/** @deprecated Ver `MargemPrecificacao`. */
 export const MARGEM_PRECIFICACAO_LABEL: Record<MargemPrecificacao, string> = {
   subiu: 'Subiu',
   desceu: 'Desceu',
   manteve: 'Manteve',
 };
 
-/** Marcador de produto precificado (tipo de evento "Precificação") + direção da margem. */
+/** @deprecated Ver `MargemPrecificacao` — marcador de produto precificado (tipo de evento "Precificação") + direção da margem, formato antigo. */
 export interface PrecificacaoItem {
   id: string;
   produto: string;

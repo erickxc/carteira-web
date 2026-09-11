@@ -20,14 +20,25 @@ import { useRecorrencia } from './eventForm/useRecorrencia';
 import { useChecklist } from './eventForm/useChecklist';
 import { usePreAnalise } from './eventForm/usePreAnalise';
 import { useProdutosSituacao } from './eventForm/useProdutosSituacao';
-import { usePrecificacao } from './eventForm/usePrecificacao';
 import { RecorrenciaFields } from './eventForm/RecorrenciaFields';
 import { AnexosField } from './eventForm/AnexosField';
 import { ProdutosSituacaoField } from './eventForm/ProdutosSituacaoField';
-import { PrecificacaoField } from './eventForm/PrecificacaoField';
 import { Badge, Button, Chip, Field, Input, SecaoLabel, Textarea } from '../ui';
 import { SelectField } from './SelectField';
-import { ORIGEM_LABEL, type EventoAgenda, type OrigemEvento } from '../types';
+import { ORIGEM_LABEL, type EventoAgenda, type OrigemEvento, type ProdutoSituacaoItem } from '../types';
+
+/**
+ * Precificação passou a usar o Registro da Monitoria unificado (modo
+ * "produto"), não mais o campo próprio de margem (subiu/desceu/manteve) —
+ * pedido do usuário. Evento ANTIGO já salvo com `precificacoes` (formato
+ * legado) é migrado aqui pra abrir editável no campo novo, sem perder o
+ * registro; eventos novos gravam só em `produtosSituacao` daqui em diante.
+ */
+const MARGEM_PARA_DIRECAO = { subiu: 'aumento', desceu: 'queda', manteve: 'manteve' } as const;
+function migrarPrecificacaoLegada(ev?: EventoAgenda): ProdutoSituacaoItem[] {
+  if (!ev || (ev.produtosSituacao?.length ?? 0) > 0) return ev?.produtosSituacao ?? [];
+  return (ev.precificacoes ?? []).map((p) => ({ id: p.id, produto: p.produto, direcao: MARGEM_PARA_DIRECAO[p.margem] }));
+}
 
 interface EventFormModalProps {
   initial?: EventoAgenda;
@@ -103,8 +114,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const rec = useRecorrencia();
   const ck = useChecklist(initial?.checklist ?? []);
   const pa = usePreAnalise(initial?.preAnalise);
-  const ps = useProdutosSituacao(initial?.produtosSituacao ?? []);
-  const pc = usePrecificacao(initial?.precificacoes ?? []);
+  const ps = useProdutosSituacao(migrarPrecificacaoLegada(initial), /precific/i.test(type) ? 'produto' : 'cliente_produto');
   const [ata, setAta] = useState(initial?.ata ?? '');
   const [resumo, setResumo] = useState(initial?.resumo ?? '');
   const [transcricao, setTranscricao] = useState(initial?.transcricao ?? '');
@@ -144,6 +154,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   // tratado numa Reunião — cliente segmentado (rede/grupo) ganha a coluna
   // extra "Cliente" (cada loja tem clientes finais próprios).
   const ehMonitoriaServico = !modoSimples && servicos.some((s) => /monitoria/i.test(s));
+  // Registro da Monitoria unificado: aparece tanto pro serviço Monitoria
+  // (modos livres) quanto pro tipo Precificação (travado em "produto").
+  const ehRegistroSituacao = ehMonitoriaServico || ehPrecificacaoTipo;
   // Catálogo de Dados Alvos (produtos/clientes finais) pro autocomplete do
   // Registro da Monitoria + tags compartilhadas do Ecossistema. NUNCA aquece o
   // cache aqui (`aquecer` fica de fora de propósito): pode custar ~20s em
@@ -255,7 +268,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     try {
       const secoes = await gerarAtaComIAStream({
         clientId, subject, resumo, description, checklist: ck.checklist,
-        produtosSituacao: ehMonitoriaServico ? ps.itens : [],
+        produtosSituacao: ehRegistroSituacao ? ps.itens : [],
         transcricao,
         // Sem isto a IA não sabe o nome de quem responde pelo lado da 2D e
         // volta a escrever "[2D]"/"[Negócios 2D]" nos próximos passos.
@@ -369,15 +382,14 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
           await criarLembrete({ title: `${type} — ${cliente!.empresa}${subject ? ': ' + subject : ''}`, type, datetime: alvo.toISOString(), clientId, eventId: evId, recurrence: 'none', description });
         }
       }
-      const produtosSituacao = ehMonitoriaServico ? ps.itens : [];
-      const precificacoes = ehPrecificacaoTipo ? pc.itens : [];
+      const produtosSituacao = ehRegistroSituacao ? ps.itens : [];
       if (editando) {
         const iso = baseData.toISOString();
         // Editar a data pelo formulário é tão remarcação quanto arrastar no
         // calendário — antes só o drag contava, então a mesma reunião
         // remarcada pela tela tinha `reagendamentos` divergente do real.
         await atualizarEvento(initial.id, {
-          ...comum, date: iso, checklist: ck.checklist, ata: ataDe(iso, ck.checklist), produtosSituacao, precificacoes,
+          ...comum, date: iso, checklist: ck.checklist, ata: ataDe(iso, ck.checklist), produtosSituacao,
           ...registrarRemarcacao(initial, iso),
         });
       } else if (rec.recorrente) {
@@ -397,7 +409,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         });
       } else {
         const iso = baseData.toISOString();
-        const salvo = await criarEvento({ ...comum, date: iso, checklist: ck.checklist, ata: ataDe(iso, ck.checklist), produtosSituacao, precificacoes });
+        const salvo = await criarEvento({ ...comum, date: iso, checklist: ck.checklist, ata: ataDe(iso, ck.checklist), produtosSituacao });
         await lembretesPara(salvo.id, baseData);
       }
       // Dossiê e catálogo NÃO são atualizados aqui: quem dispara é o backend, ao
@@ -520,7 +532,13 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
               />
             </Field>
 
-            {ehPrecificacaoTipo && <PrecificacaoField pc={pc} />}
+            {ehPrecificacaoTipo && (
+              <ProdutosSituacaoField
+                ps={ps}
+                produtosDisponiveis={catalogoAlvos?.clientId === clientId ? (catalogoAlvos.catalogo?.produtos ?? []) : []}
+                modoFixo="produto"
+              />
+            )}
 
             <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
               <Field className="flex-1" labelSize="sm" label="Data">
