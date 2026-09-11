@@ -8,6 +8,14 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.27
+
+- Registro da Monitoria: seta de aumento/queda em vez de texto livre + observação opcional (tag removida).
+- "Gerar ata com IA" mais rápida e com progresso legível (sem JSON quebrado na tela).
+- Corrigido: transcrição colada no evento não estava sendo salva.
+- Corrigido: salvar reunião "Agendado" não deve mais disparar a análise do dossiê.
+- Corrigido: resumo de reunião com certos formatos de export ficava cortado no meio de uma frase.
+
 ## 1.4.26
 
 - Corrigido: tarefa sem prazo não impede mais concluir uma Iniciativa (Ágil).
