@@ -1,18 +1,27 @@
 import { format, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { MapPin, Plus } from 'lucide-react';
+import { Bot, MapPin, Plus } from 'lucide-react';
 import { getHoliday } from '../../utils/holidays';
 import { salaDoEvento, turnoDe, turnoDeCeo } from '../../utils/turnos';
 import { corSalaVariant } from '../../utils/corSala';
 import { Badge } from '../../ui';
 import { CardEvento } from './CardEvento';
+import type { SugestaoSlot } from '../../utils/sugestaoAgenda';
 import type { EventoAgenda, EventoCeo } from '../../types';
+
+/** Mesmo corte de `turnoDe` (>= 12h = tarde), aplicado à `hora` da sugestão. */
+function turnoDaSugestao(hora: string): 'manha' | 'tarde' {
+  return Number(hora.slice(0, 2)) >= 12 ? 'tarde' : 'manha';
+}
 
 interface WeekKanbanProps {
   weekDays: Date[];
   hoje: Date;
   eventsByDay: Map<string, EventoAgenda[]>;
   eventsByDayCeo: Map<string, EventoCeo[]>;
+  /** Sugestões de encaixe (toggle "Mostrar agendas recomendadas") — vazio
+   *  quando o toggle está desligado ou fora do mês corrente, ver AgendaPage. */
+  sugestoesByDay: Map<string, SugestaoSlot[]>;
   /** Opções de sala cadastradas (Configurações → Categorias) — define a ordem
    *  dos grupos ao segmentar cada turno por sala. */
   salaOpcoes: string[];
@@ -26,6 +35,7 @@ interface WeekKanbanProps {
   onDragEndEvento: () => void;
   onSelecionarEvento: (ev: EventoAgenda) => void;
   onSelecionarEventoCeo: (ev: EventoCeo) => void;
+  onSelecionarSugestao: (s: SugestaoSlot) => void;
   onConcluir: (ev: EventoAgenda) => void;
   onReagendar: (id: string, novaData: string) => void;
   onNovoEvento: (day: Date) => void;
@@ -57,11 +67,14 @@ function agruparPorSala(lista: EventoAgenda[], salaOpcoes: string[]): { sala: st
 }
 
 export function WeekKanban({
-  weekDays, hoje, eventsByDay, eventsByDayCeo, salaOpcoes, conflitos, draggedId, dragOverKey,
+  weekDays, hoje, eventsByDay, eventsByDayCeo, sugestoesByDay, salaOpcoes, conflitos, draggedId, dragOverKey,
   onDragOverTurno, onDragLeaveTurno, onDropTurno, onDragStartEvento, onDragEndEvento,
-  onSelecionarEvento, onSelecionarEventoCeo, onConcluir, onReagendar, onNovoEvento,
+  onSelecionarEvento, onSelecionarEventoCeo, onSelecionarSugestao, onConcluir, onReagendar, onNovoEvento,
 }: WeekKanbanProps) {
-  function renderTurno(day: Date, key: string, turno: 'manha' | 'tarde', lista: EventoAgenda[], listaCeo: EventoCeo[], isManha: boolean) {
+  function renderTurno(
+    day: Date, key: string, turno: 'manha' | 'tarde', lista: EventoAgenda[], listaCeo: EventoCeo[],
+    sugestoes: SugestaoSlot[], isManha: boolean
+  ) {
     const dkey = `${key}|${turno}`;
     const grupos = agruparPorSala(lista, salaOpcoes);
     return (
@@ -97,6 +110,20 @@ export function WeekKanban({
               />
             ))}
           </div>
+        ))}
+        {/* Sugestão de encaixe — fora do agrupamento por sala (não tem sala).
+            Clicável: abre o formulário já preenchido pra confirmar. */}
+        {sugestoes.map((s) => (
+          <button key={`sugestao-${s.cliente.id}`}
+            type="button"
+            className="calendar-chip is-sugestao"
+            onClick={() => onSelecionarSugestao(s)}
+            title={`${s.cliente.empresa} — sugerido ${s.hora} (${s.motivo}) · clique para agendar`}>
+            <span className="calendar-chip-title"><Bot size={11} /> {s.hora} {s.cliente.empresa}</span>
+            <span className="calendar-chip-meta">
+              <span className="calendar-chip-type">{s.motivo}</span>
+            </span>
+          </button>
         ))}
         {listaCeo.map((ev) => (
           <button key={ev.id}
@@ -134,7 +161,9 @@ export function WeekKanban({
         const manha = dayEvents.filter((e) => turnoDe(e) === 'manha');
         const dayEventsCeo = eventsByDayCeo.get(key) ?? [];
         const manhaCeo = dayEventsCeo.filter((e) => turnoDeCeo(e) === 'manha');
-        return renderTurno(day, key, 'manha', manha, manhaCeo, true);
+        const daySugestoes = sugestoesByDay.get(key) ?? [];
+        const manhaSugestoes = daySugestoes.filter((s) => turnoDaSugestao(s.hora) === 'manha');
+        return renderTurno(day, key, 'manha', manha, manhaCeo, manhaSugestoes, true);
       })}
       {weekDays.map((day) => {
         const key = format(day, 'yyyy-MM-dd');
@@ -142,7 +171,9 @@ export function WeekKanban({
         const tarde = dayEvents.filter((e) => turnoDe(e) === 'tarde');
         const dayEventsCeo = eventsByDayCeo.get(key) ?? [];
         const tardeCeo = dayEventsCeo.filter((e) => turnoDeCeo(e) === 'tarde');
-        return renderTurno(day, key, 'tarde', tarde, tardeCeo, false);
+        const daySugestoes = sugestoesByDay.get(key) ?? [];
+        const tardeSugestoes = daySugestoes.filter((s) => turnoDaSugestao(s.hora) === 'tarde');
+        return renderTurno(day, key, 'tarde', tarde, tardeCeo, tardeSugestoes, false);
       })}
     </div>
   );

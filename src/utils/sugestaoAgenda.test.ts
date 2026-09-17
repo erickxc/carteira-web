@@ -107,15 +107,36 @@ describe('sugerirAgenda', () => {
 
   it('respeita o teto de sugestões por dia por monitor', () => {
     const clientes = Array.from({ length: 5 }, (_, i) => cliente({ id: `c${i}`, monitor: 'Ana' }));
-    const sugestoes = sugerirAgenda(clientes, [], SEM_ACOES, CADENCIAS, { agora: NOW, dias: 1, max: 10 });
+    const sugestoes = sugerirAgenda(clientes, [], SEM_ACOES, CADENCIAS, { agora: NOW, dias: 1 });
     // Só 1 dia útil disponível (dias: 1) e teto de 2 por dia por monitor.
     expect(sugestoes.length).toBeLessThanOrEqual(2);
   });
 
-  it('respeita o teto máximo de sugestões (opção `max`)', () => {
+  it('sem janela/teto fixos: sugere todo mundo que couber até o fim do mês', () => {
+    // NOW é 17/08/2026 (segunda) — sobra bastante dia útil no mês pra 10
+    // monitores distintos (1 cliente cada, sem disputa de horário entre si).
     const clientes = Array.from({ length: 10 }, (_, i) => cliente({ id: `c${i}`, monitor: `Monitor ${i}` }));
-    const sugestoes = sugerirAgenda(clientes, [], SEM_ACOES, CADENCIAS, { agora: NOW, max: 3 });
-    expect(sugestoes).toHaveLength(3);
+    const sugestoes = sugerirAgenda(clientes, [], SEM_ACOES, CADENCIAS, { agora: NOW });
+    expect(sugestoes).toHaveLength(10);
+  });
+
+  it('janela dinâmica não sugere além do último dia útil do mês corrente', () => {
+    const c = cliente();
+    const sugestoes = sugerirAgenda([c], [], SEM_ACOES, CADENCIAS, { agora: NOW });
+    const fimDoMes = new Date(NOW.getFullYear(), NOW.getMonth() + 1, 0);
+    for (const s of sugestoes) {
+      expect(s.dia.getTime()).toBeLessThanOrEqual(fimDoMes.getTime());
+      expect(s.dia.getMonth()).toBe(NOW.getMonth());
+    }
+  });
+
+  it('distribui as sugestões do mesmo dia/monitor entre manhã e tarde, não só de manhã', () => {
+    const clientes = Array.from({ length: 2 }, (_, i) => cliente({ id: `c${i}`, monitor: 'Ana' }));
+    const sugestoes = sugerirAgenda(clientes, [], SEM_ACOES, CADENCIAS, { agora: NOW, dias: 1 });
+    expect(sugestoes).toHaveLength(2);
+    const turnos = sugestoes.map((s) => (Number(s.hora.slice(0, 2)) >= 12 ? 'tarde' : 'manha'));
+    expect(turnos).toContain('manha');
+    expect(turnos).toContain('tarde');
   });
 
   it('o motivo/serviço refletem o relógio mais atrasado do cliente', () => {

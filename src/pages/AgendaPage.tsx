@@ -2,20 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   addDays, addMonths, addWeeks, differenceInCalendarDays, eachDayOfInterval, endOfMonth, endOfWeek,
-  format, parse, parseISO, startOfMonth, startOfWeek, subDays, subMonths, subWeeks,
+  format, isSameMonth, parse, parseISO, startOfMonth, startOfWeek, subDays, subMonths, subWeeks,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, Plus, Printer } from 'lucide-react';
+import { Bot, CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, Plus, Printer } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { EventFormModal } from '../components/EventFormModal';
 import { FiltroBotoes } from '../components/FiltroBotoes';
 import { CeoEventoPopover } from '../components/agenda/CeoEventoPopover';
-import { SugestaoAgendaCard } from '../components/agenda/SugestaoAgendaCard';
 import { ProximasReunioesTicker } from '../components/agenda/ProximasReunioesTicker';
 import { MonthGrid } from '../components/agenda/MonthGrid';
 import { WeekKanban } from '../components/agenda/WeekKanban';
 import { turnoDe } from '../utils/turnos';
 import { ghostsByDay, registrarRemarcacao } from '../utils/reagendamento';
+import { sugerirAgenda, type SugestaoSlot } from '../utils/sugestaoAgenda';
 import { gerarAta } from '../utils/ata';
 import { corTipo } from '../utils/tipoCor';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -29,7 +29,7 @@ function ordenaPorHora(a: EventoAgenda, b: EventoAgenda) {
 }
 
 export default function AgendaPage() {
-  const { agenda, clientes, atualizarEvento, opcoesPorTipo, ceoAgenda, filtroMonitor } = useCarteira();
+  const { agenda, clientes, acoes, cadencias, atualizarEvento, opcoesPorTipo, ceoAgenda, filtroMonitor } = useCarteira();
   const location = useLocation();
   const navigate = useNavigate();
   const hoje = new Date();
@@ -47,6 +47,7 @@ export default function AgendaPage() {
   const [mostrarCancelados, setMostrarCancelados] = usePersistedState('filtro:agenda:mostrarCancelados', false);
   const [mostrarAgendaCeo, setMostrarAgendaCeo] = usePersistedState('carteira:mostrarAgendaCeo', false);
   const [eventoCeoAberto, setEventoCeoAberto] = useState<EventoCeo | null>(null);
+  const [mostrarRecomendadas, setMostrarRecomendadas] = usePersistedState('filtro:agenda:mostrarRecomendadas', false);
 
   const statusConcluido = useMemo(
     () => opcoesPorTipo('status_evento').find((s) => /conclu|realiz/i.test(s)) ?? 'Concluído',
@@ -130,6 +131,33 @@ export default function AgendaPage() {
    * (monitor/tipo), pelo mesmo motivo que o evento em si não apareceria.
    */
   const ghostsRealocadosByDay = useMemo(() => ghostsByDay(agendaFiltrada), [agendaFiltrada]);
+
+  // "Agendas recomendadas": só calcula/mostra no mês CORRENTE de verdade (hoje
+  // real, não o mês/semana navegado) — ver spec. Fora do mês atual, mapa vazio
+  // (nenhuma sugestão aparece), sem aviso especial.
+  const noMesCorrente = view === 'mes' ? isSameMonth(hoje, currentMonth) : isSameMonth(hoje, weekRef);
+  // Mesmos dois filtros de monitor da Agenda (ver comentário de
+  // `agendaFiltrada` acima) — sem isso, a sugestão ignorava o filtro
+  // (global do header e o local desta tela) e sugeria cliente de qualquer
+  // monitor, mesmo com um filtro ativo.
+  const clientesParaSugestao = useMemo(
+    () => clientes.filter((c) =>
+      (filtroMonitor === 'Todos' || c.monitor === filtroMonitor) &&
+      (fMonitores.length === 0 || fMonitores.includes(c.monitor || ''))),
+    [clientes, filtroMonitor, fMonitores]
+  );
+  const sugestoesByDay = useMemo(() => {
+    const map = new Map<string, SugestaoSlot[]>();
+    if (!mostrarRecomendadas || !noMesCorrente) return map;
+    const sugestoes = sugerirAgenda(clientesParaSugestao, agenda, acoes, cadencias, { agora: hoje });
+    for (const s of sugestoes) {
+      const key = format(s.dia, 'yyyy-MM-dd');
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(s);
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mostrarRecomendadas, noMesCorrente, clientesParaSugestao, agenda, acoes, cadencias]);
 
   // Eventos da Agenda do CEO, por dia (chave 'yyyy-MM-dd') — inclui todos os
   // dias entre start/end para compromissos que abrangem mais de um dia.
@@ -248,10 +276,6 @@ export default function AgendaPage() {
         onSelecionar={(ev) => setModalState({ editing: ev })}
       />
 
-      <SugestaoAgendaCard
-        onAgendar={(clienteId, dia, hora) => setModalState({ initialClientId: clienteId, defaultDate: dia, initialTime: hora })}
-      />
-
       <Card flat className="agenda-board">
         <div className="flex-between" style={{ marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
           <strong style={{ textTransform: 'capitalize', fontSize: '1.3rem' }}>{tituloPeriodo()}</strong>
@@ -300,6 +324,21 @@ export default function AgendaPage() {
                 Agendas do Marco indisponível no momento
               </span>
             )}
+            <label
+              className="switch-toggle-row"
+              title="Mostra, translúcido no calendário, quando encaixar os clientes com cadência mais atrasada até o fim do mês"
+            >
+              <Bot size={14} className="text-[color:var(--accent)] shrink-0" />
+              Agendas recomendadas
+              <span className="switch-toggle">
+                <input
+                  type="checkbox"
+                  checked={mostrarRecomendadas}
+                  onChange={(e) => setMostrarRecomendadas(e.target.checked)}
+                />
+                <span className="switch-toggle-track" />
+              </span>
+            </label>
           </div>
         </div>
 
@@ -320,6 +359,7 @@ export default function AgendaPage() {
             eventsByDay={eventsByDay}
             eventsByDayCeo={eventsByDayCeo}
             ghostsByDay={ghostsRealocadosByDay}
+            sugestoesByDay={sugestoesByDay}
             conflitos={conflitos}
             draggedId={draggedId}
             dragOverKey={dragOverKey}
@@ -330,6 +370,7 @@ export default function AgendaPage() {
             onDragEndEvento={() => { setDraggedId(null); setDragOverKey(null); }}
             onSelecionarEvento={(ev) => setModalState({ editing: ev })}
             onSelecionarEventoCeo={setEventoCeoAberto}
+            onSelecionarSugestao={(s) => setModalState({ initialClientId: s.cliente.id, defaultDate: s.dia, initialTime: s.hora })}
             onNovoEvento={(day) => setModalState({ defaultDate: day })}
             onReagendar={moverParaDia}
           />
@@ -339,6 +380,7 @@ export default function AgendaPage() {
             hoje={hoje}
             eventsByDay={eventsByDay}
             eventsByDayCeo={eventsByDayCeo}
+            sugestoesByDay={sugestoesByDay}
             salaOpcoes={opcoesPorTipo('sala')}
             conflitos={conflitos}
             draggedId={draggedId}
@@ -348,6 +390,7 @@ export default function AgendaPage() {
             onDropTurno={(id, dayKey, turno) => { setDragOverKey(null); setDraggedId(null); moverKanban(id, dayKey, turno); }}
             onDragStartEvento={setDraggedId}
             onDragEndEvento={() => { setDraggedId(null); setDragOverKey(null); }}
+            onSelecionarSugestao={(s) => setModalState({ initialClientId: s.cliente.id, defaultDate: s.dia, initialTime: s.hora })}
             onSelecionarEvento={(ev) => setModalState({ editing: ev })}
             onSelecionarEventoCeo={setEventoCeoAberto}
             onConcluir={concluir}

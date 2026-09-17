@@ -1,10 +1,11 @@
 import { format, isSameDay, isSameMonth, parseISO } from 'date-fns';
-import { AlertTriangle, CalendarSync, History, MapPin, Paperclip, Plus, User } from 'lucide-react';
+import { AlertTriangle, Bot, CalendarSync, History, MapPin, Paperclip, Plus, User } from 'lucide-react';
 import { formatHolidayLabel, getHoliday } from '../../utils/holidays';
 import { corTipo } from '../../utils/tipoCor';
 import { salaDoEvento } from '../../utils/turnos';
 import { ReagendarButton } from './ReagendarButton';
 import type { GhostRealocado } from '../../utils/reagendamento';
+import type { SugestaoSlot } from '../../utils/sugestaoAgenda';
 import type { EventoAgenda, EventoCeo } from '../../types';
 
 const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -17,6 +18,9 @@ interface MonthGridProps {
   eventsByDayCeo: Map<string, EventoCeo[]>;
   /** Slots de onde uma reunião já saiu (remarcada) — ver `src/utils/reagendamento.ts`. */
   ghostsByDay: Map<string, GhostRealocado[]>;
+  /** Sugestões de encaixe (toggle "Mostrar agendas recomendadas") — vazio
+   *  quando o toggle está desligado ou fora do mês corrente, ver AgendaPage. */
+  sugestoesByDay: Map<string, SugestaoSlot[]>;
   conflitos: Set<string>;
   draggedId: string | null;
   dragOverKey: string | null;
@@ -27,6 +31,7 @@ interface MonthGridProps {
   onDragEndEvento: () => void;
   onSelecionarEvento: (ev: EventoAgenda) => void;
   onSelecionarEventoCeo: (ev: EventoCeo) => void;
+  onSelecionarSugestao: (s: SugestaoSlot) => void;
   onNovoEvento: (day: Date) => void;
   onReagendar: (id: string, novaData: string) => void;
 }
@@ -36,9 +41,9 @@ interface MonthGridProps {
  * mesmas classes/markup), sem alterar nenhuma regra de negócio.
  */
 export function MonthGrid({
-  monthDays, currentMonth, hoje, eventsByDay, eventsByDayCeo, ghostsByDay, conflitos, draggedId, dragOverKey,
+  monthDays, currentMonth, hoje, eventsByDay, eventsByDayCeo, ghostsByDay, sugestoesByDay, conflitos, draggedId, dragOverKey,
   onDragOverDay, onDragLeaveDay, onDropDay, onDragStartEvento, onDragEndEvento,
-  onSelecionarEvento, onSelecionarEventoCeo, onNovoEvento, onReagendar,
+  onSelecionarEvento, onSelecionarEventoCeo, onSelecionarSugestao, onNovoEvento, onReagendar,
 }: MonthGridProps) {
   return (
     <>
@@ -51,6 +56,7 @@ export function MonthGrid({
           const dayEvents = eventsByDay.get(key) ?? [];
           const dayEventsCeo = eventsByDayCeo.get(key) ?? [];
           const dayGhosts = ghostsByDay.get(key) ?? [];
+          const daySugestoes = sugestoesByDay.get(key) ?? [];
           const holiday = getHoliday(day);
           const classes = ['calendar-day', 'calendar-day-big',
             !isSameMonth(day, currentMonth) && 'is-outside', isSameDay(day, hoje) && 'is-today',
@@ -128,6 +134,21 @@ export function MonthGrid({
                       <span className="calendar-chip-type">Realocado → {format(parseISO(g.novaData), 'dd/MM')}</span>
                     </span>
                   </div>
+                ))}
+                {/* Sugestão de encaixe (toggle "Mostrar agendas recomendadas") —
+                    diferente do "ghost" acima: é clicável, abre o formulário já
+                    preenchido pra confirmar. Nada é criado só de aparecer aqui. */}
+                {daySugestoes.map((s) => (
+                  <button key={`sugestao-${s.cliente.id}`}
+                    type="button"
+                    className="calendar-chip is-sugestao"
+                    onClick={() => onSelecionarSugestao(s)}
+                    title={`${s.cliente.empresa} — sugerido ${s.hora} (${s.motivo}) · clique para agendar`}>
+                    <span className="calendar-chip-title"><Bot size={11} /> {s.hora} {s.cliente.empresa}</span>
+                    <span className="calendar-chip-meta">
+                      <span className="calendar-chip-type">{s.motivo}</span>
+                    </span>
+                  </button>
                 ))}
               </div>
             </div>
