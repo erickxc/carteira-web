@@ -15,6 +15,7 @@ const { gerarRelatoriosPendentes } = require('./server/relatoriosAutomaticos.cjs
 const { materializarTudo } = require('./server/agendaSeries.cjs');
 const { iniciarSincronizacaoPeriodica: iniciarSyncCeoAgenda } = require('./server/ceoAgenda.cjs');
 const { rodarCicloComSnapshot } = require('./server/fila/controller.cjs');
+const { sincronizarPriceDoDW } = require('./server/dw/sincronizarPrice.cjs');
 const { gerarAnalisesPendentes } = require('./server/ia/analisesAutomaticas.cjs');
 const { consolidarAgilIniciativas } = require('./server/scripts/consolidarAgilIniciativas.cjs');
 
@@ -35,6 +36,11 @@ app.use(cors({
     // fetch nesta API antes do navegador estar na origem do próprio app.
     // Mesmo nível de confiança do resto do projeto (sem autenticação, LAN
     // local) — não é uma origem de internet arbitrária.
+    // Extensão "2D - Login rápido no Price" (`extensao-price-login/`) — sem
+    // ID fixo (não empacotada/assinada, cada instalação "unpacked" recebe um
+    // ID diferente), então não dá pra listar um valor único; mesmo nível de
+    // confiança do resto desta lista (sem autenticação, uso interno na LAN).
+    if (origin?.startsWith('chrome-extension://')) return callback(null, true);
     if (!origin || origin === 'null' || permitidas.includes(origin)) return callback(null, true);
     // `callback(err)` (em vez de `callback(null, false)`) faz o Express tratar
     // como erro de rota e devolver uma página de erro HTML — inclusive pra
@@ -145,6 +151,29 @@ if (isServer) {
   cron.schedule('*/1 * * * *', () => rodarControllerFila('cron 1min'));
 }
 
+// Sincronização de Price com o DW_PLATAFORMA (outro sistema, produção) —
+// só refresca senha/segmento/linha de clientes JÁ vinculados (loginPrice
+// preenchido); nunca vincula CNPJ novo nem mexe em `servicos` sozinha (ver
+// `server/dw/sincronizarPrice.cjs`). No-op silencioso se DW_PLATAFORMA_* não
+// estiver no `.env` desta máquina. Só na servidora, mesmo critério da fila.
+function rodarSincronizacaoPrice(origem) {
+  sincronizarPriceDoDW()
+    .then((r) => {
+      if (!r.rodou) return;
+      if (r.atualizados > 0 || r.semCorrespondencia > 0) {
+        console.log(
+          `Sincronização Price/DW (${origem}): ${r.atualizados} atualizado(s), `
+          + `${r.semCorrespondencia} sem correspondência no DW.`,
+        );
+      }
+    })
+    .catch((err) => console.warn(`Falha na sincronização Price/DW (${origem}):`, err.message));
+}
+if (isServer) {
+  rodarSincronizacaoPrice('boot');
+  cron.schedule('0 */6 * * *', () => rodarSincronizacaoPrice('cron 6h'));
+}
+
 registerUploads(app); // /uploads (estático) + /api/uploads (CRUD)
 app.use('/api/clients', require('./server/routes/clients.cjs'));
 // Precisa vir ANTES de '/api/agenda' — senão o router de agenda (que tem
@@ -164,6 +193,9 @@ app.use('/api/agil/frentes', require('./server/routes/agilFrentes.cjs'));
 app.use('/api/agil/campos-personalizados', require('./server/routes/agilCamposPersonalizados.cjs'));
 app.use('/api/agil/subtarefas', require('./server/routes/agilSubtarefas.cjs'));
 app.use('/api/agil/comentarios', require('./server/routes/agilComentarios.cjs'));
+app.use('/api/agil/conexoes', require('./server/routes/agilConexoes.cjs'));
+app.use('/api/agil/historico', require('./server/routes/agilHistorico.cjs'));
+app.use('/api/agil/swimlanes', require('./server/routes/agilSwimlanes.cjs'));
 app.use('/api/fila', require('./server/routes/fila.cjs'));
 app.use('/api/atualizacao', require('./server/routes/atualizacao.cjs'));
 app.use('/api/sistema', require('./server/routes/sistemaLocal.cjs'));

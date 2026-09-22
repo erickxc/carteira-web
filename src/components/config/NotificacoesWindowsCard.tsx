@@ -63,7 +63,7 @@ export default function NotificacoesWindowsCard() {
           </div>
           <div className="flex-row" style={{ marginTop: 14, justifyContent: 'flex-end' }}>
             <Button variant="secondary" onClick={testar} disabled={testando}>
-              {testando ? 'Enviando...' : 'Testar notificação'}
+              {testando ? 'Enviando…' : 'Testar notificação'}
             </Button>
           </div>
         </>

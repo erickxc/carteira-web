@@ -75,7 +75,7 @@ export function MonthGrid({
               <div className="calendar-events-big custom-scrollbar">
                 {dayEvents.map((ev) => (
                   <button key={ev.id}
-                    className={`calendar-chip${draggedId === ev.id ? ' is-dragging' : ''}${/conclu|realiz/i.test(ev.status) ? ' is-done' : ''}${/cancel|reagend/i.test(ev.status) ? ' is-cancel' : ''}`}
+                    className={`calendar-chip${draggedId === ev.id ? ' is-dragging' : ''}${/conclu|realiz/i.test(ev.status) ? ' is-done' : ''}${/cancel|reagend/i.test(ev.status) ? ' is-cancel' : ''}${/pendente/i.test(ev.status) ? ' is-pendente' : ''}`}
                     style={{ ['--chip-color' as string]: corTipo(ev.type) }}
                     draggable onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); onDragStartEvento(ev.id); }}
                     onDragEnd={onDragEndEvento}

@@ -37,12 +37,15 @@ function remover(repo, id) {
   const found = repo.delete('AgilBoards', id);
   if (!found) return false;
   repo.save('AgilColunas', repo.get('AgilColunas').filter((c) => String(c.boardId) !== String(id)));
+  repo.save('AgilSwimlanes', repo.get('AgilSwimlanes').filter((s) => String(s.boardId) !== String(id)));
   repo.save('AgilCamposPersonalizados', repo.get('AgilCamposPersonalizados').filter((c) => String(c.boardId) !== String(id)));
   const tarefasRemovidas = repo.get('AgilTarefas').filter((t) => String(t.boardId) === String(id)).map((t) => String(t.id));
   const tarefasRemovidasSet = new Set(tarefasRemovidas);
   repo.save('AgilTarefas', repo.get('AgilTarefas').filter((t) => String(t.boardId) !== String(id)));
   repo.save('AgilSubtarefas', repo.get('AgilSubtarefas').filter((s) => !tarefasRemovidasSet.has(String(s.tarefaId))));
   repo.save('AgilComentarios', repo.get('AgilComentarios').filter((c) => !tarefasRemovidasSet.has(String(c.tarefaId))));
+  repo.save('AgilConexoes', repo.get('AgilConexoes').filter((c) => !tarefasRemovidasSet.has(String(c.tarefaOrigemId)) && !tarefasRemovidasSet.has(String(c.tarefaDestinoId))));
+  repo.save('AgilHistorico', repo.get('AgilHistorico').filter((h) => !tarefasRemovidasSet.has(String(h.tarefaId))));
   return true;
 }
 

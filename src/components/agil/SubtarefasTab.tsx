@@ -49,6 +49,7 @@ export function SubtarefasTab({ tarefaId }: SubtarefasTabProps) {
               onClick={() => removerAgilSubtarefa(s.id)}
               className="flex items-center justify-center w-6 h-6 rounded-[4px] text-text-muted bg-transparent border-none cursor-pointer opacity-0 group-hover:opacity-100 transition-[opacity,background-color,color] hover:bg-danger hover:text-white"
               title="Remover"
+              aria-label="Remover subtarefa"
             >
               <Trash2 size={13} />
             </button>
@@ -56,7 +57,7 @@ export function SubtarefasTab({ tarefaId }: SubtarefasTabProps) {
         ))}
       </div>
       <form onSubmit={handleAdd} className="flex gap-2">
-        <Input tone="modal" placeholder="Nova subtarefa..." value={titulo} onChange={(e) => setTitulo(e.target.value)} />
+        <Input tone="modal" placeholder="Nova subtarefa…" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
         <Button type="submit" variant="secondary" disabled={saving || !titulo.trim()}>Adicionar</Button>
       </form>
     </div>

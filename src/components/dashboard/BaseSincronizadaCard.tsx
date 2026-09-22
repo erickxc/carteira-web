@@ -38,7 +38,7 @@ export function BaseSincronizadaCard() {
     : 'Não foi possível verificar a base agora';
 
   return (
-    <Card className="base-sync" title={detalhe}>
+    <Card className="base-sync" title={detalhe} aria-live="polite">
       {ok
         ? <Cloud size={17} className="text-status-success shrink-0" />
         : <CloudOff size={17} className="text-status-danger shrink-0" />}

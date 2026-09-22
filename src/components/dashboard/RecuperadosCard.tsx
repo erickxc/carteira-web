@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { AlertTriangle, CalendarCheck, TrendingUp } from 'lucide-react';
 import { calcularAindaSemAtendimento, calcularRecuperados, LIMIAR_RECUPERACAO_DIAS } from '../../utils/recuperados';
@@ -24,7 +24,6 @@ interface RecuperadosCardProps {
  * contagem sozinha não permite agir; a lista, sim.
  */
 export function RecuperadosCard({ clientes, agenda, agora }: RecuperadosCardProps) {
-  const navigate = useNavigate();
   // Padrão = trimestre: cobre os "últimos 2 meses" pedidos, sem depender de
   // onde estamos no mês corrente (dia 2 do mês, "mês atual" mostraria quase nada).
   const [periodo, setPeriodo] = useState<PeriodoKey>('trimestre');
@@ -120,10 +119,11 @@ export function RecuperadosCard({ clientes, agenda, agora }: RecuperadosCardProp
         ) : (
           <div className="recup-lista custom-scrollbar">
             {parados.map((p) => (
-              <button
+              <Link
                 key={p.cliente.id}
                 className="recup-item"
-                onClick={() => navigate(`/clientes/${p.cliente.id}`, { state: { from: '/', fromLabel: 'Visão Geral' } })}
+                to={`/clientes/${p.cliente.id}`}
+                state={{ from: '/', fromLabel: 'Visão Geral' }}
                 title="Abrir o cliente"
               >
                 <div style={{ minWidth: 0, textAlign: 'left' }}>
@@ -137,7 +137,7 @@ export function RecuperadosCard({ clientes, agenda, agora }: RecuperadosCardProp
                     )}
                   </div>
                 </div>
-              </button>
+              </Link>
             ))}
           </div>
         )
@@ -146,10 +146,11 @@ export function RecuperadosCard({ clientes, agenda, agora }: RecuperadosCardProp
       ) : (
         <div className="recup-lista custom-scrollbar">
           {recuperados.map((r) => (
-            <button
+            <Link
               key={r.cliente.id}
               className="recup-item"
-              onClick={() => navigate(`/clientes/${r.cliente.id}`, { state: { from: '/', fromLabel: 'Visão Geral' } })}
+              to={`/clientes/${r.cliente.id}`}
+              state={{ from: '/', fromLabel: 'Visão Geral' }}
               title="Abrir o cliente"
             >
               <div style={{ minWidth: 0, textAlign: 'left' }}>
@@ -173,7 +174,7 @@ export function RecuperadosCard({ clientes, agenda, agora }: RecuperadosCardProp
                   {format(r.entrega.data, 'dd/MM/yy')}
                 </span>
               </div>
-            </button>
+            </Link>
           ))}
         </div>
       )}

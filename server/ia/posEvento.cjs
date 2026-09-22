@@ -20,12 +20,21 @@ const { EVENTO_RELEVANTE } = require('./analisesAutomaticas.cjs');
  * CLAUDE.md, "IA e máquinas cliente"), e o espelho do catálogo depende de ler
  * o arquivo de vendas, que também é papel do servidor.
  */
-function relevante(status) {
-  return EVENTO_RELEVANTE.test(String(status || ''));
+/**
+ * `statusAnterior`: exceção pedida explicitamente — cancelar uma reunião que
+ * ainda estava "Pendente" (nunca confirmada) não é um evento que de fato
+ * aconteceu, não tem o que analisar. Só essa combinação específica (Pendente
+ * → Cancelado) é pulada; cancelar a partir de qualquer outro status
+ * (Agendado, Concluído etc.) continua disparando normalmente.
+ */
+function relevante(status, statusAnterior) {
+  if (!EVENTO_RELEVANTE.test(String(status || ''))) return false;
+  if (/cancel/i.test(String(status || '')) && /pendente/i.test(String(statusAnterior || ''))) return false;
+  return true;
 }
 
-function dispararPosEvento(repo, clientId, status) {
-  if (isClient || !clientId || !relevante(status)) return;
+function dispararPosEvento(repo, clientId, status, statusAnterior) {
+  if (isClient || !clientId || !relevante(status, statusAnterior)) return;
 
   // `setImmediate` solta o trabalho do ciclo da requisição: a rota responde
   // primeiro, o usuário fecha a tela, e isto segue rodando.

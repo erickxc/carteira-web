@@ -140,8 +140,12 @@ export function AbrangenciaMapaCard({ clientes }: AbrangenciaMapaCardProps) {
       </div>
 
       <div
+        role="button"
+        tabIndex={0}
         onClick={() => setExpandido(true)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandido(true); } }}
         title="Clique para expandir"
+        aria-label="Expandir mapa de abrangência"
         style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, cursor: 'pointer', position: 'relative' }}
       >
         <MapaSvg largura={140} porUf={porUf} max={max} onHover={mostrar} onLeave={esconder} />

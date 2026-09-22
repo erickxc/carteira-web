@@ -30,7 +30,14 @@ function Barra({ janela, rotulo }: { janela: JanelaCota | null | undefined; rotu
           {janela.resetaEm && ` · reseta ${new Date(janela.resetaEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
         </span>
       </div>
-      <div style={{ height: 6, borderRadius: 3, background: 'var(--border)', overflow: 'hidden' }}>
+      <div
+        role="progressbar"
+        aria-label={rotulo}
+        aria-valuenow={Math.min(pct, 100)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        style={{ height: 6, borderRadius: 3, background: 'var(--border)', overflow: 'hidden' }}
+      >
         <div style={{ height: '100%', width: `${Math.min(pct, 100)}%`, background: cor, transition: 'width 0.3s' }} />
       </div>
     </div>

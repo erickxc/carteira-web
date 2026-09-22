@@ -223,7 +223,14 @@ export default function ProvedorIACard() {
                           </a>
                           <Field label="Código devolvido pelo navegador">
                             <div style={{ display: 'flex', gap: 8 }}>
-                              <Input value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="cole o código aqui" />
+                              <Input
+                                value={codigo}
+                                onChange={(e) => setCodigo(e.target.value)}
+                                placeholder="cole o código aqui"
+                                name="codigoAutorizacao"
+                                autoComplete="off"
+                                spellCheck={false}
+                              />
                               <Button onClick={enviarCodigo} disabled={!codigo.trim()}>Enviar</Button>
                             </div>
                           </Field>
@@ -247,7 +254,15 @@ export default function ProvedorIACard() {
                       (vale 1 ano). Alternativa ao login acima — útil se o link não aparecer.
                     </p>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <Input value={token} onChange={(e) => setToken(e.target.value)} placeholder="sk-ant-oat01-..." />
+                      <Input
+                        value={token}
+                        onChange={(e) => setToken(e.target.value)}
+                        placeholder="sk-ant-oat01-…"
+                        aria-label="Token do Claude"
+                        name="tokenClaude"
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
                       <Button onClick={salvarToken} disabled={!token.trim() || validandoToken}>
                         {validandoToken ? <Loader2 size={14} className="animate-spin" /> : 'Salvar'}
                       </Button>

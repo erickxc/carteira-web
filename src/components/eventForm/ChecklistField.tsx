@@ -30,7 +30,13 @@ export function ChecklistField({ ck }: ChecklistFieldProps) {
         {ck.checklist.length === 0 && <span className="text-text-muted" style={{ fontSize: 13, textTransform: 'none' }}>Nenhum item.</span>}
         {ck.checklist.map((it) => (
           <div key={it.id} className="check-item">
-            <button type="button" className={`filter-check${it.done ? ' is-on' : ''}`} onClick={() => ck.toggleItem(it.id)}>
+            <button
+              type="button"
+              className={`filter-check${it.done ? ' is-on' : ''}`}
+              onClick={() => ck.toggleItem(it.id)}
+              aria-pressed={it.done}
+              aria-label={it.done ? `Marcar "${it.text}" como pendente` : `Marcar "${it.text}" como feito`}
+            >
               {it.done && <Check size={11} strokeWidth={3} />}
             </button>
             <span style={{ flex: 1, textDecoration: it.done ? 'line-through' : 'none', color: it.done ? 'var(--text-muted)' : 'var(--text-primary)' }}>{it.text}</span>
@@ -39,8 +45,8 @@ export function ChecklistField({ ck }: ChecklistFieldProps) {
         ))}
       </div>
       <div className="flex-row">
-        <Input tone="modal" placeholder="Nova atividade..." value={ck.novoItem} onChange={(e) => ck.setNovoItem(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ck.addItem(); } }} />
-        <Button variant="primary" size="icon" onClick={ck.addItem} disabled={!ck.novoItem.trim()} title="Adicionar item de pauta"><Plus size={16} /></Button>
+        <Input tone="modal" placeholder="Nova atividade…" value={ck.novoItem} onChange={(e) => ck.setNovoItem(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ck.addItem(); } }} />
+        <Button variant="primary" size="icon" onClick={ck.addItem} disabled={!ck.novoItem.trim()} title="Adicionar item de pauta" aria-label="Adicionar item de pauta"><Plus size={16} /></Button>
       </div>
       <div className="flex flex-wrap gap-2 mt-2">
         <span className="text-text-muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', alignSelf: 'center' }}>Etiquetas:</span>

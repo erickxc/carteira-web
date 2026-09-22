@@ -46,7 +46,7 @@ export function ComentariosTab({ tarefaId }: ComentariosTabProps) {
         <div style={{ maxWidth: 220 }}>
           <Dropdown variant="campo" label="Selecione" value={autor} onChange={(v) => setAutor(v as string)} options={monitorOpcoes.map((m) => ({ value: m, label: m }))} />
         </div>
-        <Textarea tone="modal" placeholder="Escreva um comentário..." value={texto} onChange={(e) => setTexto(e.target.value)} />
+        <Textarea tone="modal" placeholder="Escreva um comentário…" value={texto} onChange={(e) => setTexto(e.target.value)} />
         <Button type="submit" variant="secondary" disabled={saving || !texto.trim()} style={{ alignSelf: 'flex-start' }}>
           Comentar
         </Button>
@@ -73,6 +73,7 @@ export function ComentariosTab({ tarefaId }: ComentariosTabProps) {
                     onClick={() => removerAgilComentario(c.id)}
                     className="ml-auto flex items-center justify-center w-5 h-5 rounded-[4px] text-text-muted bg-transparent border-none cursor-pointer opacity-0 group-hover:opacity-100 transition-[opacity,background-color,color] hover:bg-danger hover:text-white"
                     title="Remover"
+                    aria-label="Remover comentário"
                   >
                     <Trash2 size={12} />
                   </button>

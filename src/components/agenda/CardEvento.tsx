@@ -58,7 +58,14 @@ export function CardEvento({ ev, isDragging, hasConflito, onDragStart, onDragEnd
         )}
         <ReagendarButton dataAtual={ev.date} onReagendar={onReagendar} />
         {!/conclu|realiz|cancel|reagend/i.test(ev.status) && (
-          <span className="kanban-card-done" onClick={(e) => { e.stopPropagation(); onConcluir(); }} title="Concluir reunião"><Check size={12} /></span>
+          <button
+            type="button"
+            className="kanban-card-done"
+            style={{ padding: 0, font: 'inherit' }}
+            onClick={(e) => { e.stopPropagation(); onConcluir(); }}
+            title="Concluir reunião"
+            aria-label="Concluir reunião"
+          ><Check size={12} /></button>
         )}
       </div>
       <span className="kanban-card-title">{ev.clientName}</span>

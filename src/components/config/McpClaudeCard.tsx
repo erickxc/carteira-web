@@ -112,7 +112,7 @@ export default function McpClaudeCard() {
         </div>
         <Button onClick={testar} disabled={testando || !claude.autenticado}>
           {testando ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-          {testando ? 'Testando...' : 'Testar a integração'}
+          {testando ? 'Testando…' : 'Testar a integração'}
         </Button>
       </div>
 
@@ -123,13 +123,13 @@ export default function McpClaudeCard() {
       )}
 
       {resultado && 'erro' in resultado && (
-        <p style={{ fontSize: '0.82rem', display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 14 }}>
+        <p aria-live="polite" style={{ fontSize: '0.82rem', display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 14 }}>
           <X size={15} style={{ flexShrink: 0, marginTop: 2 }} /> {resultado.erro}
         </p>
       )}
 
       {resultado && 'ok' in resultado && (
-        <div style={{ fontSize: '0.82rem', marginBottom: 14, display: 'grid', gap: 6 }}>
+        <div aria-live="polite" style={{ fontSize: '0.82rem', marginBottom: 14, display: 'grid', gap: 6 }}>
           <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <Check size={15} /> Respondeu em {resultado.segundos}s
             {resultado.ferramentas.length > 0

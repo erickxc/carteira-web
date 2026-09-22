@@ -142,13 +142,24 @@ export function useDashboardData() {
     [agendaAtiva, ano]
   );
 
-  // Base de REUNIÕES (só tipo Reunião) de clientes ativos — usada tanto nos KPIs
-  // de reunião quanto no gráfico "Reuniões por Mês", pra baterem entre si. NÃO
-  // segue o filtro "Todos os tipos" do topo: os cards dizem "Reuniões", então
-  // sempre contam só reunião (não contato/ligação/relatório).
+  // Base de REUNIÕES (só tipo Reunião) — usada tanto nos KPIs de reunião quanto
+  // no gráfico "Reuniões por Mês", pra baterem entre si. NÃO segue o filtro
+  // "Todos os tipos" do topo: os cards dizem "Reuniões", então sempre contam só
+  // reunião (não contato/ligação/relatório).
+  //
+  // Filtra por Monitor pelo campo DO PRÓPRIO EVENTO (`monitores`), não por
+  // `ativosIds` (clientes ativos HOJE): usar o status atual do cliente aqui
+  // fazia o histórico ser recalculado toda vez que alguém mudava de status —
+  // uma reunião de julho sumia do gráfico (inclusive de meses já fechados) se
+  // o cliente ficasse inativo em setembro. O momento histórico da reunião não
+  // deve depender do estado atual do cadastro — é fato passado, não se
+  // recalcula (bug real, visto no gráfico "Reuniões por Mês" caindo pra meses
+  // anteriores conforme clientes mudavam de status).
   const reunioesAtivas = useMemo(
-    () => agenda.filter((a) => ativosIds.has(a.clientId) && /reuni/i.test(a.type || '')),
-    [agenda, ativosIds]
+    () => agenda.filter((a) =>
+      /reuni/i.test(a.type || '') && (filtroMonitor === 'Todos' || (a.monitores ?? []).includes(filtroMonitor))
+    ),
+    [agenda, filtroMonitor]
   );
 
   // CONCLUÍDAS = reuniões que aconteceram (status Concluído OU Realizado — os
@@ -270,32 +281,37 @@ export function useDashboardData() {
   // leitura de cobertura responde "quem contratou e não está sendo atendido" —
   // com os mesmos dados dava 90%, revelando 4 clientes descobertos.
   //
-  // "Atendido" = cliente ativo com reunião ou relatório realizado nos últimos
-  // 30 dias, com o serviço correspondente tratado no evento, E status Regular
-  // ou Gratuidade. Ações genéricas, contatos e ligações não cobrem um serviço.
+  // "Atendido" (cobertos/descobertos) = MESMO relógio de cadência que
+  // alimenta "Carteira no Ritmo" (`buildFilaCadencia`), statusReal === 'em_dia'
+  // pro serviço em questão — não uma segunda definição paralela. Antes esse
+  // card exigia status Concluído/Realizado explícito na Agenda e só olhava
+  // `agenda` (nunca `acoes`), enquanto a cadência considera uma reunião já
+  // datada (mesmo "Agendado"/"Pendente", não cancelada) e também Ações
+  // concluídas do mesmo serviço (ex.: um Relatório de Monitoria registrado só
+  // na tela de Ações). Isso fazia os dois cards discordarem sobre quem está
+  // "em dia": um cliente aparecia OK no Ritmo e "sem contato" aqui, achado
+  // comparando os dois cards lado a lado com dado real (Ramar Caxias — toque
+  // de Monitoria era um Relatório em Ações, invisível aqui; Cativo — reunião
+  // de hoje ainda "Agendado", não confirmada).
   const { servicosDist, totalAtendidos } = useMemo(() => {
     const JANELA = 30;
     const temProduto = (c: Cliente, re: RegExp, flag: keyof Cliente) =>
       (c.servicos ?? []).some((s) => re.test(s)) || Boolean(c[flag]);
 
-    // Top clientes por SERVIÇO tratado. Precificação virou serviço numa reunião
-    // (não é mais tipo de evento), então Price = reunião com serviço Precificação;
-    // Monitoria = reunião sem Price (a reunião comum é de monitoria).
+    const fila = buildFilaCadencia(ativos, agenda, acoes, cadencias, dataReferencia);
+    const relogiosPorCliente = new Map(fila.map((f) => [f.cliente.id, f.relogios]));
+    const emDia = (c: Cliente, servico: ServicoCad) =>
+      (relogiosPorCliente.get(c.id) ?? []).some((r) => r.servico === servico && r.statusReal === 'em_dia');
+
+    // Top clientes por SERVIÇO tratado — ranking de esforço (quantas entregas
+    // no período), fica com sua própria definição mais estrita (evento
+    // concluído na Agenda): é "quem mais recebeu", não "quem está em dia".
     const eventoRealizado = (a: EventoAgenda) =>
       /reuni|relat/i.test(a.type || '') && /conclu|realiz/i.test(a.status || '');
     const temServicoPrice = (a: EventoAgenda) => (a.servicos ?? []).some((s) => /(price|prec)/i.test(s));
     const temServicoMonitoria = (a: EventoAgenda) =>
       /monitor/i.test((a.servicos ?? []).join(' ')) ||
       (/reuni/i.test(a.type || '') && !temServicoPrice(a));
-    const foiAtendido = (c: Cliente, pred: (a: EventoAgenda) => boolean) =>
-      // `Ativo` é o status legado da base; equivale a Regular até o cliente
-      // ser salvo novamente no novo modelo de Estado + Status.
-      /^(regular|gratuidade|ativo)$/i.test((c.status || '').trim()) && agendaAtiva.some((a) => {
-        if (a.clientId !== c.id || !eventoRealizado(a) || !pred(a)) return false;
-        const d = parseISO(a.date);
-        return !isNaN(d.getTime()) && differenceInCalendarDays(dataReferencia, d) >= 0 && differenceInCalendarDays(dataReferencia, d) <= JANELA;
-      });
-    const total = ativos.filter((c) => foiAtendido(c, () => true)).length;
     function topClientes(pred: (a: EventoAgenda) => boolean) {
       const contagem = new Map<string, number>();
       agendaAtiva.forEach((a) => {
@@ -311,18 +327,16 @@ export function useDashboardData() {
         .slice(0, 5);
     }
 
-    // `re`/`flag` casam com o CADASTRO do cliente (servicos/flag) para o %; `pred`
-    // casa com o EVENTO da agenda (serviço tratado) para o ranking de top clientes.
-    const defs: { label: string; re: RegExp; flag: keyof Cliente; color: string; pred: (a: EventoAgenda) => boolean }[] = [
-      { label: 'Monitoria', re: /monitor/i, flag: 'monitoria', color: 'var(--accent)', pred: temServicoMonitoria },
-      { label: 'Price', re: /(price|prec)/i, flag: 'price', color: 'var(--accent-tertiary)', pred: temServicoPrice },
+    const defs: { label: string; re: RegExp; flag: keyof Cliente; color: string; servico: ServicoCad; pred: (a: EventoAgenda) => boolean }[] = [
+      { label: 'Monitoria', re: /monitor/i, flag: 'monitoria', color: 'var(--accent)', servico: 'Monitoria', pred: temServicoMonitoria },
+      { label: 'Price', re: /(price|prec)/i, flag: 'price', color: 'var(--accent-tertiary)', servico: 'Price', pred: temServicoPrice },
     ];
     const dist = defs.map((d) => {
-      // Base = quem CONTRATOU o serviço; numerador = os que foram atendidos.
+      // Base = quem CONTRATOU o serviço; numerador = os que estão em dia.
       const contrataram = ativos.filter((c) => temProduto(c, d.re, d.flag));
-      const cobertos = contrataram.filter((c) => foiAtendido(c, d.pred));
+      const cobertos = contrataram.filter((c) => emDia(c, d.servico));
       const descobertos = contrataram
-        .filter((c) => !foiAtendido(c, d.pred))
+        .filter((c) => !emDia(c, d.servico))
         .map((c) => ({ empresa: c.empresa, n: 0 }))
         .sort((a, b) => a.empresa.localeCompare(b.empresa));
       return {
@@ -341,9 +355,10 @@ export function useDashboardData() {
         descobertosClientes: descobertos.map((c) => c.empresa),
       };
     });
+    const total = ativos.filter((c) => (relogiosPorCliente.get(c.id) ?? []).some((r) => r.statusReal === 'em_dia')).length;
     return { servicosDist: dist, totalAtendidos: total };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ativos, ultimaInteracao, agendaAtiva, clientes, dataReferencia]);
+  }, [ativos, agenda, acoes, cadencias, agendaAtiva, clientes, dataReferencia]);
 
   // --- Composição da carteira (Dashboard da Carteira) — recortes direto do
   // CADASTRO de cliente, sem depender de agenda/ações. Cada distribuição
@@ -494,16 +509,18 @@ export function useDashboardData() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientes]);
 
-  // --- Cobertura da carteira no período: clientes ativos com >= 1 reunião ou
-  // relatório nos ÚLTIMOS 2 MESES (mês selecionado + anterior, não só o
-  // selecionado — janela mais realista de "foi atendido recentemente", senão
-  // um cliente atendido no dia 1 do mês anterior aparecia "sem contato" logo
-  // no início do mês seguinte). Só REUNIÃO/RELATÓRIO conta (Contato/Ligação
-  // não é "atendimento" formal do mês) e cancelado/reagendado não conta (não
-  // aconteceu). Como Aderência, NÃO segue o filtro "Tipo" do topo — senão
-  // filtrar por Contato zeraria a cobertura sem sentido. ---
+  // --- Cobertura da carteira no período: clientes ativos com >= 1 reunião,
+  // relatório OU precificação nos ÚLTIMOS 2 MESES (mês selecionado + anterior,
+  // não só o selecionado — janela mais realista de "foi atendido recentemente",
+  // senão um cliente atendido no dia 1 do mês anterior aparecia "sem contato"
+  // logo no início do mês seguinte). Precificação é TIPO de evento próprio
+  // (não só serviço dentro de Reunião — ver `EventoAgenda.type`), por isso
+  // entra no mesmo balde de "entrega" que Reunião/Relatório: só Contato/Ligação
+  // fica de fora (não é "atendimento" formal do mês). Cancelado/reagendado não
+  // conta (não aconteceu). Como Aderência, NÃO segue o filtro "Tipo" do topo —
+  // senão filtrar por Contato zeraria a cobertura sem sentido. ---
   const eventosCoberturaAtivos = useMemo(
-    () => agenda.filter((a) => ativosIds.has(a.clientId) && /reuni|relat/i.test(a.type || '') && !/cancel|reagend/i.test(a.status || '')),
+    () => agenda.filter((a) => ativosIds.has(a.clientId) && /reuni|relat|precific/i.test(a.type || '') && !/cancel|reagend/i.test(a.status || '')),
     [agenda, ativosIds]
   );
   const cobertura = useMemo(() => {
@@ -513,9 +530,23 @@ export function useDashboardData() {
         .filter((a) => { const d = parseISO(a.date); return isSameMonth(d, periodo) || isSameMonth(d, periodoAnteriorCobertura); })
         .map((a) => a.clientId)
     );
-    const cobertosC = ativos.filter((c) => atendidosIds.has(c.id)).map((c) => c.empresa).sort((a, b) => a.localeCompare(b));
-    const semC = ativos.filter((c) => !atendidosIds.has(c.id)).map((c) => c.empresa).sort((a, b) => a.localeCompare(b));
-    const total = ativos.length;
+    // Cliente cujos serviços CONTRATADOS são TODOS marcados como
+    // "independente" (`servicosIndependentes` — "o cliente faz sozinho, não
+    // depende de reunião/monitoria", mesmo campo que `cadenciaServico.ts` já
+    // usa pra não gerar relógio de cadência) nunca vai ter reunião/relatório
+    // por natureza — cobrar "contato" dele aqui puniria por desenho um cliente
+    // que nunca deveria precisar de um. Fica fora do denominador (nem
+    // "atendido" nem "sem contato"), igual à cadência já trata.
+    const precisaDeContato = (c: Cliente) => {
+      const servicos = c.servicos ?? [];
+      if (servicos.length === 0) return true;
+      const independentes = c.servicosIndependentes ?? [];
+      return servicos.some((s) => !independentes.includes(s));
+    };
+    const relevantes = ativos.filter(precisaDeContato);
+    const cobertosC = relevantes.filter((c) => atendidosIds.has(c.id)).map((c) => c.empresa).sort((a, b) => a.localeCompare(b));
+    const semC = relevantes.filter((c) => !atendidosIds.has(c.id)).map((c) => c.empresa).sort((a, b) => a.localeCompare(b));
+    const total = relevantes.length;
     const pct = total > 0 ? Math.round((cobertosC.length / total) * 100) : 0;
     return { cobertos: cobertosC.length, semContato: semC.length, total, pct, cobertosClientes: cobertosC, semContatoClientes: semC };
     // eslint-disable-next-line react-hooks/exhaustive-deps

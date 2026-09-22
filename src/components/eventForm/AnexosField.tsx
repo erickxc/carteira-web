@@ -33,9 +33,9 @@ export function AnexosField({ editando, attachments, uploading, onRemove, onFile
             {attachments.length === 0 && (<span className="text-text-muted" style={{ fontSize: 13, textTransform: 'none' }}>Nenhum anexo.</span>)}
           </div>
           <Button variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-            <Paperclip size={14} /> {uploading ? 'Enviando...' : 'Adicionar arquivo'}
+            <Paperclip size={14} /> {uploading ? 'Enviando…' : 'Adicionar arquivo'}
           </Button>
-          <input ref={fileInputRef} type="file" multiple hidden onChange={(e) => onFilesSelected(e.target.files)} />
+          <input ref={fileInputRef} type="file" multiple hidden aria-label="Selecionar arquivo para anexar" onChange={(e) => onFilesSelected(e.target.files)} />
         </>
       )}
     </Field>

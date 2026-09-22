@@ -112,13 +112,22 @@ function localizarNodeNoSistema() {
  *   uma mensagem clara em vez de tentar rodar o `.exe` como se fosse Node.
  */
 function caminhoNodePortavel(appDir) {
-  const candidato = path.join(appDir, 'node', process.platform === 'win32' ? 'node.exe' : 'node');
-  if (fs.existsSync(candidato)) return candidato;
+  // Nome novo primeiro — renomeado de "node.exe" genérico (indistinguível de
+  // qualquer outro Node.exe rodando na máquina no Gerenciador de Tarefas,
+  // ex.: outro projeto) pra `NOME_EXE_SERVIDOR` (ver
+  // server/scripts/publicarRelease.cjs). Fallback pro nome antigo cobre quem
+  // já tinha uma release publicada antes dessa mudança e ainda não atualizou
+  // — sem isso, o `.exe` novo não acharia o Node de uma instalação velha.
+  const nomes = process.platform === 'win32' ? ['2D_Carteira_Servidor.exe', 'node.exe'] : ['node'];
+  for (const nome of nomes) {
+    const candidato = path.join(appDir, 'node', nome);
+    if (fs.existsSync(candidato)) return candidato;
+  }
   if (!process.pkg) return process.execPath;
   const doSistema = localizarNodeNoSistema();
   if (doSistema) return doSistema;
   throw new Error(
-    'Node não encontrado: nem embutido na release (app/node/node.exe) nem instalado nesta máquina. ' +
+    'Node não encontrado: nem embutido na release (app/node/2D_Carteira_Servidor.exe) nem instalado nesta máquina. ' +
     'Publique a release com NODE_PORTATIL_PATH configurado (server/scripts/publicarRelease.cjs), ou instale o Node.js nesta máquina.'
   );
 }

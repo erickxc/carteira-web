@@ -12,6 +12,8 @@ import { ClienteCombobox } from '../ClienteCombobox';
 import type { AgilColuna, AgilTarefa } from '../../types';
 import { SubtarefasTab } from './SubtarefasTab';
 import { ComentariosTab } from './ComentariosTab';
+import { ConexoesTab } from './ConexoesTab';
+import { HistoricoTab } from './HistoricoTab';
 
 interface TaskDetailModalProps {
   boardId: string;
@@ -19,6 +21,8 @@ interface TaskDetailModalProps {
   initial?: AgilTarefa;
   /** Pré-seleciona coluna ao criar (ex.: botão "+ tarefa" de uma coluna específica). */
   initialColunaId?: string;
+  /** Pré-seleciona a raia (ex.: botão "+ tarefa" de uma célula de swimlane). */
+  initialSwimlaneId?: string;
   onClose: () => void;
 }
 
@@ -31,7 +35,7 @@ const PRIORIDADE_COR: Record<string, string> = {
   Urgente: 'var(--danger)',
 };
 
-export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, onClose }: TaskDetailModalProps) {
+export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, initialSwimlaneId, onClose }: TaskDetailModalProps) {
   const { clientes, agilBoards, agilWorkspaces, agilColunas, agilTarefas, agilFrentes, agilCamposPersonalizados, criarAgilTarefa, atualizarAgilTarefa, removerAgilTarefa, opcoesPorTipo } = useCarteira();
   const prioridadeOpcoes = opcoesPorTipo('prioridade_tarefa');
   const monitorOpcoes = opcoesPorTipo('monitor');
@@ -61,6 +65,7 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
   const [iniciativaId, setIniciativaId] = useState(initial?.iniciativaId ?? '');
   const [frenteId, setFrenteId] = useState(initial?.frenteId ?? '');
   const [prioridade, setPrioridade] = useState(initial?.prioridade ?? '');
+  const [tamanho, setTamanho] = useState(initial?.tamanho ?? '');
   const [responsaveis, setResponsaveis] = useState<string[]>(initial?.responsaveis ?? []);
   const [dueAt, setDueAt] = useState(initial?.dueAt ?? '');
   const [clientId, setClientId] = useState(initial?.clientId ?? '');
@@ -104,9 +109,13 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
     try {
       const payload = {
         boardId, colunaId, titulo, descricao,
+        // Raia só é atribuída na criação (a partir de onde o "+ tarefa" foi
+        // clicado) — depois disso, muda por drag-and-drop no board, não aqui.
+        ...(initial ? {} : { swimlaneId: initialSwimlaneId }),
         iniciativaId: iniciativaId || undefined,
         frenteId: frenteId || undefined,
         prioridade: prioridade || undefined,
+        tamanho: tamanho || undefined,
         responsaveis: responsaveis.length > 0 ? responsaveis : undefined,
         dueAt: dueAt || undefined,
         clientId: clientId || undefined,
@@ -149,6 +158,7 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
               type="button"
               onClick={() => setFrenteMenuAberto((v) => !v)}
               title={frenteSelecionada ? `Frente: ${frenteSelecionada.nome}` : 'Escolher Frente'}
+              aria-label={frenteSelecionada ? `Frente: ${frenteSelecionada.nome}` : 'Escolher Frente'}
               className="flex items-center justify-center w-7 h-7 rounded-[6px] border-none cursor-pointer bg-transparent hover:bg-[rgba(0,0,0,0.1)]"
               style={{ color: frenteSelecionada?.cor ?? 'inherit', opacity: frenteSelecionada ? 1 : 0.55 }}
             >
@@ -196,6 +206,7 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
             value={titulo}
             onChange={(e) => setTitulo(e.target.value)}
             placeholder="Título da tarefa"
+            aria-label="Título da tarefa"
             required
             className="flex-1 min-w-0 bg-transparent border-none outline-none text-[1.05rem] font-semibold placeholder:opacity-60"
             style={{ color: 'inherit' }}
@@ -210,7 +221,7 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
           {initial && <Button variant="danger" onClick={handleDelete}>Excluir</Button>}
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
           <Button type="submit" variant="primary" disabled={saving}>
-            {saving ? 'Salvando...' : 'Salvar'}
+            {saving ? 'Salvando…' : 'Salvar'}
           </Button>
         </>
       }
@@ -239,12 +250,30 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
             )}
           </section>
 
-          <section>
+          <section className="mb-3">
             <h3 className="text-[0.78rem] font-bold uppercase tracking-[0.05em] text-text-muted mb-1.5">Comentários</h3>
             {initial ? (
               <ComentariosTab tarefaId={initial.id} />
             ) : (
               <p className="text-[0.8rem] text-text-muted">Salve a tarefa para comentar.</p>
+            )}
+          </section>
+
+          <section className="mb-3">
+            <h3 className="text-[0.78rem] font-bold uppercase tracking-[0.05em] text-text-muted mb-1.5">Conexões</h3>
+            {initial ? (
+              <ConexoesTab tarefaId={initial.id} />
+            ) : (
+              <p className="text-[0.8rem] text-text-muted">Salve a tarefa para ligar a outras.</p>
+            )}
+          </section>
+
+          <section>
+            <h3 className="text-[0.78rem] font-bold uppercase tracking-[0.05em] text-text-muted mb-1.5">Histórico</h3>
+            {initial ? (
+              <HistoricoTab tarefaId={initial.id} />
+            ) : (
+              <p className="text-[0.8rem] text-text-muted">Salve a tarefa para ver o histórico.</p>
             )}
           </section>
         </div>
@@ -270,6 +299,10 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, on
                 ))}
               </div>
             )}
+          </Field>
+
+          <Field label="Tamanho">
+            <Input tone="modal" placeholder="Ex.: P, M, G" value={tamanho} onChange={(e) => setTamanho(e.target.value)} />
           </Field>
 
           <Field label="Prazo">

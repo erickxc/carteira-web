@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 66 347 215" role="img" aria-label="2D Consultores">
+  <!-- Logotipo 2D Consultores: placa preta arredondada + seta ascendente branca.
+       Vetorizado de logo_2d_icone.png. O path do potrace era um unico caminho
+       preto com a seta como FURO (transparente); aqui esta separado em placa +
+       seta para a seta ser branca de fato, e nao herdar o fundo atras do icone
+       (num tema escuro o furo transparente deixava a seta invisivel).
+       viewBox recortado na placa (a arte original vinha centralizada num canvas
+       quadrado com margem vazia em cima e embaixo). -->
+  <g transform="translate(0,347) scale(0.1,-0.1)">
+    <path fill="#0a0a0a" d="M85 2801 c-27 -12 -61 -50 -74 -84 -8 -19 -11 -331 -11 -983 0 -1034 -2 -992 55 -1044 l27 -25 1648 -3 1648 -2 31 26 c65 54 61 -11 61 1049 0 1048 3 991 -55 1045 l-27 25 -1641 2 c-903 1 -1651 -2 -1662 -6z"/>
+    <path fill="#ffffff" d="M3101 2496 c69 -47 69 -48 69 -486 0 -428 1 -422 -60 -473 -65 -56 -179 -39 -231 34 -23 32 -24 43 -27 212 -2 97 -6 177 -10 177 -4 0 -148 -141 -322 -314 -303 -303 -317 -315 -361 -321 -31 -5 -57 -2 -81 8 -20 8 -140 96 -267 196 -127 100 -234 181 -237 181 -3 0 -61 -40 -128 -88 -133 -97 -496 -360 -760 -550 -163 -118 -170 -122 -220 -122 -97 0 -165 65 -166 159 0 81 18 99 333 328 745 540 845 612 875 627 42 21 110 20 147 -3 17 -10 126 -93 243 -185 117 -91 216 -166 220 -166 4 0 117 110 252 245 l245 245 -166 0 c-156 0 -168 1 -199 23 -57 38 -75 71 -75 137 0 66 18 99 75 138 33 22 35 22 424 22 l391 0 36 -24z"/>
+  </g>
+</svg>

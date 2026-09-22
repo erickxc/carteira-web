@@ -81,9 +81,15 @@ export default function PainelCadastroAlvos() {
 
   return (
     <Card flat style={{ marginBottom: 16 }}>
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setAberto(!aberto)}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setAberto(!aberto); }
+        }}
+        aria-expanded={aberto}
         className="flex items-center gap-2 w-full bg-transparent border-none cursor-pointer p-0 text-left"
       >
         {aberto ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -101,7 +107,7 @@ export default function PainelCadastroAlvos() {
         >
           <RefreshCw size={13} className={recarregando ? 'animate-spin' : ''} />
         </button>
-      </button>
+      </div>
 
       {aberto && (
         <div className="flex flex-col gap-3 mt-3">

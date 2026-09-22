@@ -84,11 +84,11 @@ export function ImportarResumoModal({ onClose }: ImportarResumoModalProps) {
       </p>
 
       <Field label="Texto da transcrição">
-        <Textarea rows={8} value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Cole aqui o .txt da reunião..." />
+        <Textarea rows={8} value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Cole aqui o .txt da reunião…" />
       </Field>
 
       <Button variant="secondary" onClick={analisar} disabled={analisando} style={{ marginBottom: 16 }}>
-        <Search size={15} /> {analisando ? 'Analisando...' : 'Analisar'}
+        <Search size={15} /> {analisando ? 'Analisando…' : 'Analisar'}
       </Button>
 
       {candidatos && (
@@ -117,6 +117,9 @@ export function ImportarResumoModal({ onClose }: ImportarResumoModalProps) {
             value={clienteEscolhido}
             onChange={(e) => setClienteEscolhido(e.target.value)}
             placeholder="Nome do cliente para o relatório"
+            aria-label="Nome do cliente para o relatório"
+            name="clienteRelatorio"
+            autoComplete="off"
           />
         </Field>
       )}

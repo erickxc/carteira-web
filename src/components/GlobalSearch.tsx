@@ -92,7 +92,10 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
           <Search size={18} className="text-text-muted" />
           <input
             autoFocus
-            placeholder="Buscar clientes, eventos, lembretes ou datas (dd/mm/aaaa)..."
+            type="search"
+            name="buscaGlobal"
+            autoComplete="off"
+            placeholder="Buscar clientes, eventos, lembretes ou datas (dd/mm/aaaa)…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}

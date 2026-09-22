@@ -7,6 +7,7 @@ import clsx from 'clsx';
 import { useCarteira } from '../../context/CarteiraContext';
 import { corContrastante } from '../../utils/cor';
 import { parseCamposCard } from '../../utils/agilCamposCard';
+import { progressoIniciativa } from '../../utils/agilColunas';
 import type { AgilTarefa } from '../../types';
 
 /** Barra de prioridade (idioma `stat-card-accent-bar` do app) — junto do
@@ -34,7 +35,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ tarefa, onClick }: TaskCardProps) {
-  const { clientes, agilBoards, agilTarefas, agilFrentes, agilSubtarefas, criarAgilSubtarefa, atualizarAgilSubtarefa } = useCarteira();
+  const { clientes, agilBoards, agilTarefas, agilColunas, agilFrentes, agilSubtarefas, criarAgilSubtarefa, atualizarAgilSubtarefa } = useCarteira();
   const board = agilBoards.find((b) => b.id === tarefa.boardId);
   const campos = parseCamposCard(board?.camposCard);
   // Se esta tarefa TEM `iniciativaId`, ela aponta pra uma tarefa do board fixo
@@ -43,7 +44,7 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
   const frente = campos.includes('frente') && tarefa.frenteId ? agilFrentes.find((f) => f.id === tarefa.frenteId) : undefined;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: tarefa.id,
-    data: { type: 'tarefa', colunaId: tarefa.colunaId },
+    data: { type: 'tarefa', colunaId: tarefa.colunaId, swimlaneId: tarefa.swimlaneId ?? '' },
   });
   const [novaSub, setNovaSub] = useState<string | null>(null);
 
@@ -53,6 +54,7 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
     opacity: isDragging ? 0.45 : 1,
   };
   const cliente = tarefa.clientId ? clientes.find((c) => c.id === tarefa.clientId) : undefined;
+  const progresso = progressoIniciativa(tarefa.id, agilTarefas, agilColunas);
   const subtarefas = agilSubtarefas.filter((s) => s.tarefaId === tarefa.id).sort((a, b) => a.ordem - b.ordem);
   const feitas = subtarefas.filter((s) => s.concluida).length;
 
@@ -90,6 +92,13 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
       {...attributes}
       {...listeners}
       onClick={onClick}
+      onKeyDown={(e) => {
+        // Só abre pelo Enter/Espaço quando o foco está no card em si — senão
+        // Enter dentro do input de nova subtarefa (que já tem seu próprio
+        // onSubmit) ou Espaço num checkbox de subtarefa abriria o modal junto.
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
+      }}
       className={clsx(
         'group/card relative flex flex-col gap-1.5 pl-3 pr-2.5 py-2 rounded bg-card border border-border shadow-sm cursor-pointer overflow-hidden',
         'transition-[box-shadow,border-color] duration-150',
@@ -111,8 +120,21 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
         <span className="px-1.5 rounded-[4px] bg-bg border border-border text-[0.62rem] font-semibold text-text-secondary leading-[1.5] tabular-nums">
           {tarefa.numero ? `#${tarefa.numero}` : '—'}
         </span>
+        {progresso !== null && (
+          <span
+            className="px-1.5 rounded-full bg-accent-soft text-[color:var(--accent-fg)] text-[0.62rem] font-bold leading-[1.5] tabular-nums"
+            title={`${progresso}% das tarefas vinculadas concluídas`}
+          >
+            {progresso}%
+          </span>
+        )}
+        {tarefa.tamanho && (
+          <span className="ml-auto shrink-0 px-1.5 rounded-[4px] bg-bg border border-border text-[0.62rem] font-semibold text-text-secondary leading-[1.5]" title="Tamanho">
+            {tarefa.tamanho}
+          </span>
+        )}
         {campos.includes('prioridade') && (
-          <span className={clsx('ml-auto text-[0.63rem] font-medium truncate shrink-0', PRIORIDADE_TEXTO[tarefa.prioridade ?? ''] ?? 'text-text-muted')}>
+          <span className={clsx('text-[0.63rem] font-medium truncate shrink-0', PRIORIDADE_TEXTO[tarefa.prioridade ?? ''] ?? 'text-text-muted', !tarefa.tamanho && 'ml-auto')}>
             {tarefa.prioridade || 'Nenhum'}
           </span>
         )}

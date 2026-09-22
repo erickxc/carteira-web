@@ -63,7 +63,7 @@ export function AnaliseIACard({ clienteId, variante = 'padrao' }: AnaliseIACardP
     <>
       {analise === undefined ? (
         <p className="text-[0.82rem] text-text-muted" style={{ margin: 0 }}>
-          <Bot size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Carregando análise de IA...
+          <Bot size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Carregando análise de IA…
         </p>
       ) : !analise ? (
         <p className="text-[0.82rem] text-text-muted" style={{ margin: 0 }}>
@@ -77,7 +77,7 @@ export function AnaliseIACard({ clienteId, variante = 'padrao' }: AnaliseIACardP
               <Badge variant={RISCO_VARIANT[analise.nivelRisco]}>{RISCO_LABEL[analise.nivelRisco]}</Badge>
             </div>
             {temDetalhe && !popover && (
-              <Button variant="secondary" size="icon" onClick={() => setExpandido((e) => !e)} title={expandido ? 'Ver menos' : 'Ver mais'} style={{ flexShrink: 0 }}>
+              <Button variant="secondary" size="icon" onClick={() => setExpandido((e) => !e)} title={expandido ? 'Ver menos' : 'Ver mais'} aria-label={expandido ? 'Ver menos da análise' : 'Ver mais da análise'} style={{ flexShrink: 0 }}>
                 {expandido ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </Button>
             )}

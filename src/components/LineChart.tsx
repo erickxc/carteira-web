@@ -16,6 +16,9 @@ interface LineChartProps {
   unidade?: string;
   /** Oculta o rótulo numérico sobre cada ponto (série densa em card estreito). */
   ocultarRotulos?: boolean;
+  /** Nome acessível do gráfico (`aria-label` do `<svg>`) — cada card usa um
+   *  gráfico pra uma série diferente, então não pode ficar fixo. */
+  titulo?: string;
 }
 
 const W = 760;
@@ -32,6 +35,7 @@ export function LineChart({
   formatValue = (v) => String(v),
   unidade = 'reunião(ões)',
   ocultarRotulos = false,
+  titulo = 'Reuniões por mês',
 }: LineChartProps) {
   const H = height;
   const padL = 34;
@@ -55,7 +59,7 @@ export function LineChart({
   const ticks = [0, max / 2, max];
 
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Reuniões por mês" style={{ display: 'block' }}>
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={titulo} style={{ display: 'block' }}>
       <defs>
         <linearGradient id="lc-area" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.22" />

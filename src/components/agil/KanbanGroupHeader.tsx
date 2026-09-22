@@ -13,6 +13,8 @@ interface KanbanGroupHeaderProps {
   ultimaColuna: boolean;
   /** Sempre true hoje (board sem raias) — mantido pelo mesmo componente que KanbanColumnHeader usa. */
   arrastavel: boolean;
+  /** Cor usada quando a coluna não tem `cor` própria — ver KanbanColumnHeader. */
+  corPadrao: string;
   style: CSSProperties;
   onEdit: () => void;
   onAddSub: () => void;
@@ -26,7 +28,7 @@ const BOTAO_ICONE =
  * cabeçalho). O WIP limit aqui vale para o grupo inteiro (CONWIP): conta a soma
  * das tarefas das sub-colunas.
  */
-export function KanbanGroupHeader({ coluna, totalTarefas, ultimaColuna, arrastavel, style, onEdit, onAddSub }: KanbanGroupHeaderProps) {
+export function KanbanGroupHeader({ coluna, totalTarefas, ultimaColuna, arrastavel, corPadrao, style, onEdit, onAddSub }: KanbanGroupHeaderProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: coluna.id,
     data: { type: 'coluna', parentId: '' },
@@ -34,7 +36,7 @@ export function KanbanGroupHeader({ coluna, totalTarefas, ultimaColuna, arrastav
   });
 
   const excedeu = !!coluna.wipLimit && totalTarefas > coluna.wipLimit;
-  const corTopo = excedeu ? 'var(--danger)' : coluna.cor || 'var(--accent)';
+  const corTopo = excedeu ? 'var(--danger)' : coluna.cor || corPadrao;
   const estilo: CSSProperties = {
     ...style,
     transform: CSS.Transform.toString(transform),
@@ -68,10 +70,10 @@ export function KanbanGroupHeader({ coluna, totalTarefas, ultimaColuna, arrastav
       </span>
 
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onClick={onAddSub} className={BOTAO_ICONE} title="Nova sub-coluna">
+        <button onClick={onAddSub} className={BOTAO_ICONE} title="Nova sub-coluna" aria-label={`Nova sub-coluna em ${coluna.titulo}`}>
           <Plus size={12} />
         </button>
-        <button onClick={onEdit} className={BOTAO_ICONE} title="Editar coluna">
+        <button onClick={onEdit} className={BOTAO_ICONE} title="Editar coluna" aria-label={`Editar coluna ${coluna.titulo}`}>
           <Pencil size={11} />
         </button>
       </div>

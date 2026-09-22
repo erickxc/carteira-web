@@ -257,6 +257,11 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
 
   const statusConcluido = statusOpcoes.find((s) => /conclu|realiz/i.test(s)) ?? 'Concluído';
   const statusCancelado = statusOpcoes.find((s) => /cancel/i.test(s)) ?? 'Cancelado';
+  // Reunião ainda "Pendente" (nunca confirmada) cancelada: não é um evento que
+  // de fato aconteceu, então não faz sentido cobrar motivo — pedido explícito
+  // do usuário. Baseado no status ORIGINAL (antes de qualquer troca no form),
+  // não no `status` atual (que já virou "Cancelado" quando o popup abre).
+  const statusOriginalPendente = /pendente/i.test(initial?.status ?? '');
 
   // Só as seções 2-4 (o que foi tratado/decisões/próximos passos) vêm da IA —
   // cabeçalho/participantes/pauta continuam montados por `gerarAta` sempre da
@@ -331,7 +336,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     const statusFinalPre = statusOverride ?? status;
     const motivoFinal = motivoOverride ?? motivo;
     if (/reagend/i.test(statusFinalPre) && !motivoFinal.trim()) { toastError('Informe o motivo do reagendamento.'); return; }
-    if (/cancel/i.test(statusFinalPre) && !motivoFinal.trim()) { toastError('Informe o motivo do cancelamento.'); return; }
+    // Cancelar uma reunião que ainda estava "Pendente" (nunca confirmada) não
+    // exige motivo — ver `statusOriginalPendente`.
+    if (/cancel/i.test(statusFinalPre) && !motivoFinal.trim() && !statusOriginalPendente) { toastError('Informe o motivo do cancelamento.'); return; }
     // Bloqueia de verdade (não só avisa): mesmo monitor ou mesma sala não podem
     // ocupar o mesmo dia/horário duas vezes.
     if (conflitoMonitor) { toastError(`${nomeMonitorConflitante} já tem outro evento marcado nesse dia e horário.`); return; }
@@ -355,7 +362,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         transcricao: modoSimples ? '' : transcricao,
         monitores,
         sala: ehReuniao ? (sala || undefined) : undefined,
-        motivo: /reagend|cancel/i.test(statusFinal) ? motivoFinal : undefined,
+        // Cancelamento de reunião Pendente pode ir sem motivo — não força mais
+        // string vazia no campo.
+        motivo: /reagend|cancel/i.test(statusFinal) && motivoFinal.trim() ? motivoFinal : undefined,
         // Só faz sentido em interação pontual (Contato/Ligação): reunião e
         // relatório não são "quem procurou quem".
         origem: ehInteracao ? (origem || undefined) : undefined,
@@ -447,20 +456,45 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     setMostrarPopupCancelamento(true);
   }
 
+  /** Registra um Contato concluído HOJE pro cliente do evento — oferecido só
+   *  ao cancelar uma reunião Pendente (ver `CancelarEventoPopup`): o
+   *  cancelamento em si não é uma interação registrável (a reunião nunca
+   *  aconteceu), mas o contato pra avisar/combinar o cancelamento é. Evento
+   *  À PARTE, não reaproveita o que está sendo cancelado — senão o registro
+   *  do cancelamento em si se perderia. */
+  async function registrarContatoDoCancelamento() {
+    const cliente = clientes.find((c) => c.id === clientId);
+    if (!cliente) return;
+    const tipoContato = opcoesPorTipo('tipo_evento').find((t) => /contato/i.test(t)) ?? 'Contato';
+    const agora = new Date();
+    try {
+      await criarEvento({
+        clientId, clientName: cliente.empresa, type: tipoContato,
+        subject: 'Contato ao cancelar reunião pendente', description: '',
+        date: agora.toISOString(), time: format(agora, 'HH:mm'),
+        status: statusConcluido, origem: 'nos', servicos: [], monitores,
+      });
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : 'Falha ao registrar o contato do cancelamento.');
+    }
+  }
+
   /** Só marca o formulário como Cancelado + motivo — quem clicou pode
    *  revisar o resto do form antes de apertar Salvar. */
-  function confirmarCancelamento(motivoTexto: string) {
+  function confirmarCancelamento(motivoTexto: string, registrarContato: boolean) {
     setStatus(statusCancelado);
     setMotivo(motivoTexto);
     setMostrarPopupCancelamento(false);
+    if (registrarContato) void registrarContatoDoCancelamento();
     toastInfo('Cancelamento marcado — revise o evento e clique em Salvar.');
   }
 
   /** Marca E salva na hora — fecha o popup e, ao terminar, o próprio
    *  `salvar()` fecha o Editar Evento (mesmo caminho do Salvar normal). */
-  function confirmarCancelamentoESalvar(motivoTexto: string) {
+  function confirmarCancelamentoESalvar(motivoTexto: string, registrarContato: boolean) {
     setStatus(statusCancelado);
     setMotivo(motivoTexto);
+    if (registrarContato) void registrarContatoDoCancelamento();
     setMostrarPopupCancelamento(false);
     void salvar(statusCancelado, motivoTexto);
   }
@@ -790,6 +824,8 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         onFechar={() => setMostrarPopupCancelamento(false)}
         onConfirmar={confirmarCancelamento}
         onConfirmarESalvar={confirmarCancelamentoESalvar}
+        motivoObrigatorio={!statusOriginalPendente}
+        permitirRegistrarContato={statusOriginalPendente}
       />
     )}
     </>

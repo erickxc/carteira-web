@@ -141,6 +141,15 @@ const agilColunaUpdateSchema = z.object({
 }).passthrough();
 const agilReorderColunaItemSchema = z.object({ id: textoObrigatorio('id'), ordem: z.number() });
 
+const agilSwimlaneCreateSchema = z.object({
+  boardId: textoObrigatorio('boardId'),
+  titulo: textoObrigatorio('titulo'),
+}).passthrough();
+const agilSwimlaneUpdateSchema = z.object({
+  titulo: textoObrigatorio('titulo').optional(),
+}).passthrough();
+const agilReorderSwimlaneItemSchema = z.object({ id: textoObrigatorio('id'), ordem: z.number() });
+
 const agilTarefaCreateSchema = z.object({
   boardId: textoObrigatorio('boardId'),
   colunaId: textoObrigatorio('colunaId'),
@@ -151,7 +160,15 @@ const agilTarefaUpdateSchema = z.object({
   colunaId: textoObrigatorio('colunaId').optional(),
   titulo: textoObrigatorio('titulo').optional(),
 }).passthrough();
-const agilReorderTarefaItemSchema = z.object({ id: textoObrigatorio('id'), colunaId: textoObrigatorio('colunaId'), ordem: z.number() });
+const agilReorderTarefaItemSchema = z.object({
+  id: textoObrigatorio('id'),
+  colunaId: textoObrigatorio('colunaId'),
+  ordem: z.number(),
+  // Vazio é valor válido aqui (não "ausente"): significa "raia padrão", não
+  // "não mexer" — precisa dar pra LIMPAR o vínculo ao arrastar de volta pra
+  // fora de uma swimlane customizada.
+  swimlaneId: z.string().optional(),
+});
 
 const agilSubtarefaCreateSchema = z.object({
   tarefaId: textoObrigatorio('tarefaId'),
@@ -166,6 +183,12 @@ const agilComentarioCreateSchema = z.object({
   tarefaId: textoObrigatorio('tarefaId'),
   autor: textoObrigatorio('autor'),
   texto: textoObrigatorio('texto'),
+}).passthrough();
+
+const agilConexaoCreateSchema = z.object({
+  tarefaOrigemId: textoObrigatorio('tarefaOrigemId'),
+  tarefaDestinoId: textoObrigatorio('tarefaDestinoId'),
+  tipo: textoObrigatorio('tipo'),
 }).passthrough();
 
 // Middleware: valida req.body contra um schema; 400 com mensagem clara se falhar.
@@ -213,9 +236,11 @@ module.exports = {
   agilWorkspaceCreateSchema, agilWorkspaceUpdateSchema, agilReorderWorkspaceItemSchema,
   agilBoardCreateSchema, agilBoardUpdateSchema,
   agilColunaCreateSchema, agilColunaUpdateSchema, agilReorderColunaItemSchema,
+  agilSwimlaneCreateSchema, agilSwimlaneUpdateSchema, agilReorderSwimlaneItemSchema,
   agilTarefaCreateSchema, agilTarefaUpdateSchema, agilReorderTarefaItemSchema,
   agilFrenteCreateSchema, agilFrenteUpdateSchema, agilReorderFrenteItemSchema,
   agilCampoPersonalizadoCreateSchema, agilCampoPersonalizadoUpdateSchema, agilReorderCampoPersonalizadoItemSchema,
   agilSubtarefaCreateSchema, agilSubtarefaUpdateSchema,
   agilComentarioCreateSchema,
+  agilConexaoCreateSchema,
 };

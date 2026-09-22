@@ -34,6 +34,7 @@ export function AgilSidebar({
           onClick={onNovaWorkspace}
           className="flex items-center justify-center w-5 h-5 rounded-sm text-text-muted bg-transparent border-none cursor-pointer hover:bg-card-hover hover:text-text-primary"
           title="Nova área de trabalho"
+          aria-label="Nova área de trabalho"
         >
           <Plus size={13} />
         </button>
@@ -52,6 +53,8 @@ export function AgilSidebar({
         return (
           <div key={w.id}>
             <div
+              role="button"
+              tabIndex={0}
               className={clsx(
                 'group flex items-center gap-1 px-1.5 py-1.5 rounded cursor-pointer text-[0.82rem]',
                 workspaceId === w.id ? 'bg-card-hover text-text-primary font-semibold' : 'text-text-secondary hover:bg-card-hover'
@@ -59,6 +62,14 @@ export function AgilSidebar({
               onClick={() => {
                 setAberta(expandido ? null : w.id);
                 onSelectWorkspace(w.id);
+              }}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setAberta(expandido ? null : w.id);
+                  onSelectWorkspace(w.id);
+                }
               }}
             >
               <ChevronRight size={13} className={clsx('shrink-0 transition-transform', expandido && 'rotate-90')} />
@@ -68,6 +79,7 @@ export function AgilSidebar({
                 onClick={(e) => { e.stopPropagation(); onEditWorkspace(w); }}
                 className="shrink-0 flex items-center justify-center w-[18px] h-[18px] rounded-[4px] text-text-muted bg-transparent border-none cursor-pointer opacity-0 group-hover:opacity-100 hover:bg-card hover:text-text-primary"
                 title="Editar área de trabalho"
+                aria-label={`Editar área de trabalho ${w.nome}`}
               >
                 <Settings size={11} />
               </button>
@@ -103,6 +115,7 @@ export function AgilSidebar({
         <button
           onClick={onAbrirConfigAgil}
           className="flex items-center gap-1.5 px-1.5 py-1.5 w-full text-left text-[0.78rem] text-text-secondary bg-transparent border-none cursor-pointer rounded hover:bg-card-hover hover:text-text-primary"
+          aria-label="Configurações do Ágil"
         >
           <Tag size={13} /> Configurações do Ágil
         </button>

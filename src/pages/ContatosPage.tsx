@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { MessageCircle, Search, Users } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { useSearchFilter } from '../hooks/useSearchFilter';
@@ -18,7 +18,6 @@ interface ContatoLinha extends Contato {
  * (nome, cargo, telefone), com busca e atalho de WhatsApp. Os contatos são
  * cadastrados dentro de cada cliente; aqui é a visão agregada. */
 export default function ContatosPage() {
-  const navigate = useNavigate();
   const { clientes, filtroMonitor } = useCarteira();
   const { value: busca, debounced, setValue: setBusca } = useSearchFilter();
   const [wa, setWa] = useState<{ contato: Contato; empresa: string } | null>(null);
@@ -58,7 +57,7 @@ export default function ContatosPage() {
       <Card flat className="mb-4" style={{ marginTop: '1.25rem' }}>
         <label className="filter-ctl filter-search" style={{ maxWidth: 360 }}>
           <Search size={16} />
-          <input placeholder="Buscar por nome, cargo, empresa ou telefone..." value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <input type="search" name="busca" autoComplete="off" placeholder="Buscar por nome, cargo, empresa ou telefone…" value={busca} onChange={(e) => setBusca(e.target.value)} />
         </label>
       </Card>
 
@@ -85,7 +84,7 @@ export default function ContatosPage() {
                       <Td first style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{l.nome}</Td>
                       <Td className="text-text-muted">{l.cargo || '—'}</Td>
                       <Td>
-                        <button className="link-button" onClick={() => navigate(`/clientes/${l.clienteId}`, { state: { from: '/contatos', fromLabel: 'Contatos' } })}>{l.empresa}</button>
+                        <Link className="link-button" to={`/clientes/${l.clienteId}`} state={{ from: '/contatos', fromLabel: 'Contatos' }}>{l.empresa}</Link>
                         {l.monitor && <Badge variant="muted" style={{ marginLeft: 8 }}>{l.monitor}</Badge>}
                       </Td>
                       <Td className="text-text-muted">{l.telefone || '—'}</Td>

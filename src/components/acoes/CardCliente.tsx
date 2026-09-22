@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { differenceInCalendarDays } from 'date-fns';
 import { CalendarPlus, MessageSquare, Plus } from 'lucide-react';
 import { rotuloDataCurto, sugestoes, type Item } from '../../utils/acoesHelpers';
@@ -60,7 +60,6 @@ const pedeAcao = (r: RelogioServico) => r.status === 'vencido' || r.status === '
  * o que só está agendado. Antes tudo tinha o mesmo peso, dentro de duas caixas
  * cinza aninhadas — muita tinta para pouca informação. */
 export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, historico, produtos, relogios, severidade, alertaAlvos, nivelRisco, onRegistrar, onAgendar, onConversarAlvos }: CardClienteProps) {
-  const navigate = useNavigate();
   // Capturado uma vez no mount, não a cada render — chamar Date.now() direto no
   // corpo do componente é impuro (react-hooks/purity acusa em build).
   const [agora] = useState(() => new Date());
@@ -97,13 +96,14 @@ export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, his
     >
       <div className="acao-card-head">
         <div style={{ minWidth: 0 }}>
-          <button
+          <Link
             className="link-button"
             style={{ fontWeight: 600, fontSize: '1rem' }}
-            onClick={() => navigate(`/clientes/${c.id}`, { state: { from: '/acoes', fromLabel: 'Ações' } })}
+            to={`/clientes/${c.id}`}
+            state={{ from: '/acoes', fromLabel: 'Ações' }}
           >
             {c.empresa}
-          </button>
+          </Link>
           {(gratuidade || isAtendidoMarco(c.status) || semRelogios) && (
             <div className="acao-card-badges">
               {gratuidade && <Badge variant="gratuidade">Gratuidade</Badge>}

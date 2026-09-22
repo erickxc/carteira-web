@@ -83,6 +83,7 @@ export function FrentesManagerModal({ onClose }: FrentesManagerModalProps) {
                   onChange={(e) => setEditCor(e.target.value)}
                   className="w-8 h-8 shrink-0 rounded-[6px] border border-border-strong cursor-pointer bg-transparent p-0"
                   title="Cor da Frente"
+                  aria-label="Cor da Frente"
                 />
                 <Input
                   tone="modal"
@@ -92,15 +93,15 @@ export function FrentesManagerModal({ onClose }: FrentesManagerModalProps) {
                   onKeyDown={(e) => { if (e.key === 'Enter') salvarEdicao(f.id); if (e.key === 'Escape') setEditandoId(null); }}
                   style={{ flex: 1 }}
                 />
-                <Button variant="secondary" size="icon" onClick={() => salvarEdicao(f.id)} title="Salvar"><Check size={14} /></Button>
-                <Button variant="secondary" size="icon" onClick={() => setEditandoId(null)} title="Cancelar"><X size={14} /></Button>
+                <Button variant="secondary" size="icon" onClick={() => salvarEdicao(f.id)} title="Salvar" aria-label="Salvar Frente"><Check size={14} /></Button>
+                <Button variant="secondary" size="icon" onClick={() => setEditandoId(null)} title="Cancelar" aria-label="Cancelar edição"><X size={14} /></Button>
               </>
             ) : (
               <>
                 <span className="w-4 h-4 shrink-0 rounded-full border border-border-strong" style={{ backgroundColor: f.cor }} />
                 <span className="flex-1 text-[0.85rem] text-text-primary truncate">{f.nome}</span>
-                <Button variant="secondary" size="icon" onClick={() => iniciarEdicao(f)} title="Editar"><Pencil size={13} /></Button>
-                <Button variant="danger" size="icon" onClick={() => excluir(f)} title="Remover"><Trash2 size={13} /></Button>
+                <Button variant="secondary" size="icon" onClick={() => iniciarEdicao(f)} title="Editar" aria-label={`Editar Frente ${f.nome}`}><Pencil size={13} /></Button>
+                <Button variant="danger" size="icon" onClick={() => excluir(f)} title="Remover" aria-label={`Remover Frente ${f.nome}`}><Trash2 size={13} /></Button>
               </>
             )}
           </div>
@@ -114,10 +115,11 @@ export function FrentesManagerModal({ onClose }: FrentesManagerModalProps) {
           onChange={(e) => setNovaCor(e.target.value)}
           className="w-8 h-8 shrink-0 rounded-[6px] border border-border-strong cursor-pointer bg-transparent p-0"
           title="Cor da nova Frente"
+          aria-label="Cor da nova Frente"
         />
         <Input
           tone="modal"
-          placeholder="Nova Frente (ex.: Monitoria)..."
+          placeholder="Nova Frente (ex.: Monitoria)…"
           value={novoNome}
           onChange={(e) => setNovoNome(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); adicionar(); } }}

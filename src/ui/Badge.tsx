@@ -1,4 +1,4 @@
-import type { HTMLAttributes } from 'react';
+import type { ComponentPropsWithoutRef, ElementType } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
 
@@ -33,14 +33,16 @@ const badge = cva(
 
 export type BadgeVariant = NonNullable<VariantProps<typeof badge>['variant']>;
 
-export interface BadgeProps extends HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badge> {
-  /** 'button' quando o badge é clicável (ex.: seletor de loja do grupo) — troca
-   *  o elemento para <button> mantendo o mesmo visual, sem herdar estilo de
-   *  botão nenhum. */
-  as?: 'span' | 'button';
-}
+/** `as` aceita 'span' (padrão), 'button' (badge clicável, ex.: seletor de
+ *  loja do grupo — mesmo visual, sem herdar estilo de botão), ou um
+ *  componente de navegação como `Link` (react-router) — nesse caso o resto
+ *  das props (`to`, etc.) do componente escolhido também é aceito. */
+export type BadgeProps<T extends ElementType = 'span'> = VariantProps<typeof badge> & {
+  as?: T;
+  className?: string;
+} & Omit<ComponentPropsWithoutRef<T>, 'as' | 'className' | keyof VariantProps<typeof badge>>;
 
-export function Badge({ className, variant, as = 'span', ...props }: BadgeProps) {
-  const Tag = as as 'span';
+export function Badge<T extends ElementType = 'span'>({ className, variant, as, ...props }: BadgeProps<T>) {
+  const Tag = (as ?? 'span') as ElementType;
   return <Tag className={clsx(badge({ variant }), as === 'button' && 'border-0 cursor-pointer font-[inherit]', className)} {...props} />;
 }

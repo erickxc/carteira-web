@@ -1,0 +1,20 @@
+{
+  "services": [
+    {
+      "id": "web",
+      "name": "Frontend (Vite)",
+      "cmd": "npm run dev",
+      "cwd": ".",
+      "url": "http://localhost:5173",
+      "autostart": true
+    },
+    {
+      "id": "api",
+      "name": "Backend (Express)",
+      "cmd": "node server.cjs",
+      "cwd": ".",
+      "url": "http://localhost:3011",
+      "autostart": true
+    }
+  ]
+}

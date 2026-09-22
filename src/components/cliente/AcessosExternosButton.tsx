@@ -52,9 +52,9 @@ function Icone({ opcao }: { opcao: AcessoOpcao }) {
   return (
     <span className="flex items-center justify-center shrink-0" style={{ width: 15 }}>
       {opcao.label === PRICE_LABEL ? (
-        <img src={priceLogo} alt="" style={{ height: 13, width: 'auto', objectFit: 'contain' }} />
+        <img src={priceLogo} alt="" height={13} style={{ height: 13, width: 'auto', objectFit: 'contain' }} />
       ) : (
-        <img src={powerbiLogo} alt="" style={{ width: 15, height: 15, objectFit: 'contain' }} />
+        <img src={powerbiLogo} alt="" width={15} height={15} style={{ width: 15, height: 15, objectFit: 'contain' }} />
       )}
     </span>
   );
@@ -247,7 +247,7 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
         title={compacto ? `${opcoes.length} links: ${opcoes.map((o) => o.label).join(', ')}` : undefined}
         style={estiloCompacto}
       >
-        <img src={powerbiLogo} alt="" style={{ width: 15, height: 15, objectFit: 'contain' }} /> {compacto ? opcoes.length : rotuloGrupo} <ChevronDown size={13} />
+        <img src={powerbiLogo} alt="" width={15} height={15} style={{ width: 15, height: 15, objectFit: 'contain' }} /> {compacto ? opcoes.length : rotuloGrupo} <ChevronDown size={13} />
       </Button>
       {open && rect && createPortal(
         <div

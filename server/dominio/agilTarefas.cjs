@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const agilHistorico = require('./agilHistorico.cjs');
 
 function criar(repo, payload, opts = {}) {
   const data = repo.get('AgilTarefas');
@@ -16,7 +17,10 @@ function criar(repo, payload, opts = {}) {
 }
 
 function atualizar(repo, id, patch) {
-  return repo.update('AgilTarefas', id, { ...patch, updatedAt: new Date().toISOString() });
+  const antes = repo.get('AgilTarefas').find((t) => String(t.id) === String(id));
+  const salva = repo.update('AgilTarefas', id, { ...patch, updatedAt: new Date().toISOString() });
+  if (antes && salva) agilHistorico.registrarMudancas(repo, id, antes, patch);
+  return salva;
 }
 
 /**
@@ -30,6 +34,8 @@ function remover(repo, id) {
   if (!found) return false;
   repo.save('AgilSubtarefas', repo.get('AgilSubtarefas').filter((s) => String(s.tarefaId) !== String(id)));
   repo.save('AgilComentarios', repo.get('AgilComentarios').filter((c) => String(c.tarefaId) !== String(id)));
+  repo.save('AgilConexoes', repo.get('AgilConexoes').filter((c) => String(c.tarefaOrigemId) !== String(id) && String(c.tarefaDestinoId) !== String(id)));
+  agilHistorico.remover(repo, id);
   repo.save('AgilTarefas', repo.get('AgilTarefas').map((t) => (String(t.iniciativaId) === String(id) ? { ...t, iniciativaId: '' } : t)));
   return true;
 }
@@ -45,7 +51,9 @@ function reordenar(repo, itens) {
   const now = new Date().toISOString();
   const next = data.map((t) => {
     const patch = porId.get(String(t.id));
-    return patch ? { ...t, colunaId: patch.colunaId, ordem: patch.ordem, updatedAt: now } : t;
+    if (!patch) return t;
+    const swimlaneId = 'swimlaneId' in patch ? patch.swimlaneId : t.swimlaneId;
+    return { ...t, colunaId: patch.colunaId, ordem: patch.ordem, swimlaneId, updatedAt: now };
   });
   repo.save('AgilTarefas', next);
   return next;

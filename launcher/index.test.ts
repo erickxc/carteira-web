@@ -89,10 +89,20 @@ describe('caminhoNodePortavel', () => {
     delete (process as unknown as { pkg?: unknown }).pkg;
   });
 
-  it('usa o Node embutido em app/node/ quando existe, mesmo empacotado', () => {
+  it('usa o Node embutido em app/node/ (nome novo, identificável) quando existe, mesmo empacotado', () => {
     const nodeDir = path.join(appDir, 'node');
     fs.mkdirSync(nodeDir, { recursive: true });
-    const candidato = path.join(nodeDir, process.platform === 'win32' ? 'node.exe' : 'node');
+    const candidato = path.join(nodeDir, process.platform === 'win32' ? '2D_Carteira_Servidor.exe' : 'node');
+    fs.writeFileSync(candidato, '');
+    (process as unknown as { pkg?: unknown }).pkg = {};
+    expect(launcherIndex.caminhoNodePortavel(appDir)).toBe(candidato);
+  });
+
+  it('cai pro nome antigo "node.exe" (release publicada antes da renomeação) quando o novo não existe', () => {
+    if (process.platform !== 'win32') return; // fallback só existe no ramo win32
+    const nodeDir = path.join(appDir, 'node');
+    fs.mkdirSync(nodeDir, { recursive: true });
+    const candidato = path.join(nodeDir, 'node.exe');
     fs.writeFileSync(candidato, '');
     (process as unknown as { pkg?: unknown }).pkg = {};
     expect(launcherIndex.caminhoNodePortavel(appDir)).toBe(candidato);

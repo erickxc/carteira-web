@@ -54,6 +54,8 @@ function remover(repo, id) {
   repo.save('AgilTarefas', tarefas.filter((t) => !idsColunas.has(String(t.colunaId))));
   repo.save('AgilSubtarefas', repo.get('AgilSubtarefas').filter((s) => !tarefasRemovidas.includes(String(s.tarefaId))));
   repo.save('AgilComentarios', repo.get('AgilComentarios').filter((c) => !tarefasRemovidas.includes(String(c.tarefaId))));
+  repo.save('AgilConexoes', repo.get('AgilConexoes').filter((c) => !tarefasRemovidas.includes(String(c.tarefaOrigemId)) && !tarefasRemovidas.includes(String(c.tarefaDestinoId))));
+  repo.save('AgilHistorico', repo.get('AgilHistorico').filter((h) => !tarefasRemovidas.includes(String(h.tarefaId))));
   return true;
 }
 

@@ -1,10 +1,48 @@
 const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
 const Database = require('better-sqlite3');
-const { SQLITE_FILE, SNAPSHOT_FILE, HEADERS_BY_SHEET, CATEGORIAS_SEED, MODELOS_SEED, CADENCIAS_SEED } = require('./config.cjs');
+const { SQLITE_DIR, SQLITE_FILE, SNAPSHOT_FILE, HEADERS_BY_SHEET, CATEGORIAS_SEED, MODELOS_SEED, CADENCIAS_SEED } = require('./config.cjs');
 const { isClient } = require('./modo.cjs');
 
 let db = null;
+
+/**
+ * Cache da última leitura BEM-SUCEDIDA do snapshot, por sheet — ver uso em
+ * `getSheetDataRemota` logo abaixo. Dois níveis:
+ *  - `ultimoSnapshotBom` (memória): rápido, mas começa vazio a cada boot do
+ *    processo.
+ *  - `SNAPSHOT_CACHE_FILE` (disco, `SQLITE_DIR` — LOCAL, fora do OneDrive):
+ *    sobrevive a reiniciar o backend. Importa porque o cenário real que isso
+ *    corrige é justo "acabou de reiniciar (update) bem na hora em que o
+ *    OneDrive ainda não tinha propagado o snapshot novo" — sem persistência
+ *    em disco, a memória vazia no boot faria cair em `[]` do mesmo jeito.
+ */
+const ultimoSnapshotBom = new Map();
+const SNAPSHOT_CACHE_FILE = path.join(SQLITE_DIR, 'snapshot-cache.json');
+let cacheDoDiscoCarregado = false;
+
+function carregarCacheDoDiscoSeNecessario() {
+  if (cacheDoDiscoCarregado) return;
+  cacheDoDiscoCarregado = true;
+  try {
+    const bruto = JSON.parse(fs.readFileSync(SNAPSHOT_CACHE_FILE, 'utf8'));
+    for (const [sheet, linhas] of Object.entries(bruto)) {
+      if (!ultimoSnapshotBom.has(sheet)) ultimoSnapshotBom.set(sheet, linhas);
+    }
+  } catch {
+    // Sem cache em disco ainda (primeiro boot desta máquina) — segue com [].
+  }
+}
+
+function salvarCacheNoDisco() {
+  try {
+    fs.mkdirSync(SQLITE_DIR, { recursive: true });
+    fs.writeFileSync(SNAPSHOT_CACHE_FILE, JSON.stringify(Object.fromEntries(ultimoSnapshotBom)));
+  } catch (err) {
+    console.warn('getSheetDataRemota: falha ao salvar o cache do snapshot em disco:', err.message);
+  }
+}
 
 /**
  * Guarda estrutural (Etapa 2 do plano de fila/controller): em `APP_MODE=client`
@@ -104,21 +142,40 @@ function getSheetData(sheet) {
  * `readonly` e conexão nova por chamada (sem cache): é lido só por requisição
  * HTTP, baixa frequência, e assim nunca disputa lock com o próximo
  * `fs.renameSync` do controller sobre o mesmo arquivo. Sem snapshot ainda
- * publicado (primeiro boot da máquina remota), devolve `[]` — mesmo
- * comportamento de uma sheet vazia, não é um erro.
+ * publicado (primeiro boot da máquina remota, sem cache em memória ainda),
+ * devolve `[]` — mesmo comportamento de uma sheet vazia, não é um erro.
+ *
+ * Falha de LEITURA (diferente de "sem snapshot ainda") é outra história: o
+ * `rename` do `publicarSnapshot` é atômico NA MÁQUINA SERVIDORA, mas o
+ * arquivo mora dentro do OneDrive — nas máquinas remotas, o OneDrive ainda
+ * precisa PROPAGAR essa troca, e nesse meio-tempo o arquivo local pode estar
+ * parcialmente baixado ou placeholder (Files On-Demand). Isso já causou a
+ * carteira aparecer ZERADA numa máquina remota (nada apagado de verdade — só
+ * a leitura falhando e caindo no mesmo fallback de "vazio" usado pra "sem
+ * snapshot"). Por isso, quando a leitura FALHA (não quando ela simplesmente
+ * não acha linha nenhuma — isso continua um resultado válido), devolve a
+ * ÚLTIMA leitura bem-sucedida guardada em memória em vez de `[]`.
  */
 function getSheetDataRemota(sheet) {
   const headers = HEADERS_BY_SHEET[sheet];
-  if (!headers || !fs.existsSync(SNAPSHOT_FILE)) return [];
+  if (!headers) return [];
+  carregarCacheDoDiscoSeNecessario();
+  if (!fs.existsSync(SNAPSHOT_FILE)) return ultimoSnapshotBom.get(sheet) ?? [];
   const pk = pkDe(headers);
   let conexaoSnapshot;
   try {
     conexaoSnapshot = new Database(SNAPSHOT_FILE, { readonly: true });
-    const linhas = conexaoSnapshot.prepare(`SELECT * FROM "${sheet}"`).all();
-    return linhas.map((row) => linhaParaObjeto(headers, pk, row));
+    const linhas = conexaoSnapshot.prepare(`SELECT * FROM "${sheet}"`).all().map((row) => linhaParaObjeto(headers, pk, row));
+    ultimoSnapshotBom.set(sheet, linhas);
+    salvarCacheNoDisco();
+    return linhas;
   } catch (err) {
-    console.warn(`getSheetDataRemota: falha ao ler o snapshot para "${sheet}":`, err.message);
-    return [];
+    const cache = ultimoSnapshotBom.get(sheet);
+    console.warn(
+      `getSheetDataRemota: falha ao ler o snapshot para "${sheet}" (${err.message}) — `
+      + (cache ? `servindo a última leitura boa em cache (${cache.length} linha(s)).` : 'sem cache anterior, devolvendo vazio.'),
+    );
+    return cache ?? [];
   } finally {
     if (conexaoSnapshot) conexaoSnapshot.close();
   }

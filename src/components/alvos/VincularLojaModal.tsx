@@ -83,7 +83,7 @@ export function VincularLojaModal({ empresa, onClose, onVinculado }: VincularLoj
       footer={
         <>
           <Button variant="secondary" onClick={relerArquivo} disabled={relendo}>
-            {relendo ? 'Lendo arquivo...' : 'Reler arquivo (ignorar cache)'}
+            {relendo ? 'Lendo arquivo…' : 'Reler arquivo (ignorar cache)'}
           </Button>
           <Button variant="primary" onClick={onClose}>Fechar</Button>
         </>

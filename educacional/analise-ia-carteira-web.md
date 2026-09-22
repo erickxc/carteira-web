@@ -1,6 +1,6 @@
-<!-- title: Análise de IA — Carteira Web -->
+<!-- title: Análise de IA — CARTEIRA 2D -->
 
-# Onde a IA se encaixa na Carteira Web
+# Onde a IA se encaixa na CARTEIRA 2D
 
 Análise de oportunidades concretas de IA generativa (API da Anthropic/Claude) no app de carteira de monitoria da 2D Consultores — priorizadas por esforço vs. valor, com atenção especial a um ponto que muda a resposta: **hoje o app é 100% local/LAN, sem nenhum dado saindo da rede da 2D.** Qualquer chamada a uma API de IA na nuvem quebra essa premissa — trato isso como decisão de negócio a confirmar antes de qualquer implementação, não como detalhe técnico.
 

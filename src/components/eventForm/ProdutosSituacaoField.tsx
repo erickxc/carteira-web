@@ -183,7 +183,7 @@ export function ProdutosSituacaoField({ ps, produtosDisponiveis = [], clientesDi
             />
           </div>
         )}
-        <Button variant="primary" size="icon" onClick={ps.addItem} disabled={ps.incompleto} title="Adicionar registro"><Plus size={16} /></Button>
+        <Button variant="primary" size="icon" onClick={ps.addItem} disabled={ps.incompleto} title="Adicionar registro" aria-label="Adicionar registro"><Plus size={16} /></Button>
       </div>
 
       {ps.precisaCliente && ps.cliente.trim() && (
@@ -244,6 +244,7 @@ function DirecaoToggle({ value, onChange }: { value: DirecaoSituacao | null; onC
       <button
         type="button"
         title="Aumento"
+        aria-label="Aumento"
         aria-pressed={value === 'aumento'}
         onClick={() => onChange('aumento')}
         className={clsx('direcao-toggle-btn', value === 'aumento' && 'is-active-aumento')}
@@ -253,6 +254,7 @@ function DirecaoToggle({ value, onChange }: { value: DirecaoSituacao | null; onC
       <button
         type="button"
         title="Manteve"
+        aria-label="Manteve"
         aria-pressed={value === 'manteve'}
         onClick={() => onChange('manteve')}
         className={clsx('direcao-toggle-btn', value === 'manteve' && 'is-active-manteve')}
@@ -262,6 +264,7 @@ function DirecaoToggle({ value, onChange }: { value: DirecaoSituacao | null; onC
       <button
         type="button"
         title="Queda"
+        aria-label="Queda"
         aria-pressed={value === 'queda'}
         onClick={() => onChange('queda')}
         className={clsx('direcao-toggle-btn', value === 'queda' && 'is-active-queda')}

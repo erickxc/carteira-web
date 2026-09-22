@@ -1460,6 +1460,14 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .calendar-chip.is-done .calendar-chip-title { text-decoration: line-through; }
 .calendar-chip.is-cancel { opacity: 0.5; background: var(--danger-pastel-bg); }
 .calendar-chip.is-cancel .calendar-chip-title { text-decoration: line-through; }
+/* "Pendente": mesmo tratamento neutro do kanban-card (visão Semana) — cinza
+   com borda pontilhada, sem cor de tipo na barra lateral. */
+.calendar-chip.is-pendente {
+  background: var(--card);
+  border-style: dashed;
+  border-color: var(--border-strong);
+}
+.calendar-chip.is-pendente::before { background: var(--text-muted); }
 /* "Realocado" (src/utils/reagendamento.ts): o slot de onde uma reunião já
    saiu. Contorno tracejado em vez de sólido — sinaliza "isto não está mais
    aqui de verdade" sem competir visualmente com os cards reais do dia; sem
@@ -1468,6 +1476,70 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .calendar-chip.is-ghost::before { display: none; }
 .calendar-chip.is-ghost:hover { background: transparent; border-color: var(--border); transform: none; box-shadow: none; }
 .calendar-chip.is-ghost .calendar-chip-title { color: var(--text-muted); }
+
+/* Sugestão de encaixe (toggle "Mostrar agendas recomendadas", monitorIA) —
+   translúcido/tracejado de propósito: precisa ficar óbvio que é sugestão, não
+   compromisso real, sem se confundir com o "ghost" acima (esse é só um rastro
+   sem clique, cor neutra; a sugestão é clicável e usa a cor do accent). */
+.calendar-chip.is-sugestao {
+  border-style: dashed;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  opacity: 0.85;
+}
+.calendar-chip.is-sugestao::before { display: none; }
+.calendar-chip.is-sugestao:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--accent);
+  box-shadow: none;
+}
+.calendar-chip.is-sugestao .calendar-chip-title,
+.calendar-chip.is-sugestao .calendar-chip-type { color: var(--accent); }
+
+
+/* Switch liga/desliga genérico (checkbox escondido + trilha/bolinha
+   desenhadas) — não existia nenhum no projeto (só checkbox quadrado
+   e botões que trocam de cor), pedido explícito de "seletor de liga
+   e desliga" em vez de botão. */
+.switch-toggle { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; cursor: pointer; }
+.switch-toggle input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.switch-toggle-track {
+  position: absolute; inset: 0;
+  background: var(--border-strong);
+  border-radius: 999px;
+  transition: background 0.15s ease;
+}
+.switch-toggle-track::before {
+  content: '';
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  transition: transform 0.15s ease;
+}
+.switch-toggle input:checked + .switch-toggle-track { background: var(--accent); }
+.switch-toggle input:checked + .switch-toggle-track::before { transform: translateX(18px); background: var(--accent-contrast); }
+.switch-toggle input:focus-visible + .switch-toggle-track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Linha com o switch dentro de `.agenda-filtro-opcoes`, ao lado de "Agendas
+   do Marco" — mesma pílula visual dos `.check-row` vizinhos. */
+.switch-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 3px 8px 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--card);
+}
+.switch-toggle-row:hover { border-color: var(--border-strong); background: var(--card-hover); }
+.switch-toggle-row .switch-toggle { width: 32px; height: 18px; margin-left: 2px; }
+.switch-toggle-row .switch-toggle-track::before { width: 12px; height: 12px; top: 2px; left: 2px; }
+.switch-toggle-row .switch-toggle input:checked + .switch-toggle-track::before { transform: translateX(14px); }
 
 /* Sem translate no hover de propósito (ver .agenda-row:hover acima). */
 .calendar-chip:hover {
@@ -1735,7 +1807,8 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
   animation: ticker-scroll linear infinite;
   will-change: transform;
 }
-.agenda-ticker:hover .agenda-ticker-track { animation-play-state: paused; }
+.agenda-ticker:hover .agenda-ticker-track,
+.agenda-ticker:focus-within .agenda-ticker-track { animation-play-state: paused; }
 @keyframes ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 /* Sem respeitar `prefers-reduced-motion` de propósito, só aqui — pedido
    explícito do usuário: em máquinas com "Mostrar animações" desligado no

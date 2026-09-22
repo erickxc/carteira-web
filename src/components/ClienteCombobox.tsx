@@ -28,7 +28,7 @@ interface ClienteComboboxProps {
  * Popover via portal (mesmo padrão de Dropdown.tsx) pra não ficar preso atrás
  * do conteúdo do modal.
  */
-export function ClienteCombobox({ clientes, value, onChange, tone, placeholder = 'Selecione...', limpavel }: ClienteComboboxProps) {
+export function ClienteCombobox({ clientes, value, onChange, tone, placeholder = 'Selecione…', limpavel }: ClienteComboboxProps) {
   const ordenados = useMemo(
     () => [...clientes].sort((a, b) => a.empresa.localeCompare(b.empresa, 'pt-BR')),
     [clientes]

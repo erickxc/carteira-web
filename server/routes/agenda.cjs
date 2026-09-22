@@ -39,12 +39,15 @@ router.post('/export-json', (req, res) => {
 });
 
 router.put('/:id', validar(agendaUpdateSchema), (req, res) => {
+  // Lido ANTES da mutação: `dispararPosEvento` precisa saber o status de
+  // ONDE veio (ex.: Pendente → Cancelado não dispara análise, ver posEvento.cjs).
+  const anterior = repo.get('Agenda').find((a) => String(a.id) === String(req.params.id));
   const updated = executarMutacao('agenda', 'update', { id: req.params.id, patch: req.body });
   if (!updated) return res.status(404).json({ error: 'Evento não encontrado.' });
   res.json(updated);
   // Dossiê + catálogo em segundo plano (ver `ia/posEvento.cjs`): responde
   // primeiro, atualiza depois — a tela não espera.
-  dispararPosEvento(repo, updated.clientId, updated.status);
+  dispararPosEvento(repo, updated.clientId, updated.status, anterior?.status);
 });
 
 router.delete('/:id', (req, res) => {

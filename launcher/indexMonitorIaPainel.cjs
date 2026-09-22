@@ -39,7 +39,7 @@ function servidorJaNoAr(timeoutMs = 1500) {
 
 async function main() {
   if (!(await servidorJaNoAr())) {
-    spawn('cmd', ['/c', 'msg', '*', 'Carteira Web não está rodando nesta máquina — abra o 2D_Carteira.exe primeiro.'], { shell: false, stdio: 'ignore', windowsHide: true });
+    spawn('cmd', ['/c', 'msg', '*', 'CARTEIRA 2D não está rodando nesta máquina — abra o 2D_Carteira.exe primeiro.'], { shell: false, stdio: 'ignore', windowsHide: true });
     return;
   }
   const arquivo = path.join(os.tmpdir(), 'carteira-monitor-ia-painel.html');

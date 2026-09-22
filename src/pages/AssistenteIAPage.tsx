@@ -324,6 +324,7 @@ export default function AssistenteIAPage() {
                   variant="secondary"
                   onClick={() => setHistoricoAberto(true)}
                   title="Ver o que o agente já executou"
+                  aria-label={acoes.length > 0 ? `Ver histórico do agente (${acoes.length})` : 'Ver histórico do agente'}
                   style={{ padding: '0.35rem 0.55rem', whiteSpace: 'nowrap' }}
                 >
                   <History size={14} />
@@ -417,7 +418,7 @@ export default function AssistenteIAPage() {
                 >
                   {passosEmAndamento.length === 0 ? (
                     <span className="flex items-center gap-2">
-                      <Loader2 size={13} className="animate-spin shrink-0" />
+                      <Loader2 size={13} className="animate-spin motion-reduce:animate-none shrink-0" />
                       {/* Cronômetro: sem streaming, a única informação honesta
                           durante a espera do primeiro passo é quanto tempo já
                           passou. Antes ficava só "pensando...", sem nada mudando
@@ -429,7 +430,7 @@ export default function AssistenteIAPage() {
                       {passosEmAndamento.map((a, i) => (
                         <span key={a.id} className="flex items-center gap-2">
                           {i === passosEmAndamento.length - 1
-                            ? <Loader2 size={13} className="animate-spin shrink-0" />
+                            ? <Loader2 size={13} className="animate-spin motion-reduce:animate-none shrink-0" />
                             : <Check size={13} className="shrink-0" style={{ color: 'var(--success-fg)' }} />}
                           {legendaAcao(a)}
                         </span>
@@ -462,7 +463,7 @@ export default function AssistenteIAPage() {
             className="flex items-end gap-1.5 w-full border border-border-strong rounded-sm bg-bg transition-[border-color,box-shadow] duration-100 focus-within:border-accent focus-within:shadow-[0_0_0_3px_var(--accent-soft)]"
           >
             <Textarea
-              placeholder="Escreva sua pergunta..."
+              placeholder="Escreva sua pergunta…"
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEnviar(e); } }}

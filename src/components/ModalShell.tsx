@@ -1,4 +1,5 @@
 import type { FormEvent, ReactNode } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useFecharAnimado } from '../hooks/useFecharAnimado';
 
@@ -32,6 +33,25 @@ interface ModalShellProps {
  */
 export function ModalShell({ title, onClose, onSubmit, footer, size, titleNode, headerBackground, headerForeground, children }: ModalShellProps) {
   const { fechando, fechar } = useFecharAnimado(onClose);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const tituloId = useId();
+
+  // Esc fecha, igual ao Dropdown — e foco volta pra quem abriu o modal, senão
+  // o teclado "perde o lugar" depois de fechar (foco cai pro <body>).
+  useEffect(() => {
+    const elementoAnterior = document.activeElement as HTMLElement | null;
+    // Só assume o foco se nada dentro do modal já pegou foco sozinho (ex.:
+    // campo com `autoFocus`) — senão rouba o foco do campo certo.
+    if (!modalRef.current?.contains(document.activeElement)) modalRef.current?.focus();
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') fechar();
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      elementoAnterior?.focus();
+    };
+  }, [fechar]);
 
   // Portal para o <body>: o modal é renderizado dentro das páginas, que ficam
   // sob `.page-transition` (tem transform/animação). Um ancestral com transform
@@ -39,13 +59,22 @@ export function ModalShell({ title, onClose, onSubmit, footer, size, titleNode, 
   // tela e não redimensionava. No body, o fixed volta a valer pela viewport.
   return createPortal(
     <div className={`modal-overlay${fechando ? ' is-closing' : ''}`} onClick={fechar}>
-      <div className={`modal${size ? ` modal-${size}` : ''}`} onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={modalRef}
+        className={`modal${size ? ` modal-${size}` : ''}`}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleNode ? undefined : tituloId}
+        aria-label={titleNode ? title : undefined}
+        tabIndex={-1}
+      >
         <div
           className="modal-header"
           style={headerBackground ? { background: headerBackground, color: headerForeground, borderBottomColor: 'transparent' } : undefined}
           title={titleNode ? title : undefined}
         >
-          {titleNode ?? <h2>{title}</h2>}
+          {titleNode ?? <h2 id={tituloId}>{title}</h2>}
         </div>
         <form onSubmit={onSubmit}>
           <div className="modal-body">{children}</div>

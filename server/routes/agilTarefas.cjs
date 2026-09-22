@@ -28,7 +28,7 @@ router.put('/reorder', validarLote(agilReorderTarefaItemSchema), (req, res) => {
   if (!isClient) return res.json(tarefasDominio.reordenar(repo, req.body));
   res.json(req.body.map((item) => executarMutacao('agilTarefas', 'update', {
     id: item.id,
-    patch: { colunaId: item.colunaId, ordem: item.ordem },
+    patch: { colunaId: item.colunaId, ordem: item.ordem, ...('swimlaneId' in item ? { swimlaneId: item.swimlaneId } : {}) },
   })));
 });
 

@@ -119,7 +119,7 @@ export function RelatoriosClienteModal({ cliente, onClose }: RelatoriosClienteMo
         <>
           <Button variant="secondary" onClick={onClose}>Fechar</Button>
           <Button variant="primary" onClick={exportar} disabled={exportando || filtrados.length === 0}>
-            <Download size={16} /> {exportando ? 'Gerando...' : `Exportar Excel (${filtrados.length})`}
+            <Download size={16} /> {exportando ? 'Gerando…' : `Exportar Excel (${filtrados.length})`}
           </Button>
         </>
       )}

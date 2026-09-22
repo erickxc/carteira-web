@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarDays, CalendarPlus, Check, PhoneMissed, Plus, Search, Trash2, X } from 'lucide-react';
@@ -465,7 +465,7 @@ export default function AcoesPage() {
                   {itensFiltrados.map((i) => (
                     <tr key={i.key} className="group [&:last-child>td]:border-b-0">
                       <Td first style={{ whiteSpace: 'nowrap' }}>{format(i.date, 'dd/MM/yy', { locale: ptBR })}</Td>
-                      <Td><button className="link-button" onClick={() => navigate(`/clientes/${i.clientId}`, { state: { from: '/acoes', fromLabel: 'Ações' } })}>{nomeCliente(i.clientId)}</button></Td>
+                      <Td><Link className="link-button" to={`/clientes/${i.clientId}`} state={{ from: '/acoes', fromLabel: 'Ações' }}>{nomeCliente(i.clientId)}</Link></Td>
                       <Td>{i.tipoLabel}</Td>
                       <Td><Badge variant={i.origem === 'reuniao' ? 'accent' : 'muted'}>{i.origem === 'reuniao' ? 'Reunião' : 'Ação'}</Badge></Td>
                       <Td><Badge variant={i.statusBadge}>{i.statusLabel}</Badge></Td>
@@ -473,19 +473,19 @@ export default function AcoesPage() {
                       <Td>
                         <div className="flex-row" style={{ gap: 4, justifyContent: 'flex-end' }}>
                           {i.origem === 'reuniao' ? (
-                            <Button variant="secondary" size="icon" title="Ver na agenda" onClick={() => navigate('/agenda', { state: { focusDate: i.eventDate } })}><CalendarDays size={14} /></Button>
+                            <Button variant="secondary" size="icon" title="Ver na agenda" aria-label="Ver na agenda" onClick={() => navigate('/agenda', { state: { focusDate: i.eventDate } })}><CalendarDays size={14} /></Button>
                           ) : (
                             <>
                               {i.acaoStatus === 'programado' && (
                                 <>
-                                  <Button variant="secondary" size="icon" title="Concluir" onClick={() => atualizarAcao(i.refId, { status: 'concluido' })}><Check size={14} /></Button>
+                                  <Button variant="secondary" size="icon" title="Concluir" aria-label="Concluir ação" onClick={() => atualizarAcao(i.refId, { status: 'concluido' })}><Check size={14} /></Button>
                                   {/* Diferente de "Concluir": não conta como toque de cadência —
                                       o cliente continua vencido, só registra que já se tentou
                                       (ver AcaoStatus em types/index.ts pro porquê). */}
-                                  <Button variant="secondary" size="icon" title="Marcar como sem sucesso (tentou e não conseguiu)" onClick={() => atualizarAcao(i.refId, { status: 'sem_sucesso' })}><PhoneMissed size={14} /></Button>
+                                  <Button variant="secondary" size="icon" title="Marcar como sem sucesso (tentou e não conseguiu)" aria-label="Marcar ação como sem sucesso" onClick={() => atualizarAcao(i.refId, { status: 'sem_sucesso' })}><PhoneMissed size={14} /></Button>
                                 </>
                               )}
-                              <Button variant="danger" size="icon" title="Excluir" onClick={async () => { if (await confirmDialog('Excluir esta ação?', { danger: true, confirmLabel: 'Excluir' })) removerAcao(i.refId); }}><Trash2 size={13} /></Button>
+                              <Button variant="danger" size="icon" title="Excluir" aria-label="Excluir ação" onClick={async () => { if (await confirmDialog('Excluir esta ação?', { danger: true, confirmLabel: 'Excluir' })) removerAcao(i.refId); }}><Trash2 size={13} /></Button>
                             </>
                           )}
                         </div>

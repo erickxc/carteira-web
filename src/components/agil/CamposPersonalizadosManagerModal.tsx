@@ -102,8 +102,8 @@ export function CamposPersonalizadosManagerModal({ boardId, boardNome, onClose }
               <div className="flex items-center gap-2 px-2.5 py-2 rounded bg-bg border border-border">
                 <span className="flex-1 text-[0.85rem] text-text-primary truncate">{c.nome}</span>
                 <span className="text-[0.68rem] text-text-muted">{TIPO_OPCOES.find((t) => t.value === c.tipo)?.label}</span>
-                <Button variant="secondary" size="icon" onClick={() => iniciarEdicao(c)} title="Editar"><Pencil size={13} /></Button>
-                <Button variant="danger" size="icon" onClick={() => excluir(c)} title="Remover"><Trash2 size={13} /></Button>
+                <Button variant="secondary" size="icon" onClick={() => iniciarEdicao(c)} title="Editar" aria-label={`Editar campo ${c.nome}`}><Pencil size={13} /></Button>
+                <Button variant="danger" size="icon" onClick={() => excluir(c)} title="Remover" aria-label={`Remover campo ${c.nome}`}><Trash2 size={13} /></Button>
               </div>
             )}
           </div>

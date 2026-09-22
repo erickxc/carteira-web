@@ -238,6 +238,7 @@ export function AtendimentoCard({ agenda, clientes, acoes, agora }: AtendimentoC
             height={150}
             formatValue={(v) => v.toFixed(1)}
             unidade="ações por entrega"
+            titulo="Ações por entrega"
             ocultarRotulos={serie.length > 6}
           />
         </div>

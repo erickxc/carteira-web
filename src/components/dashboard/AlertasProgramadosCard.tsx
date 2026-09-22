@@ -39,7 +39,7 @@ export function AlertasProgramadosCard({ alertasProgramados, nomeCliente }: Aler
                 <span className="agenda-row-main">
                   <span className="agenda-row-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     {r.type && <Badge variant={isRelatorio ? 'warning' : 'accent'}>{r.type}</Badge>}
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
+                    <span title={r.title} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
                   </span>
                   <span className="agenda-row-sub">{nome ?? 'geral'}</span>
                 </span>

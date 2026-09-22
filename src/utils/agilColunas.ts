@@ -28,6 +28,22 @@ export function tarefaPendenteBloqueiaConclusao(
   return pendente?.titulo ?? null;
 }
 
+/**
+ * Progresso de uma iniciativa: % de tarefas vinculadas (`iniciativaId`) que
+ * estão em coluna concluída. Puramente derivado (nunca persistido) — sem
+ * vinculadas devolve `null` (sem badge, não "0%" enganoso).
+ */
+export function progressoIniciativa(
+  iniciativaId: string,
+  agilTarefas: AgilTarefa[],
+  agilColunas: AgilColuna[]
+): number | null {
+  const vinculadas = agilTarefas.filter((t) => t.iniciativaId === iniciativaId);
+  if (vinculadas.length === 0) return null;
+  const concluidas = vinculadas.filter((t) => colunaConcluida(agilColunas.find((c) => c.id === t.colunaId)?.titulo)).length;
+  return Math.round((concluidas / vinculadas.length) * 100);
+}
+
 export interface HierarquiaColunas {
   /** Colunas de topo (sem pai), em ordem. */
   topo: AgilColuna[];

@@ -115,7 +115,7 @@ export function TimelineCard({
                   tabIndex={editavel ? 0 : undefined}
                   title={editavel ? 'Clique para editar este evento agendado' : undefined}
                   onClick={editavel ? () => onEditarEvento(evento) : undefined}
-                  onKeyDown={editavel ? (e) => { if (e.key === 'Enter') onEditarEvento(evento); } : undefined}
+                  onKeyDown={editavel ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEditarEvento(evento); } } : undefined}
                 >
                   <div className="flex-between" style={{ marginBottom: 6, gap: 8 }}>
                     <strong style={{ fontSize: 14 }}>{evento.subject || evento.type}</strong>

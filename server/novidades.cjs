@@ -21,7 +21,12 @@ const RAIZ = path.join(__dirname, '..');
 function parsear(markdown) {
   const secoes = {};
   let atual = null;
-  for (const linha of String(markdown).split('\n')) {
+  // `\r?\n`, não só `\n`: o arquivo é CRLF no disco (Windows). Um `\r` residual
+  // no fim de cada linha quebrava o regex de bullet (`(.*)$` não consome `\r`,
+  // que fica sobrando antes do `$`) — toda seção saía com bullets vazios,
+  // inclusive silenciosamente (sem erro, `novidades: []` no manifesto da
+  // release). O regex de cabeçalho não quebrava porque `\s*$` engole o `\r`.
+  for (const linha of String(markdown).split(/\r?\n/)) {
     const cabecalho = linha.match(/^##\s+(\d+\.\d+\.\d+)\s*$/);
     if (cabecalho) {
       atual = cabecalho[1];

@@ -11,10 +11,12 @@ import { Badge, Button, Card, Field, Input, Textarea } from '../ui';
 import { Dropdown } from '../components/Dropdown';
 import { corDoServico } from '../utils/corServico';
 import ProvedorIACard from '../components/config/ProvedorIACard';
+import FilaSincronizacaoCard from '../components/config/FilaSincronizacaoCard';
 import LimiteContaCard from '../components/config/LimiteContaCard';
 import McpClaudeCard from '../components/config/McpClaudeCard';
 import UsoIACard from '../components/config/UsoIACard';
 import NotificacoesWindowsCard from '../components/config/NotificacoesWindowsCard';
+import ExtensaoAcessosCard from '../components/config/ExtensaoAcessosCard';
 import { CATEGORIA_TIPO_LABEL, SEGMENTO_LABEL, type Cadencias, type Categoria, type CategoriaTipo, type Modelo, type Segmento, type TipoLinkServico } from '../types';
 
 const TIPOS: CategoriaTipo[] = ['servico', 'tipo_evento', 'status_cliente', 'status_evento', 'monitor', 'tipo_lembrete', 'sala', 'local_cliente', 'grupo_referencia'];
@@ -149,8 +151,8 @@ function ModelosCard() {
               <div className="text-text-muted" style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>{m.conteudo}</div>
             </div>
             <div className="flex-row">
-              <Button variant="secondary" size="icon" onClick={() => editar(m)} title="Editar modelo"><Pencil size={13} /></Button>
-              <Button variant="danger" size="icon" onClick={() => excluir(m)} title="Excluir modelo"><Trash2 size={13} /></Button>
+              <Button variant="secondary" size="icon" onClick={() => editar(m)} title="Editar modelo" aria-label={`Editar modelo ${m.titulo}`}><Pencil size={13} /></Button>
+              <Button variant="danger" size="icon" onClick={() => excluir(m)} title="Excluir modelo" aria-label={`Excluir modelo ${m.titulo}`}><Trash2 size={13} /></Button>
             </div>
           </div>
         ))}
@@ -169,7 +171,7 @@ function ModelosCard() {
           </div>
           <Input placeholder="Título" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
         </div>
-        <Textarea rows={4} placeholder="Conteúdo do material..." value={conteudo} onChange={(e) => setConteudo(e.target.value)} />
+        <Textarea rows={4} placeholder="Conteúdo do material…" value={conteudo} onChange={(e) => setConteudo(e.target.value)} />
       </Field>
       <div className="flex-row" style={{ justifyContent: 'flex-end', gap: 8 }}>
         {editando && <Button variant="secondary" onClick={limpar}>Cancelar</Button>}
@@ -287,8 +289,8 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
                   style={{ marginRight: 8 }}
                 />
                 <div className="flex-row">
-                  <Button variant="secondary" size="icon" onClick={() => salvarEdicao(cat.id)} title="Salvar"><Check size={14} /></Button>
-                  <Button variant="secondary" size="icon" onClick={() => setEditandoId(null)} title="Cancelar"><X size={14} /></Button>
+                  <Button variant="secondary" size="icon" onClick={() => salvarEdicao(cat.id)} title="Salvar" aria-label="Salvar"><Check size={14} /></Button>
+                  <Button variant="secondary" size="icon" onClick={() => setEditandoId(null)} title="Cancelar" aria-label="Cancelar edição"><X size={14} /></Button>
                 </div>
               </div>
             ) : (
@@ -312,10 +314,11 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
                         setEditValor(cat.valor);
                       }}
                       title="Renomear"
+                      aria-label={`Renomear ${cat.valor}`}
                     >
                       <Pencil size={13} />
                     </Button>
-                    <Button variant="danger" size="icon" onClick={() => excluir(cat.id, cat.valor)} title="Excluir">
+                    <Button variant="danger" size="icon" onClick={() => excluir(cat.id, cat.valor)} title="Excluir" aria-label={`Excluir ${cat.valor}`}>
                       <Trash2 size={13} />
                     </Button>
                   </div>
@@ -330,10 +333,11 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
                       value={corDoServico(cat.valor, cat.cor)}
                       onChange={(e) => definirCorInline(cat, e.target.value)}
                       title="Cor de referência deste serviço na tabela de Clientes"
+                      aria-label={`Cor de referência de ${cat.valor}`}
                       style={{ width: 28, height: 28, padding: 0, border: '1px solid var(--border-strong)', borderRadius: 6, cursor: 'pointer', background: 'none' }}
                     />
                     {cat.cor && (
-                      <Button variant="secondary" size="icon" onClick={() => definirCorInline(cat, '')} title="Voltar pra cor automática">
+                      <Button variant="secondary" size="icon" onClick={() => definirCorInline(cat, '')} title="Voltar pra cor automática" aria-label={`Voltar ${cat.valor} pra cor automática`}>
                         <X size={12} />
                       </Button>
                     )}
@@ -371,12 +375,14 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div className="flex-row">
           <Input
-            placeholder="Adicionar..."
+            placeholder="Adicionar…"
+            name="novoValor"
+            autoComplete="off"
             value={novoValor}
             onChange={(e) => setNovoValor(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && adicionar()}
           />
-          <Button variant="primary" size="icon" onClick={adicionar} disabled={salvando || !novoValor.trim()} title="Adicionar">
+          <Button variant="primary" size="icon" onClick={adicionar} disabled={salvando || !novoValor.trim()} title="Adicionar" aria-label={`Adicionar ${CATEGORIA_TIPO_LABEL[tipo]}`}>
             <Plus size={16} />
           </Button>
         </div>
@@ -548,11 +554,11 @@ function AtualizacaoCard() {
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <Button variant="secondary" onClick={verificar} disabled={verificando || reiniciando}>
-          <RefreshCw size={15} /> {verificando ? 'Verificando...' : 'Verificar agora'}
+          <RefreshCw size={15} /> {verificando ? 'Verificando…' : 'Verificar agora'}
         </Button>
         {temNova && status?.podeAplicar && (
           <Button variant="primary" onClick={aplicar} disabled={reiniciando}>
-            <Download size={15} /> {reiniciando ? 'Atualizando...' : `Atualizar para ${status.disponivel}`}
+            <Download size={15} /> {reiniciando ? 'Atualizando…' : `Atualizar para ${status.disponivel}`}
           </Button>
         )}
       </div>
@@ -650,10 +656,16 @@ export default function ConfiguracoesPage() {
             <AtualizacaoCard />
           </div>
           <div className="section">
+            <FilaSincronizacaoCard />
+          </div>
+          <div className="section">
             <IniciarComWindowsCard />
           </div>
           <div className="section">
             <NotificacoesWindowsCard />
+          </div>
+          <div className="section">
+            <ExtensaoAcessosCard />
           </div>
           <div className="section">
             <ProvedorIACard />

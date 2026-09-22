@@ -119,7 +119,7 @@ export default function AgilPage() {
                   <Button variant="secondary" onClick={() => setCamposPersonalizadosAberta(true)}>Campos</Button>
                 )}
                 {board && (
-                  <Button variant="secondary" onClick={() => setBoardModal(board)} title="Editar quadro">
+                  <Button variant="secondary" onClick={() => setBoardModal(board)} title="Editar quadro" aria-label="Editar quadro">
                     <Settings size={16} />
                   </Button>
                 )}

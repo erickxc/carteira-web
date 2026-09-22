@@ -17,6 +17,12 @@ const { BACKUP_ONEDRIVE_DIR } = require('../config.cjs');
 const RAIZ = path.join(__dirname, '..', '..'); // raiz do projeto
 const RELEASES_DIR = path.join(BACKUP_ONEDRIVE_DIR, 'releases');
 
+// Nome do binário do Node portátil embutido na release — TEM que bater com
+// `launcher/index.cjs::caminhoNodePortavel` (o que procura o arquivo). Não dá
+// pra importar uma constante compartilhada aqui: este script roda fora do
+// pacote do launcher, sem build step entre os dois.
+const NOME_EXE_SERVIDOR = '2D_Carteira_Servidor.exe';
+
 function lerVersaoPackageJson(raiz = RAIZ) {
   const pkg = JSON.parse(fs.readFileSync(path.join(raiz, 'package.json'), 'utf8'));
   return pkg.version;
@@ -50,7 +56,7 @@ function lerVersaoPackageJson(raiz = RAIZ) {
  */
 const DEPS_SERVIDOR = [
   'adm-zip', 'better-sqlite3', 'cors', 'csv-parse', 'date-fns', 'express',
-  'google-auth-library', 'jspdf', 'multer', 'node-cron', 'node-notifier', 'xlsx', 'zod',
+  'google-auth-library', 'jspdf', 'multer', 'node-cron', 'node-notifier', 'pg', 'xlsx', 'zod',
 ];
 
 /**
@@ -185,6 +191,28 @@ function limparReleasesAntigas(releasesDir, nomeArquivoAtual) {
 }
 
 /**
+ * Roda `npm run build:launcher` (empacota `launcher/index.cjs` num `.exe` via
+ * `pkg`, ver `launcher/build.cjs`) e copia o resultado pra `RELEASES_DIR` com
+ * nome fixo — sempre sobrescreve, nunca acumula `.exe` de versão antiga (o
+ * binário em si não carrega versão do app, só o código do launcher/bootstrap;
+ * quem versiona é o `.zip` da release, que o `.exe` baixa e roda). Publicado
+ * TODA vez que uma release sai, mesmo sem mudança em `launcher/` — pedido
+ * explícito: antes o `.exe` só era rebuildado manualmente quando alguém
+ * lembrava, e uma mudança real em `launcher/` (ex.: a busca pelo Node
+ * portátil) podia ficar publicada só no código, sem chegar em nenhum `.exe`
+ * de verdade — ninguém em produção rodando ela.
+ */
+function publicarLauncherExe() {
+  console.log('Buildando launcher (npm run build:launcher)...');
+  execFileSync(NPM_BIN, ['run', 'build:launcher'], { cwd: RAIZ, stdio: 'inherit', shell: true });
+  const origemExe = path.join(RAIZ, 'launcher', 'dist', '2D_Carteira.exe');
+  if (!fs.existsSync(RELEASES_DIR)) fs.mkdirSync(RELEASES_DIR, { recursive: true });
+  const destinoExe = path.join(RELEASES_DIR, '2D_Carteira.exe');
+  fs.copyFileSync(origemExe, destinoExe);
+  return destinoExe;
+}
+
+/**
  * Publica uma release: builda o frontend, monta `dist/` + `server/` +
  * `server.cjs` + `package.json` + dependências de produção (staging isolado)
  * + Node portátil (se disponível) num `.zip`, e atualiza `releases/latest.json`
@@ -228,7 +256,12 @@ function publicarRelease() {
     const nodePortavel = localizarNodePortavel();
     if (nodePortavel) {
       fs.mkdirSync(path.join(tmpDir, 'node'), { recursive: true });
-      fs.copyFileSync(nodePortavel, path.join(tmpDir, 'node', 'node.exe'));
+      // Renomeado de "node.exe" pra algo identificável — com o nome genérico,
+      // o processo do backend era indistinguível de qualquer outro Node.exe
+      // rodando na mesma máquina (ex.: outro projeto, `medstone-main`) no
+      // Gerenciador de Tarefas. É só uma cópia do binário do Node, o nome do
+      // arquivo não muda o comportamento dele.
+      fs.copyFileSync(nodePortavel, path.join(tmpDir, 'node', NOME_EXE_SERVIDOR));
     } else {
       console.warn('NODE_PORTATIL_PATH não configurado — release vai exigir Node já instalado na máquina de destino.');
     }
@@ -242,7 +275,11 @@ function publicarRelease() {
 
     console.log(`Release publicada: ${destinoZip}`);
     console.log(`Manifesto: ${manifesto}`);
-    return { versao, arquivo: nomeArquivo, destinoZip };
+
+    const destinoExe = publicarLauncherExe();
+    console.log(`Launcher (.exe) atualizado: ${destinoExe}`);
+
+    return { versao, arquivo: nomeArquivo, destinoZip, destinoExe };
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -251,6 +288,6 @@ function publicarRelease() {
 if (require.main === module) publicarRelease();
 
 module.exports = {
-  publicarRelease, lerVersaoPackageJson, empacotarPasta, escreverManifesto, limparReleasesAntigas,
+  publicarRelease, publicarLauncherExe, lerVersaoPackageJson, empacotarPasta, escreverManifesto, limparReleasesAntigas,
   verificarDepsDoServidor, DEPS_SERVIDOR,
 };

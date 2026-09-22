@@ -15,6 +15,10 @@ interface KanbanColumnHeaderProps {
   ultimaColuna: boolean;
   /** Sempre true hoje (board sem raias, um único cabeçalho por coluna). */
   arrastavel: boolean;
+  /** Cor usada quando a coluna não tem `cor` própria — sem isso, o cabeçalho
+   *  cai numa borda cinza quase invisível (achado comparando com o
+   *  Businessmap, onde toda coluna tem uma faixa colorida no topo). */
+  corPadrao: string;
   style: CSSProperties;
   onToggleColapso: () => void;
   onEdit: () => void;
@@ -26,7 +30,7 @@ const BOTAO_ICONE =
   'shrink-0 flex items-center justify-center w-[18px] h-[18px] rounded-[4px] text-text-muted bg-transparent border-none cursor-pointer transition-colors hover:bg-card hover:text-text-primary';
 
 export function KanbanColumnHeader({
-  coluna, totalTarefas, colapsada, ocupaDuasLinhas, ultimaColuna, arrastavel, style, onToggleColapso, onEdit, onAddSub,
+  coluna, totalTarefas, colapsada, ocupaDuasLinhas, ultimaColuna, arrastavel, corPadrao, style, onToggleColapso, onEdit, onAddSub,
 }: KanbanColumnHeaderProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: coluna.id,
@@ -37,7 +41,7 @@ export function KanbanColumnHeader({
   const excedeu = !!coluna.wipLimit && totalTarefas > coluna.wipLimit;
   // Linha colorida no topo — cor própria da coluna (estilo businessmap), com
   // vermelho de WIP estourado tendo prioridade sobre a cor cadastrada.
-  const corTopo = excedeu ? 'var(--danger)' : coluna.cor || 'var(--border)';
+  const corTopo = excedeu ? 'var(--danger)' : coluna.cor || corPadrao;
   const estilo: CSSProperties = {
     ...style,
     transform: CSS.Transform.toString(transform),
@@ -71,7 +75,7 @@ export function KanbanColumnHeader({
           ocupaDuasLinhas ? 'border-t-2' : 'border-t'
         )}
       >
-        <button onClick={onToggleColapso} className={BOTAO_ICONE} title="Expandir coluna">
+        <button onClick={onToggleColapso} className={BOTAO_ICONE} title="Expandir coluna" aria-label={`Expandir coluna ${coluna.titulo}`}>
           <ChevronRight size={13} />
         </button>
         {contador}
@@ -92,7 +96,7 @@ export function KanbanColumnHeader({
         ocupaDuasLinhas ? 'border-t-2 bg-card-hover' : 'border-t bg-card'
       )}
     >
-      <button onClick={onToggleColapso} className={BOTAO_ICONE} title="Recolher coluna">
+      <button onClick={onToggleColapso} className={BOTAO_ICONE} title="Recolher coluna" aria-label={`Recolher coluna ${coluna.titulo}`}>
         <ChevronDown size={13} />
       </button>
 
@@ -112,11 +116,11 @@ export function KanbanColumnHeader({
 
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         {onAddSub && (
-          <button onClick={onAddSub} className={BOTAO_ICONE} title="Dividir em sub-colunas">
+          <button onClick={onAddSub} className={BOTAO_ICONE} title="Dividir em sub-colunas" aria-label={`Dividir coluna ${coluna.titulo} em sub-colunas`}>
             <SplitSquareHorizontal size={12} />
           </button>
         )}
-        <button onClick={onEdit} className={BOTAO_ICONE} title="Editar coluna">
+        <button onClick={onEdit} className={BOTAO_ICONE} title="Editar coluna" aria-label={`Editar coluna ${coluna.titulo}`}>
           <Pencil size={11} />
         </button>
       </div>

@@ -8,6 +8,41 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.41
+
+- Cancelar uma reunião com status "Pendente" agora não pede motivo obrigatório nem dispara análise automática da IA — a reunião nunca chegou a acontecer. Um checkbox permite registrar que o cliente foi contatado, se for o caso.
+
+## 1.4.39
+
+- Configurações → Sistema: novo cartão "Sincronização com o servidor" nas máquinas remotas — mostra quantas alterações ainda aguardam confirmação (com detalhe por tipo) e um botão para checar de novo na hora, sem esperar o ciclo automático.
+- Processo do backend passa a aparecer com nome próprio no Gerenciador de Tarefas, em vez do genérico "node.exe".
+- Visão Geral: cartão "Cobertura da Carteira por Serviço" corrigido — passa a reconhecer reuniões já ocorridas mesmo sem confirmação manual e entregas registradas na tela de Ações, alinhado com o cartão "Carteira no Ritmo".
+- Visão Geral: cartão "Cobertura da Carteira" agora reconhece Precificação como atendimento, e não conta mais como "sem contato" clientes cujos serviços contratados são todos marcados como independentes.
+- Visão Geral: o gráfico "Reuniões por Mês" não recalcula mais o histórico quando um cliente muda de status — o passado fica fixo.
+
+## 1.4.38
+
+- Agenda: card de reunião com status "Pendente" na visão Mês agora tem o mesmo visual neutro (cinza, borda pontilhada) da visão Semana.
+- Quadro Ágil: raias (swimlanes) para organizar tarefas em linhas dentro do board, conexões entre tarefas ("bloqueia"/"relacionada"), histórico de alterações por tarefa e campo de estimativa de tamanho.
+- Cliente com login no Price: Segmento/Linha e a senha do Price agora são atualizados automaticamente a partir do sistema do Price, quando ainda estiverem vazios (nunca sobrescreve o que já foi preenchido manualmente).
+
+## 1.4.37
+
+- Extensão de acessos rápidos: clientes com várias lojas do mesmo grupo (ex.: redes segmentadas) agora aparecem juntos numa linha só, igual à tela de Clientes.
+
+## 1.4.36
+
+- Extensão de acessos rápidos: corrigido "não consegui falar com o servidor" em máquinas sem o endereço `carteira.local` configurado (agora também tenta pelo nome da máquina na rede). Ícone e nome atualizados (era "2D Price", agora "2D Acessos").
+
+## 1.4.35
+
+- Corrigido: numa máquina remota, logo depois de atualizar, a carteira podia aparecer zerada (clientes/agenda vazios) por alguns instantes — era a sincronização do OneDrive ainda propagando o snapshot de dados mais recente. Agora, se a leitura falhar nesse meio-tempo, o sistema usa a última leitura boa em vez de mostrar tudo vazio.
+
+## 1.4.34
+
+- Nova extensão de navegador (opcional, instalação manual) pra abrir o Price já logado e os links de BI (por Serviço ou por Cliente) direto do navegador, sem precisar entrar na CARTEIRA 2D.
+- Instruções e download da extensão em Configurações → Sistema.
+
 ## 1.4.33
 
 - Corrigido: "Gerar ata com IA" podia deixar Decisões vazias mesmo quando a reunião teve uma decisão real (o corte de transcrição longa estava descartando decisões ditas no meio da reunião).

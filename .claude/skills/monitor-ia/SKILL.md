@@ -1,11 +1,11 @@
 ---
 name: monitor-ia
-description: Referência técnica completa do subsistema monitorIA (agente de IA da Carteira Web) — arquitetura, provedores, as 41 ferramentas, alertas, memória, custo/uso. Use ao implementar/alterar qualquer coisa em server/ia/, ao decidir se uma feature nova precisa de ferramenta pro agente (checklist do CLAUDE.md), ou ao responder perguntas analíticas sobre NÚMEROS/DADOS/INFORMAÇÕES do próprio monitorIA (quantas ferramentas existem, quanto custou, quais alertas disparam, como o risco é calculado) — não sobre a carteira de clientes em si (isso é CLAUDE.md).
+description: Referência técnica completa do subsistema monitorIA (agente de IA da CARTEIRA 2D) — arquitetura, provedores, as 41 ferramentas, alertas, memória, custo/uso. Use ao implementar/alterar qualquer coisa em server/ia/, ao decidir se uma feature nova precisa de ferramenta pro agente (checklist do CLAUDE.md), ou ao responder perguntas analíticas sobre NÚMEROS/DADOS/INFORMAÇÕES do próprio monitorIA (quantas ferramentas existem, quanto custou, quais alertas disparam, como o risco é calculado) — não sobre a carteira de clientes em si (isso é CLAUDE.md).
 ---
 
 # monitorIA — referência técnica
 
-Este skill é sobre o **agente de IA** da Carteira Web (`server/ia/`), não sobre o app em geral (isso é `CLAUDE.md`, na raiz — leia-o primeiro se ainda não leu). Carregue este skill quando a tarefa for: (1) implementar/alterar algo em `server/ia/`, (2) decidir se uma feature nova em qualquer parte do app precisa de uma ferramenta pro agente, ou (3) responder uma pergunta analítica sobre o próprio monitorIA — contagem de ferramentas, custo, alertas, arquitetura de provedor.
+Este skill é sobre o **agente de IA** da CARTEIRA 2D (`server/ia/`), não sobre o app em geral (isso é `CLAUDE.md`, na raiz — leia-o primeiro se ainda não leu). Carregue este skill quando a tarefa for: (1) implementar/alterar algo em `server/ia/`, (2) decidir se uma feature nova em qualquer parte do app precisa de uma ferramenta pro agente, ou (3) responder uma pergunta analítica sobre o próprio monitorIA — contagem de ferramentas, custo, alertas, arquitetura de provedor.
 
 Todo dado numérico abaixo (contagem de ferramentas, etc.) foi verificado rodando o código em 04/09/2026 (atualizado após `registrar_acao`/`buscar_historico_risco_cliente`) — se precisar de um número atualizado, rode `node -e "console.log(require('./server/ia/tools.cjs').FERRAMENTAS.length)"` em vez de confiar cegamente neste arquivo, que pode ficar desatualizado.
 

@@ -259,7 +259,7 @@ describe('fila/mutacao: executarMutacao', () => {
 describe('fila/status: statusFila', () => {
   it('sem nada pendente, devolve zerado', () => {
     const { statusFila } = carregar<typeof import('./status.cjs')>('./status.cjs');
-    expect(statusFila()).toEqual({ pendentes: 0, comErro: 0, ultimoErro: null });
+    expect(statusFila()).toEqual({ pendentes: 0, comErro: 0, ultimoErro: null, porEntidade: {} });
   });
 
   it('conta operações desta máquina sem ack e com ack "error"; ignora "applied"/"skipped"', () => {
@@ -275,7 +275,7 @@ describe('fila/status: statusFila', () => {
     fs.writeFileSync(path.join(RESULTADOS_DIR, `${opErro.operationId}.json`), JSON.stringify({ status: 'error', error: 'timeout' }));
     fs.writeFileSync(path.join(RESULTADOS_DIR, `${opAplicada.operationId}.json`), JSON.stringify({ status: 'applied' }));
 
-    expect(statusFila()).toEqual({ pendentes: 2, comErro: 1, ultimoErro: 'timeout' });
+    expect(statusFila()).toEqual({ pendentes: 2, comErro: 1, ultimoErro: 'timeout', porEntidade: { clientes: 2 } });
   });
 
   it('ignora operações de outras máquinas', () => {
@@ -286,6 +286,6 @@ describe('fila/status: statusFila', () => {
       schemaVersion: 1, operationId: 'op-outra-maquina', machineId: 'outra-maquina-id', seq: 1,
       createdAt: new Date().toISOString(), entity: 'clientes', operation: 'create', recordId: 'x1', changes: {},
     }));
-    expect(statusFila()).toEqual({ pendentes: 0, comErro: 0, ultimoErro: null });
+    expect(statusFila()).toEqual({ pendentes: 0, comErro: 0, ultimoErro: null, porEntidade: {} });
   });
 });

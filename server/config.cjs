@@ -218,6 +218,27 @@ const SQLITE_FILE = path.join(SQLITE_DIR, 'carteira.sqlite');
 if (!fs.existsSync(SQLITE_DIR)) fs.mkdirSync(SQLITE_DIR, { recursive: true });
 
 /**
+ * DW_PLATAFORMA — Postgres de PRODUÇÃO de outro sistema (não é o banco desta
+ * Carteira), fonte de verdade do login/senha do Price (tabela `usuarios`,
+ * `cnpj`+`senha` em texto puro) e do segmento/linha por loja (`parametro_bi`).
+ * Usado só por `server/dw/sincronizarPrice.cjs`, SOMENTE LEITURA — nunca
+ * escreve nesse banco (ver aviso na própria função de sync).
+ *
+ * Opcional de propósito (diferente de `ONEDRIVE_ROOT`, que derruba o boot se
+ * faltar): sem essas 5 vars no `.env`, a sincronização simplesmente não roda
+ * — o resto do app funciona normal. Nunca tem default aqui: é credencial de
+ * outro sistema, não tem "valor óbvio" pra essa máquina.
+ */
+const DW_PLATAFORMA_HOST = process.env.DW_PLATAFORMA_HOST || '';
+const DW_PLATAFORMA_PORT = Number(process.env.DW_PLATAFORMA_PORT || 0) || undefined;
+const DW_PLATAFORMA_DATABASE = process.env.DW_PLATAFORMA_DATABASE || '';
+const DW_PLATAFORMA_USER = process.env.DW_PLATAFORMA_USER || '';
+const DW_PLATAFORMA_PASSWORD = process.env.DW_PLATAFORMA_PASSWORD || '';
+const DW_PLATAFORMA_CONFIGURADO = Boolean(
+  DW_PLATAFORMA_HOST && DW_PLATAFORMA_PORT && DW_PLATAFORMA_DATABASE && DW_PLATAFORMA_USER && DW_PLATAFORMA_PASSWORD,
+);
+
+/**
  * Provedor de LLM do monitorIA. Dois caminhos, mesma interface
  * (`server/ia/provider.cjs`):
  *
@@ -395,7 +416,8 @@ const AGIL_COLUNAS_HEADERS = ['id', 'boardId', 'parentId', 'titulo', 'ordem', 'w
 // (texto livre, removido) — uma frente só por tarefa, não múltiplas.
 // camposPersonalizados: JSON string `{ campoId: valor }` — arrays/objetos não
 // sobrevivem ao json_to_sheet do SheetJS (mesmo padrão de camposCard/servicos).
-const AGIL_TAREFAS_HEADERS = ['id', 'numero', 'boardId', 'colunaId', 'iniciativaId', 'frenteId', 'titulo', 'descricao', 'ordem', 'prioridade', 'responsaveis', 'dueAt', 'clientId', 'bloqueado', 'motivoBloqueio', 'camposPersonalizados', 'createdAt', 'updatedAt'];
+const AGIL_TAREFAS_HEADERS = ['id', 'numero', 'boardId', 'colunaId', 'swimlaneId', 'iniciativaId', 'frenteId', 'titulo', 'descricao', 'ordem', 'prioridade', 'tamanho', 'responsaveis', 'dueAt', 'clientId', 'bloqueado', 'motivoBloqueio', 'camposPersonalizados', 'createdAt', 'updatedAt'];
+const AGIL_SWIMLANES_HEADERS = ['id', 'boardId', 'titulo', 'ordem', 'createdAt'];
 // Série recorrente de agenda: guarda a REGRA (aberta, sem "durante N meses") +
 // o molde do evento. As ocorrências do mês são materializadas pelo servidor
 // (server/agendaSeries.cjs) — mesmo padrão de relatoriosAutomaticos.cjs.
@@ -410,6 +432,8 @@ const AGIL_FRENTES_HEADERS = ['id', 'nome', 'cor', 'ordem', 'createdAt'];
 const AGIL_CAMPOS_PERSONALIZADOS_HEADERS = ['id', 'boardId', 'nome', 'tipo', 'opcoes', 'ordem', 'createdAt'];
 const AGIL_SUBTAREFAS_HEADERS = ['id', 'tarefaId', 'titulo', 'concluida', 'ordem', 'createdAt'];
 const AGIL_COMENTARIOS_HEADERS = ['id', 'tarefaId', 'autor', 'texto', 'createdAt'];
+const AGIL_CONEXOES_HEADERS = ['id', 'tarefaOrigemId', 'tarefaDestinoId', 'tipo', 'createdAt'];
+const AGIL_HISTORICO_HEADERS = ['id', 'tarefaId', 'campo', 'valorAntigo', 'valorNovo', 'createdAt'];
 // fatores é string[] serializado como JSON (mesmo padrão de servicos/labels
 // noutras entidades). ultimoEventoAnalisadoData marca até onde a Agenda já
 // foi lida — a próxima rodada só reprocessa o cliente se houver evento
@@ -488,6 +512,9 @@ const HEADERS_BY_SHEET = {
   AgilCamposPersonalizados: AGIL_CAMPOS_PERSONALIZADOS_HEADERS,
   AgilSubtarefas: AGIL_SUBTAREFAS_HEADERS,
   AgilComentarios: AGIL_COMENTARIOS_HEADERS,
+  AgilConexoes: AGIL_CONEXOES_HEADERS,
+  AgilHistorico: AGIL_HISTORICO_HEADERS,
+  AgilSwimlanes: AGIL_SWIMLANES_HEADERS,
   AnalisesIA: ANALISES_IA_HEADERS,
   AnalisesIAHistorico: ANALISES_IA_HISTORICO_HEADERS,
   AcoesIA: ACOES_IA_HEADERS,
@@ -544,12 +571,14 @@ module.exports = {
   ALVOS_DIR, TAGS_CLIENTE_FINAL_PATH,
   SNAPSHOT_DIR, SNAPSHOT_FILE, DOSSIES_DIR, OLLAMA_URL, OLLAMA_MODEL, OLLAMA_MODELS, OLLAMA_API_KEY,
   CONFIG_IA_COMPARTILHADO,
+  DW_PLATAFORMA_HOST, DW_PLATAFORMA_PORT, DW_PLATAFORMA_DATABASE, DW_PLATAFORMA_USER, DW_PLATAFORMA_PASSWORD,
+  DW_PLATAFORMA_CONFIGURADO,
   IA_PROVIDER, IA_PROVIDERS, CLAUDE_STATE_FILE, CLAUDE_CLI_PATH, CLAUDE_CLI_MODEL, PRICE_CREDENCIAIS_CHAVE, PRICE_CREDENCIAIS_CHAVE_PATH,
   CLAUDE_CLI_MODEL_PADRAO, CLAUDE_CLI_MODELOS,
   CLAUDE_CLI_TIMEOUT_MS, CLAUDE_CLI_CWD, CLAUDE_MCP_SERVER,
   CLIENTES_HEADERS, AGENDA_HEADERS, LEMBRETES_HEADERS, CATEGORIAS_HEADERS, ACOES_HEADERS, MODELOS_HEADERS, CADENCIAS_HEADERS,
   AGENDA_SERIES_HEADERS,
-  AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_FRENTES_HEADERS, AGIL_CAMPOS_PERSONALIZADOS_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS,
+  AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_FRENTES_HEADERS, AGIL_CAMPOS_PERSONALIZADOS_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS, AGIL_CONEXOES_HEADERS, AGIL_HISTORICO_HEADERS, AGIL_SWIMLANES_HEADERS,
   ANALISES_IA_HEADERS, ANALISES_IA_HISTORICO_HEADERS, ACOES_IA_HEADERS, MEMORIA_IA_HEADERS, USO_IA_HEADERS,
   HEADERS_BY_SHEET,
   CADENCIAS_SEED, MODELOS_SEED, CATEGORIAS_SEED,

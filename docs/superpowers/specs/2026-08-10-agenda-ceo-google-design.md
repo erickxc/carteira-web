@@ -16,7 +16,7 @@
 
 O CEO da 2D Consultores mantém uma agenda no Google Calendar
 (`negocios@2dconsultores.com.br`). Objetivo: exibir esses compromissos dentro
-da `AgendaPage` da Carteira Web, para consulta rápida (ex: saber se o CEO está
+da `AgendaPage` da CARTEIRA 2D, para consulta rápida (ex: saber se o CEO está
 disponível antes de agendar algo com um cliente), sem nenhuma integração de
 escrita e sem risco para a Agenda existente da Carteira.
 

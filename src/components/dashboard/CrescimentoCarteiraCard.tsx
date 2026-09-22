@@ -18,7 +18,7 @@ export function CrescimentoCarteiraCard({ pontos }: CrescimentoCarteiraCardProps
       {pontos.length < 2 ? (
         <div className="empty-state">Histórico insuficiente para traçar a evolução.</div>
       ) : (
-        <LineChart points={pontos} unidade="cliente(s)" ocultarRotulos={pontos.length > 12} />
+        <LineChart points={pontos} unidade="cliente(s)" titulo="Crescimento da carteira" ocultarRotulos={pontos.length > 12} />
       )}
     </Card>
   );

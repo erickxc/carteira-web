@@ -20,6 +20,8 @@ const agilFrentes = require('../dominio/agilFrentes.cjs');
 const agilCamposPersonalizados = require('../dominio/agilCamposPersonalizados.cjs');
 const agilSubtarefas = require('../dominio/agilSubtarefas.cjs');
 const agilComentarios = require('../dominio/agilComentarios.cjs');
+const agilConexoes = require('../dominio/agilConexoes.cjs');
+const agilSwimlanes = require('../dominio/agilSwimlanes.cjs');
 
 const ENTIDADES = {
   clientes: { sheet: 'Clientes', dominio: clientes },
@@ -45,6 +47,8 @@ const ENTIDADES = {
   agilCamposPersonalizados: { sheet: 'AgilCamposPersonalizados', dominio: agilCamposPersonalizados },
   agilSubtarefas: { sheet: 'AgilSubtarefas', dominio: agilSubtarefas },
   agilComentarios: { sheet: 'AgilComentarios', dominio: agilComentarios },
+  agilConexoes: { sheet: 'AgilConexoes', dominio: agilConexoes },
+  agilSwimlanes: { sheet: 'AgilSwimlanes', dominio: agilSwimlanes },
 };
 
 module.exports = { ENTIDADES };

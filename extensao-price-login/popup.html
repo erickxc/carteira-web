@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>2D Acessos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0b0d;
+      --card: #131316;
+      --card-hover: #1a1a1e;
+      --modal-bg: #2c2c33;
+      --border: #3d3d44;
+      --border-strong: #55555f;
+      --text-primary: #f4f4f2;
+      --text-secondary: #a6a6ad;
+      --text-muted: #81818c;
+      --accent: #dabb6c;
+      --accent-hover: #e8cc86;
+      --accent-soft: rgba(218, 187, 108, 0.16);
+      --accent-contrast: #0b0b0d;
+      --radius: 8px;
+      --radius-sm: 6px;
+      --font: 'Inter', -apple-system, system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      width: 320px;
+      max-height: 480px;
+      font-family: var(--font);
+      /* --modal-bg, não --bg: é o mesmo tom de cinza que o resto do app usa
+         pra popover/modal (`.filter-pop`, `.modal`) — a popup da extensão
+         conta como um "popup" pro usuário, mesmo critério. */
+      background: var(--modal-bg);
+      color: var(--text-primary);
+    }
+
+    .corpo { padding: 12px 12px 4px; background: var(--modal-bg); }
+
+    /* Filtros empilhados: seletor de Serviço em cima, busca de Cliente
+       embaixo — os dois combinam (E) sobre a mesma lista. */
+    .filtros-col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    #filtroServico {
+      width: 100%;
+      padding: 0.55rem 0.6rem;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--card);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.82rem;
+      outline: none;
+    }
+    #filtroServico:focus { border-color: var(--accent); }
+
+    .search-input-row {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.5rem 0.65rem;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--card);
+      transition: border-color 0.12s ease;
+    }
+    .search-input-row:focus-within { border-color: var(--accent); }
+    .search-input-row svg { flex-shrink: 0; color: var(--text-muted); }
+    .search-input-row input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      background: transparent;
+      outline: none;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.82rem;
+    }
+    .search-input-row input::placeholder { color: var(--text-muted); }
+
+    #lista {
+      max-height: 340px;
+      overflow-y: auto;
+      padding: 10px 2px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    /* Um card por cliente: nome no topo, cada acesso cadastrado (Price +
+       links de BI por serviço) como uma LINHA inteira clicável embaixo — não
+       um pill pequeno, a área de clique é a linha toda (label + espaço em
+       branco), mais fácil de acertar que um botão estreito. */
+    .cliente-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      padding: 0.6rem 0.6rem 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--card);
+    }
+
+    .cliente-nome {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      padding: 0 0.05rem;
+    }
+
+    /* Sublinha do grupo: lista as lojas que foram unidas naquela linha (ex.:
+       "CG. Braga, C. Braga, Edumar - CBRAGA") — mesma ideia do acordeão da
+       tabela de clientes do app, só que sem expandir/recolher (espaço
+       pequeno demais no popup pra isso valer a pena). */
+    .cliente-sublinha {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      padding: 0 0.05rem;
+      margin-top: -4px;
+    }
+
+    .cliente-acessos {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    /* Fundo neutro sempre — a cor de identidade de cada serviço fica só no
+       texto do label, nunca no fundo do item (mesmo critério do resto do
+       app pra badge/categoria). */
+    .acesso-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      text-align: left;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: none;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.45rem 0.55rem;
+      cursor: pointer;
+      transition: background 0.1s ease, color 0.1s ease;
+    }
+    .acesso-item:hover { background: var(--card-hover); color: var(--accent); }
+    .acesso-item:disabled { opacity: 0.55; cursor: default; }
+    .acesso-item .seta { color: var(--text-muted); transition: color 0.1s ease; }
+    .acesso-item:hover .seta { color: var(--accent); }
+
+    .msg {
+      padding: 22px 14px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+    .msg.erro { color: #e0847f; }
+
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+
+    /* Animação de "entrando" — mesma sequência do AbrirPriceModal do app
+       (buscar credencial → digitar CNPJ → digitar senha → clicar → abrir),
+       só que dentro do próprio popup em vez de um modal por cima da página. */
+    #animacao {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 24px 18px 26px;
+    }
+    #animacao.ativa { display: flex; }
+    /* Logotipo do Price (retangular, ver price-logo.svg) — sem recorte
+       circular, que era pensado pro ícone quadrado da extensão. */
+    #animacao img { height: 40px; width: auto; }
+    #animacao .rotulo { font-size: 0.82rem; color: var(--text-secondary); text-align: center; }
+
+    .price-loading-bar {
+      width: 100%;
+      height: 4px;
+      border-radius: 999px;
+      background: var(--border-strong);
+      overflow: hidden;
+    }
+    .price-loading-bar::after {
+      content: '';
+      display: block;
+      height: 100%;
+      width: 40%;
+      border-radius: 999px;
+      background: var(--accent);
+      animation: price-loading-bar-slide 1.1s ease-in-out infinite;
+    }
+    @keyframes price-loading-bar-slide {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(350%); }
+    }
+
+    .price-fake-input {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 0.5rem 0.7rem;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+    }
+    .price-fake-input span { font-size: 11px; color: var(--text-muted); }
+    .price-fake-input-valor {
+      min-height: 1.2em;
+      font-size: 0.85rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+      letter-spacing: 0.02em;
+    }
+    .price-fake-cursor {
+      display: inline-block;
+      width: 1px;
+      height: 1em;
+      margin-left: 1px;
+      vertical-align: -2px;
+      background: var(--accent);
+      animation: price-fake-cursor-blink 0.9s step-start infinite;
+    }
+    @keyframes price-fake-cursor-blink { 50% { opacity: 0; } }
+
+    .price-fake-botao {
+      width: 100%;
+      padding: 0.55rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: var(--accent);
+      color: var(--accent-contrast);
+      font-weight: 600;
+      font-family: inherit;
+      cursor: default;
+      transition: transform 0.1s ease, filter 0.1s ease;
+    }
+    .price-fake-botao.is-pressed { transform: scale(0.96); filter: brightness(0.92); }
+  </style>
+</head>
+<body>
+  <div id="animacao">
+    <!-- Logo genuína do Price aqui, não o ícone da extensão: essa tela
+         simula o login DENTRO do Price (CNPJ/senha/botão "Entrar"), então a
+         identidade certa é a da própria Price, mesmo a extensão tendo um
+         ícone próprio pra ela mesma (barra de ferramentas). -->
+    <img src="price-logo.svg" alt="" />
+    <div class="rotulo" id="animacaoRotulo">Buscando credenciais...</div>
+    <div class="price-loading-bar" id="barraCarregando"></div>
+    <div class="price-fake-input" id="campoCnpj" style="display:none">
+      <span>CNPJ</span>
+      <div class="price-fake-input-valor" id="valorCnpj"></div>
+    </div>
+    <div class="price-fake-input" id="campoSenha" style="display:none">
+      <span>Senha</span>
+      <div class="price-fake-input-valor" id="valorSenha"></div>
+    </div>
+    <button type="button" class="price-fake-botao" id="botaoEntrar" style="display:none">Entrar</button>
+  </div>
+  <div class="corpo" id="corpo">
+    <div class="filtros-col">
+      <select id="filtroServico"></select>
+      <div class="search-input-row">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="buscaCliente" type="text" placeholder="Buscar cliente..." autocomplete="off" autofocus />
+      </div>
+    </div>
+  </div>
+  <div id="lista"><div class="msg">Carregando clientes...</div></div>
+  <script src="popup.js"></script>
+</body>
+</html>

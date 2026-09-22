@@ -701,6 +701,10 @@ export interface AgilTarefa {
   numero?: number;
   boardId: string;
   colunaId: string;
+  /** Raia (linha) do board — vazio/ausente = raia padrão implícita. Um board
+   *  sem nenhuma AgilSwimlane cadastrada nunca mostra cabeçalho de raia; vira
+   *  grid 2D só quando o usuário cria a primeira swimlane pelo board. */
+  swimlaneId?: string;
   /** Opcional — id de uma TAREFA do board fixo de Iniciativas da workspace
    *  (AgilWorkspace.iniciativasBoardId). */
   iniciativaId?: string;
@@ -716,6 +720,8 @@ export interface AgilTarefa {
   responsaveis?: string[];
   /** Data de prazo (yyyy-MM-dd). */
   dueAt?: string;
+  /** Estimativa de tamanho — texto livre (ex.: "P", "M", "G" ou pontos). */
+  tamanho?: string;
   /** Cliente vinculado (opcional). */
   clientId?: string;
   bloqueado?: boolean;
@@ -747,3 +753,36 @@ export interface AgilComentario {
   createdAt: string;
 }
 export type NovoAgilComentario = Omit<AgilComentario, 'id' | 'createdAt'>;
+
+/** Relação livre entre duas tarefas — não confundir com `AgilTarefa.iniciativaId`
+ *  (essa é a hierarquia fixa iniciativa→tarefa; conexão é uma referência solta,
+ *  N:N, entre quaisquer duas tarefas, inclusive de boards diferentes). */
+export type AgilTipoConexao = 'bloqueia' | 'relacionada';
+export interface AgilConexao {
+  id: string;
+  tarefaOrigemId: string;
+  tarefaDestinoId: string;
+  tipo: AgilTipoConexao;
+  createdAt: string;
+}
+export type NovaAgilConexao = Omit<AgilConexao, 'id' | 'createdAt'>;
+
+/** Linha de auditoria — só leitura no frontend (gravada pelo backend como
+ *  efeito colateral de `atualizarAgilTarefa`, nunca criada por aqui). */
+export interface AgilSwimlane {
+  id: string;
+  boardId: string;
+  titulo: string;
+  ordem: number;
+  createdAt: string;
+}
+export type NovaAgilSwimlane = Omit<AgilSwimlane, 'id' | 'ordem' | 'createdAt'>;
+
+export interface AgilHistoricoItem {
+  id: string;
+  tarefaId: string;
+  campo: string;
+  valorAntigo: string;
+  valorNovo: string;
+  createdAt: string;
+}

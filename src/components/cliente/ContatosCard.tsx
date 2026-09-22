@@ -107,12 +107,15 @@ export function ContatosCard({
                     title={c.escopo === 'grupo'
                       ? 'Deixar de compartilhar com as outras lojas do grupo'
                       : 'Compartilhar este contato com todas as lojas do grupo'}
+                    aria-label={c.escopo === 'grupo'
+                      ? `Deixar de compartilhar ${c.nome} com o grupo`
+                      : `Compartilhar ${c.nome} com o grupo`}
                   >
                     <Users2 size={15} />
                   </Button>
                 )}
                 {!c.doGrupo ? (
-                  <Button variant="danger" size="icon" onClick={() => onRemover(c.id)} title="Remover contato">
+                  <Button variant="danger" size="icon" onClick={() => onRemover(c.id)} title="Remover contato" aria-label={`Remover contato ${c.nome}`}>
                     <Trash2 size={15} />
                   </Button>
                 ) : (
@@ -121,6 +124,7 @@ export function ContatosCard({
                     size="icon"
                     onClick={() => onIrParaOrigem(c.origemClienteId)}
                     title={`Editar em ${c.origemEmpresa}`}
+                    aria-label={`Editar contato ${c.nome} em ${c.origemEmpresa}`}
                   >
                     <Pencil size={15} />
                   </Button>
@@ -134,13 +138,13 @@ export function ContatosCard({
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
         <div className="flex-row" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
           <div style={{ flex: '1 1 180px' }}>
-            <Input tone="modal" placeholder="Nome" value={contatoNome} onChange={(e) => setContatoNome(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />
+            <Input tone="modal" name="nome" autoComplete="off" placeholder="Nome" value={contatoNome} onChange={(e) => setContatoNome(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />
           </div>
           <div style={{ flex: '1 1 140px' }}>
-            <Input tone="modal" placeholder="Cargo" value={contatoCargo} onChange={(e) => setContatoCargo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />
+            <Input tone="modal" name="cargo" autoComplete="off" placeholder="Cargo" value={contatoCargo} onChange={(e) => setContatoCargo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />
           </div>
           <div style={{ flex: '1 1 140px' }}>
-            <Input tone="modal" placeholder="Telefone (DDD + número)" value={contatoTelefone} onChange={(e) => setContatoTelefone(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />
+            <Input tone="modal" name="telefone" type="tel" inputMode="tel" autoComplete="off" placeholder="Telefone (DDD + número)" value={contatoTelefone} onChange={(e) => setContatoTelefone(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />
           </div>
         </div>
         {servicoOpcoes.length > 0 && (

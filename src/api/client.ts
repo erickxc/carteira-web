@@ -1,4 +1,4 @@
-import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilCampoPersonalizado, AgilColuna, AgilComentario, AgilFrente, AgilSubtarefa, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilFrente, NovaAgilSubtarefa, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilCampoPersonalizado, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao } from '../types';
+import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilCampoPersonalizado, AgilColuna, AgilComentario, AgilConexao, AgilFrente, AgilHistoricoItem, AgilSwimlane, AgilSubtarefa, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilConexao, NovaAgilFrente, NovaAgilSubtarefa, NovaAgilSwimlane, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilCampoPersonalizado, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao } from '../types';
 
 const PRE_ANALISE_VAZIA: PreAnalise = { orientacoes: [], clientesGeral: '', produtosGeral: '' };
 function parsePreAnalise(raw: unknown): PreAnalise {
@@ -36,6 +36,9 @@ export interface StatusFila {
   pendentes: number;
   comErro: number;
   ultimoErro: string | null;
+  /** Quebra da contagem por entidade (Agenda, Acoes, AgilTarefas, ...) — ajuda
+   * a diagnosticar um número grande travado (ver Configurações → Sistema). */
+  porEntidade: Record<string, number>;
 }
 
 // Fila de sincronização (Etapa 4, acesso remoto): em APP_MODE=server sempre
@@ -372,13 +375,21 @@ export const removerAgilColuna = (id: string) => request<{ success: boolean }>(`
 export const reordenarAgilColunas = (itens: { id: string; ordem: number }[]) =>
   request<AgilColuna[]>('/agil/colunas/reorder', { method: 'PUT', body: JSON.stringify(itens) });
 
+export const listarAgilSwimlanes = () => request<AgilSwimlane[]>('/agil/swimlanes');
+export const criarAgilSwimlane = (data: NovaAgilSwimlane) => request<AgilSwimlane>('/agil/swimlanes', { method: 'POST', body: JSON.stringify(data) });
+export const atualizarAgilSwimlane = (id: string, data: Partial<AgilSwimlane>) =>
+  request<AgilSwimlane>(`/agil/swimlanes/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const removerAgilSwimlane = (id: string) => request<{ success: boolean }>(`/agil/swimlanes/${id}`, { method: 'DELETE' });
+export const reordenarAgilSwimlanes = (itens: { id: string; ordem: number }[]) =>
+  request<AgilSwimlane[]>('/agil/swimlanes/reorder', { method: 'PUT', body: JSON.stringify(itens) });
+
 export const listarAgilTarefas = async () => (await request<Record<string, unknown>[]>('/agil/tarefas')).map(deserializeAgilTarefa);
 export const criarAgilTarefa = async (data: NovaAgilTarefa) =>
   deserializeAgilTarefa(await request<Record<string, unknown>>('/agil/tarefas', { method: 'POST', body: JSON.stringify(serializeAgilTarefa(data)) }));
 export const atualizarAgilTarefa = async (id: string, data: Partial<AgilTarefa>) =>
   deserializeAgilTarefa(await request<Record<string, unknown>>(`/agil/tarefas/${id}`, { method: 'PUT', body: JSON.stringify(serializeAgilTarefa(data)) }));
 export const removerAgilTarefa = (id: string) => request<{ success: boolean }>(`/agil/tarefas/${id}`, { method: 'DELETE' });
-export const reordenarAgilTarefas = async (itens: { id: string; colunaId: string; ordem: number }[]) =>
+export const reordenarAgilTarefas = async (itens: { id: string; colunaId: string; ordem: number; swimlaneId?: string }[]) =>
   (await request<Record<string, unknown>[]>('/agil/tarefas/reorder', { method: 'PUT', body: JSON.stringify(itens) })).map(deserializeAgilTarefa);
 
 export const listarAgilFrentes = () => request<AgilFrente[]>('/agil/frentes');
@@ -416,6 +427,12 @@ export const removerAgilSubtarefa = (id: string) => request<{ success: boolean }
 export const listarAgilComentarios = () => request<AgilComentario[]>('/agil/comentarios');
 export const criarAgilComentario = (data: NovoAgilComentario) => request<AgilComentario>('/agil/comentarios', { method: 'POST', body: JSON.stringify(data) });
 export const removerAgilComentario = (id: string) => request<{ success: boolean }>(`/agil/comentarios/${id}`, { method: 'DELETE' });
+
+export const listarAgilConexoes = () => request<AgilConexao[]>('/agil/conexoes');
+export const criarAgilConexao = (data: NovaAgilConexao) => request<AgilConexao>('/agil/conexoes', { method: 'POST', body: JSON.stringify(data) });
+export const removerAgilConexao = (id: string) => request<{ success: boolean }>(`/agil/conexoes/${id}`, { method: 'DELETE' });
+
+export const listarAgilHistorico = () => request<AgilHistoricoItem[]>('/agil/historico');
 
 // --- Anexos ---
 export async function enviarAnexo(file: File): Promise<Anexo> {

@@ -31,11 +31,11 @@ export function AbrirPriceModal({ fase, cnpjMostrado, senhaMostrada, erro, onClo
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
         <div className="p-6 flex flex-col items-center gap-4">
-          <img src={priceLogo} alt="Price" style={{ height: 44, width: 'auto' }} />
+          <img src={priceLogo} alt="Price" height={44} style={{ height: 44, width: 'auto' }} />
 
           {fase === 'carregando' ? (
             <div className="w-full flex flex-col items-center gap-2">
-              <p className="text-[0.85rem] text-text-muted">Buscando credenciais...</p>
+              <p className="text-[0.85rem] text-text-muted">Buscando credenciais…</p>
               <div className="price-loading-bar" />
             </div>
           ) : fase === 'erro' ? (

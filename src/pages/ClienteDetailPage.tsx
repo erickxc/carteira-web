@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { addDays, parseISO, subDays } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import { ArrowLeft, Bell as BellIcon, CalendarPlus, FileSpreadsheet, NotebookPen, Pencil, PhoneIncoming, Save, Trash2, Users } from 'lucide-react';
@@ -205,6 +205,8 @@ export default function ClienteDetailPage() {
 
   async function removerContato(contatoId: string) {
     if (!id) return;
+    const contato = contatosProprios.find((c) => c.id === contatoId);
+    if (!(await confirmDialog(`Remover o contato "${contato?.nome ?? ''}"?`, { danger: true, confirmLabel: 'Remover' }))) return;
     await atualizarCliente(id, { contatos: contatosProprios.filter((c) => c.id !== contatoId) });
   }
 
@@ -354,15 +356,15 @@ export default function ClienteDetailPage() {
           </div>
           <div className="flex-row" style={{ flexWrap: 'wrap', gap: 8 }}>
             {lojasDoGrupo.map((l) => (
-              <Badge
-                as="button"
-                key={l.id}
-                variant={l.id === cliente.id ? 'accent' : 'muted'}
-                style={{ cursor: l.id === cliente.id ? 'default' : 'pointer' }}
-                onClick={() => l.id !== cliente.id && navigate(`/clientes/${l.id}`)}
-              >
-                {l.empresa.replace(`${cliente.grupo} - `, '') || l.empresa}
-              </Badge>
+              l.id === cliente.id ? (
+                <Badge key={l.id} variant="accent" style={{ cursor: 'default' }}>
+                  {l.empresa.replace(`${cliente.grupo} - `, '') || l.empresa}
+                </Badge>
+              ) : (
+                <Badge as={Link} key={l.id} variant="muted" to={`/clientes/${l.id}`} style={{ cursor: 'pointer' }}>
+                  {l.empresa.replace(`${cliente.grupo} - `, '') || l.empresa}
+                </Badge>
+              )
             ))}
           </div>
         </Card>

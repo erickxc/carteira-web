@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { Bot, ChevronDown, ChevronRight, ChevronUp, FileUp, LayoutDashboard, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
@@ -465,13 +465,13 @@ export default function ClientesPage() {
               <span className="text-text-muted" style={{ fontWeight: 400, fontSize: '0.8rem' }}>({opts.grupoPrefixo.qtdLojas})</span>
             </button>
           ) : (
-            <button
+            <Link
               className="link-button"
               style={{ fontWeight: 600, ...(opts?.indent ? { paddingLeft: '1.4rem' } : undefined) }}
-              onClick={() => navigate(`/clientes/${cliente.id}`)}
+              to={`/clientes/${cliente.id}`}
             >
               {cliente.empresa}
-            </button>
+            </Link>
           )}
         </Td>
         <Td className="text-text-muted">{cliente.monitor || '—'}</Td>
