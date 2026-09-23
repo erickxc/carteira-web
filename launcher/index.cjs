@@ -76,11 +76,13 @@ function atualizarSeNecessario({ appDir, versaoArquivoPath }) {
   registrarLog(`Launcher: atualizando de ${instalada} para ${disponivel.versao}...`);
   const zipPath = path.join(RELEASES_DIR, disponivel.arquivo);
   const resultado = aplicarAtualizacao({ appDir, zipPath, novaVersao: disponivel.versao, versaoArquivoPath });
+  (resultado.avisos || []).forEach((aviso) => registrarLog(`Launcher: aviso da atualização — ${aviso}.`));
   if (resultado.ok) {
     registrarLog(`Launcher: atualizado para ${disponivel.versao}.`);
     return { atualizou: true, versao: disponivel.versao };
   }
-  registrarLog(`Launcher: falha ao atualizar (${resultado.erro}) — seguindo com a versão ${instalada}.`);
+  const codigo = resultado.codigo ? `, código ${resultado.codigo}` : '';
+  registrarLog(`Launcher: falha ao atualizar na etapa "${resultado.etapa}"${codigo} — ${resultado.erro} Seguindo com a versão ${instalada}.`);
   return { atualizou: false, versao: instalada };
 }
 

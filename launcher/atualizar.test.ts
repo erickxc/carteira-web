@@ -96,4 +96,127 @@ describe('aplicarAtualizacao', () => {
     expect(fs.readFileSync(versaoArquivoPath, 'utf8')).toBe('1.0.0'); // versão não avançou
     expect(fs.existsSync(`${appDir}-novo`)).toBe(false); // nada residual
   });
+
+  it('zip corrompido: mensagem diz que o zip está incompleto/corrompido e em qual etapa', () => {
+    const zipCorrompido = path.join(tmpDir, 'corrompido.zip');
+    fs.writeFileSync(zipCorrompido, 'isto nao e um zip valido');
+    const resultado = aplicarAtualizacao({ appDir, zipPath: zipCorrompido, novaVersao: '2.0.0', versaoArquivoPath });
+    expect(resultado.ok).toBe(false);
+    expect(resultado.etapa).toBe('leitura-zip');
+    expect(resultado.erro).toMatch(/incompleto ou corrompido/);
+  });
+
+  it('zip inexistente: etapa leitura-zip, código ENOENT e dica do OneDrive', () => {
+    const resultado = aplicarAtualizacao({ appDir, zipPath: path.join(tmpDir, 'nao-existe.zip'), novaVersao: '2.0.0', versaoArquivoPath });
+    expect(resultado.ok).toBe(false);
+    expect(resultado.etapa).toBe('leitura-zip');
+    expect(resultado.codigo).toBe('ENOENT');
+    expect(resultado.erro).toMatch(/OneDrive/);
+  });
+
+  it('zip sem ponto de entrada (inicio.cjs/server.cjs): recusa antes de tocar na instalação', () => {
+    const zipV1 = path.join(tmpDir, 'v1.zip');
+    criarZipFixture(zipV1, '// v1');
+    aplicarAtualizacao({ appDir, zipPath: zipV1, novaVersao: '1.0.0', versaoArquivoPath });
+
+    const zipVazio = path.join(tmpDir, 'vazio.zip');
+    const zip = new AdmZip();
+    zip.addFile('marca.txt', Buffer.from('sem servidor'));
+    zip.writeZip(zipVazio);
+    const resultado = aplicarAtualizacao({ appDir, zipPath: zipVazio, novaVersao: '2.0.0', versaoArquivoPath });
+
+    expect(resultado.ok).toBe(false);
+    expect(resultado.etapa).toBe('validacao');
+    expect(fs.readFileSync(path.join(appDir, 'server.cjs'), 'utf8')).toBe('// v1');
+    expect(fs.existsSync(`${appDir}-novo`)).toBe(false);
+  });
+
+  it('zip com versão diferente da anunciada (OneDrive com zip antigo): recusa', () => {
+    const zipPath = path.join(tmpDir, 'v2.zip');
+    const zip = new AdmZip();
+    zip.addFile('server.cjs', Buffer.from('// v?'));
+    zip.addFile('package.json', Buffer.from(JSON.stringify({ version: '1.9.0' })));
+    zip.writeZip(zipPath);
+    const resultado = aplicarAtualizacao({ appDir, zipPath, novaVersao: '2.0.0', versaoArquivoPath });
+    expect(resultado.ok).toBe(false);
+    expect(resultado.etapa).toBe('validacao');
+    expect(resultado.erro).toMatch(/1\.9\.0/);
+  });
+
+  it('pasta travada por outro processo (EBUSY) por um instante: tenta de novo e conclui', () => {
+    const zipV1 = path.join(tmpDir, 'v1.zip');
+    criarZipFixture(zipV1, '// v1');
+    aplicarAtualizacao({ appDir, zipPath: zipV1, novaVersao: '1.0.0', versaoArquivoPath });
+
+    let falhas = 2;
+    const fsInstavel = {
+      ...fs,
+      renameSync: (de: string, para: string) => {
+        if (de === appDir && falhas-- > 0) throw Object.assign(new Error('resource busy'), { code: 'EBUSY' });
+        return fs.renameSync(de, para);
+      },
+    };
+    const zipV2 = path.join(tmpDir, 'v2.zip');
+    criarZipFixture(zipV2, '// v2');
+    const resultado = aplicarAtualizacao(
+      { appDir, zipPath: zipV2, novaVersao: '2.0.0', versaoArquivoPath },
+      { fs: fsInstavel, dormir: () => {} },
+    );
+    expect(resultado.ok).toBe(true);
+    expect(fs.readFileSync(path.join(appDir, 'server.cjs'), 'utf8')).toBe('// v2');
+  });
+
+  it('BUG antigo: falha só ao apagar a pasta -antigo depois da troca NÃO é falha da atualização', () => {
+    const zipV1 = path.join(tmpDir, 'v1.zip');
+    criarZipFixture(zipV1, '// v1');
+    aplicarAtualizacao({ appDir, zipPath: zipV1, novaVersao: '1.0.0', versaoArquivoPath });
+
+    const oldDir = `${appDir}-antigo`;
+    const fsLimpezaTravada = {
+      ...fs,
+      rmSync: (alvo: string, opts: fs.RmOptions) => {
+        if (alvo === oldDir && fs.existsSync(alvo)) throw Object.assign(new Error('operation not permitted'), { code: 'EPERM' });
+        return fs.rmSync(alvo, opts);
+      },
+    };
+    const zipV2 = path.join(tmpDir, 'v2.zip');
+    criarZipFixture(zipV2, '// v2');
+    const resultado = aplicarAtualizacao(
+      { appDir, zipPath: zipV2, novaVersao: '2.0.0', versaoArquivoPath },
+      { fs: fsLimpezaTravada, dormir: () => {} },
+    );
+
+    expect(resultado.ok).toBe(true);
+    // Antes: devolvia ok:false e NÃO gravava a versão — a máquina reinstalava a cada abertura.
+    expect(fs.readFileSync(versaoArquivoPath, 'utf8')).toBe('2.0.0');
+    expect(resultado.avisos.join(' ')).toMatch(/-antigo/);
+  });
+
+  it('BUG antigo: se a troca falha E a restauração também falha, isso é dito com todas as letras', () => {
+    const zipV1 = path.join(tmpDir, 'v1.zip');
+    criarZipFixture(zipV1, '// v1');
+    aplicarAtualizacao({ appDir, zipPath: zipV1, novaVersao: '1.0.0', versaoArquivoPath });
+
+    const oldDir = `${appDir}-antigo`;
+    const tmpNovo = `${appDir}-novo`;
+    const fsTrocaQuebrada = {
+      ...fs,
+      renameSync: (de: string, para: string) => {
+        if (de === tmpNovo || de === oldDir) throw Object.assign(new Error('access denied'), { code: 'EACCES' });
+        return fs.renameSync(de, para);
+      },
+    };
+    const zipV2 = path.join(tmpDir, 'v2.zip');
+    criarZipFixture(zipV2, '// v2');
+    const resultado = aplicarAtualizacao(
+      { appDir, zipPath: zipV2, novaVersao: '2.0.0', versaoArquivoPath },
+      { fs: fsTrocaQuebrada, dormir: () => {} },
+    );
+
+    expect(resultado.ok).toBe(false);
+    expect(resultado.etapa).toBe('restauracao');
+    expect(resultado.erro).toMatch(/app-antigo/);
+    // A instalação anterior não foi perdida: continua inteira na pasta -antigo.
+    expect(fs.readFileSync(path.join(oldDir, 'server.cjs'), 'utf8')).toBe('// v1');
+  });
 });
