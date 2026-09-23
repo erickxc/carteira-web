@@ -189,7 +189,7 @@ export function AtendimentoCard({ agenda, clientes, acoes, agora }: AtendimentoC
           <div className="flex-row" style={{ gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
             {barras.map((b) => (
               <span key={b.key} className="inline-flex items-center gap-[6px]" style={{ fontSize: '0.76rem' }}>
-                <i style={{ width: 10, height: 10, borderRadius: 3, background: CORES[b.key], display: 'inline-block' }} />
+                <i style={{ width: 6, height: 6, borderRadius: '50%', background: CORES[b.key], display: 'inline-block' }} />
                 <span className="text-text-secondary">{b.label}</span>
                 <strong>{b.valor}</strong>
               </span>

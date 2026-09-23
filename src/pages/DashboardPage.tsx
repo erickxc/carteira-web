@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { isSameMonth } from 'date-fns';
+import { format, isSameMonth } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { Building2, CalendarCheck, CalendarClock, CalendarX2, Users } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { useDashboardData } from '../hooks/useDashboardData';
@@ -80,7 +81,13 @@ export default function DashboardPage() {
             todas), "clientes ativos" agrupa por rede — Altese conta 1, não N.
             As duas já existiam separadas (a segunda no Dashboard da
             Carteira); pedido explícito de manter as duas visíveis aqui. */}
-        <StatCard title="Clientes ativos" value={d.totalClientesDistintos} icon={Building2} onClick={() => navigate('/clientes')} />
+        <StatCard
+          title="Clientes ativos"
+          value={d.totalClientesDistintos}
+          icon={Building2}
+          trend={`${d.atendidosNoMes} ${d.atendidosNoMes === 1 ? 'atendido' : 'atendidos'} ${isSameMonth(d.periodo, hoje) ? 'este mês' : `em ${format(d.periodo, 'MMM/yy', { locale: ptBR })}`}`}
+          onClick={() => navigate('/clientes')}
+        />
         <StatCard title="Total de atendimentos" value={d.ativos.length} icon={Users} onClick={() => navigate('/clientes')} />
         <StatCard
           title={`Reuniões concluídas em ${MESES[d.mes].slice(0, 3)}/${d.ano}`}

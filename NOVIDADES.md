@@ -8,6 +8,10 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.45
+
+- O card "Clientes ativos" no Dashboard agora mostra quantos já foram atendidos no mês.
+
 ## 1.4.44
 
 - A Carteira agora abre em http://carteira-2d.localhost:3011/ — salve nos favoritos. Suas preferências vêm junto.

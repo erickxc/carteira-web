@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { contarAtendidosNoMes } from '../utils/atendidosNoMes';
 import {
   addDays, differenceInCalendarDays, eachMonthOfInterval, endOfMonth, format, isSameMonth,
   max as maxDate, min as minDate, parseISO, startOfMonth, subMonths,
@@ -101,6 +102,10 @@ export function useDashboardData() {
     }
     return grupos.size + semGrupo;
   }, [ativos]);
+  const atendidosNoMes = useMemo(
+    () => contarAtendidosNoMes(ativos, agenda, dataReferencia, dataReferencia),
+    [ativos, agenda, dataReferencia]
+  );
   const agendaAtiva = useMemo(
     () => agenda.filter((a) => ativosIds.has(a.clientId) && (filtroTipoEvento === 'Todos' || a.type === filtroTipoEvento)),
     [agenda, ativosIds, filtroTipoEvento]
@@ -700,7 +705,7 @@ export function useDashboardData() {
     mes, setMes, ano, setAno, periodo, dataReferencia,
     monitoresDisponiveis, tiposEventoDisponiveis, anosDisponiveis, mesesDisponiveis,
     // base
-    ativos, inativos, totalClientesDistintos, agendaPorMonitor, acoesPorMonitor,
+    ativos, inativos, totalClientesDistintos, atendidosNoMes, agendaPorMonitor, acoesPorMonitor,
     // KPIs
     reunioesConcluidasMes, variacao, diaCorte, reunioesAgendadasMes, reagendamentosMes,
     // gráfico

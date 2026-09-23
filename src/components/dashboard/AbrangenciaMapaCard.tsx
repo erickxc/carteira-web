@@ -87,7 +87,7 @@ function ListaEstados({
           onMouseLeave={onLeave}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 4px', borderRadius: 5, cursor: 'pointer' }}
         >
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: corPorIntensidade(e.nomes.length, max), flexShrink: 0 }} />
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: corPorIntensidade(e.nomes.length, max), flexShrink: 0 }} />
           <span style={{ fontWeight: 600 }}>{e.sigla}</span>
           <span className="text-text-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.nome}</span>
           <span className="text-text-muted">{e.nomes.length}</span>

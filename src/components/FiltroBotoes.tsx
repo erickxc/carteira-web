@@ -55,7 +55,7 @@ export function FiltroBotoes({ label, opcoes, valor, onChange, corDe }: FiltroBo
               <i
                 aria-hidden
                 style={{
-                  width: 8, height: 8, borderRadius: 2, background: cor,
+                  width: 6, height: 6, borderRadius: '50%', background: cor,
                   display: 'inline-block', marginRight: 5, verticalAlign: 'middle',
                   opacity: ativo ? 1 : 0.65,
                 }}
