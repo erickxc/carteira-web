@@ -8,6 +8,14 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.42
+
+- Troca de tela com animação: a ficha do cliente entra pela direita e, ao voltar, a lista entra pela esquerda.
+- Esc fecha qualquer janela aberta, e o cursor volta pro botão que a abriu.
+- Tarefas do Quadro Ágil abrem pelo teclado (Tab até o card + Enter).
+- Ctrl+clique no nome de um cliente abre a ficha em nova aba.
+- Remover um contato agora pede confirmação.
+
 ## 1.4.41
 
 - Cancelar uma reunião com status "Pendente" agora não pede motivo obrigatório nem dispara análise automática da IA — a reunião nunca chegou a acontecer. Um checkbox permite registrar que o cliente foi contatado, se for o caso.
