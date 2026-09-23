@@ -8,6 +8,10 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.43
+
+- Troca entre páginas mais suave e um pouco mais lenta.
+
 ## 1.4.42
 
 - Troca de tela com animação: a ficha do cliente entra pela direita e, ao voltar, a lista entra pela esquerda.
