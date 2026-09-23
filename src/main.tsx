@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { MotionConfig } from 'motion/react';
 import './index.css';
 import App from './App.tsx';
 import { CarteiraProvider } from './context/CarteiraContext.tsx';
@@ -18,8 +19,11 @@ if ('serviceWorker' in navigator && !import.meta.env.DEV) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <CarteiraProvider>
-      <App />
-    </CarteiraProvider>
+    {/* "user": segue o prefers-reduced-motion do sistema — some deslocamento/escala, fade continua. */}
+    <MotionConfig reducedMotion="user">
+      <CarteiraProvider>
+        <App />
+      </CarteiraProvider>
+    </MotionConfig>
   </StrictMode>
 );

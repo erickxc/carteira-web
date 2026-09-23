@@ -54,7 +54,7 @@ export function ModalShell({ title, onClose, onSubmit, footer, size, titleNode, 
   }, [fechar]);
 
   // Portal para o <body>: o modal é renderizado dentro das páginas, que ficam
-  // sob `.page-transition` (tem transform/animação). Um ancestral com transform
+  // sob a transição de tela (`TransicaoDeTela`, anima transform). Um ancestral com transform
   // faz `position: fixed` se ancorar NELE em vez da viewport — o modal saía da
   // tela e não redimensionava. No body, o fixed volta a valer pela viewport.
   return createPortal(

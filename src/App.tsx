@@ -18,6 +18,7 @@ import { ConfirmHost } from './components/ConfirmHost';
 import { LoadingScreen } from './components/LoadingScreen';
 import { useCarteira } from './context/CarteiraContext';
 import { Dropdown } from './components/Dropdown';
+import { TransicaoDeTela } from './motion/TransicaoDeTela';
 // Imports estáticos (sem lazy): num app de LAN que é rebuildado com frequência,
 // o code-splitting causava tela branca quando a aba tinha um index.html antigo
 // apontando pra chunks que já não existiam. Bundle único é robusto e rápido na LAN.
@@ -116,8 +117,7 @@ function Layout({ children }: { children: ReactNode }) {
             <ThemeToggle />
           </div>
         </div>
-        {/* key por rota = re-dispara o fade ao trocar de página */}
-        <div key={location.pathname} className="page-transition">{children}</div>
+        <TransicaoDeTela>{children}</TransicaoDeTela>
       </main>
       {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} />}
       {reminderModalOpen && <ReminderFormModal onClose={() => setReminderModalOpen(false)} />}

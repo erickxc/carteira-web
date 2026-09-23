@@ -17,6 +17,11 @@
    =========================================================================== */
 
 :root {
+  /* Espelho de src/motion/tokens.ts — mudar um exige mudar o outro. */
+  --motion-rapido: 150ms;
+  --motion-medio: 250ms;
+  --motion-destaque: 400ms;
+
   /* Sem isso, o navegador assume tema CLARO pros controles nativos que a
      CSS não estiliza por completo — o seletor de data/hora nativo
      (<input type="date"/"time">) e o popup de opções de <select> no Windows
@@ -432,15 +437,6 @@ textarea:focus-visible {
   .sidebar-backdrop.is-open { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1150; }
 }
 
-/* Transição suave ao trocar de página (fade + leve subida). */
-@keyframes page-enter {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.page-transition { animation: page-enter 0.22s ease both; }
-@media (prefers-reduced-motion: reduce) {
-  .page-transition { animation: none; }
-}
 
 .page-container {
   max-width: 1600px;
