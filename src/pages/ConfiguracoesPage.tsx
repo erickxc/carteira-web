@@ -6,6 +6,7 @@ import { confirmDialog } from '../utils/confirmDialog';
 import {
   verificarStatusAtualizacao, aplicarAtualizacao, verificarStatusBase, type StatusAtualizacao,
   verificarIniciarComWindows, definirIniciarComWindows, type StatusIniciarComWindows,
+  verificarEnderecoLocal, definirEnderecoLocal,
 } from '../api/client';
 import { Badge, Button, Card, Field, Input, Textarea } from '../ui';
 import { Dropdown } from '../components/Dropdown';
@@ -612,6 +613,43 @@ function IniciarComWindowsCard() {
   );
 }
 
+function EnderecoLocalCard() {
+  const [abrirPorNome, setAbrirPorNome] = useState<boolean | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  // Só faz sentido na Carteira aberta pelo .exe (porta 3011) — não no Apache/LAN nem no dev.
+  const relevante = window.location.port === '3011';
+
+  useEffect(() => {
+    if (relevante) verificarEnderecoLocal().then((r) => setAbrirPorNome(r.abrirPorNome)).catch(() => setAbrirPorNome(null));
+  }, [relevante]);
+
+  function alternar() {
+    if (abrirPorNome === null) return;
+    setSalvando(true);
+    definirEnderecoLocal(!abrirPorNome)
+      // Recarregar faz a abertura levar a página (e as preferências) pro endereço escolhido.
+      .then(() => window.location.reload())
+      .catch(() => { toastError('Não foi possível salvar essa configuração.'); setSalvando(false); });
+  }
+
+  if (!relevante || abrirPorNome === null) return null;
+
+  return (
+    <Card flat>
+      <div className="section-header">
+        <h3>Endereço da Carteira</h3>
+      </div>
+      <label className="check-row" style={{ fontSize: '0.85rem' }}>
+        <input type="checkbox" checked={abrirPorNome} disabled={salvando} onChange={alternar} />
+        Abrir pelo endereço <code>carteira-2d.localhost:3011</code> (nesta máquina)
+      </label>
+      <p className="text-text-secondary" style={{ fontSize: '0.78rem', margin: '8px 0 0' }}>
+        Desmarcado, volta a abrir em <code>127.0.0.1:3011</code>. Suas preferências acompanham a troca.
+      </p>
+    </Card>
+  );
+}
+
 type AbaConfig = 'sistema' | 'cadencias' | 'modelos' | 'categorias';
 
 const ABAS: { chave: AbaConfig; label: string }[] = [
@@ -660,6 +698,9 @@ export default function ConfiguracoesPage() {
           </div>
           <div className="section">
             <IniciarComWindowsCard />
+          </div>
+          <div className="section">
+            <EnderecoLocalCard />
           </div>
           <div className="section">
             <NotificacoesWindowsCard />

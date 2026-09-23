@@ -16,6 +16,7 @@
 const fs = require('fs');
 const { execFileSync } = require('child_process');
 const { notificar } = require('../notificacoes.cjs');
+const { lerAbrirPorNome, gravarAbrirPorNome } = require('../enderecoLocal.cjs');
 
 const CHAVE_RUN = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
 const NOME_VALOR = 'CarteiraWeb';
@@ -87,6 +88,18 @@ router.put('/iniciar-com-windows', (req, res) => {
   try {
     if (req.body.ativo) ativar(); else desativar();
     res.json({ suportado: true, ativo: estaAtivo() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/endereco', (req, res) => {
+  res.json({ abrirPorNome: lerAbrirPorNome() });
+});
+
+router.put('/endereco', (req, res) => {
+  try {
+    res.json({ abrirPorNome: gravarAbrirPorNome(req.body.abrirPorNome) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

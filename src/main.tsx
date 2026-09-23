@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MotionConfig } from 'motion/react';
+import { iniciarEnderecoLocal } from './enderecoLocal/iniciar';
 import './index.css';
 import App from './App.tsx';
 import { CarteiraProvider } from './context/CarteiraContext.tsx';
@@ -17,13 +18,16 @@ if ('serviceWorker' in navigator && !import.meta.env.DEV) {
   });
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    {/* "user": segue o prefers-reduced-motion do sistema — some deslocamento/escala, fade continua. */}
-    <MotionConfig reducedMotion="user">
-      <CarteiraProvider>
-        <App />
-      </CarteiraProvider>
-    </MotionConfig>
-  </StrictMode>
-);
+iniciarEnderecoLocal().then((resultado) => {
+  if (resultado === 'redirecionando') return;
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      {/* "user": segue o prefers-reduced-motion do sistema — some deslocamento/escala, fade continua. */}
+      <MotionConfig reducedMotion="user">
+        <CarteiraProvider>
+          <App />
+        </CarteiraProvider>
+      </MotionConfig>
+    </StrictMode>
+  );
+});

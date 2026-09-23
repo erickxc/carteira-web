@@ -15,6 +15,7 @@ import { BaseSincronizadaCard } from './components/dashboard/BaseSincronizadaCar
 import { ReunioesHojeCard } from './components/ReunioesHojeCard';
 import { ToastHost } from './components/ToastHost';
 import { ConfirmHost } from './components/ConfirmHost';
+import { AvisoNovoEndereco } from './components/AvisoNovoEndereco';
 import { LoadingScreen } from './components/LoadingScreen';
 import { useCarteira } from './context/CarteiraContext';
 import { Dropdown } from './components/Dropdown';
@@ -127,6 +128,7 @@ function Layout({ children }: { children: ReactNode }) {
       <NotificacoesEventos />
       <ToastHost />
       <ConfirmHost />
+      <AvisoNovoEndereco />
     </div>
   );
 }

@@ -90,6 +90,11 @@ export const verificarIniciarComWindows = () => request<StatusIniciarComWindows>
 export const definirIniciarComWindows = (ativo: boolean) =>
   request<StatusIniciarComWindows>('/sistema/iniciar-com-windows', { method: 'PUT', body: JSON.stringify({ ativo }) });
 
+// "Abrir pelo endereço carteira-2d.localhost" — configuração desta máquina (server/enderecoLocal.cjs).
+export const verificarEnderecoLocal = () => request<{ abrirPorNome: boolean }>('/sistema/endereco');
+export const definirEnderecoLocal = (abrirPorNome: boolean) =>
+  request<{ abrirPorNome: boolean }>('/sistema/endereco', { method: 'PUT', body: JSON.stringify({ abrirPorNome }) });
+
 // Notificações nativas do Windows — mesmo critério de "suportado" que
 // "Iniciar com o Windows" (só true quando o app foi aberto pelo .exe local).
 export const verificarNotificacoesSuportadas = () => request<{ suportado: boolean }>('/sistema/notificacoes/suportado');
