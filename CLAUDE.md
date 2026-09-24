@@ -238,6 +238,10 @@ Sair da página desmontava o componente e zerava o histórico — junto com o co
 
 Documenta um plano **anterior e não implementado** de transformar o projeto em um produto multi-usuário genérico "GestorPro" (PostgreSQL, JWT, multi-tenant, navbar superior). Esse plano é anterior ao pivô para "2D Consultores / Carteira de Monitoria" e à decisão de manter tudo em Excel dentro do OneDrive — **não reflete a direção atual do produto**. Não usar como fonte de verdade sem confirmar antes com o usuário.
 
+### Histórico de situação do cliente (`StatusHistorico`)
+
+Log de MUDANÇAS de `status`/`estado`/`pausadoAte` (`server/dominio/statusHistorico.cjs`): uma linha só quando algo muda, mais uma linha-base por cliente (`mudouEm = createdAt`) — não é cópia mensal. Existe pra Visão Geral mostrar, num mês passado, quem estava ativo NAQUELE mês (`clientesEm` em `src/utils/statusHistorico.ts`) em vez do cadastro de hoje. `sincronizar` é um diff completo de `Clientes` × última linha, chamado pelo domínio após criar/atualizar cliente (horário exato), no boot e no cron das 4h (rede de segurança pros caminhos sem gancho: `/bulk`, sincronização do Price). Só o servidor escreve (não é entidade da fila). Limite: mudanças anteriores ao início do log não existem — meses antigos refletem a situação de quando o log começou. Hoje só os cards "Clientes ativos"/"Total de atendimentos" usam (`ativosNoPeriodo`); os demais cards do Dashboard ainda usam o cadastro atual.
+
 ## Segurança e privacidade
 
 - Sistema **estritamente local/offline** no app em si, por design. Qualquer mudança no backend deve preservar o bind em `127.0.0.1` e o CORS restrito — não abrir para `0.0.0.0` nem ampliar origens permitidas sem confirmar com o usuário.

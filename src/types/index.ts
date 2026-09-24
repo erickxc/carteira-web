@@ -398,6 +398,17 @@ export type NovoEvento = Omit<EventoAgenda, 'id' | 'createdAt' | 'attachments' |
 // Gerada automaticamente pela análise semanal (server/ia/analisesAutomaticas.cjs)
 // a partir das atas do cliente — a IA só sugere; aplicar (ex.: mudar `status`
 // do cliente) é sempre ação manual do usuário.
+// Linha do log de mudanças de situação do cliente (server/dominio/statusHistorico.cjs):
+// vale de `mudouEm` até a próxima linha do mesmo cliente.
+export interface StatusHistoricoItem {
+  id: string;
+  clientId: string;
+  status: string;
+  estado: string;
+  pausadoAte: string;
+  mudouEm: string;
+}
+
 export interface AnaliseIA {
   id: string;
   clientId: string;

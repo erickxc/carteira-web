@@ -492,6 +492,13 @@ const USO_IA_HEADERS = [
   'custoUsd', 'duracaoMs', 'numFerramentas', 'erro', 'pergunta', 'resposta',
 ];
 
+// Log de MUDANÇAS de situação do cliente (`status`/`estado`/`pausadoAte`) —
+// uma linha só quando algo muda (mais a linha-base do cadastro), nunca uma
+// cópia mensal. Permite reconstruir "quem estava ativo em julho" sem que o
+// histórico se reescreva quando o cadastro muda depois. Ver
+// `server/dominio/statusHistorico.cjs`.
+const STATUS_HISTORICO_HEADERS = ['id', 'clientId', 'status', 'estado', 'pausadoAte', 'mudouEm'];
+
 // Headers explícitos por planilha — evita que o SheetJS derive as colunas
 // apenas das chaves da primeira linha do array (se a primeira linha for uma
 // legada faltando algum campo novo, a coluna inteira sumiria da planilha).
@@ -520,6 +527,7 @@ const HEADERS_BY_SHEET = {
   AcoesIA: ACOES_IA_HEADERS,
   MemoriaIA: MEMORIA_IA_HEADERS,
   UsoIA: USO_IA_HEADERS,
+  StatusHistorico: STATUS_HISTORICO_HEADERS,
 };
 
 // Cadências padrão (dias) — prazos das recomendações.
@@ -579,7 +587,7 @@ module.exports = {
   CLIENTES_HEADERS, AGENDA_HEADERS, LEMBRETES_HEADERS, CATEGORIAS_HEADERS, ACOES_HEADERS, MODELOS_HEADERS, CADENCIAS_HEADERS,
   AGENDA_SERIES_HEADERS,
   AGIL_WORKSPACES_HEADERS, AGIL_BOARDS_HEADERS, AGIL_COLUNAS_HEADERS, AGIL_TAREFAS_HEADERS, AGIL_FRENTES_HEADERS, AGIL_CAMPOS_PERSONALIZADOS_HEADERS, AGIL_SUBTAREFAS_HEADERS, AGIL_COMENTARIOS_HEADERS, AGIL_CONEXOES_HEADERS, AGIL_HISTORICO_HEADERS, AGIL_SWIMLANES_HEADERS,
-  ANALISES_IA_HEADERS, ANALISES_IA_HISTORICO_HEADERS, ACOES_IA_HEADERS, MEMORIA_IA_HEADERS, USO_IA_HEADERS,
+  ANALISES_IA_HEADERS, ANALISES_IA_HISTORICO_HEADERS, ACOES_IA_HEADERS, MEMORIA_IA_HEADERS, USO_IA_HEADERS, STATUS_HISTORICO_HEADERS,
   HEADERS_BY_SHEET,
   CADENCIAS_SEED, MODELOS_SEED, CATEGORIAS_SEED,
 };

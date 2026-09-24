@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { contarAtendidosNoMes } from '../utils/atendidosNoMes';
+import { clientesEm } from '../utils/statusHistorico';
 import {
   addDays, differenceInCalendarDays, eachMonthOfInterval, endOfMonth, format, isSameMonth,
   max as maxDate, min as minDate, parseISO, startOfMonth, subMonths,
@@ -24,7 +25,7 @@ const FOLLOW_UP_THRESHOLD_DAYS = 30;
 export function useDashboardData() {
   // `filtroMonitor` vem do Context — é o filtro GLOBAL ("quem sou eu"),
   // compartilhado com o header e com o monitorIA, não mais local desta tela.
-  const { clientes, agenda, acoes, lembretes, cadencias, analisesIA, filtroMonitor, setFiltroMonitor, monitoresDisponiveis } = useCarteira();
+  const { clientes, agenda, acoes, lembretes, cadencias, analisesIA, statusHistorico, filtroMonitor, setFiltroMonitor, monitoresDisponiveis } = useCarteira();
   const [filtroTipo, setFiltroTipo] = usePersistedState<string>('filtro:dash:tipo', 'Todos');
   const [filtroTipoEvento, setFiltroTipoEvento] = usePersistedState<string>('filtro:dash:tipoEvento', 'Todos');
   const [filtroServicoAderencia, setFiltroServicoAderencia] = usePersistedState<ServicoCad | 'Todos'>('filtro:dash:servicoAderencia', 'Todos');
@@ -93,18 +94,27 @@ export function useDashboardData() {
   // grupo) — as duas métricas divergem e cada dashboard mostra a que faz
   // sentido pro seu propósito (Visão Geral = atendimentos; Dashboard da
   // Carteira = clientes).
+  // Carteira ATIVA como estava no período escolhido: mês corrente = cadastro de hoje;
+  // mês passado = situação vigente no fim daquele mês (log StatusHistorico), pra o
+  // histórico não mudar quando alguém troca o status de um cliente depois. Só os
+  // cards "Clientes ativos"/"Total de atendimentos" usam isto por enquanto.
+  const ativosNoPeriodo = useMemo(() => {
+    const base = isSameMonth(periodo, hoje) ? clientes : clientesEm(clientes, statusHistorico, dataReferencia);
+    return base.filter((c) => isClienteAtivo(c, dataReferencia) && (filtroMonitor === 'Todos' || c.monitor === filtroMonitor));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientes, statusHistorico, filtroMonitor, dataReferencia]);
   const totalClientesDistintos = useMemo(() => {
     const grupos = new Set<string>();
     let semGrupo = 0;
-    for (const c of ativos) {
+    for (const c of ativosNoPeriodo) {
       if (c.grupo) grupos.add(c.grupo);
       else semGrupo++;
     }
     return grupos.size + semGrupo;
-  }, [ativos]);
+  }, [ativosNoPeriodo]);
   const atendidosNoMes = useMemo(
-    () => contarAtendidosNoMes(ativos, agenda, dataReferencia, dataReferencia),
-    [ativos, agenda, dataReferencia]
+    () => contarAtendidosNoMes(ativosNoPeriodo, agenda, dataReferencia, dataReferencia),
+    [ativosNoPeriodo, agenda, dataReferencia]
   );
   const agendaAtiva = useMemo(
     () => agenda.filter((a) => ativosIds.has(a.clientId) && (filtroTipoEvento === 'Todos' || a.type === filtroTipoEvento)),
@@ -705,7 +715,7 @@ export function useDashboardData() {
     mes, setMes, ano, setAno, periodo, dataReferencia,
     monitoresDisponiveis, tiposEventoDisponiveis, anosDisponiveis, mesesDisponiveis,
     // base
-    ativos, inativos, totalClientesDistintos, atendidosNoMes, agendaPorMonitor, acoesPorMonitor,
+    ativos, inativos, ativosNoPeriodo, totalClientesDistintos, atendidosNoMes, agendaPorMonitor, acoesPorMonitor,
     // KPIs
     reunioesConcluidasMes, variacao, diaCorte, reunioesAgendadasMes, reagendamentosMes,
     // gráfico

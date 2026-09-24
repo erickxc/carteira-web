@@ -1,4 +1,4 @@
-import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilCampoPersonalizado, AgilColuna, AgilComentario, AgilConexao, AgilFrente, AgilHistoricoItem, AgilSwimlane, AgilSubtarefa, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilConexao, NovaAgilFrente, NovaAgilSubtarefa, NovaAgilSwimlane, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilCampoPersonalizado, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao } from '../types';
+import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilCampoPersonalizado, AgilColuna, AgilComentario, AgilConexao, AgilFrente, AgilHistoricoItem, AgilSwimlane, AgilSubtarefa, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilConexao, NovaAgilFrente, NovaAgilSubtarefa, NovaAgilSwimlane, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilCampoPersonalizado, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao, StatusHistoricoItem } from '../types';
 
 const PRE_ANALISE_VAZIA: PreAnalise = { orientacoes: [], clientesGeral: '', produtosGeral: '' };
 function parsePreAnalise(raw: unknown): PreAnalise {
@@ -474,6 +474,7 @@ export async function buscarAnaliseIA(clienteId: string): Promise<AnaliseIA | nu
  *  o ícone "IA" por risco e ordenar a coluna sem precisar passar o mouse
  *  linha por linha. Uma chamada só no mount da tela. */
 export const buscarAnalisesIA = () => request<AnaliseIA[]>('/ia/analises');
+export const listarStatusHistorico = () => request<StatusHistoricoItem[]>('/status-historico');
 
 export interface MensagemChatIA {
   role: 'user' | 'assistant';

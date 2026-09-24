@@ -1,6 +1,9 @@
 const crypto = require('crypto');
 const { syncClienteColumns } = require('../db.cjs');
 const { gerarRelatoriosPendentes } = require('../relatoriosAutomaticos.cjs');
+const { sincronizarSemQuebrar } = require('./statusHistorico.cjs');
+
+const CAMPOS_SITUACAO = ['status', 'estado', 'pausadoAte'];
 
 /**
  * Gera o próximo relatório na hora quando o cliente salvo já vem com cadência
@@ -34,7 +37,10 @@ function criar(repo, payload, opts = {}) {
   const novo = syncClienteColumns({ ...payload, id: opts.id ?? crypto.randomUUID() });
   data.push(novo);
   repo.save('Clientes', data);
-  if (efeitosExternos) gerarRelatorioSeConfigurado(novo.id, novo.relatorioCadencia);
+  if (efeitosExternos) {
+    gerarRelatorioSeConfigurado(novo.id, novo.relatorioCadencia);
+    sincronizarSemQuebrar(repo, 'cliente criado');
+  }
   return novo;
 }
 
@@ -44,6 +50,7 @@ function atualizar(repo, id, patch, opts = {}) {
   if (updated && efeitosExternos && 'relatorioCadencia' in patch) {
     gerarRelatorioSeConfigurado(id, updated.relatorioCadencia);
   }
+  if (updated && efeitosExternos && CAMPOS_SITUACAO.some((c) => c in patch)) sincronizarSemQuebrar(repo, 'cliente atualizado');
   return updated;
 }
 

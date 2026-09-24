@@ -8,6 +8,10 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.47
+
+- Na Visão Geral, "Clientes ativos" e "Total de atendimentos" de um mês passado agora mostram quem estava ativo naquele mês, não o status de hoje. O histórico começa a contar a partir desta versão.
+
 ## 1.4.45
 
 - O card "Clientes ativos" no Dashboard agora mostra quantos já foram atendidos no mês.

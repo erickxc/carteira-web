@@ -127,7 +127,14 @@ function rodarBackupSqliteELoggar(origem) {
     .catch((err) => console.warn(`Falha ao gerar backup do SQLite (${origem}):`, err.message));
 }
 
+// Log de mudanças de situação dos clientes (StatusHistorico): boot = linha-base +
+// rede de segurança pra caminhos de escrita sem gancho; cron diário idem.
+const { repoPlanilha: repoStatusHistorico } = require('./server/dominio/repo.cjs');
+const { sincronizarSemQuebrar: sincronizarStatusHistorico } = require('./server/dominio/statusHistorico.cjs');
+
 if (isServer) {
+  sincronizarStatusHistorico(repoStatusHistorico(), 'boot');
+  cron.schedule('0 4 * * *', () => sincronizarStatusHistorico(repoStatusHistorico(), 'cron diário'));
   rodarBackup('boot');
   cron.schedule('0 5 * * *', () => rodarBackup('cron diário'));
   rodarBackupSqliteELoggar('boot');
@@ -176,6 +183,7 @@ if (isServer) {
 
 registerUploads(app); // /uploads (estático) + /api/uploads (CRUD)
 app.use('/api/clients', require('./server/routes/clients.cjs'));
+app.use('/api/status-historico', require('./server/routes/statusHistorico.cjs'));
 // Precisa vir ANTES de '/api/agenda' — senão o router de agenda (que tem
 // PUT '/:id') capturaria '/api/agenda/series/x' tratando "series" como id.
 app.use('/api/agenda/series', require('./server/routes/agendaSeries.cjs'));

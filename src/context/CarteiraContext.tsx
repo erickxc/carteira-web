@@ -7,6 +7,7 @@ import type {
   Acao,
   AgendaSerie,
   AnaliseIA,
+  StatusHistoricoItem,
   AgilBoard,
   AgilWorkspace,
   AgilColuna,
@@ -83,6 +84,8 @@ interface CarteiraContextValue {
    *  dossiê, `nivelRisco`) e reaproveitável por qualquer tela que precise do
    *  mesmo dado sem fazer fetch próprio. */
   analisesIA: AnaliseIA[];
+  /** Log de mudanças de status/estado dos clientes — base pra reconstruir a carteira de um mês passado. */
+  statusHistorico: StatusHistoricoItem[];
   modelos: Modelo[];
   cadencias: Cadencias;
   agilWorkspaces: AgilWorkspace[];
@@ -216,6 +219,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [acoes, setAcoes] = useState<Acao[]>([]);
   const [analisesIA, setAnalisesIA] = useState<AnaliseIA[]>([]);
+  const [statusHistorico, setStatusHistorico] = useState<StatusHistoricoItem[]>([]);
   const [modelos, setModelos] = useState<Modelo[]>([]);
   const [cadencias, setCadencias] = useState<Cadencias>(CADENCIAS_PADRAO);
   const [agilWorkspaces, setAgilWorkspaces] = useState<AgilWorkspace[]>([]);
@@ -251,7 +255,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     const [
       clientesData, agendaData, agendaSeriesData, lembretesData, categoriasData, acoesData, modelosData, cadenciasData,
       agilWorkspacesData, agilBoardsData, agilColunasData, agilSwimlanesData, agilFrentesData, agilCamposPersonalizadosData, agilTarefasData, agilSubtarefasData, agilComentariosData, agilConexoesData, agilHistoricoData,
-      analisesIAData,
+      analisesIAData, statusHistoricoData,
     ] = await Promise.all([
       api.listarClientes(),
       api.listarAgenda(),
@@ -276,11 +280,13 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       // cadência sem isso) — cai pra lista vazia em erro, em vez de derrubar
       // o `Promise.all` inteiro e travar toda a carga inicial da Carteira.
       api.buscarAnalisesIA().catch(() => []),
+      // Idem: sem o log, meses passados do Dashboard usam o cadastro de hoje.
+      api.listarStatusHistorico().catch(() => []),
     ]);
     return {
       clientesData, agendaData, agendaSeriesData, lembretesData, categoriasData, acoesData, modelosData, cadenciasData,
       agilWorkspacesData, agilBoardsData, agilColunasData, agilSwimlanesData, agilFrentesData, agilCamposPersonalizadosData, agilTarefasData, agilSubtarefasData, agilComentariosData, agilConexoesData, agilHistoricoData,
-      analisesIAData,
+      analisesIAData, statusHistoricoData,
     };
   }, []);
 
@@ -305,6 +311,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     setAgilConexoes(d.agilConexoesData);
     setAgilHistorico(d.agilHistoricoData);
     setAnalisesIA(d.analisesIAData);
+    setStatusHistorico(d.statusHistoricoData);
   }, []);
 
   const recarregar = useCallback(async () => {
@@ -859,6 +866,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       categorias,
       acoes,
       analisesIA,
+      statusHistorico,
       modelos,
       cadencias,
       agilWorkspaces,
@@ -940,7 +948,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       removerAgilConexao: removerAgilConexaoFn,
     }),
     [
-      clientes, filtroMonitor, definirFiltroMonitor, monitoresDisponiveis, agenda, agendaSeries, lembretes, categorias, acoes, analisesIA, modelos, cadencias,
+      clientes, filtroMonitor, definirFiltroMonitor, monitoresDisponiveis, agenda, agendaSeries, lembretes, categorias, acoes, analisesIA, statusHistorico, modelos, cadencias,
       agilWorkspaces, agilBoards, agilColunas, agilSwimlanes, agilFrentes, agilCamposPersonalizados, agilTarefas, agilSubtarefas, agilComentarios, agilConexoes, agilHistorico,
       loading, error, recarregar, revalidarSilencioso, ceoAgenda, opcoesPorTipo, categoriasPorTipo,
       criarCliente, criarClientesEmLote, atualizarClienteFn, removerClienteFn,

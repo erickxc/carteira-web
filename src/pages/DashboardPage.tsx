@@ -88,7 +88,7 @@ export default function DashboardPage() {
           trend={`${d.atendidosNoMes} ${d.atendidosNoMes === 1 ? 'atendido' : 'atendidos'} ${isSameMonth(d.periodo, hoje) ? 'este mês' : `em ${format(d.periodo, 'MMM/yy', { locale: ptBR })}`}`}
           onClick={() => navigate('/clientes')}
         />
-        <StatCard title="Total de atendimentos" value={d.ativos.length} icon={Users} onClick={() => navigate('/clientes')} />
+        <StatCard title="Total de atendimentos" value={d.ativosNoPeriodo.length} icon={Users} onClick={() => navigate('/clientes')} />
         <StatCard
           title={`Reuniões concluídas em ${MESES[d.mes].slice(0, 3)}/${d.ano}`}
           value={d.reunioesConcluidasMes}
