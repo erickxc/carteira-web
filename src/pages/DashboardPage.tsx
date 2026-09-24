@@ -96,9 +96,8 @@ export default function DashboardPage() {
           trend={`${Math.abs(d.variacao)}% vs ${isSameMonth(d.periodo, hoje) ? `mês anterior até dia ${d.diaCorte}` : 'mês anterior'}`}
           trendUp={d.variacao === 0 ? undefined : d.variacao > 0}
         />
-        {/* Sem linha de "projeção" (que somava concluídas + agendadas): o card
-            diz "Agendadas", então mostra só o total agendado — misturar as duas
-            no mesmo card confundia a leitura. */}
+        {/* "Agendadas" = só o que ainda vai acontecer (concluídas ficam no card
+            ao lado) — misturar as duas no mesmo número confundia a leitura. */}
         <StatCard
           title={`Agendadas em ${MESES[d.mes].slice(0, 3)}/${d.ano}`}
           value={d.reunioesAgendadasMes}

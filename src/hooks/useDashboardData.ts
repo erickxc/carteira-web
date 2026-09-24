@@ -181,16 +181,14 @@ export function useDashboardData() {
   // dois significam "feito"). O dashboard conta SÓ concluídas; agendadas entram
   // como projeção à parte.
   const concluida = (a: EventoAgenda) => /conclu|realiz/i.test(a.status || '');
-  // "Agendadas no mês" = toda reunião do mês que não foi cancelada/reagendada
-  // (Agendado, Pendente, qualquer status novo que apareça — E também as já
-  // Concluídas, a pedido: esse card mostra o total de reuniões do mês que
-  // "aconteceram ou vão acontecer", não só a projeção do que falta). Antes
-  // era só `/^agend/` (status literal "Agendado"), o que deixava de fora tanto
-  // "Pendente" (status novo) quanto as já concluídas.
+  // Base de "planejada": reunião que não foi cancelada/reagendada-por-status
+  // (Agendado, Pendente, qualquer status novo — e também as Concluídas, por isso
+  // NÃO é usada sozinha em KPI: o card "Agendadas" exclui as concluídas).
   const agendada = (a: EventoAgenda) => !/cancel|reagend/i.test(a.status || '');
-  // Versão EXCLUSIVA (sem concluída) — usada só na projeção do gráfico, que
-  // soma `concluídas + isso`. Usar `agendada` ali contaria a concluída 2x
-  // (bug real: card certo em 28, gráfico mostrando 42 no mesmo mês).
+  // Versão EXCLUSIVA (sem concluída) — usada no card "Agendadas" (só o que ainda
+  // vai acontecer) e na projeção do gráfico, que soma `concluídas + isso`. Usar
+  // `agendada` ali contaria a concluída 2x (bug real: card certo em 28, gráfico
+  // mostrando 42 no mesmo mês).
   const planejadaNaoConcluida = (a: EventoAgenda) => agendada(a) && !concluida(a);
 
   // --- Top 10 clientes por ATENDIMENTOS (reunião OU relatório) CONCLUÍDOS no
@@ -250,7 +248,7 @@ export function useDashboardData() {
     ? (reunioesConcluidasMes > 0 ? 100 : 0)
     : Math.round(((reunioesConcluidasMes - reunioesConcluidasMesAnterior) / reunioesConcluidasMesAnterior) * 100);
   // Agendadas no mês = projeção (planejadas, ainda não concluídas).
-  const reunioesAgendadasMes = reunioesAtivas.filter((a) => agendada(a) && isSameMonth(parseISO(a.date), periodo)).length;
+  const reunioesAgendadasMes = reunioesAtivas.filter((a) => planejadaNaoConcluida(a) && isSameMonth(parseISO(a.date), periodo)).length;
   // Reagendamentos no período (sinal de instabilidade — cancelamento não conta).
   // Duas formas de "reagendar" no app, contadas as duas aqui: (1) status
   // "Reagendado" (desfecho final — o evento original morre, sai do calendário
