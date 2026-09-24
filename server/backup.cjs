@@ -6,7 +6,7 @@ const { DATA_DIR, DB_FILE } = require('./config.cjs');
 // corrompido — e restaurar por lá, sob pressão, depende de alguém saber o
 // caminho. Um snapshot local diário dá um ponto de retorno óbvio e imediato.
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
-const DIAS_RETIDOS = 30;
+const MAX_BACKUPS = 2;
 
 /** Data local no formato YYYY-MM-DD (não UTC: um backup feito às 21h no
  *  Brasil cairia no dia seguinte se usássemos toISOString). */
@@ -20,22 +20,19 @@ function nomeSnapshot(dia) {
   return `${base}-${dia}${path.extname(DB_FILE)}`;
 }
 
-/** Apaga snapshots com mais de DIAS_RETIDOS dias, pelo nome do arquivo
- *  (não pelo mtime: o OneDrive reescreve mtime ao sincronizar). */
+/** Mantém só os MAX_BACKUPS mais recentes, pelo nome do arquivo (a data no
+ *  nome ordena cronologicamente como string — não usa mtime: o OneDrive
+ *  reescreve mtime ao sincronizar). */
 function limparAntigos() {
-  const limite = new Date();
-  limite.setDate(limite.getDate() - DIAS_RETIDOS);
-  const corte = hojeLocal(limite);
   const padrao = /-(\d{4}-\d{2}-\d{2})\.xlsx$/;
+  const arquivos = fs.readdirSync(BACKUP_DIR).filter((f) => padrao.test(f)).sort();
+  const excedentes = arquivos.slice(0, Math.max(0, arquivos.length - MAX_BACKUPS));
 
-  for (const arquivo of fs.readdirSync(BACKUP_DIR)) {
-    const m = padrao.exec(arquivo);
-    if (m && m[1] < corte) {
-      try {
-        fs.unlinkSync(path.join(BACKUP_DIR, arquivo));
-      } catch (err) {
-        console.warn(`Backup: não foi possível remover ${arquivo}: ${err.message}`);
-      }
+  for (const arquivo of excedentes) {
+    try {
+      fs.unlinkSync(path.join(BACKUP_DIR, arquivo));
+    } catch (err) {
+      console.warn(`Backup: não foi possível remover ${arquivo}: ${err.message}`);
     }
   }
 }

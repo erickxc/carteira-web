@@ -5,10 +5,11 @@ const Database = require('better-sqlite3');
 const { SQLITE_FILE, BACKUP_ONEDRIVE_DIR, HEADERS_BY_SHEET } = require('./config.cjs');
 const { getSheetData } = require('./dbSqlite.cjs');
 
-// Mesma retenção/critério de nomeação por dia que `server/backup.cjs` já usa
-// pro Excel — ver lá o motivo (nome do arquivo, não mtime, sobrevive à
-// resincronização do OneDrive).
-const DIAS_RETIDOS = 30;
+// Mesmo critério de nomeação por dia que `server/backup.cjs` já usa pro
+// Excel — ver lá o motivo (nome do arquivo, não mtime, sobrevive à
+// resincronização do OneDrive). Retenção por CONTAGEM (não por dias): mantém
+// só os MAX_BACKUPS mais recentes de cada tipo.
+const MAX_BACKUPS = 2;
 const BACKUPS_DIR = path.join(BACKUP_ONEDRIVE_DIR, 'backups');
 
 function hojeLocal(agora = new Date()) {
@@ -17,15 +18,11 @@ function hojeLocal(agora = new Date()) {
 }
 
 function limparAntigos(padraoArquivo) {
-  const limite = new Date();
-  limite.setDate(limite.getDate() - DIAS_RETIDOS);
-  const corte = hojeLocal(limite);
-  for (const arquivo of fs.readdirSync(BACKUPS_DIR)) {
-    const m = padraoArquivo.exec(arquivo);
-    if (m && m[1] < corte) {
-      try { fs.unlinkSync(path.join(BACKUPS_DIR, arquivo)); } catch (err) {
-        console.warn(`backupSqlite: não foi possível remover ${arquivo}: ${err.message}`);
-      }
+  const arquivos = fs.readdirSync(BACKUPS_DIR).filter((f) => padraoArquivo.test(f)).sort();
+  const excedentes = arquivos.slice(0, Math.max(0, arquivos.length - MAX_BACKUPS));
+  for (const arquivo of excedentes) {
+    try { fs.unlinkSync(path.join(BACKUPS_DIR, arquivo)); } catch (err) {
+      console.warn(`backupSqlite: não foi possível remover ${arquivo}: ${err.message}`);
     }
   }
 }

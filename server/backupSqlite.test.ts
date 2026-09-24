@@ -78,11 +78,15 @@ describe('backupSqlite: exportarXlsx', () => {
     expect(arquivos2).toHaveLength(1);
   });
 
-  it('remove cópias datadas com mais de 30 dias', () => {
+  it('mantém só os 2 mais recentes, apagando os demais independente da idade', () => {
     fs.mkdirSync(backupSqlite.BACKUPS_DIR, { recursive: true });
-    fs.writeFileSync(path.join(backupSqlite.BACKUPS_DIR, 'database_dev-2020-01-01.xlsx'), 'antigo');
-    backupSqlite.exportarXlsx();
-    expect(fs.existsSync(path.join(backupSqlite.BACKUPS_DIR, 'database_dev-2020-01-01.xlsx'))).toBe(false);
+    fs.writeFileSync(path.join(backupSqlite.BACKUPS_DIR, 'database_dev-2026-01-01.xlsx'), 'antigo1');
+    fs.writeFileSync(path.join(backupSqlite.BACKUPS_DIR, 'database_dev-2026-01-02.xlsx'), 'antigo2');
+    backupSqlite.exportarXlsx(); // cria a cópia de hoje, 3ª no total
+
+    const restantes = fs.readdirSync(backupSqlite.BACKUPS_DIR).filter((f: string) => f.startsWith('database_dev-')).sort();
+    expect(restantes).toHaveLength(2);
+    expect(restantes[0]).not.toBe('database_dev-2026-01-01.xlsx');
   });
 });
 
