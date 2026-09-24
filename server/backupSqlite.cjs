@@ -54,6 +54,12 @@ async function snapshotSqlite(dia = hojeLocal()) {
   return destino;
 }
 
+// Limite rígido de caracteres por célula do formato .xlsx (não é regra do
+// app, é do próprio Excel) — sem isso, `xlsx.writeFile` lança e o mirror
+// inteiro falha (visto em produção com `transcricao` de reunião longa). O
+// SQLite, fonte real dos dados, não trunca nada.
+const LIMITE_CELULA_XLSX = 32767;
+
 /**
  * Serializa arrays/objetos como JSON string por célula — mesma convenção que
  * o app sempre usou pro Excel (SheetJS não grava array/objeto direto numa
@@ -61,8 +67,11 @@ async function snapshotSqlite(dia = hojeLocal()) {
  * estão, igual sempre foi.
  */
 function paraCelulaXlsx(valor) {
-  if (valor !== null && typeof valor === 'object') return JSON.stringify(valor);
-  return valor;
+  const v = valor !== null && typeof valor === 'object' ? JSON.stringify(valor) : valor;
+  if (typeof v === 'string' && v.length > LIMITE_CELULA_XLSX) {
+    return `${v.slice(0, LIMITE_CELULA_XLSX - 20)}\n[...truncado]`;
+  }
+  return v;
 }
 
 function linhaParaXlsx(headers, obj) {

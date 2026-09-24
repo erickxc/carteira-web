@@ -56,6 +56,18 @@ describe('backupSqlite: exportarXlsx', () => {
     expect(cadencias).toEqual([{ chave: 'monitoria_dias', valor: 30 }]);
   });
 
+  it('trunca célula acima do limite do Excel (32767 chars) em vez de falhar o export', () => {
+    dbSqlite.saveSheetData('Agenda', [
+      { id: 'e1', clientId: 'c1', date: '2026-01-01', transcricao: 'x'.repeat(40000) },
+    ]);
+    const destino = backupSqlite.exportarXlsx();
+
+    const wb = xlsx.readFile(destino);
+    const eventos = xlsx.utils.sheet_to_json(wb.Sheets['Agenda']) as { transcricao: string }[];
+    expect(eventos[0].transcricao.length).toBeLessThanOrEqual(32767);
+    expect(eventos[0].transcricao).toMatch(/\[\.\.\.truncado\]$/);
+  });
+
   it('cria também uma cópia datada em backups/, e a segunda chamada no mesmo dia não duplica', () => {
     backupSqlite.exportarXlsx();
     const arquivos1 = fs.readdirSync(backupSqlite.BACKUPS_DIR).filter((f: string) => f.startsWith('database_dev-'));
