@@ -62,3 +62,5 @@ export const relogioNoPrazo = motor.relogioNoPrazo;
 export const atendimentoEmDia = motor.atendimentoEmDia as (f: { relogios: RelogioServico[] }) => boolean;
 export const ehEntrega = motor.ehEntrega as (a: EventoAgenda) => boolean;
 export const ehConcluido = motor.ehConcluido as (a: { status?: string }) => boolean;
+/** Serviço dedutível para um evento sem serviço (Precificação → Price, Relatório → Monitoria, cliente com um serviço só); null = ambíguo. */
+export const servicoPadraoDoEvento = motor.servicoPadraoDoEvento as (evento: { type?: string }, cliente: Cliente | undefined) => string[] | null;

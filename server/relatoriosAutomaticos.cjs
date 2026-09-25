@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { repoPlanilha } = require('./dominio/repo.cjs');
 const { calcularProximaDataRelatorio } = require('./cadenciaRelatorio.cjs');
 const { gravarReuniaoJson } = require('./reunioesJson.cjs');
+const { servicoPadraoDoEvento } = require('../shared/cadenciaServico.cjs');
 
 const isStatusAtivo = (status) => /^ativ/i.test(String(status || '').trim());
 const naoCancelado = (a) => !/cancel|reagend/i.test(a.status || '');
@@ -28,7 +29,8 @@ function criarEventoRelatorio(cliente, data) {
     description: '',
     status: 'Agendado',
     monitores: JSON.stringify(cliente.monitor ? [cliente.monitor] : []),
-    servicos: JSON.stringify([]),
+    // Relatório é entrega de Monitoria (mesma regra da Ação de relatório).
+    servicos: JSON.stringify(servicoPadraoDoEvento({ type: 'Relatório' }, cliente)),
     checklist: JSON.stringify([]),
     preAnalise: JSON.stringify({ orientacoes: [], clientesGeral: '', produtosGeral: '' }),
     ata: '',

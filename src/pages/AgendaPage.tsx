@@ -45,6 +45,8 @@ export default function AgendaPage() {
   // Cancelado/Reagendado somem do calendário por padrão (evento morto, sem
   // ocupar mais o horário) — toggle revela pra quem quiser ver o histórico.
   const [mostrarCancelados, setMostrarCancelados] = usePersistedState('filtro:agenda:mostrarCancelados', false);
+  // Revisão do legado: só eventos sem serviço (qualquer tipo). Não persiste de propósito.
+  const [soSemServico, setSoSemServico] = useState(false);
   const [mostrarAgendaCeo, setMostrarAgendaCeo] = usePersistedState('carteira:mostrarAgendaCeo', false);
   const [eventoCeoAberto, setEventoCeoAberto] = useState<EventoCeo | null>(null);
   const [mostrarRecomendadas, setMostrarRecomendadas] = usePersistedState('filtro:agenda:mostrarRecomendadas', false);
@@ -84,17 +86,23 @@ export default function AgendaPage() {
   // simplesmente ignorado aqui — mudar ele no header não tinha efeito
   // nenhum na Agenda, e quem via a lista "presa" era só o local (bug real
   // reportado: trocar o filtro global não mudava nada na tela).
+  const totalSemServico = useMemo(
+    () => agenda.filter((a) => (a.servicos ?? []).length === 0 && (filtroMonitor === 'Todos' || (a.monitores?.length ? a.monitores : [monitorPorCliente.get(a.clientId) || '']).includes(filtroMonitor))).length,
+    [agenda, filtroMonitor, monitorPorCliente]
+  );
   const agendaFiltrada = useMemo(
     () => agenda.filter((a) => {
       const monitoresDoEvento = a.monitores && a.monitores.length > 0
         ? a.monitores
         : [monitorPorCliente.get(a.clientId) || ''];
+      const semServico = (a.servicos ?? []).length === 0;
       return (filtroMonitor === 'Todos' || monitoresDoEvento.includes(filtroMonitor)) &&
         (fMonitores.length === 0 || monitoresDoEvento.some((m) => fMonitores.includes(m))) &&
-        (fTipos.length === 0 || fTipos.includes(a.type)) &&
+        // No modo revisão, o filtro Tipo não vale: contato sem serviço também precisa aparecer.
+        (soSemServico ? semServico : (fTipos.length === 0 || fTipos.includes(a.type))) &&
         (mostrarCancelados || !/cancel|reagend/i.test(a.status || ''));
     }),
-    [agenda, filtroMonitor, fMonitores, fTipos, mostrarCancelados, monitorPorCliente]
+    [agenda, filtroMonitor, fMonitores, fTipos, mostrarCancelados, monitorPorCliente, soSemServico]
   );
 
 
@@ -316,6 +324,11 @@ export default function AgendaPage() {
             <label className="check-row" style={{ fontSize: '0.85rem' }}>
               <input type="checkbox" checked={mostrarCancelados} onChange={(e) => setMostrarCancelados(e.target.checked)} /> Mostrar cancelados
             </label>
+            {(totalSemServico > 0 || soSemServico) && (
+              <label className="check-row" style={{ fontSize: '0.85rem' }} title="Eventos sem serviço marcado não contam para prazo nenhum. Abra cada um e marque o serviço.">
+                <input type="checkbox" checked={soSemServico} onChange={(e) => setSoSemServico(e.target.checked)} /> Só sem serviço ({totalSemServico})
+              </label>
+            )}
             <label className="check-row" style={{ fontSize: '0.85rem' }}>
               <input type="checkbox" checked={mostrarAgendaCeo} onChange={(e) => setMostrarAgendaCeo(e.target.checked)} /> Agendas do Marco
             </label>

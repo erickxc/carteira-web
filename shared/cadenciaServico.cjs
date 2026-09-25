@@ -260,6 +260,27 @@ const atendimentoEmDia = (f) => f.relogios.length > 0 && f.relogios.every(relogi
 /** Entrega = Reunião, Relatório ou Precificação concluída — mesma definição em todo card. */
 const ehEntrega = (a) => /reuni|relat|precific/i.test(a.type || '') && ehConcluido(a);
 
+/**
+ * Serviço que dá pra afirmar sem perguntar, para evento sem serviço marcado:
+ * Precificação → o serviço de Price do cliente; Relatório → Monitoria (mesma
+ * regra da Ação de relatório); demais tipos → o único entre Monitoria/Price que
+ * o cliente contrata. `null` quando é ambíguo (contrata os dois) ou não há
+ * base: quem decide aí é uma pessoa. Usado pelo formulário (sugestão), pelo
+ * backend (eventos criados sem formulário) e pelo preenchimento do legado.
+ * Devolve os nomes como estão no cadastro (ex.: "Precificação").
+ */
+function servicoPadraoDoEvento(evento, cliente) {
+  const contratados = listaJSON(cliente?.servicos);
+  const monitoria = contratados.find((s) => /monitor/i.test(s));
+  const price = contratados.find((s) => /(price|prec)/i.test(s));
+  const tipo = evento?.type || '';
+  if (/precific/i.test(tipo)) return [price || 'Precificação'];
+  if (/relat/i.test(tipo)) return [monitoria || 'Monitoria'];
+  if (monitoria && !price) return [monitoria];
+  if (price && !monitoria) return [price];
+  return null;
+}
+
 /** Relógios a menos de `janela` dias do prazo e sem reunião futura marcada
  * (card "Vencendo", agente e alertas). Um atendimento com 2 serviços vencendo
  * aparece 2x. Mais urgente primeiro. */
@@ -441,6 +462,7 @@ exports.ehEntrega = ehEntrega;
 exports.relogioNoPrazo = relogioNoPrazo;
 exports.atendimentoEmDia = atendimentoEmDia;
 exports.itensVencendo = itensVencendo;
+exports.servicoPadraoDoEvento = servicoPadraoDoEvento;
 exports.ehToqueMonitoria = ehToqueMonitoria;
 exports.ehToquePrice = ehToquePrice;
 exports.calcularProximoPorServico = calcularProximoPorServico;

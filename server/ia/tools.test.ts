@@ -874,7 +874,7 @@ describe('agendamento', () => {
 
   it('99. criar_evento é bloqueado por conflito de monitor (guarda que só existia no formulário)', () => {
     const repo = repoBase({ Agenda: [{ id: 'e1', clientId: 'c1', clientName: 'Loja Teste', type: 'Reunião', status: 'Agendado', date: '2026-09-10', time: '14:00', monitores: ['Erick Cardoso'] }] });
-    expect(() => exec('criar_evento', repo, { clientId: 'c1', type: 'Reunião', date: '2026-09-10', time: '14:00', monitores: ['Erick Cardoso'] }))
+    expect(() => exec('criar_evento', repo, { clientId: 'c1', type: 'Reunião', date: '2026-09-10', time: '14:00', monitores: ['Erick Cardoso'], servicos: ['Monitoria'] }))
       .toThrow(/conflito de agenda/i);
   });
 
@@ -1371,7 +1371,7 @@ describe('criar_evento: status e formato de data', () => {
 
   it('grava `date` em ISO completo mesmo recebendo data pura (AAAA-MM-DD)', () => {
     const repo = repoBase();
-    const ev = exec('criar_evento', repo, { clientId: 'c1', type: 'Reunião', date: '2026-09-08', subject: 'x' });
+    const ev = exec('criar_evento', repo, { clientId: 'c1', type: 'Reunião', date: '2026-09-08', subject: 'x', servicos: ['Monitoria'] });
     expect(ev.date).toMatch(/^2026-09-08T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     // O dia civil não escorrega: é o mesmo 08/09 em qualquer fuso do Brasil.
     expect(ev.date.slice(0, 10)).toBe('2026-09-08');
@@ -1379,19 +1379,39 @@ describe('criar_evento: status e formato de data', () => {
 
   it('aceita `status` do cadastro em vez de fixar "Agendado"', () => {
     const repo = repoBase(statusCadastrados());
-    const ev = exec('criar_evento', repo, { clientId: 'c1', type: 'Reunião', date: '2026-09-08', status: 'Pendente' });
+    const ev = exec('criar_evento', repo, { clientId: 'c1', type: 'Reunião', date: '2026-09-08', status: 'Pendente', servicos: ['Monitoria'] });
     expect(ev.status).toBe('Pendente');
   });
 
   it('status inexistente ERRA com a lista válida — não grava torto nem finge sucesso', () => {
     const repo = repoBase(statusCadastrados());
-    expect(() => exec('criar_evento', repo, { clientId: 'c1', type: 'Reunião', date: '2026-09-08', status: 'Rascunho' }))
+    expect(() => exec('criar_evento', repo, { clientId: 'c1', type: 'Reunião', date: '2026-09-08', status: 'Rascunho', servicos: ['Monitoria'] }))
       .toThrow(/Rascunho.*não existe.*Agendado, Pendente/s);
   });
 
   it('sem `status`, continua "Agendado" (comportamento anterior preservado)', () => {
-    const ev = exec('criar_evento', repoBase(), { clientId: 'c1', type: 'Reunião', date: '2026-09-08' });
+    const ev = exec('criar_evento', repoBase(), { clientId: 'c1', type: 'Reunião', date: '2026-09-08', servicos: ['Monitoria'] });
     expect(ev.status).toBe('Agendado');
+  });
+});
+
+describe('criar_evento / atualizar_evento: serviço obrigatório', () => {
+  it('cliente com Monitoria e Price: sem serviço ERRA pedindo qual (não grava vazio)', () => {
+    const repo = repoBase();
+    expect(() => exec('criar_evento', repo, { clientId: 'c1', type: 'Contato', date: '2026-09-08' })).toThrow(/servicos" é obrigatório/);
+    expect(repo.get('Agenda')).toHaveLength(0);
+  });
+
+  it('deduz o serviço quando é certo: cliente com um serviço só, ou Precificação/Relatório', () => {
+    const umServico = repoBase({ Clientes: [clienteBase({ servicos: ['Monitoria'] })] });
+    expect(exec('criar_evento', umServico, { clientId: 'c1', type: 'Ligação', date: '2026-09-08' }).servicos).toEqual(['Monitoria']);
+    expect(exec('criar_evento', repoBase(), { clientId: 'c1', type: 'Precificação', date: '2026-09-08' }).servicos).toEqual(['Precificação']);
+    expect(exec('criar_evento', repoBase(), { clientId: 'c1', type: 'Relatório', date: '2026-09-08' }).servicos).toEqual(['Monitoria']);
+  });
+
+  it('atualizar_evento não deixa esvaziar o serviço', () => {
+    const repo = repoBase({ Agenda: [{ id: 'e1', clientId: 'c1', type: 'Reunião', date: '2026-09-08', status: 'Agendado', servicos: ['Monitoria'] }] });
+    expect(() => exec('atualizar_evento', repo, { eventId: 'e1', servicos: [] })).toThrow(/não pode ficar vazio/);
   });
 });
 

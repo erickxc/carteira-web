@@ -99,6 +99,10 @@ export function ehConcluido(a: { status?: string }): boolean;
 export function ehEntrega(a: EventoCadencia): boolean;
 export function relogioNoPrazo(r: RelogioServico): boolean;
 export function atendimentoEmDia(f: { relogios: RelogioServico[] }): boolean;
+export function servicoPadraoDoEvento(
+  evento: { type?: string } | null | undefined,
+  cliente: { servicos?: string[] | string } | null | undefined
+): string[] | null;
 export function itensVencendo<F extends { cliente: { empresa?: string }; relogios: RelogioServico[] }>(
   fila: F[],
   janela?: number

@@ -12,6 +12,7 @@ const {
   calcularAderencia, listaJSON, buscarVencendo, buscarCobertura, buscarCoberturaServicos, buscarAlertasSemAcompanhamento,
   buildFilaCadencia, classificarCadencia, isClienteAtivo,
 } = require('../dominio/cadenciaServico.cjs');
+const { servicoPadraoDoEvento } = require('../../shared/cadenciaServico.cjs');
 const { sugerirAgenda } = require('../dominio/sugestaoAgenda.cjs');
 const { getCache: getCacheCeoAgenda } = require('../ceoAgenda.cjs');
 const { CADENCIAS_SEED, UPLOADS_DIR } = require('../config.cjs');
@@ -702,7 +703,14 @@ function criarEvento(repo, args) {
   // Tudo que é opção de cadastro passa por `resolverOpcao` ANTES de gravar —
   // ver o comentário lá sobre o "Erick" que virou campo vazio na tela.
   const type = resolverOpcao(repo, 'tipo_evento', args.type, 'criar_evento: type');
-  const servicos = resolverLista(repo, 'servico', args.servicos, 'criar_evento: servicos');
+  // Serviço é obrigatório em todo evento. Sem ele, usa o dedutível do cliente
+  // (Precificação → Price, Relatório → Monitoria, cliente com um serviço só);
+  // se for ambíguo, erra pedindo o serviço em vez de gravar vazio.
+  const servicosPedidos = listaJSON(args.servicos).length ? args.servicos : servicoPadraoDoEvento({ type }, cliente);
+  if (!servicosPedidos) {
+    throw new Error(`criar_evento: "servicos" é obrigatório — ${cliente.empresa} contrata ${listaJSON(cliente.servicos).join(', ') || 'nenhum serviço'}; pergunte ao usuário qual deles o evento trata.`);
+  }
+  const servicos = resolverLista(repo, 'servico', servicosPedidos, 'criar_evento: servicos');
   const monitores = resolverLista(repo, 'monitor', args.monitores, 'criar_evento: monitores');
   const sala = args.sala ? resolverOpcao(repo, 'sala', args.sala, 'criar_evento: sala') : args.sala;
   // `status` agora é PARÂMETRO validado: era fixo em "Agendado", então pedir
@@ -751,7 +759,10 @@ function atualizarEvento(repo, args) {
   if (args.type !== undefined) patch.type = resolverOpcao(repo, 'tipo_evento', args.type, 'atualizar_evento: type');
   if (args.status !== undefined) patch.status = resolverOpcao(repo, 'status_evento', args.status, 'atualizar_evento: status');
   if (args.sala !== undefined) patch.sala = args.sala ? resolverOpcao(repo, 'sala', args.sala, 'atualizar_evento: sala') : '';
-  if (args.servicos !== undefined) patch.servicos = resolverLista(repo, 'servico', args.servicos, 'atualizar_evento: servicos') || [];
+  if (args.servicos !== undefined) {
+    patch.servicos = resolverLista(repo, 'servico', args.servicos, 'atualizar_evento: servicos') || [];
+    if (patch.servicos.length === 0) throw new Error('atualizar_evento: "servicos" não pode ficar vazio — todo evento precisa de pelo menos um serviço.');
+  }
   if (args.monitores !== undefined) patch.monitores = resolverLista(repo, 'monitor', args.monitores, 'atualizar_evento: monitores') || [];
   if (args.date !== undefined) patch.date = normalizarDataEvento(args.date, 'atualizar_evento: date');
   if (args.time !== undefined) patch.time = args.time || '';
@@ -1909,7 +1920,7 @@ const FERRAMENTAS = [
         time: { type: 'string', description: 'Hora local HH:mm (ex.: "14:30"). Sem isso, uma Reunião é criada sem checagem de conflito de horário.' },
         subject: { type: 'string' },
         description: { type: 'string' },
-        servicos: { type: 'array', items: { type: 'string' }, description: 'Serviços tratados no evento, exatamente como cadastrados (ex.: "Monitoria").' },
+        servicos: { type: 'array', items: { type: 'string' }, description: 'Serviços tratados no evento, exatamente como cadastrados (ex.: "Monitoria"). OBRIGATÓRIO em todo tipo, inclusive contato e ligação — só pode omitir quando o cliente contrata um único serviço (ou para Precificação/Relatório, que têm serviço definido pelo tipo); se o cliente tem Monitoria e Price, pergunte ao usuário.' },
         monitores: { type: 'array', items: { type: 'string' }, description: 'Nome COMPLETO do monitor, como cadastrado (ex.: "Erick Cardoso", não "Erick").' },
         sala: { type: 'string', description: 'Sala, como cadastrada.' },
         status: { type: 'string', description: 'Status do evento, como cadastrado (ex.: "Agendado", "Pendente"). Padrão "Agendado". Se o usuário pedir um status que não existe no cadastro, a ferramenta erra com a lista válida — NÃO diga que criou com esse status.' },

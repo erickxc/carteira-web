@@ -5,7 +5,7 @@ import { useCarteira } from '../context/CarteiraContext';
 import { gerarAta } from '../utils/ata';
 import { limparStreamAtaIA } from '../utils/limparStreamAtaIA';
 import { registrarRemarcacao } from '../utils/reagendamento';
-import { ehServicoDeReuniao } from '../utils/cadenciaServico';
+import { ehServicoDeReuniao, servicoPadraoDoEvento } from '../utils/cadenciaServico';
 import { gerarAtaPdf } from '../utils/ataPdf';
 import {
   gerarAtaComIAStream, buscarCatalogoAlvos,
@@ -104,7 +104,13 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   // Filtra também o que já estava GRAVADO: um serviço informacional marcado
   // antes desta regra ficaria invisível nos chips e seria regravado a cada
   // Salvar (mesma armadilha do monitor fora do cadastro).
-  const [servicos, setServicos] = useState<string[]>((initial?.servicos ?? []).filter(ehServicoDeReuniao));
+  // Serviço é obrigatório em todo tipo. Enquanto a pessoa não mexer nos chips
+  // (`servicosEscolhidos` null), vale a sugestão dedutível (Precificação →
+  // Price, Relatório → Monitoria, cliente com um serviço só) — inclusive ao
+  // editar evento antigo sem serviço. Cliente com Monitoria e Price: vazio.
+  const servicosGravados = (initial?.servicos ?? []).filter(ehServicoDeReuniao);
+  const [servicosEscolhidos, setServicosEscolhidos] = useState<string[] | null>(servicosGravados.length > 0 ? servicosGravados : null);
+  const servicos = servicosEscolhidos ?? servicoPadraoDoEvento({ type }, clientes.find((c) => c.id === clientId)) ?? [];
   const [sala, setSala] = useState(initial?.sala ?? '');
   // Contato/Ligação criados aqui são, por definição, iniciativa nossa (quem
   // registra é o monitor). Contato recebido do cliente entra pelo
@@ -139,7 +145,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
 
   // Contato/Relatório/Precificação são interações leves — form enxuto, sem
   // toda a maquinaria de reunião (ata, checklist, pré-análise, resumo,
-  // serviços, anexos...). Precificação = entrega avulsa nossa (fora de
+  // anexos...) — só o serviço, que é obrigatório em todo tipo. Precificação = entrega avulsa nossa (fora de
   // reunião), mesmo espírito de Relatório. Match por palavra-chave porque
   // `type` vem de categorias editáveis (mesmo padrão de src/utils/badges.ts),
   // não igualdade exata.
@@ -188,7 +194,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const mesmoDiaHora = (a: EventoAgenda) => Boolean(time) && dataValida && a.time === time && format(dataSegura, 'yyyy-MM-dd') === format(new Date(a.date), 'yyyy-MM-dd');
 
   const toggleServico = (s: string) =>
-    setServicos((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+    setServicosEscolhidos(servicos.includes(s) ? servicos.filter((x) => x !== s) : [...servicos, s]);
 
   // Data segura: o <input type="date"> pode emitir um valor momentaneamente
   // inválido/incompleto enquanto o usuário digita os dígitos manualmente (varia
@@ -332,7 +338,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     if (!modoSimples && !subject.trim()) { toastError('Informe a descrição da reunião.'); return; }
     // Reunião sem serviço tratado marcado cai no fallback genérico "Reunião"
     // nos cards da Agenda (semana/mês) — obrigatório pra sempre saber o que foi tratado.
-    if (ehReuniao && servicos.length === 0) { toastError('Marque ao menos um serviço tratado.'); return; }
+    if (servicos.length === 0) { toastError('Marque ao menos um serviço (Monitoria ou Precificação).'); return; }
     const statusFinalPre = statusOverride ?? status;
     const motivoFinal = motivoOverride ?? motivo;
     if (/reagend/i.test(statusFinalPre) && !motivoFinal.trim()) { toastError('Informe o motivo do reagendamento.'); return; }
@@ -356,7 +362,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         duracao: modoSimples ? undefined : (duracao || undefined),
         description,
         status: statusFinal,
-        servicos: modoSimples ? [] : servicos,
+        servicos,
         preAnalise: modoSimples ? undefined : pa.preAnalise,
         resumo: modoSimples ? '' : resumo,
         transcricao: modoSimples ? '' : transcricao,
@@ -411,7 +417,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
           clientId, clientName: cliente.empresa, subject, type, time,
           duracao: modoSimples ? undefined : (duracao || undefined),
           monitores,
-          servicos: modoSimples ? [] : servicos,
+          servicos,
           sala: ehReuniao ? (sala || undefined) : undefined,
           regra, lembretes: rec.lembretesOffsets,
           inicio: format(baseData, 'yyyy-MM-dd'),
@@ -472,7 +478,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         clientId, clientName: cliente.empresa, type: tipoContato,
         subject: 'Contato ao cancelar reunião pendente', description: '',
         date: agora.toISOString(), time: format(agora, 'HH:mm'),
-        status: statusConcluido, origem: 'nos', servicos: [], monitores,
+        status: statusConcluido, origem: 'nos', servicos, monitores,
       });
     } catch (err) {
       toastError(err instanceof Error ? err.message : 'Falha ao registrar o contato do cancelamento.');
@@ -686,8 +692,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                 também no modo enxuto (follow-up do contato), só em criação. */}
             {!editando && <RecorrenciaFields rec={rec} baseData={dataValida ? dataSegura : null} />}
 
-            {!modoSimples && (<>
-            <Field as="div" label="Serviços tratados">
+            <Field as="div" label="Serviços tratados *">
               {servicoOpcoes.length === 0 ? (
                 <p className="text-text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>Nenhum serviço cadastrado — adicione em Configurações.</p>
               ) : (
@@ -699,6 +704,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
               )}
             </Field>
 
+            {!modoSimples && (<>
             {ehMonitoriaServico && (
               <ProdutosSituacaoField
                 ps={ps}

@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { repoPlanilha } = require('./dominio/repo.cjs');
 const { datasNoIntervalo, parseDataLocal } = require('./regraRecorrencia.cjs');
 const { gravarReuniaoJson } = require('./reunioesJson.cjs');
+const { listaJSON, servicoPadraoDoEvento } = require('../shared/cadenciaServico.cjs');
 
 /**
  * Materialização de séries recorrentes de agenda — mesmo padrão de
@@ -39,7 +40,10 @@ function aplicarOffsetLembrete(dataEvento, horaEvento, offset) {
   return delta ? new Date(base.getTime() - delta) : (offset === 'none' ? null : base);
 }
 
-function criarEventoDaSerie(serie, data) {
+/** Série antiga sem serviço herda o serviço dedutível do cliente (serviço é obrigatório). */
+function criarEventoDaSerie(serie, data, cliente) {
+  const servicosDaSerie = listaJSON(serie.servicos);
+  const servicos = servicosDaSerie.length ? servicosDaSerie : (servicoPadraoDoEvento(serie, cliente) ?? []);
   const agora = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
@@ -54,7 +58,7 @@ function criarEventoDaSerie(serie, data) {
     description: '',
     status: 'Agendado',
     monitores: JSON.stringify(parseJSON(serie.monitores, [])),
-    servicos: JSON.stringify(parseJSON(serie.servicos, [])),
+    servicos: JSON.stringify(servicos),
     sala: serie.sala || undefined,
     checklist: JSON.stringify([]),
     preAnalise: JSON.stringify({ orientacoes: [], clientesGeral: '', produtosGeral: '' }),
@@ -70,7 +74,7 @@ function criarEventoDaSerie(serie, data) {
  * Idempotente: nunca cria duas vezes o mesmo dia da mesma série (checa pelas
  * linhas de Agenda já gravadas com `serie === serie.id`).
  */
-function materializarSerie(serie, agenda, lembretesSheet, janelaInicio, janelaFim) {
+function materializarSerie(serie, agenda, lembretesSheet, janelaInicio, janelaFim, cliente) {
   const regra = parseJSON(serie.regra, null);
   if (!regra) return { criados: 0 };
 
@@ -94,7 +98,7 @@ function materializarSerie(serie, agenda, lembretesSheet, janelaInicio, janelaFi
     const chave = `${data.getFullYear()}-${data.getMonth()}-${data.getDate()}`;
     if (jaExistentes.has(chave)) continue;
 
-    const novoEvento = criarEventoDaSerie(serie, data);
+    const novoEvento = criarEventoDaSerie(serie, data, cliente);
     agenda.push(novoEvento);
     gravarReuniaoJson(novoEvento);
     criados++;
@@ -137,6 +141,7 @@ function materializarTudo(opts = {}) {
   const series = repo.get('AgendaSeries').filter(ehAtiva);
   const agenda = repo.get('Agenda');
   const lembretesSheet = repo.get('Lembretes');
+  const clientesPorId = new Map(repo.get('Clientes').map((c) => [String(c.id), c]));
 
   const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
   const fimMes = fimDoMes(agora);
@@ -145,7 +150,8 @@ function materializarTudo(opts = {}) {
   for (const serie of series) {
     if (apenasSerieId && String(serie.id) !== String(apenasSerieId)) continue;
     try {
-      const { criados } = materializarSerie(serie, agenda, lembretesSheet, inicioMes, fimMes);
+      const cliente = clientesPorId.get(String(serie.clientId));
+      const { criados } = materializarSerie(serie, agenda, lembretesSheet, inicioMes, fimMes, cliente);
       totalCriados += criados;
     } catch (err) {
       console.warn(`materializarTudo: falha na série "${serie.subject || serie.type}" (${serie.id}):`, err.message);

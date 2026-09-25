@@ -20,6 +20,8 @@ teste, ajuste interno), não entra aqui.
 - "Sem acompanhamento" considera só contatos e entregas concluídos.
 - Price passa a ter prazo padrão de 15 dias.
 - "Vencendo" mostra só Monitoria e Price, e "Cobertura por Serviço" não conta mais serviço independente.
+- Todo evento, inclusive contato e ligação, agora exige o serviço. O formulário já sugere o serviço quando dá para saber.
+- Na Agenda, a opção "Só sem serviço" lista os eventos antigos que ainda precisam do serviço marcado.
 
 ## 1.4.45
 

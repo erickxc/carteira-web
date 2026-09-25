@@ -149,7 +149,7 @@ describe('criar_evento: resolve antes de gravar', () => {
   it('falha ANTES de gravar quando o monitor não existe — não cria evento com dado ruim', () => {
     const repo = repoComCliente();
     expect(() => F('criar_evento').executar(repo, {
-      clientId: 'c1', type: 'Reunião', date: '2026-09-10', monitores: ['Fulano'],
+      clientId: 'c1', type: 'Reunião', date: '2026-09-10', monitores: ['Fulano'], servicos: ['Monitoria'],
     })).toThrow(/não existe/);
     expect(repo.get('Agenda')).toHaveLength(0);
   });

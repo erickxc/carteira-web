@@ -1,4 +1,5 @@
 const { z } = require('zod');
+const { listaJSON } = require('../shared/cadenciaServico.cjs');
 
 // ---------------------------------------------------------------------------
 // Validação de entrada (zod)
@@ -22,17 +23,27 @@ const clienteCreateSchema = z.object({ empresa: textoObrigatorio('empresa') }).p
 const clienteUpdateSchema = z.object({ empresa: textoObrigatorio('empresa').optional() }).passthrough();
 const clienteBulkItemSchema = clienteCreateSchema.extend({ id: textoObrigatorio('id') });
 
+// Serviço obrigatório em todo evento (qualquer tipo): sem ele não dá pra saber
+// qual prazo o evento cumpre. Aceita array ou string JSON (legado).
+const servicosObrigatorios = z.any().refine((v) => listaJSON(v).length > 0, {
+  message: 'Informe pelo menos um serviço do evento.',
+});
+
 // subject NÃO é obrigatório: Contato/Relatório são eventos sem assunto. A
 // exigência de assunto para reunião vive no frontend (decisão de UX), não aqui.
 const agendaCreateSchema = z.object({
   clientId: textoObrigatorio('clientId'),
   date: textoObrigatorio('date'),
   type: textoObrigatorio('type'),
+  servicos: servicosObrigatorios,
 }).passthrough();
+// Na edição, só bloqueia ESVAZIAR o campo: um patch sem `servicos` (mover a
+// data de um evento legado, por exemplo) continua valendo.
 const agendaUpdateSchema = z.object({
   clientId: textoObrigatorio('clientId').optional(),
   date: textoObrigatorio('date').optional(),
   type: textoObrigatorio('type').optional(),
+  servicos: servicosObrigatorios.optional(),
 }).passthrough();
 const agendaBulkItemSchema = agendaCreateSchema.extend({ id: textoObrigatorio('id') });
 

@@ -5,6 +5,7 @@ import { ModalShell } from './ModalShell';
 import { ClienteCombobox } from './ClienteCombobox';
 import { toastError, toastSuccess } from '../utils/toast';
 import { contatosVisiveis } from '../utils/contatos';
+import { ehServicoDeReuniao, servicoPadraoDoEvento } from '../utils/cadenciaServico';
 import { Button, Chip, Field, Input, Textarea } from '../ui';
 import { SelectField } from './SelectField';
 
@@ -37,7 +38,8 @@ export function RegistroContatoModal({ clienteId, onClose }: RegistroContatoModa
     return filtrados.length > 0 ? filtrados : ['Contato'];
   }, [opcoesPorTipo]);
 
-  const servicoOpcoes = opcoesPorTipo('servico');
+  // Só serviços com prazo (Monitoria/Precificação), igual ao formulário de evento.
+  const servicoOpcoes = opcoesPorTipo('servico').filter(ehServicoDeReuniao);
   const monitorOpcoes = opcoesPorTipo('monitor');
 
   // Status vem das categorias (o usuário pode renomear "Concluído"), então
@@ -51,7 +53,8 @@ export function RegistroContatoModal({ clienteId, onClose }: RegistroContatoModa
   const [clientId, setClientId] = useState(clienteId ?? '');
   const [tipo, setTipo] = useState(tiposContato[0]);
   const [quem, setQuem] = useState('');
-  const [servicos, setServicos] = useState<string[]>([]);
+  // Serviço é obrigatório: vale a sugestão dedutível até a pessoa mexer nos chips.
+  const [servicosEscolhidos, setServicosEscolhidos] = useState<string[] | null>(null);
   const [monitor, setMonitor] = useState('');
   const [data, setData] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [hora, setHora] = useState(format(new Date(), 'HH:mm'));
@@ -62,14 +65,16 @@ export function RegistroContatoModal({ clienteId, onClose }: RegistroContatoModa
   // Inclui contatos compartilhados por outras lojas do mesmo grupo — quem ligou
   // pode ser a pessoa cadastrada na loja irmã.
   const contatosDoCliente = useMemo(() => contatosVisiveis(cliente, clientes), [cliente, clientes]);
+  const servicos = servicosEscolhidos ?? servicoPadraoDoEvento({ type: tipo }, cliente) ?? [];
 
   function toggleServico(s: string) {
-    setServicos((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+    setServicosEscolhidos(servicos.includes(s) ? servicos.filter((x) => x !== s) : [...servicos, s]);
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!cliente) { toastError('Selecione o cliente.'); return; }
+    if (servicos.length === 0) { toastError('Marque sobre qual serviço foi o contato.'); return; }
     setSalvando(true);
     try {
       // `parse` local em vez de new Date(string): "2026-08-12" no construtor é
@@ -165,7 +170,7 @@ export function RegistroContatoModal({ clienteId, onClose }: RegistroContatoModa
       />
 
       {servicoOpcoes.length > 0 && (
-        <Field as="div" label="Sobre qual serviço">
+        <Field as="div" label="Sobre qual serviço *">
           <div className="flex flex-wrap gap-2">
             {servicoOpcoes.map((s) => (
               <Chip variant="toggle" key={s} active={servicos.includes(s)} onClick={() => toggleServico(s)}>{s}</Chip>
