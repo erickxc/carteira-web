@@ -12,8 +12,7 @@ import { CoberturaCard } from '../components/dashboard/CoberturaCard';
 import { AderenciaCard } from '../components/dashboard/AderenciaCard';
 import { VencendoCard } from '../components/dashboard/VencendoCard';
 import { ServicosCard } from '../components/dashboard/ServicosCard';
-import { ProximasAgendasCard } from '../components/dashboard/ProximasAgendasCard';
-import { AlertasSemAcompanhamentoCard } from '../components/dashboard/AlertasSemAcompanhamentoCard';
+import { AFazerCard } from '../components/dashboard/AFazerCard';
 import { AlertasProgramadosCard } from '../components/dashboard/AlertasProgramadosCard';
 import { TendenciaMensalCard } from '../components/dashboard/TendenciaMensalCard';
 import { Top10AtendimentosCard } from '../components/dashboard/Top10AtendimentosCard';
@@ -170,23 +169,15 @@ export default function DashboardPage() {
       {/* 3. Ação */}
       <h2 className="dash-bloco-titulo">A fazer</h2>
       <div className="dash-acao">
-        <AlertasSemAcompanhamentoCard
+        <AFazerCard
           alertas={d.alertas}
           totalAnterior={d.alertasAnterior}
           rotuloAnterior={rotuloData}
           followUpDays={d.followUpThresholdDays}
+          proximaPorCliente={d.proximaPorCliente}
           programados={programados}
           onAbrirCliente={(clienteId) => navigate(`/clientes/${clienteId}`)}
           onProgramarRelatorio={programarRelatorio}
-        />
-        <div className="dash-acao-coluna">
-        <VencendoCard
-          total={d.vencendo.total}
-          itens={d.vencendo.itens}
-          filtroServico={d.filtroServicoVencendo}
-          onFiltroServico={d.setFiltroServicoVencendo}
-        />
-        <ProximasAgendasCard
           tiposDisponiveis={d.tiposDisponiveis}
           filtroTipo={d.filtroTipo}
           onFiltroTipo={d.setFiltroTipo}
@@ -195,7 +186,12 @@ export default function DashboardPage() {
           onVerAgenda={() => navigate('/agenda')}
           onSelecionarEvento={(ev) => navigate('/agenda', { state: { focusDate: ev.date } })}
         />
-        </div>
+        <VencendoCard
+          total={d.vencendo.total}
+          itens={d.vencendo.itens}
+          filtroServico={d.filtroServicoVencendo}
+          onFiltroServico={d.setFiltroServicoVencendo}
+        />
       </div>
 
       {/* 4. Análise */}

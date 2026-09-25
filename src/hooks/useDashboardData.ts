@@ -552,6 +552,18 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
       .sort((a, b) => chaveOrdem(a).localeCompare(chaveOrdem(b))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [agendaPorMonitor]);
+  // Próximo compromisso (não relatório) de cada atendimento — cruza "sem
+  // acompanhamento" com o que já está marcado, pra não cobrar quem já tem reunião.
+  const proximaPorCliente = useMemo(() => {
+    const m = new Map<string, EventoAgenda>();
+    for (const a of agendaPorMonitor) {
+      if (!aindaVai(a) || /relat/i.test(a.type || '')) continue;
+      const atual = m.get(a.clientId);
+      if (!atual || chaveOrdem(a) < chaveOrdem(atual)) m.set(a.clientId, a);
+    }
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agendaPorMonitor]);
 
   // --- Alertas de acompanhamento (reunião OU ação concluída) ---
   const alertas = prazo.semAcompanhamento;
@@ -582,7 +594,7 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
     foraDaMonitoria, semLinha, semSegmento, inicioHistorico,
     top10AtendimentosAno, filtroServicoTop10, setFiltroServicoTop10,
     vencendo, filtroServicoVencendo, setFiltroServicoVencendo,
-    tiposDisponiveis, proximos, relatoriosSemana,
+    tiposDisponiveis, proximos, relatoriosSemana, proximaPorCliente,
     alertas, alertasAnterior, alertasProgramados,
     followUpThresholdDays: FOLLOW_UP_THRESHOLD_DAYS,
   };
