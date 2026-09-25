@@ -171,6 +171,27 @@ afirmar precisão que não tem.
 Janelas próprias: o card Atendimento passa a seguir o mês do filtro do topo (1.5);
 Recuperados mantém o trimestre, escrito no cabeçalho.
 
+## 3b. Dashboard da Carteira (`/clientes/dashboard`)
+
+Mesmo contrato de KPI da seção 3 ("X de Y", referência ao mês anterior, linha de "como
+conta"). Unidade: **atendimento** em todos os cards, com rótulo certo; só o KPI "Total
+de clientes" conta rede.
+
+| Indicador | Regra nova | Hoje (25/09) |
+|---|---|---|
+| Total de clientes | redes ativas (sem mudança) | 30 |
+| Atendimentos ativos | sem mudança | 38 |
+| Atendimentos inativos → **Fora da monitoria** | mesmo número, com a quebra por motivo: Atendido pelo Marco, Suspenso, Problemas Externos, pausados, `estado` Inativo | 17 = Marco 5 + Suspenso 5 + Problemas Externos 7 |
+| Novos clientes no mês → **Novos atendimentos no mês** | cadastros criados no mês | 1 (Mosca Branca) |
+| Serviços por cliente ativo → **Serviços por atendimento** | média só de Monitoria e Price (os com prazo); os outros serviços aparecem na linha de "como conta" | 2,2 → 1,6 |
+| Crescimento da Carteira | **atendimentos ativos no fim de cada mês**, a partir do `StatusHistorico` (`clientesEm`); meses antes do início do log ficam marcados como aproximação | hoje: acumulado de cadastros, nunca cai (55, com 17 inativos) |
+| Profundidade de Serviços | por atendimento, rótulo corrigido | 1: 7 · 2: 17 · 3+: 14 |
+| Distribuição de Risco | por atendimento; comparação com a mesma data do mês anterior via `AnalisesIAHistorico` | alto 14 · médio 19 · baixo 4 · sem análise 1 |
+| Saúde da Carteira | passa a respeitar o filtro de monitor (hoje é o único que ignora) | 55 cadastros por status |
+| Concentração por Monitor | some quando há monitor selecionado no filtro global | Yann 20 · Erick 18 |
+| Segmento / Linha | "Não informado" sai das barras e vira pendência ("15 atendimentos sem segmento") | segmento: 15 de 38 vazios; linha: 2 |
+| Abrangência (mapa) | nota fixa "estado estimado pelo DDD do telefone" | 33 de 38 com DDD próprio; Mosca Branca sem telefone |
+
 ## 4. monitorIA
 
 - `buscar_cobertura`, `buscar_cobertura_servicos`, fila e aderência do agente usam o
@@ -193,6 +214,17 @@ Recuperados mantém o trimestre, escrito no cabeçalho.
 - Validação: evento sem serviço é rejeitado (backend e formulário).
 - Script de legado: dedução certa, ambíguo intocado, idempotente, backup gerado.
 - Paridade tela × monitorIA para Cobertura e Ritmo com o mesmo dado.
+
+## Ordem de entrega
+
+Cada fase é uma release própria, testável sozinha:
+
+1. **Regras de cálculo**: motor (1.2 a 1.4), Price 15 dias, cópias do backend e
+   glossário do monitorIA. Muda números, não muda layout.
+2. **Serviço obrigatório e legado**: validação, script de preenchimento com backup,
+   filtro "sem serviço" na Agenda.
+3. **Visão Geral**: blocos, contrato de KPI, comparações, cards dos blocos 3 e 4 (1.5).
+4. **Dashboard da Carteira** (3b).
 
 ## Riscos
 
