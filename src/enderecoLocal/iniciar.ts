@@ -1,5 +1,5 @@
 import {
-  CHAVE_MOSTRAR_AVISO, PARAM_PREFS, desempacotarPrefs, destinoDoEndereco, ehEnderecoDoExe, empacotarPrefs, estaNoEnderecoPorNome, prefsParaGravar,
+  CHAVE_AVISO_DISPENSADO, CHAVE_MOSTRAR_AVISO, PARAM_PREFS, desempacotarPrefs, destinoDoEndereco, ehEnderecoDoExe, empacotarPrefs, estaNoEnderecoPorNome, prefsParaGravar,
 } from './regras';
 
 const TIMEOUT_MS = 1500;
@@ -15,7 +15,9 @@ function receberPrefsDaUrl(): void {
   if (pacote === null) return;
   const gravar = prefsParaGravar(desempacotarPrefs(pacote), (k) => localStorage.getItem(k) !== null);
   Object.entries(gravar).forEach(([k, v]) => localStorage.setItem(k, v));
-  if (estaNoEnderecoPorNome(window.location)) localStorage.setItem(CHAVE_MOSTRAR_AVISO, '1');
+  if (estaNoEnderecoPorNome(window.location) && localStorage.getItem(CHAVE_AVISO_DISPENSADO) !== '1') {
+    localStorage.setItem(CHAVE_MOSTRAR_AVISO, '1');
+  }
   window.history.replaceState(null, '', window.location.pathname + window.location.search);
 }
 

@@ -3,18 +3,20 @@ import { Copy } from 'lucide-react';
 import { ModalShell } from './ModalShell';
 import { Button } from '../ui';
 import { toastSuccess } from '../utils/toast';
-import { CHAVE_MOSTRAR_AVISO, ENDERECO_POR_NOME, estaNoEnderecoPorNome } from '../enderecoLocal/regras';
+import { CHAVE_AVISO_DISPENSADO, CHAVE_MOSTRAR_AVISO, ENDERECO_POR_NOME, estaNoEnderecoPorNome } from '../enderecoLocal/regras';
 
-/** Aparece uma vez, logo depois de a página ser levada pro endereço novo. */
+/** Aparece logo depois de a página ser levada pro endereço novo, até a pessoa marcar "Não mostrar novamente". */
 export function AvisoNovoEndereco() {
   const [aberto, setAberto] = useState(
     () => estaNoEnderecoPorNome(window.location) && localStorage.getItem(CHAVE_MOSTRAR_AVISO) === '1'
   );
+  const [naoMostrar, setNaoMostrar] = useState(false);
 
   if (!aberto) return null;
 
   function fechar() {
     localStorage.removeItem(CHAVE_MOSTRAR_AVISO);
+    if (naoMostrar) localStorage.setItem(CHAVE_AVISO_DISPENSADO, '1');
     setAberto(false);
   }
 
@@ -46,6 +48,10 @@ export function AvisoNovoEndereco() {
         <li>Instalou a Carteira como app no navegador? Reinstale por este endereço.</li>
         <li>Prefere o endereço antigo? Desmarque em <strong>Configurações → Sistema</strong>.</li>
       </ul>
+      <label className="flex items-center gap-2" style={{ marginTop: 14, fontSize: '0.85rem', cursor: 'pointer' }}>
+        <input type="checkbox" checked={naoMostrar} onChange={(e) => setNaoMostrar(e.target.checked)} className="accent-[var(--accent)]" />
+        Não mostrar novamente
+      </label>
     </ModalShell>
   );
 }

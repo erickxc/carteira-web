@@ -11,6 +11,8 @@ export const ENDERECO_POR_NOME = `http://${HOST_POR_NOME}:${PORTA_EXE}`;
 export const PARAM_PREFS = 'migrar-prefs';
 /** Chave do localStorage que pede o popup de aviso na próxima montagem do app. */
 export const CHAVE_MOSTRAR_AVISO = 'carteira2d:mostrarAvisoEndereco';
+/** "Não mostrar novamente": o .exe redireciona a cada abertura, então sem isto o aviso voltava sempre. */
+export const CHAVE_AVISO_DISPENSADO = 'carteira2d:avisoEnderecoDispensado';
 
 export type FormaDeAbrir = 'nome' | 'ip';
 
