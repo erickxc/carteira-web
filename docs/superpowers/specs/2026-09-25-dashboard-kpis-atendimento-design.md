@@ -65,7 +65,31 @@ A regra de "em dia" do Ritmo passa a ser estrita também no filtro "Geral" (hoje
 serviço em dia). Os filtros Monitoria/Price seguem olhando só o relógio do serviço, mas
 "vencendo" passa a contar como no prazo, igual ao Geral.
 
-### 1.4 Prazo de Price = 15 dias em todo lugar
+### 1.4 Definições comuns aos demais cards
+
+- **Entrega** = Reunião, Relatório ou Precificação **concluída ou realizada**, em todo
+  card. Hoje Top 10, Atendimento e Recuperados deixam precificação de fora, e o card
+  Atendimento aceita "passou da data e não foi cancelada".
+- **Falamos com o cliente** (última interação, `buildUltimaInteracaoMap`) = evento de
+  **qualquer tipo concluído** ou Ação concluída. Cancelado e "Agendado" deixam de
+  contar. Muda a regra antiga de que cancelar contava como contato; a função é
+  compartilhada, então vale também para a fila de Ações (contato recente) e para o
+  alerta "sem contato há 30+ dias" do monitorIA.
+
+### 1.5 Blocos 3 e 4, card a card
+
+| Card | Regra nova | Hoje (25/09) → depois |
+|---|---|---|
+| Vencendo | relógios de Monitoria e Price do motor (seção 1.2) a 5 dias ou menos do prazo. **Sai o relógio de "Relatório"** e o filtro "Relatório": relatório zera Monitoria, não tem prazo próprio | 2 itens (Pecita - TOP1000, Tadeu) |
+| Atendimentos sem acompanhamento | 30+ dias desde que falamos com o cliente (1.4). **Ignora o filtro Tipo do topo**. Mostra o total e "ver todos" (hoje corta em 6 sem avisar) | 3 → 8 (entram GAP, Motobrás, Aliança - Itaboraí, Multimarcas, Mosca Branca) |
+| Próximas agendas | todos os tipos, exceto relatórios, nas 5 próximas; **relatórios dos próximos 7 dias viram uma linha resumo** ("3 relatórios esta semana: MEGA, Golfinho, Quality"). Um só filtro de tipo (o do card) | hoje 1 das 5 é relatório automático da MEGA |
+| Top 10 atendimentos | entregas (1.4) no ano | Vitorinos 8→9, Viannax 6→7 |
+| Atendimento (renomear: "Desfecho e esforço das reuniões") | **segue o mês do filtro do topo**; somem os botões de período e o filtro de monitor próprio (usa o global). "Realizadas" = concluídas. "Ações por entrega" usa a entrega de 1.4 | agosto: sem mudança de número hoje |
+| Recuperados | entregas (1.4); mantém a janela de trimestre, escrita no cabeçalho | 17, sem mudança hoje |
+| Alertas programados | lembretes ativos **do monitor do filtro global** (via cliente do lembrete); tipos que só diferem por maiúscula contam como um ("alvo" e "Alvo") | 23 ativos, 1 de atendimento inativo sai |
+| Reuniões concluídas por mês | sem mudança | — |
+
+### 1.6 Prazo de Price = 15 dias em todo lugar
 
 Hoje o valor salvo é 15, mas o código cai para 30 quando a configuração falta e o
 glossário do agente diz 30. Trocar para 15:
@@ -144,9 +168,8 @@ Comparações com o passado usam o motor com `now` no mês anterior. Para status
 cliente, `StatusHistorico` (1.4.47); antes disso é aproximação, e o tile não pode
 afirmar precisão que não tem.
 
-Os cards com janela própria escondida (Atendimento abre em "mês anterior", Recuperados em
-"trimestre") mantêm o padrão de hoje e passam a mostrar a janela no cabeçalho. Fazer
-esses cards seguirem o filtro do topo fica fora desta spec.
+Janelas próprias: o card Atendimento passa a seguir o mês do filtro do topo (1.5);
+Recuperados mantém o trimestre, escrito no cabeçalho.
 
 ## 4. monitorIA
 
@@ -163,13 +186,20 @@ esses cards seguirem o filtro do topo fica fora desta spec.
   conta; contato com serviço não conta; carência de atendimento novo; reagendado
   concluído conta na data nova; Price padrão 15.
 - Cards: Cobertura por Serviço exclui independentes e conta vencendo como no prazo;
-  Ritmo estrito no Geral.
+  Ritmo estrito no Geral; Vencendo sem relógio de Relatório; sem acompanhamento
+  ignora cancelado/"Agendado" e o filtro Tipo; entrega inclui precificação em Top 10,
+  Atendimento e Recuperados; Próximas agrupa relatórios; Alertas programados filtra
+  por monitor e une tipos por maiúscula.
 - Validação: evento sem serviço é rejeitado (backend e formulário).
 - Script de legado: dedução certa, ambíguo intocado, idempotente, backup gerado.
 - Paridade tela × monitorIA para Cobertura e Ritmo com o mesmo dado.
 
 ## Riscos
 
+- "Falamos com o cliente" deixa de contar cancelado e "Agendado": a lista de sem
+  acompanhamento sobe de 3 para 8 e a ordem da fila de Ações muda para quem só tinha
+  esse tipo de contato. É o efeito pedido, mas vai aparecer para o time no dia seguinte
+  à release.
 - A fila de Ações usa o mesmo motor: exigir toque concluído e ignorar reunião sem
   serviço reordena a fila. Medido hoje: 2 atendimentos mudam (Mosca Branca, Pecita -
   Seropédica).
