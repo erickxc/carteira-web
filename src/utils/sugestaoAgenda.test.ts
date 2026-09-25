@@ -48,7 +48,7 @@ function evento(overrides: Partial<EventoAgenda> = {}): EventoAgenda {
     type: 'Reunião',
     subject: 'Reunião',
     description: '',
-    servicos: [],
+    servicos: ['Monitoria'], // serviço é obrigatório; sem ele o evento não zera prazo nenhum
     attachments: [],
     status: 'Concluído',
     monitores: [],

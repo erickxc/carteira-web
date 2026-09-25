@@ -26,11 +26,12 @@ export interface ClienteRecuperado {
 }
 
 /**
- * Só eventos da AGENDA do tipo Reunião ou Relatório. Lembrete nunca entra aqui:
+ * Só eventos da AGENDA do tipo Reunião, Relatório ou Precificação (a mesma
+ * "entrega" do resto do dashboard). Lembrete nunca entra aqui:
  * lembrete é um aviso interno (nem chega ao cliente), então não comprova
  * atendimento nenhum.
  */
-const ehEntrega = (e: EventoAgenda) => /reuni|relat/i.test(e.type || '');
+const ehEntrega = (e: EventoAgenda) => /reuni|relat|precific/i.test(e.type || '');
 /**
  * Só CONCLUÍDO/REALIZADO conta como recuperação.
  *

@@ -4,7 +4,7 @@
 // importam de `src/types` — este pacote é consumido também pelo backend, que
 // não tem (nem deve ter) dependência da pasta `src/`.
 
-export type ServicoCad = 'Monitoria' | 'Price' | 'Relatório';
+export type ServicoCad = 'Monitoria' | 'Price';
 export type CadStatus = 'coberto' | 'em_dia' | 'vencendo' | 'vencido' | 'nunca';
 export type ClassificacaoCadencia = 'vencido' | 'vencendo' | 'em_dia';
 
@@ -95,11 +95,17 @@ export function buildUltimaInteracaoMap(
 export function temServico(c: ClienteCadencia, re: RegExp, flag: string): boolean;
 export function ehIndependente(c: ClienteCadencia, re: RegExp): boolean;
 export function naoCancelado(a: EventoCadencia): boolean;
+export function ehConcluido(a: { status?: string }): boolean;
+export function ehEntrega(a: EventoCadencia): boolean;
+export function relogioNoPrazo(r: RelogioServico): boolean;
+export function atendimentoEmDia(f: { relogios: RelogioServico[] }): boolean;
+export function itensVencendo<F extends { cliente: { empresa?: string }; relogios: RelogioServico[] }>(
+  fila: F[],
+  janela?: number
+): { cliente: F['cliente']; relogio: RelogioServico; diasParaVencer: number }[];
 
 export function ehToqueMonitoria(a: EventoCadencia): boolean;
 export function ehToquePrice(a: EventoCadencia): boolean;
-export function ehToqueRelatorio(a: EventoCadencia): boolean;
-export function relatorioCadenciaEmDias(rc: RelatorioCadenciaCliente | undefined, fallbackDias: number): number;
 
 export function calcularProximoPorServico(
   eventos: EventoCadencia[],

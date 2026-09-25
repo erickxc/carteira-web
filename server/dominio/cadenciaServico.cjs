@@ -18,17 +18,14 @@ const motor = require('../../shared/cadenciaServico.cjs');
 const {
   isClienteAtivo, buildUltimaInteracaoMap, buildFilaCadencia, classificarCadencia,
   contatoRecenteNaoRefletido, rotuloRelogio, listaJSON,
-  temServico, ehIndependente, ehToqueMonitoria, ehToquePrice, calcularRelogio, relatorioCadenciaEmDias,
+  atendimentoEmDia, relogioNoPrazo, itensVencendo, ehEntrega,
 } = motor;
 
-function ehToqueRelatorio(a) { return /relat/i.test(a.type || ''); }
-
 /**
- * Mesmo cálculo do card "Aderência" da Visão Geral
- * (`src/hooks/useDashboardData.ts`, `aderencia` useMemo) — é o número que
- * responde literalmente "quantos % estão em dia". "Todos" (sem `servico`) é
- * PERMISSIVO: 1 serviço em_dia OU vencendo já conta como em dia no resumo
- * geral; filtrado por serviço é ESTRITO (só em_dia de verdade).
+ * Mesmo cálculo do card "Atendimentos no Ritmo" da Visão Geral. Em dia =
+ * TODOS os relógios do atendimento no prazo (`atendimentoEmDia`); com
+ * `servico`, só o relógio daquele serviço. Percentual é contagem pura (em dia
+ * / total): contato recente é informação (`contatoRecente`), não meio ponto.
  */
 function calcularAderencia(clientes, agenda, acoes, cadencias, now = new Date(), opts = {}) {
   const fila = buildFilaCadencia(clientes, agenda, acoes, cadencias, now);
@@ -40,10 +37,7 @@ function calcularAderencia(clientes, agenda, acoes, cadencias, now = new Date(),
   }
   function classificar(f) {
     const rels = relogiosRelevantes(f);
-    const emDia = opts.servico
-      ? rels.some((r) => r.statusReal === 'em_dia')
-      : rels.some((r) => r.statusReal === 'em_dia' || r.statusReal === 'vencendo');
-    if (emDia) return 'em_dia';
+    if (atendimentoEmDia({ relogios: rels })) return 'em_dia';
     if (rels.some((r) => r.status === 'coberto')) return 'agenda_marcada';
     const ultimoContato = ultimaInteracaoMap.get(f.cliente.id) ?? null;
     if (ultimoContato && contatoRecenteNaoRefletido(f.relogios, ultimoContato) && differenceInCalendarDays(now, ultimoContato) <= (Number(cadencias?.recontato_dias) || 5)) {
@@ -57,8 +51,7 @@ function calcularAderencia(clientes, agenda, acoes, cadencias, now = new Date(),
   const agendaMarcada = relevantes.filter((f) => classificar(f) === 'agenda_marcada');
   const contatoRecente = relevantes.filter((f) => classificar(f) === 'contato_recente');
   const precisa = relevantes.filter((f) => classificar(f) === 'precisa_contato');
-  const pesoContatoRecente = Math.min(100, Math.max(0, Number(cadencias?.peso_contato_recente) || 0)) / 100;
-  const pct = total > 0 ? Math.round(((emDia.length + contatoRecente.length * pesoContatoRecente) / total) * 100) : 0;
+  const pct = total > 0 ? Math.round((emDia.length / total) * 100) : 0;
 
   return {
     total, pct,
@@ -69,40 +62,15 @@ function calcularAderencia(clientes, agenda, acoes, cadencias, now = new Date(),
 }
 
 /**
- * Porta de `buildVencendoDashboard` (`cadenciaServico.ts`) — cálculo PRÓPRIO
- * do card "Vencendo" (janela de 5 dias antes do vencimento), diferente de
- * `buildFilaCadencia`: aqui TODO cliente ativo ganha um relógio de Relatório
- * também, não só Monitoria/Price. Devolve 1 item por serviço vencendo (um
- * cliente com 2 serviços vencendo aparece 2x), mais urgente primeiro.
+ * Mesmo cálculo do card "Vencendo" (`itensVencendo` do motor): relógios de
+ * Monitoria/Price a menos de `janelaVencendo` dias do prazo, sem reunião futura
+ * marcada. Um atendimento com 2 serviços vencendo aparece 2x.
  */
-function buscarVencendo(clientes, agenda, cadencias, now = new Date(), janelaVencendo = 5) {
-  const monDias = Number(cadencias?.monitoria_dias) || 30;
-  const priceDias = Number(cadencias?.price_dias) || 30;
-  const relatorioDiasPadrao = Number(cadencias?.relatorio_dias) || 45;
-
-  const porCliente = new Map();
-  agenda.forEach((a) => {
-    if (!porCliente.has(a.clientId)) porCliente.set(a.clientId, []);
-    porCliente.get(a.clientId).push(a);
-  });
-
-  const itens = [];
-  for (const c of clientes) {
-    if (!isClienteAtivo(c, now)) continue;
-    const evs = porCliente.get(c.id) ?? [];
-    const desde = c.createdAt ? parseISO(c.createdAt) : now;
-
-    const relogios = [];
-    if (temServico(c, /monitor/i, 'monitoria') && !ehIndependente(c, /monitor/i)) relogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, desde, janelaVencendo));
-    if (temServico(c, /(price|prec)/i, 'price') && !ehIndependente(c, /(price|prec)/i)) relogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now, desde, janelaVencendo));
-    relogios.push(calcularRelogio('Relatório', evs, ehToqueRelatorio, relatorioCadenciaEmDias(c.relatorioCadencia, relatorioDiasPadrao), now, desde, janelaVencendo));
-
-    for (const r of relogios) {
-      if (r.status !== 'vencendo') continue;
-      itens.push({ id: c.id, empresa: c.empresa, servico: r.servico, diasParaVencer: Math.max(0, -r.atraso) });
-    }
-  }
-  itens.sort((a, b) => a.diasParaVencer - b.diasParaVencer || a.empresa.localeCompare(b.empresa));
+function buscarVencendo(clientes, agenda, acoes, cadencias, now = new Date(), janelaVencendo = 5) {
+  const fila = buildFilaCadencia(clientes, agenda, acoes, cadencias, now);
+  const itens = itensVencendo(fila, janelaVencendo).map((i) => ({
+    id: i.cliente.id, empresa: i.cliente.empresa, servico: i.relogio.servico, diasParaVencer: i.diasParaVencer,
+  }));
   return { total: itens.length, itens };
 }
 
@@ -127,7 +95,7 @@ function buscarCobertura(clientes, agenda, now = new Date()) {
 
   const atendidosIds = new Set(
     agenda
-      .filter((a) => ativosIds.has(a.clientId) && /reuni|relat|precific/i.test(a.type || '') && /conclu|realiz/i.test(a.status || ''))
+      .filter((a) => ativosIds.has(a.clientId) && ehEntrega(a))
       .filter((a) => { const d = parseISO(a.date); return !isNaN(d.getTime()) && d >= doisMesesAtras && d < new Date(inicioMesAtual.getFullYear(), inicioMesAtual.getMonth() + 1, 1); })
       .map((a) => a.clientId)
   );
@@ -139,40 +107,24 @@ function buscarCobertura(clientes, agenda, now = new Date()) {
 }
 
 /**
- * Porta do card "Serviços" — dos clientes que CONTRATARAM cada serviço,
- * quantos foram atendidos (reunião/relatório concluído tratando aquele
- * serviço) nos últimos 30 dias. Responde "quem contratou e não está sendo
- * atendido", não "dos atendidos quantos tinham o serviço" (esse segundo jeito
- * de calcular dá um número sempre alto e não aponta ação).
+ * Mesmo cálculo do card "Cobertura por Serviço": dos atendimentos que TÊM o
+ * relógio do serviço (contratado e não independente), quantos estão no prazo
+ * (`relogioNoPrazo`). Independente não entra na base: não tem prazo, e antes
+ * aparecia como descoberto para sempre.
  */
-function buscarCoberturaServicos(clientes, agenda, now = new Date()) {
-  const JANELA = 30;
-  const ativos = clientes.filter((c) => isClienteAtivo(c, now));
-  const eventoRealizado = (a) => /reuni|relat/i.test(a.type || '') && /conclu|realiz/i.test(a.status || '');
-  const temServicoPrice = (a) => listaJSON(a.servicos).some((s) => /(price|prec)/i.test(s));
-  const temServicoMonitoria = (a) => /monitor/i.test(listaJSON(a.servicos).join(' ')) || (/reuni/i.test(a.type || '') && !temServicoPrice(a));
-  const foiAtendido = (c, pred) =>
-    /^(regular|gratuidade|ativo)$/i.test((c.status || '').trim()) && agenda.some((a) => {
-      if (a.clientId !== c.id || !eventoRealizado(a) || !pred(a)) return false;
-      const d = parseISO(a.date);
-      const dias = differenceInCalendarDays(now, d);
-      return !isNaN(d.getTime()) && dias >= 0 && dias <= JANELA;
-    });
-
-  const defs = [
-    { label: 'Monitoria', re: /monitor/i, flag: 'monitoria', pred: temServicoMonitoria },
-    { label: 'Price', re: /(price|prec)/i, flag: 'price', pred: temServicoPrice },
-  ];
-  return defs.map((d) => {
-    const contrataram = ativos.filter((c) => temServico(c, d.re, d.flag));
-    const cobertos = contrataram.filter((c) => foiAtendido(c, d.pred));
-    const descobertos = contrataram.filter((c) => !foiAtendido(c, d.pred)).map((c) => c.empresa).sort();
+function buscarCoberturaServicos(clientes, agenda, acoes, cadencias, now = new Date()) {
+  const fila = buildFilaCadencia(clientes, agenda, acoes, cadencias, now);
+  return ['Monitoria', 'Price'].map((servico) => {
+    const comRelogio = fila
+      .map((f) => ({ empresa: f.cliente.empresa, r: f.relogios.find((x) => x.servico === servico) }))
+      .filter((x) => x.r);
+    const atendidos = comRelogio.filter((x) => relogioNoPrazo(x.r)).length;
     return {
-      servico: d.label,
-      contrataram: contrataram.length,
-      atendidos: cobertos.length,
-      pct: contrataram.length > 0 ? Math.round((cobertos.length / contrataram.length) * 100) : 0,
-      descobertosClientes: descobertos,
+      servico,
+      contrataram: comRelogio.length,
+      atendidos,
+      pct: comRelogio.length > 0 ? Math.round((atendidos / comRelogio.length) * 100) : 0,
+      descobertosClientes: comRelogio.filter((x) => !relogioNoPrazo(x.r)).map((x) => x.empresa).sort(),
     };
   });
 }

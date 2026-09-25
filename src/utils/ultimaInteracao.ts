@@ -2,13 +2,10 @@ import * as motor from 'carteira-shared/cadenciaServico.cjs';
 import type { Acao, EventoAgenda } from '../types';
 
 /**
- * Última interação por cliente — motor mora em `shared/cadenciaServico.cjs`
- * (compartilhado com o backend desde 04/09/2026; ver o comentário de topo
- * daquele arquivo). Esta função já foi um `.cjs` separado no backend com uma
- * regra sutilmente DIFERENTE (excluía reunião Cancelada/Reagendada da
- * "última interação" — divergência real, silenciosa, encontrada só ao
- * unificar); a versão única adota este comportamento (conta Cancelado como
- * contato), que é o documentado com a razão de negócio.
+ * Última interação por cliente ("quando falamos com o cliente por último") —
+ * motor mora em `shared/cadenciaServico.cjs`, compartilhado com o backend.
+ * Só evento concluído (qualquer tipo) ou ação concluída; cancelado e
+ * "Agendado" não contam.
  */
 export function buildUltimaInteracaoMap(
   agenda: EventoAgenda[],

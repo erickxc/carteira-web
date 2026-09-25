@@ -713,7 +713,7 @@ describe('métricas de carteira', () => {
 
   it('77. buscar_config_cadencias devolve a régua completa', () => {
     const cfg = exec('buscar_config_cadencias', repoBase());
-    expect(cfg).toMatchObject({ monitoria_dias: 30, price_dias: 30, recontato_dias: 5 });
+    expect(cfg).toMatchObject({ monitoria_dias: 30, price_dias: 15, recontato_dias: 5 });
   });
 
   it('78. config reflete valor sobrescrito no banco', () => {
@@ -728,9 +728,15 @@ describe('métricas de carteira', () => {
     }
   });
 
-  it('80. cliente com reunião recente conta como em dia', () => {
-    const repo = repoBase({ Agenda: [{ id: 'e1', clientId: 'c1', type: 'Reunião', status: 'Concluído', date: diasAtras(3), servicos: ['Monitoria'] }] });
-    expect(exec('buscar_fila_priorizacao', repo, {}).emDia).toBe(1);
+  it('80. atendimento só conta como em dia com TODOS os serviços no prazo', () => {
+    const soMonitoria = repoBase({ Agenda: [{ id: 'e1', clientId: 'c1', type: 'Reunião', status: 'Concluído', date: diasAtras(3), servicos: ['Monitoria'] }] });
+    expect(exec('buscar_fila_priorizacao', soMonitoria, {}).emDia).toBe(0); // Precificação nunca atendida
+
+    const osDois = repoBase({ Agenda: [
+      { id: 'e1', clientId: 'c1', type: 'Reunião', status: 'Concluído', date: diasAtras(3), servicos: ['Monitoria'] },
+      { id: 'e2', clientId: 'c1', type: 'Precificação', status: 'Concluído', date: diasAtras(3), servicos: ['Precificação'] },
+    ] });
+    expect(exec('buscar_fila_priorizacao', osDois, {}).emDia).toBe(1);
   });
 
   it('81. cliente nunca atendido precisa de contato', () => {

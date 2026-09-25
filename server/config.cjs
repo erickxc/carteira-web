@@ -538,7 +538,7 @@ const CADENCIAS_SEED = [
   { chave: 'esfriando_dias', valor: 45 },
   // Cadência-alvo por serviço (dias) — usada na fila de priorização por serviço.
   { chave: 'monitoria_dias', valor: 30 },
-  { chave: 'price_dias', valor: 30 },
+  { chave: 'price_dias', valor: 15 },
   { chave: 'recontato_dias', valor: 5 },
   { chave: 'peso_contato_recente', valor: 50 },
 ];

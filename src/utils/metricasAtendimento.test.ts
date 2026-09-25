@@ -125,7 +125,7 @@ describe('calcularEsforcoAgenda', () => {
     const r = calcularEsforcoAgenda([reuniaoEvento], [acaoReuniao, acaoPrice], NOW);
     expect(r.porTipo.reuniao).toBe(2);
     expect(r.porTipo.price).toBe(1);
-    expect(r.acoesEntrega).toBe(2);
+    expect(r.acoesEntrega).toBe(3); // precificação também é entrega
   });
 
   it('conta evento tipo Precificação no mesmo balde de Price', () => {

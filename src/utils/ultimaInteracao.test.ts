@@ -13,35 +13,40 @@ function ev(over: Partial<EventoAgenda>): EventoAgenda {
   };
 }
 
-describe('buildUltimaInteracaoMap: cancelamento/reagendamento contam como contato', () => {
-  it('reunião Cancelada conta como último contato (motivo é obrigatório, então houve contato)', () => {
+describe('buildUltimaInteracaoMap: só evento concluído conta como contato', () => {
+  it('reunião Cancelada NÃO conta como último contato', () => {
     const m = buildUltimaInteracaoMap(
       [ev({ status: 'Cancelado', date: '2026-08-30T12:00:00.000Z', motivo: 'Cliente pediu para adiar.' })],
       [],
       { now: AGORA }
     );
-    expect(m.get('c1')?.toISOString()).toBe('2026-08-30T12:00:00.000Z');
+    expect(m.has('c1')).toBe(false);
   });
 
-  it('reunião Reagendada conta como último contato', () => {
+  it('reunião Reagendada NÃO conta como último contato', () => {
     const m = buildUltimaInteracaoMap(
       [ev({ status: 'Reagendado', date: '2026-08-29T12:00:00.000Z', motivo: 'Sem verba este mês.' })],
       [],
       { now: AGORA }
     );
-    expect(m.get('c1')?.toISOString()).toBe('2026-08-29T12:00:00.000Z');
+    expect(m.has('c1')).toBe(false);
   });
 
-  it('cancelamento mais recente vence sobre reunião concluída mais antiga', () => {
+  it('evento passado ainda Agendado NÃO conta (não aconteceu)', () => {
+    const m = buildUltimaInteracaoMap([ev({ status: 'Agendado', date: '2026-08-30T12:00:00.000Z' })], [], { now: AGORA });
+    expect(m.has('c1')).toBe(false);
+  });
+
+  it('contato concluído conta, e o concluído mais antigo vale sobre um cancelamento recente', () => {
     const m = buildUltimaInteracaoMap(
       [
-        ev({ id: 'e1', status: 'Concluído', date: '2026-07-01T12:00:00.000Z' }),
+        ev({ id: 'e1', type: 'Contato', status: 'Concluído', date: '2026-07-01T12:00:00.000Z' }),
         ev({ id: 'e2', status: 'Cancelado', date: '2026-08-30T12:00:00.000Z' }),
       ],
       [],
       { now: AGORA }
     );
-    expect(m.get('c1')?.toISOString()).toBe('2026-08-30T12:00:00.000Z');
+    expect(m.get('c1')?.toISOString()).toBe('2026-07-01T12:00:00.000Z');
   });
 
   it('não conta evento cancelado com data futura (ainda não aconteceu/não é contato até agora)', () => {

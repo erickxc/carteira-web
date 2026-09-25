@@ -3,9 +3,9 @@ import { Card, Chip } from '../../ui';
 import type { ServicoCad } from '../../utils/cadenciaServico';
 
 type FiltroServico = ServicoCad | 'Todos';
-const SERVICOS: FiltroServico[] = ['Todos', 'Monitoria', 'Price', 'Relatório'];
+const SERVICOS: FiltroServico[] = ['Todos', 'Monitoria', 'Price'];
 const SERVICO_LABEL: Record<FiltroServico, string> = {
-  Todos: 'Geral', Monitoria: 'Monitoria', Price: 'Precificação', 'Relatório': 'Relatório',
+  Todos: 'Geral', Monitoria: 'Monitoria', Price: 'Precificação',
 };
 
 interface ItemVencendo {
@@ -22,11 +22,8 @@ interface VencendoCardProps {
   onFiltroServico: (s: FiltroServico) => void;
 }
 
-/** "Vencendo" — só quem está VENCENDO de verdade (Monitoria/Precificação/
- * Relatório) nos próximos 5 dias (mesma janela do resto do app). Sem donut —
- * número grande + lista ao lado com data e dias restantes por item. Base em
- * itens/ações, não em clientes (um cliente com 2 serviços contribui 2x).
- * Cálculo separado de buildFilaCadencia — ver spec. */
+/** "Vencendo" — prazos de Monitoria/Price a menos de 5 dias, sem reunião futura marcada
+ * (`itensVencendo` do motor compartilhado). Um atendimento com 2 serviços vencendo aparece 2x. */
 export function VencendoCard({ total, itens, filtroServico, onFiltroServico }: VencendoCardProps) {
   return (
     <Card className="cobertura-card gauge-card">
@@ -35,7 +32,7 @@ export function VencendoCard({ total, itens, filtroServico, onFiltroServico }: V
         <span className="text-text-muted" style={{ fontSize: 12 }}>próx. 5 dias</span>
       </div>
       <p className="text-text-muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 12, lineHeight: 1.4 }}>
-        Monitoria, Precificação ou Relatório <strong>vencendo nos próximos 5 dias</strong>.
+        Prazo de Monitoria ou Precificação <strong>vencendo nos próximos 5 dias</strong>, sem reunião marcada.
       </p>
       <div className="gauge-card-filtros flex flex-wrap gap-[0.4rem] mb-4">
         {SERVICOS.map((s) => (

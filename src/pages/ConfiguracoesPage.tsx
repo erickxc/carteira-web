@@ -23,14 +23,13 @@ import { CATEGORIA_TIPO_LABEL, SEGMENTO_LABEL, type Cadencias, type Categoria, t
 const TIPOS: CategoriaTipo[] = ['servico', 'tipo_evento', 'status_cliente', 'status_evento', 'monitor', 'tipo_lembrete', 'sala', 'local_cliente', 'grupo_referencia'];
 
 const CADENCIA_CAMPOS: { chave: keyof Cadencias; label: string; ajuda: string; min?: number; max?: number }[] = [
-  { chave: 'monitoria_dias', label: 'Monitoria a cada (dias)', ajuda: 'Cadência-alvo de reunião de Monitoria. Cliente sem reunião há mais que isso fica vencido na fila de Acompanhamento.' },
-  { chave: 'price_dias', label: 'Price a cada (dias)', ajuda: 'Cadência-alvo de Price. Zera com reunião OU relatório de Price. Vencido entra na fila.' },
+  { chave: 'monitoria_dias', label: 'Monitoria a cada (dias)', ajuda: 'Prazo de Monitoria. Zera com reunião ou relatório CONCLUÍDO com Monitoria marcado (ou Ação de relatório). Passou disso, o atendimento fica fora do prazo.' },
+  { chave: 'price_dias', label: 'Price a cada (dias)', ajuda: 'Prazo de Price (padrão 15). Zera com precificação, ou reunião/relatório com Price marcado, CONCLUÍDOS (ou Ação de price). Passou disso, o atendimento fica fora do prazo.' },
   { chave: 'reuniao_dias', label: 'Reunião a cada (dias)', ajuda: 'Cliente engajado sem próxima reunião marcada vira recomendação após este intervalo.' },
   { chave: 'relatorio_dias', label: 'Relatório a cada (dias)', ajuda: 'Sugere envio de relatório do período após este intervalo sem contato.' },
   { chave: 'esfriando_dias', label: 'Esfriando após (dias)', ajuda: 'Cliente sem contato há mais que isso entra no segmento Esfriando.' },
   { chave: 'primeiro_contato_dias', label: 'Primeiro contato (dias)', ajuda: 'Janela alvo para buscar clientes nunca atendidos.' },
   { chave: 'recontato_dias', label: 'Aguardando retorno (dias)', ajuda: 'Depois de um contato/ligação sem resposta, o cliente fica nessa janela como "Aguardando Retorno" em vez de "Precisa contato".' },
-  { chave: 'peso_contato_recente', label: 'Peso de Aguardando Retorno (%)', ajuda: 'Quanto "Aguardando Retorno" pesa na % de "Carteira no Ritmo" — 100 conta igual reunião/relatório, 0 não conta nada na %.', min: 0, max: 100 },
 ];
 
 const SEGMENTOS: Segmento[] = ['engajado', 'esfriando', 'frio'];

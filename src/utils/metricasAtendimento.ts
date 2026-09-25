@@ -1,4 +1,5 @@
 import { addMonths, differenceInCalendarDays, endOfMonth, parseISO, startOfMonth } from 'date-fns';
+import { ehConcluido } from './cadenciaServico';
 import type { Acao, EventoAgenda } from '../types';
 
 /**
@@ -6,10 +7,12 @@ import type { Acao, EventoAgenda } from '../types';
  * agenda, esforço para conseguir uma reunião e tempo do ciclo de atendimento.
  *
  * Convenções usadas em todo o arquivo:
- * - "Agenda importante" = Reunião ou Relatório (o que de fato entrega o serviço).
+ * - "Entrega" = Reunião, Relatório ou Precificação concluída (`ehEntrega`, a mesma
+ *   definição de todo o dashboard).
  *   Contato/Ligação são o esforço para chegar lá, não a entrega.
  * - Datas futuras nunca entram: métrica de histórico só olha o que já aconteceu.
- * - Cancelado/Reagendado não conta como realizado (o encontro não ocorreu).
+ * - Só CONCLUÍDO/REALIZADO conta como realizado. Evento passado ainda
+ *   "Agendado" não é desfecho: fica fora até ser registrado.
  * - Match por palavra-chave (não igualdade) porque tipo/status vêm de
  *   categorias editáveis pelo usuário — mesmo padrão do resto do projeto.
  */
@@ -23,9 +26,9 @@ const ehPrecificacao = (e: EventoAgenda) => /precific/i.test(e.type || '');
 
 const foiCancelado = (e: EventoAgenda) => /cancel/i.test(e.status || '');
 const foiReagendado = (e: EventoAgenda) => /reagend/i.test(e.status || '');
-/** Aconteceu de fato: nem cancelado nem reagendado, e já passou. */
+/** Aconteceu de fato: concluído/realizado e já passou. */
 const aconteceu = (e: EventoAgenda, agora: Date) =>
-  !foiCancelado(e) && !foiReagendado(e) && dataDe(e) !== null && dataDe(e)! <= agora;
+  ehConcluido(e) && dataDe(e) !== null && dataDe(e)! <= agora;
 
 function dataDe(e: EventoAgenda): Date | null {
   if (!e.date) return null;
@@ -71,7 +74,8 @@ export function calcularConfiabilidade(eventos: EventoAgenda[], agora: Date = ne
     if (!d || d > agora) continue; // ainda vai acontecer: não é desfecho
     if (foiCancelado(e)) canceladas++;
     else if (foiReagendado(e)) reagendadas++;
-    else realizadas++;
+    else if (ehConcluido(e)) realizadas++;
+    else continue; // passado ainda "Agendado": sem desfecho registrado
     // Remarcação é ORTOGONAL ao desfecho: uma reunião pode ter sido movida
     // duas vezes e ainda assim ter acontecido. Por isso conta em separado, e
     // não como uma quarta fatia da barra de desfecho.
@@ -94,7 +98,7 @@ export function calcularConfiabilidade(eventos: EventoAgenda[], agora: Date = ne
 export interface EsforcoAgenda {
   /** Ações de todos os tipos (numerador). */
   totalAcoes: number;
-  /** Ações de ENTREGA: Reunião + Relatório (denominador). */
+  /** Ações de ENTREGA: Reunião + Relatório + Precificação (denominador). */
   acoesEntrega: number;
   /** Ações INICIAIS: Contato + Ligação — o esforço para chegar na entrega. */
   acoesIniciais: number;
@@ -103,9 +107,9 @@ export interface EsforcoAgenda {
   /**
    * Quantas ações, no total, para cada entrega (reunião ou relatório):
    *
-   *   acoesPorEntrega = total de ações / (ações de Reunião + Relatório)
+   *   acoesPorEntrega = total de ações / (Reunião + Relatório + Precificação)
    *
-   * Reunião e Relatório são a ENTREGA; Contato e Ligação são as ações iniciais
+   * Reunião, Relatório e Precificação são a ENTREGA; Contato e Ligação são as ações iniciais
    * que levam até ela. Como a entrega faz parte do total, o resultado é sempre
    * >= 1 (1.0 = a entrega saiu sem nenhuma ação inicial em volta).
    *
@@ -162,7 +166,7 @@ export function calcularEsforcoAgenda(
   }
 
   const totalAcoes = porTipo.reuniao + porTipo.relatorio + porTipo.contato + porTipo.price + porTipo.outros;
-  const acoesEntrega = porTipo.reuniao + porTipo.relatorio;
+  const acoesEntrega = porTipo.reuniao + porTipo.relatorio + porTipo.price;
   return {
     totalAcoes,
     acoesEntrega,

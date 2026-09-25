@@ -1576,7 +1576,7 @@ function buscarVencendoTool(repo, { dias } = {}, ctx = {}) {
   // Teto de 60 dias: mesmo limite de `buscar_agenda_ceo`, evita o modelo pedir
   // "o ano inteiro" e a resposta virar uma lista enorme sem filtro nenhum.
   const janela = Math.min(Math.max(Number(dias) || 5, 1), 60);
-  return buscarVencendo(clientesDoMonitor(repo, ctx), repo.get('Agenda'), cadencias, new Date(), janela);
+  return buscarVencendo(clientesDoMonitor(repo, ctx), repo.get('Agenda'), repo.get('Acoes'), cadencias, new Date(), janela);
 }
 
 /** Mesmo cálculo do card "Cobertura" da Visão Geral (últimos 2 meses). */
@@ -1584,9 +1584,9 @@ function buscarCoberturaTool(repo, _argumentos, ctx = {}) {
   return buscarCobertura(clientesDoMonitor(repo, ctx), repo.get('Agenda'));
 }
 
-/** Mesmo cálculo do card "Serviços" da Visão Geral (últimos 30 dias). */
+/** Mesmo cálculo do card "Cobertura por Serviço" da Visão Geral (relógio do serviço no prazo). */
 function buscarCoberturaServicosTool(repo, _argumentos, ctx = {}) {
-  return { servicos: buscarCoberturaServicos(clientesDoMonitor(repo, ctx), repo.get('Agenda')) };
+  return { servicos: buscarCoberturaServicos(clientesDoMonitor(repo, ctx), repo.get('Agenda'), repo.get('Acoes'), lerCadencias(repo)) };
 }
 
 /** Mesmo cálculo do card "Alertas de acompanhamento" da Visão Geral. */
@@ -1743,7 +1743,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_vencendo',
-    description: 'Mesmo cálculo do card "Vencendo" da Visão Geral — clientes com cadência de Monitoria/Price/Relatório vencendo dentro de "dias" (padrão 5, pode pedir qualquer janela até 60 — "semana que vem" é uns 12-14 dias a partir de hoje, calcule pelo dia da semana atual). Diferente de buscar_fila_priorizacao: aqui todo cliente ativo ganha um relógio de Relatório também, e a lista é por SERVIÇO (um cliente com 2 serviços vencendo aparece 2x).',
+    description: 'Mesmo cálculo do card "Vencendo" da Visão Geral — atendimentos com prazo de Monitoria (30 dias) ou Price (15 dias) vencendo dentro de "dias" (padrão 5, pode pedir qualquer janela até 60 — "semana que vem" é uns 12-14 dias a partir de hoje, calcule pelo dia da semana atual) e sem reunião futura marcada. Relatório não tem prazo próprio: relatório concluído com Monitoria zera a Monitoria. A lista é por SERVIÇO (um atendimento com 2 serviços vencendo aparece 2x).',
     parameters: {
       type: 'object',
       properties: {
@@ -1760,7 +1760,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_cobertura_servicos',
-    description: 'Mesmo cálculo do card "Serviços" da Visão Geral — dos clientes que CONTRATARAM cada serviço (Monitoria/Price), quantos % foram atendidos nos últimos 30 dias. Diferente de buscar_cobertura (que olha qualquer contato recente): aqui é por serviço contratado especificamente. Devolve a lista de quem contratou e não foi atendido.',
+    description: 'Mesmo cálculo do card "Cobertura por Serviço" da Visão Geral — dos atendimentos que têm prazo de cada serviço (contratado e não independente), quantos estão no prazo (Monitoria 30 dias, Price 15 dias; só entrega concluída do serviço zera o prazo). "contrataram" = base com prazo. Diferente de buscar_cobertura (entrega concluída nos últimos 2 meses, sem olhar serviço). Devolve a lista de quem está fora do prazo.',
     parameters: { type: 'object', properties: {} },
     executar: buscarCoberturaServicosTool,
   },
@@ -1831,7 +1831,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_config_cadencias',
-    description: 'Devolve a configuração de cadência da carteira (monitoria_dias, price_dias, relatorio_dias, recontato_dias, peso_contato_recente etc.) — use pra EXPLICAR a régua aplicada ("por que esse cliente está vencido?", "de quantos em quantos dias é a monitoria?"), não pra calcular métrica (isso é buscar_fila_priorizacao e afins).',
+    description: 'Devolve a configuração de cadência da carteira (monitoria_dias, price_dias, recontato_dias etc.) — use pra EXPLICAR a régua aplicada ("por que esse cliente está vencido?", "de quantos em quantos dias é a monitoria?"), não pra calcular métrica (isso é buscar_fila_priorizacao e afins).',
     parameters: { type: 'object', properties: {} },
     executar: buscarConfigCadencias,
   },

@@ -14,6 +14,12 @@ teste, ajuste interno), não entra aqui.
 - O card "Agendadas" da Visão Geral agora mostra só as reuniões que ainda vão acontecer; as já concluídas ficam apenas em "Reuniões concluídas".
 - A Cobertura da Visão Geral agora só considera reuniões, relatórios e precificações já concluídos; o que está apenas agendado não conta.
 - O aviso de mudança de endereço ganhou a opção "Não mostrar novamente".
+- Um atendimento só conta como em dia quando todos os serviços dele estão no prazo.
+- O prazo só zera com entrega concluída e com o serviço marcado. Reunião apenas agendada não conta.
+- Atendimento novo tem um prazo de carência antes de aparecer como atrasado.
+- "Sem acompanhamento" considera só contatos e entregas concluídos.
+- Price passa a ter prazo padrão de 15 dias.
+- "Vencendo" mostra só Monitoria e Price, e "Cobertura por Serviço" não conta mais serviço independente.
 
 ## 1.4.45
 

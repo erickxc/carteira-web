@@ -106,7 +106,7 @@ function gerarAlertas(repo, { agora = new Date(), max = 8 } = {}) {
 
   // 3. Cadência vencendo nos próximos dias.
   const cadencias = lerCadencias(repo);
-  for (const item of buscarVencendo(clientes, agenda, cadencias, agora).itens) {
+  for (const item of buscarVencendo(clientes, agenda, acoes, cadencias, agora).itens) {
     if (!item.id) continue;
     alertas.push({
       id: `vencendo:${item.id}:${item.servico}`,

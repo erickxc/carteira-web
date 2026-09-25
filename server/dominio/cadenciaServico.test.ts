@@ -76,26 +76,23 @@ describe('isClienteAtivo', () => {
 describe('buildUltimaInteracaoMap', () => {
   const AGORA = new Date('2026-09-04T12:00:00.000Z');
 
-  /**
-   * BUG REAL encontrado ao unificar o motor: a cópia do backend excluía
-   * reunião Cancelada/Reagendada da "última interação"
-   * (`agenda.filter((a) => !/cancel|reagend/i.test(a.status))` antes de
-   * contar), enquanto a cópia do frontend (`src/utils/ultimaInteracao.ts`)
-   * contava de propósito — "cancelar ou reagendar sempre envolveu falar com
-   * o cliente". As duas nunca tinham teste cruzado comparando o mesmo caso,
-   * então a divergência nunca apareceu num CI. O motor único adota o
-   * comportamento do frontend (documentado com a razão de negócio).
-   */
-  it('reunião Cancelada conta como última interação (agora igual ao frontend)', () => {
+  // Regra de 25/09/2026: "falamos com o cliente" = evento CONCLUÍDO (qualquer
+  // tipo) ou ação concluída. Cancelado, reagendado e "Agendado" não contam.
+  it('reunião Cancelada NÃO conta como última interação', () => {
     const agenda = [{ clientId: 'c1', date: '2026-09-01T12:00:00.000Z', status: 'Cancelado' }];
-    const mapa = cadencia.buildUltimaInteracaoMap(agenda, [], { now: AGORA });
-    expect(mapa.get('c1')?.toISOString()).toBe('2026-09-01T12:00:00.000Z');
+    expect(cadencia.buildUltimaInteracaoMap(agenda, [], { now: AGORA }).has('c1')).toBe(false);
   });
 
-  it('reunião Reagendada também conta', () => {
-    const agenda = [{ clientId: 'c1', date: '2026-09-02T12:00:00.000Z', status: 'Reagendado' }];
+  it('reunião Reagendada e evento passado Agendado também não contam; concluído conta', () => {
+    const agenda = [
+      { clientId: 'c1', date: '2026-09-02T12:00:00.000Z', status: 'Reagendado' },
+      { clientId: 'c2', date: '2026-09-02T12:00:00.000Z', status: 'Agendado' },
+      { clientId: 'c3', date: '2026-09-02T12:00:00.000Z', status: 'Concluído', type: 'Contato' },
+    ];
     const mapa = cadencia.buildUltimaInteracaoMap(agenda, [], { now: AGORA });
-    expect(mapa.get('c1')?.toISOString()).toBe('2026-09-02T12:00:00.000Z');
+    expect(mapa.has('c1')).toBe(false);
+    expect(mapa.has('c2')).toBe(false);
+    expect(mapa.get('c3')?.toISOString()).toBe('2026-09-02T12:00:00.000Z');
   });
 
   it('ação concluída conta como interação, ação programada não', () => {
@@ -200,14 +197,19 @@ describe('buildFilaCadencia — o mesmo motor do frontend, via require() do back
   });
 });
 
-describe('buscarAlertasSemAcompanhamento — reflete o mesmo comportamento de Cancelado', () => {
+describe('buscarAlertasSemAcompanhamento — só evento concluído conta como contato', () => {
   const AGORA = new Date('2026-09-04T12:00:00.000Z');
 
-  it('reunião Cancelada recente tira o cliente do alerta de "sem acompanhamento"', () => {
-    const clientes = [{ id: 'c1', empresa: 'Cliente X', estado: 'Ativo', status: 'Regular' }];
-    // Cancelada há 3 dias — antes da unificação, isso era IGNORADO (contava
-    // como se não houvesse contato nenhum) e o cliente apareceria aqui.
+  it('reunião Cancelada recente NÃO tira o cliente do alerta', () => {
+    const clientes = [{ id: 'c1', empresa: 'Cliente X', estado: 'Ativo', status: 'Regular', createdAt: '2026-01-01T00:00:00.000Z' }];
     const agenda = [{ clientId: 'c1', date: '2026-09-01T12:00:00.000Z', status: 'Cancelado' }];
+    const alertas = cadencia.buscarAlertasSemAcompanhamento(clientes, agenda, [], AGORA);
+    expect(alertas.find((a: { id: string }) => a.id === 'c1')).toBeDefined();
+  });
+
+  it('contato concluído recente tira o cliente do alerta', () => {
+    const clientes = [{ id: 'c1', empresa: 'Cliente X', estado: 'Ativo', status: 'Regular', createdAt: '2026-01-01T00:00:00.000Z' }];
+    const agenda = [{ clientId: 'c1', date: '2026-09-01T12:00:00.000Z', status: 'Concluído', type: 'Contato' }];
     const alertas = cadencia.buscarAlertasSemAcompanhamento(clientes, agenda, [], AGORA);
     expect(alertas.find((a: { id: string }) => a.id === 'c1')).toBeUndefined();
   });
@@ -230,5 +232,78 @@ describe('buscarCobertura', () => {
   it('cliente com todos os serviços independentes fica fora do denominador', () => {
     const r = cadencia.buscarCobertura([cliente('indep', { servicosIndependentes: ['Monitoria'] }), cliente('normal')], [], now);
     expect(r.total).toBe(1);
+  });
+});
+
+describe('regras de prazo (spec 2026-09-25)', () => {
+  const motor = require('../../shared/cadenciaServico.cjs');
+  const AGORA = new Date('2026-09-25T18:00:00.000Z');
+  const diasAtras = (n: number) => new Date(AGORA.getTime() - n * 864e5).toISOString();
+  const cli = (over = {}) => ({ id: 'c1', empresa: 'Loja', estado: 'Ativo', status: 'Regular', servicos: ['Monitoria'], createdAt: '2026-01-01T00:00:00.000Z', ...over });
+  const relogio = (agenda: object[], over = {}, acoes: object[] = []) =>
+    motor.buildFilaCadencia([cli(over)], agenda, acoes, { monitoria_dias: 30 }, AGORA)[0].relogios[0];
+
+  it('só entrega CONCLUÍDA zera o prazo; passado ainda Agendado não', () => {
+    expect(relogio([{ clientId: 'c1', type: 'Reunião', status: 'Agendado', date: diasAtras(3), servicos: ['Monitoria'] }]).statusReal).toBe('nunca');
+    expect(relogio([{ clientId: 'c1', type: 'Reunião', status: 'Concluído', date: diasAtras(3), servicos: ['Monitoria'] }]).statusReal).toBe('em_dia');
+  });
+
+  it('reunião sem serviço não zera a Monitoria; relatório com Monitoria zera', () => {
+    expect(relogio([{ clientId: 'c1', type: 'Reunião', status: 'Concluído', date: diasAtras(3), servicos: [] }]).statusReal).toBe('nunca');
+    expect(relogio([{ clientId: 'c1', type: 'Relatório', status: 'Concluído', date: diasAtras(3), servicos: ['Monitoria'] }]).statusReal).toBe('em_dia');
+  });
+
+  it('contato concluído com serviço marcado não zera prazo', () => {
+    expect(relogio([{ clientId: 'c1', type: 'Contato', status: 'Concluído', date: diasAtras(3), servicos: ['Monitoria'] }]).statusReal).toBe('nunca');
+  });
+
+  it('reunião reagendada conta na data nova quando concluída', () => {
+    const r = relogio([{ clientId: 'c1', type: 'Reunião', status: 'Concluído', date: diasAtras(2), servicos: ['Monitoria'], reagendamentos: 1, datasAnteriores: [diasAtras(40)] }]);
+    expect(r.ultimo?.toISOString()).toBe(diasAtras(2));
+    expect(r.statusReal).toBe('em_dia');
+  });
+
+  it('atendimento novo tem carência de um prazo a partir do cadastro', () => {
+    expect(relogio([], { createdAt: diasAtras(10) }).statusReal).toBe('em_dia');
+    expect(relogio([], { createdAt: diasAtras(27) }).statusReal).toBe('vencendo');
+    expect(relogio([], { createdAt: diasAtras(31) }).statusReal).toBe('nunca');
+    expect(relogio([], { createdAt: undefined }).statusReal).toBe('nunca'); // legado sem data: sem carência
+  });
+
+  it('Price padrão é 15 dias quando a cadência não está configurada', () => {
+    const [f] = motor.buildFilaCadencia([cli({ servicos: ['Precificação'] })], [], [], {}, AGORA);
+    expect(f.relogios[0].cadencia).toBe(15);
+  });
+
+  it('atendimento em dia só com TODOS os relógios no prazo (vencendo conta como no prazo)', () => {
+    const noPrazo = { statusReal: 'em_dia' }, vencendo = { statusReal: 'vencendo' }, vencido = { statusReal: 'vencido' };
+    expect(motor.atendimentoEmDia({ relogios: [noPrazo, vencendo] })).toBe(true);
+    expect(motor.atendimentoEmDia({ relogios: [noPrazo, vencido] })).toBe(false);
+    expect(motor.atendimentoEmDia({ relogios: [] })).toBe(false);
+  });
+
+  it('itensVencendo: a menos de N dias do prazo e sem reunião futura marcada', () => {
+    const fila = motor.buildFilaCadencia(
+      [cli({ id: 'a', empresa: 'A' }), cli({ id: 'b', empresa: 'B' })],
+      [
+        { clientId: 'a', type: 'Reunião', status: 'Concluído', date: diasAtras(27), servicos: ['Monitoria'] },
+        { clientId: 'b', type: 'Reunião', status: 'Concluído', date: diasAtras(27), servicos: ['Monitoria'] },
+        { clientId: 'b', type: 'Reunião', status: 'Agendado', date: new Date(AGORA.getTime() + 2 * 864e5).toISOString(), servicos: ['Monitoria'] },
+      ],
+      [], { monitoria_dias: 30 }, AGORA,
+    );
+    const itens = motor.itensVencendo(fila, 5);
+    expect(itens.map((i: { cliente: { id: string } }) => i.cliente.id)).toEqual(['a']);
+    expect(itens[0].diasParaVencer).toBe(3);
+  });
+
+  it('Cobertura por Serviço: base só com relógio (independente fora) e vencendo conta como no prazo', () => {
+    const clientes = [
+      cli({ id: 'indep', empresa: 'Indep', servicos: ['Precificação'], servicosIndependentes: ['Precificação'] }),
+      cli({ id: 'venc', empresa: 'Venc', servicos: ['Precificação'] }),
+    ];
+    const agenda = [{ clientId: 'venc', type: 'Precificação', status: 'Concluído', date: diasAtras(12), servicos: ['Precificação'] }];
+    const price = cadencia.buscarCoberturaServicos(clientes, agenda, [], { price_dias: 15 }, AGORA).find((s: { servico: string }) => s.servico === 'Price');
+    expect(price).toMatchObject({ contrataram: 1, atendidos: 1 });
   });
 });

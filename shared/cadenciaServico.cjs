@@ -109,15 +109,13 @@ function isClienteAtivo(cliente, now = new Date()) {
 }
 
 /**
- * Última interação por cliente = reunião de agenda OU ação concluída mais
- * recente (registrar uma ação conta como contato, não só reunião — regra de
- * negócio central do acompanhamento).
+ * Última interação por cliente ("quando falamos com o cliente por último") =
+ * evento da agenda de QUALQUER tipo CONCLUÍDO, ou ação concluída.
  *
- * Cancelado/Reagendado TAMBÉM conta como contato: a reunião em si não
- * aconteceu, mas cancelar ou reagendar sempre envolveu falar com o cliente —
- * por isso o motivo é obrigatório nos dois casos (ver `EventFormModal`). O
- * que este mapa mede é "quando falamos com o cliente por último", não
- * "quando a reunião de fato aconteceu" (essa é outra métrica).
+ * Cancelado e "Agendado" não contam (decisão de 25/09/2026, revertendo a regra
+ * antiga de que cancelar envolvia falar com o cliente): na base real, 8 dos 38
+ * atendimentos tinham como "último contato" uma reunião ou relatório que não
+ * aconteceu, e saíam da lista de sem acompanhamento sem ninguém ter falado com eles.
  *
  * `isRelevant`: filtro opcional por clientId, calculado ANTES do push (evita
  * montar entradas de clientes fora do recorte que ninguém vai usar).
@@ -131,7 +129,7 @@ function buildUltimaInteracaoMap(agenda, acoes, opts = {}) {
     const cur = m.get(cid);
     if (!cur || d > cur) m.set(cid, d);
   };
-  agenda.forEach((a) => push(a.clientId, parseISO(a.date)));
+  agenda.filter(ehConcluido).forEach((a) => push(a.clientId, parseISO(a.date)));
   acoes.filter((a) => a.status === 'concluido').forEach((a) => push(a.clientId, parseISO(a.dueAt || a.updatedAt || a.createdAt)));
   return m;
 }
@@ -148,15 +146,15 @@ function ehIndependente(c, re) {
 }
 
 const naoCancelado = (a) => !/cancel|reagend/i.test(a.status || '');
+/** Evento que de fato aconteceu. "Agendado"/"Pendente" no passado não conta. */
+const ehConcluido = (a) => /conclu|realiz/i.test(a.status || '');
 
-// Zera o relógio de MONITORIA (histórico — o que já foi feito): reunião com
-// serviço Monitoria OU sem serviço marcado (legado/monitoria-only presume
-// Monitoria — todo histórico de price era tipo Precificação, migrado já
-// tagueado como Price, então "sem tag" nunca é price).
+// Zera o relógio de MONITORIA: reunião ou relatório com Monitoria marcado.
+// Evento sem serviço não conta: o serviço é obrigatório e o legado foi
+// preenchido; presumir Monitoria escondia qual prazo o evento cumpria.
 function ehToqueMonitoria(a) {
-  if (!/reuni/i.test(a.type || '')) return false;
-  const s = listaJSON(a.servicos);
-  return s.length === 0 || s.some((x) => /monitor/i.test(x));
+  if (!/reuni|relat/i.test(a.type || '')) return false;
+  return listaJSON(a.servicos).some((x) => /monitor/i.test(x));
 }
 
 // Zera o relógio de PRICE (histórico): reunião OU relatório com serviço Price
@@ -166,30 +164,6 @@ function ehToquePrice(a) {
   if (/precific/i.test(a.type || '')) return true;
   if (!/reuni|relat/i.test(a.type || '')) return false;
   return listaJSON(a.servicos).some((x) => /(price|prec)/i.test(x));
-}
-
-// Zera o relógio de RELATÓRIO (histórico): qualquer evento tipo Relatório —
-// diferente de Monitoria/Price, não depende de tag de serviço (o tipo já basta).
-function ehToqueRelatorio(a) {
-  return /relat/i.test(a.type || '');
-}
-
-/** Converte a cadência de relatório do cliente (número + unidade) pra um
- * equivalente em dias, pro mesmo cálculo de relógio usado por Monitoria/Price.
- * Sem cadência configurada manualmente, cai no padrão global (`relatorio_dias`)
- * — "calcula pela config padrão a não ser que o usuário mude manualmente". */
-function relatorioCadenciaEmDias(rc, fallbackDias) {
-  if (!rc || !rc.numero || !rc.unidade) return fallbackDias;
-  const n = rc.numero;
-  switch (rc.unidade) {
-    case 'dia': return n;
-    case 'semana': return n * 7;
-    case 'mes': return n * 30;
-    case 'trimestre': return n * 90;
-    case 'semestre': return n * 180;
-    case 'personalizado': return n * 7;
-    default: return fallbackDias;
-  }
 }
 
 /** Próxima data (futura, não cancelada) que bate no MESMO critério `ehToque`
@@ -218,10 +192,11 @@ function calcularProximoPorServico(eventos, ehToque, now) {
  * registro do que já foi feito, não agendamento.
  */
 function calcularRelogio(servico, eventos, ehToque, cadencia, now, desde, janelaVencendo = JANELA_VENCENDO, toquesExtras = []) {
-  // "Último" = histórico real do serviço (só o que de fato tratou aquele serviço).
+  // "Último" = histórico real do serviço: só entrega CONCLUÍDA daquele serviço.
+  // Reagendada conta na data nova (o evento é o mesmo, `datasAnteriores` guarda as antigas).
   let ultimo = null;
   for (const a of eventos) {
-    if (!naoCancelado(a) || !ehToque(a)) continue;
+    if (!ehConcluido(a) || !ehToque(a)) continue;
     const d = parseISO(a.date);
     if (isNaN(d.getTime()) || d > now) continue;
     if (!ultimo || d > ultimo) ultimo = d;
@@ -235,16 +210,16 @@ function calcularRelogio(servico, eventos, ehToque, cadencia, now, desde, janela
   // Status "puro" pela cadência — ignora se já existe agendamento futuro.
   let statusReal, atrasoReal;
   if (!ultimo) {
-    statusReal = 'nunca';
-    // Atraso de "nunca atendido" medido em dias reais desde que o cliente
-    // entrou na carteira (não mais um peso fixo artificial) — senão um
-    // cliente com 1 serviço em dia + 1 nunca atendido pulava pra frente de
-    // quem está vencido há mais de 100 dias NOS DOIS serviços, só porque
-    // "nunca" usava um número gigante deslocado da escala de dias real.
-    // Aqui "nunca" ainda entra no bloco "vencido" (ver classificarCadencia),
-    // só a ORDEM dentro do bloco passa a respeitar dias reais de espera.
-    const referencia = !isNaN(desde.getTime()) ? desde : now;
+    // Sem toque: o cadastro vale como ponto de partida (carência de um prazo).
+    // Atendimento novo passa por em dia/vencendo e só vira "nunca" quando esse
+    // primeiro prazo vence — antes nascia atrasado no dia do cadastro. O atraso
+    // em dias reais desde o cadastro também mantém a ordem da fila na mesma
+    // escala dos vencidos.
+    // Sem data de cadastro (legado) não há carência a contar: é "nunca" já.
+    const temCadastro = desde instanceof Date && !isNaN(desde.getTime());
+    const referencia = temCadastro ? desde : now;
     atrasoReal = differenceInCalendarDays(now, referencia) - cadencia;
+    statusReal = !temCadastro || atrasoReal > 0 ? 'nunca' : atrasoReal > -janelaVencendo ? 'vencendo' : 'em_dia';
   } else {
     atrasoReal = differenceInCalendarDays(now, ultimo) - cadencia;
     statusReal = atrasoReal > 0 ? 'vencido' : atrasoReal > -janelaVencendo ? 'vencendo' : 'em_dia';
@@ -275,6 +250,28 @@ function contatoRecenteNaoRefletido(relogios, ultimoContato) {
     ? Math.max(...relogios.map((r) => r.ultimo?.getTime() ?? 0))
     : 0;
   return ultimoContato.getTime() > ultimoToqueRelogio;
+}
+
+/** Relógio dentro do prazo ("vencendo" ainda está no prazo). Reunião futura
+ * marcada não conta: `statusReal` ignora agendamento. */
+const relogioNoPrazo = (r) => r.statusReal === 'em_dia' || r.statusReal === 'vencendo';
+/** Atendimento em dia = TODOS os relógios dele no prazo. */
+const atendimentoEmDia = (f) => f.relogios.length > 0 && f.relogios.every(relogioNoPrazo);
+/** Entrega = Reunião, Relatório ou Precificação concluída — mesma definição em todo card. */
+const ehEntrega = (a) => /reuni|relat|precific/i.test(a.type || '') && ehConcluido(a);
+
+/** Relógios a menos de `janela` dias do prazo e sem reunião futura marcada
+ * (card "Vencendo", agente e alertas). Um atendimento com 2 serviços vencendo
+ * aparece 2x. Mais urgente primeiro. */
+function itensVencendo(fila, janela = JANELA_VENCENDO) {
+  const itens = [];
+  for (const f of fila) {
+    for (const r of f.relogios) {
+      if (r.proximo || r.atrasoReal > 0 || r.atrasoReal <= -janela) continue;
+      itens.push({ cliente: f.cliente, relogio: r, diasParaVencer: -r.atrasoReal });
+    }
+  }
+  return itens.sort((a, b) => a.diasParaVencer - b.diasParaVencer || String(a.cliente.empresa).localeCompare(String(b.cliente.empresa)));
 }
 
 const RANK_SEVERIDADE = { vencido: 0, vencendo: 1, em_dia: 2 };
@@ -321,7 +318,7 @@ function classificarCadencia(f) {
  */
 function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(), opts = {}) {
   const monDias = Number(cadencias?.monitoria_dias) || 30;
-  const priceDias = Number(cadencias?.price_dias) || 30;
+  const priceDias = Number(cadencias?.price_dias) || 15;
 
   const porCliente = new Map();
   agenda.forEach((a) => {
@@ -357,7 +354,9 @@ function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(),
   for (const c of clientes) {
     if (!isClienteAtivo(c, now)) continue;
     const evs = porCliente.get(c.id) ?? [];
-    const desde = c.createdAt ? parseISO(c.createdAt) : now;
+    // Sem `createdAt` vira Invalid Date de propósito: `calcularRelogio` trata como
+    // "sem cadastro conhecido" (nunca atendido), em vez de dar carência a partir de hoje.
+    const desde = c.createdAt ? parseISO(c.createdAt) : new Date(NaN);
 
     const todosRelogios = [];
     if (temServico(c, /monitor/i, 'monitoria') && !ehIndependente(c, /monitor/i)) {
@@ -437,10 +436,13 @@ exports.buildUltimaInteracaoMap = buildUltimaInteracaoMap;
 exports.temServico = temServico;
 exports.ehIndependente = ehIndependente;
 exports.naoCancelado = naoCancelado;
+exports.ehConcluido = ehConcluido;
+exports.ehEntrega = ehEntrega;
+exports.relogioNoPrazo = relogioNoPrazo;
+exports.atendimentoEmDia = atendimentoEmDia;
+exports.itensVencendo = itensVencendo;
 exports.ehToqueMonitoria = ehToqueMonitoria;
 exports.ehToquePrice = ehToquePrice;
-exports.ehToqueRelatorio = ehToqueRelatorio;
-exports.relatorioCadenciaEmDias = relatorioCadenciaEmDias;
 exports.calcularProximoPorServico = calcularProximoPorServico;
 exports.calcularRelogio = calcularRelogio;
 exports.contatoRecenteNaoRefletido = contatoRecenteNaoRefletido;

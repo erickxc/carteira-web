@@ -53,7 +53,7 @@ const CADENCIAS_PADRAO: Cadencias = {
   primeiro_contato_dias: 14,
   esfriando_dias: 45,
   monitoria_dias: 30,
-  price_dias: 30,
+  price_dias: 15,
   recontato_dias: 5,
   peso_contato_recente: 50,
 };

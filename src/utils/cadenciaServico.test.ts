@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildFilaCadencia,
-  buildVencendoDashboard,
   classificarCadencia,
   contatoRecenteNaoRefletido,
   rotuloRelogio,
@@ -163,29 +162,6 @@ describe('buildFilaCadencia', () => {
     // contatado recentemente (mas o relógio de reunião não reflete isso)
     // deve ficar depois de quem não teve nenhum contato.
     expect(fila.map((f) => f.cliente.id)).toEqual(['sem-contato', 'com-contato']);
-  });
-});
-
-describe('buildVencendoDashboard', () => {
-  it('sempre inclui um relógio de Relatório, mesmo sem Monitoria/Price', () => {
-    const c = cliente({ servicos: [] });
-    const [item] = buildVencendoDashboard([c], [], CADENCIAS, NOW);
-    expect(item.relogios.map((r) => r.servico)).toEqual(['Relatório']);
-  });
-
-  it('usa a cadência de relatório configurada no cliente, não o padrão global', () => {
-    const c = cliente({ servicos: [], relatorioCadencia: { numero: 2, unidade: 'semana' } });
-    const evRelatorio = evento({ type: 'Relatório', date: iso(10), servicos: [] });
-    const [item] = buildVencendoDashboard([c], [evRelatorio], CADENCIAS, NOW);
-    const relatorio = item.relogios.find((r) => r.servico === 'Relatório')!;
-    // 2 semanas = 14 dias de cadência; último toque há 10 dias → dentro do prazo.
-    expect(relatorio.cadencia).toBe(14);
-    expect(relatorio.status).not.toBe('vencido');
-  });
-
-  it('ignora clientes inativos', () => {
-    const inativo = cliente({ estado: 'Inativo' });
-    expect(buildVencendoDashboard([inativo], [], CADENCIAS, NOW)).toHaveLength(0);
   });
 });
 
