@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { GaugeDetalhe } from './GaugeDetalhe';
-import { Comparacao, Medidor } from './Comparacao';
+import { Comparacao, InfoComoConta, LegendaCompacta, Medidor } from './Comparacao';
 import { Card, Chip } from '../../ui';
 import type { ServicoCad } from '../../utils/cadenciaServico';
 
@@ -25,22 +25,22 @@ interface AderenciaCardProps {
 }
 
 /** "Atendimentos no Ritmo" — dos atendimentos com prazo, quantos estão com TODOS os
- * serviços no prazo (filtrado por serviço: só aquele). Fora do prazo é quebrado em
- * três situações informativas, que não mudam o número principal. */
+ * serviços no prazo (filtrado por serviço: só aquele). A quebra de quem está fora
+ * do prazo é informativa e não muda o número principal. */
 export function AderenciaCard({
   total, emDia, agendaMarcada, contatoRecente, precisa,
   emDiaClientes, agendaMarcadaClientes, contatoRecenteClientes, precisaClientes,
   anterior, rotuloAnterior, filtroServico, onFiltroServico,
 }: AderenciaCardProps) {
   const [aberto, setAberto] = useState(false);
-  const fora = total - emDia;
+  const regra = `Em dia = ${filtroServico === 'Todos' ? 'todos os serviços do atendimento' : `o prazo de ${filtroServico}`} dentro do prazo (Monitoria 30 dias, Price 15). Só entrega concluída com o serviço marcado zera o prazo; contato e reunião futura não contam.`;
   return (
-    <Card className="cobertura-card gauge-card">
+    <Card className="kpi-card">
       <div className="section-header">
-        <h3>Atendimentos no Ritmo</h3>
+        <h3>Atendimentos no Ritmo <InfoComoConta texto={regra} /></h3>
         <span className="text-text-muted" style={{ fontSize: 12 }}>hoje</span>
       </div>
-      <div className="gauge-card-filtros flex flex-wrap gap-[0.4rem] mb-3">
+      <div className="flex flex-wrap gap-[0.35rem] mb-2">
         {SERVICOS.map((s) => (
           <Chip key={s} active={filtroServico === s} onClick={() => onFiltroServico(s)}>{s === 'Todos' ? 'Geral' : s}</Chip>
         ))}
@@ -49,15 +49,14 @@ export function AderenciaCard({
         <div className="empty-state">Nenhum atendimento com prazo.</div>
       ) : (
         <>
-          <p className="kpi-valor-grande">{emDia} <span className="kpi-denominador">de {total} atendimentos em dia</span></p>
+          <p className="kpi-valor-grande">{emDia} <span className="kpi-denominador">de {total} em dia</span></p>
           <Medidor n={emDia} total={total} rotulo="atendimentos em dia" />
           <Comparacao atual={emDia} anterior={anterior.total > 0 ? anterior.emDia : null} subirEhBom rotulo={rotuloAnterior} />
-          <p className="kpi-como-conta">
-            {fora} fora do prazo: {agendaMarcada} com reunião marcada, {contatoRecente} com contato recente, {precisa} sem nada.
-          </p>
-          <p className="kpi-como-conta">
-            Em dia = {filtroServico === 'Todos' ? 'todos os serviços do atendimento' : `o prazo de ${filtroServico}`} dentro do prazo (Monitoria 30 dias, Price 15). Contato e reunião futura não contam.
-          </p>
+          <LegendaCompacta itens={[
+            { cor: 'var(--warning)', label: 'reunião marcada', n: agendaMarcada },
+            { cor: 'var(--warning)', label: 'contato recente', n: contatoRecente },
+            { cor: 'var(--danger)', label: 'sem nada', n: precisa },
+          ]} />
           <button type="button" className="gauge-toggle" onClick={() => setAberto((v) => !v)} aria-expanded={aberto}>
             {aberto ? 'Ver menos' : 'Ver atendimentos'} <ChevronDown size={14} className={aberto ? 'gauge-toggle-icon is-open' : 'gauge-toggle-icon'} />
           </button>

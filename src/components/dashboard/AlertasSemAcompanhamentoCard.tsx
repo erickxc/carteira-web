@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { Check, FileText } from 'lucide-react';
 import { Badge, Button, Card, type BadgeVariant } from '../../ui';
-import { Comparacao } from './Comparacao';
+import { Comparacao, InfoComoConta } from './Comparacao';
 import type { Cliente } from '../../types';
 
 interface AlertaCliente { cliente: Cliente; uc: Date | null | undefined; dias: number | null }
@@ -32,15 +32,11 @@ export function AlertasSemAcompanhamentoCard({ alertas, totalAnterior, rotuloAnt
   const [todos, setTodos] = useState(false);
   const visiveis = todos ? alertas : alertas.slice(0, VISIVEIS);
   return (
-    <Card>
+    <Card className="kpi-card">
       <div className="section-header">
-        <h3>Atendimentos sem acompanhamento {alertas.length > 0 && <span className="vencendo-total">{alertas.length}</span>}</h3>
-        <span className="text-text-muted" style={{ fontSize: 12 }}>{followUpDays}+ dias sem contato</span>
+        <h3>Sem acompanhamento {alertas.length > 0 && <span className="vencendo-total" style={{ marginLeft: 6 }}>{alertas.length}</span>} <InfoComoConta texto={`Atendimentos sem contato ou entrega CONCLUÍDOS há ${followUpDays}+ dias. Reunião cancelada ou ainda "Agendado" não conta.`} /></h3>
+        <Comparacao atual={alertas.length} anterior={totalAnterior} subirEhBom={false} rotulo={rotuloAnterior} />
       </div>
-      <Comparacao atual={alertas.length} anterior={totalAnterior} subirEhBom={false} rotulo={rotuloAnterior} />
-      <p className="kpi-como-conta" style={{ marginBottom: '0.75rem' }}>
-        Conta o último contato ou entrega concluído. Reunião cancelada ou ainda &quot;Agendado&quot; não conta.
-      </p>
       {alertas.length === 0 ? (
         <div className="empty-state">Tudo em dia — todo atendimento teve contato nos últimos {followUpDays} dias.</div>
       ) : (

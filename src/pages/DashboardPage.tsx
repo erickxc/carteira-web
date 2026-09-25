@@ -47,7 +47,6 @@ export default function DashboardPage() {
   const mesAnterior = MESES[(d.mes + 11) % 12].toLowerCase();
   const rotuloMes = mesCorrente ? `${mesAnterior} até dia ${d.diaCorte}` : mesAnterior;
   const janelaCobertura = `${curto(d.mes - 1)} + ${curto(d.mes)}`;
-  const mesAno = `${MESES[d.mes].slice(0, 3)}/${d.ano}`;
   const quando = mesCorrente ? 'este mês' : `em ${format(d.periodo, 'MMM/yy', { locale: ptBR })}`;
   const janelaAtendimento = useMemo(() => janelaDoMes(d.periodo, new Date()), [d.periodo]);
 
@@ -94,7 +93,7 @@ export default function DashboardPage() {
       </div>
 
       {/* 1. Números do mês */}
-      <h2 className="dash-bloco-titulo">1. Carteira e mês em números <span>· {mesAno}</span></h2>
+      <h2 className="dash-bloco-titulo">Carteira e mês em números</h2>
       <div className="stat-grid dash-stats">
         <StatCard
           title="Clientes ativos"
@@ -138,7 +137,7 @@ export default function DashboardPage() {
       </div>
 
       {/* 2. Prazo */}
-      <h2 className="dash-bloco-titulo">2. Os atendimentos estão no prazo? <span>· base: {d.ativosNoPeriodo.length} atendimentos</span></h2>
+      <h2 className="dash-bloco-titulo">Atendimentos</h2>
       <div className="dash-gauges">
         <AderenciaCard
           total={d.aderencia.total}
@@ -169,14 +168,8 @@ export default function DashboardPage() {
       </div>
 
       {/* 3. Ação */}
-      <h2 className="dash-bloco-titulo">3. O que fazer agora</h2>
-      <div className="dash-gauges">
-        <VencendoCard
-          total={d.vencendo.total}
-          itens={d.vencendo.itens}
-          filtroServico={d.filtroServicoVencendo}
-          onFiltroServico={d.setFiltroServicoVencendo}
-        />
+      <h2 className="dash-bloco-titulo">A fazer</h2>
+      <div className="dash-acao">
         <AlertasSemAcompanhamentoCard
           alertas={d.alertas}
           totalAnterior={d.alertasAnterior}
@@ -185,6 +178,13 @@ export default function DashboardPage() {
           programados={programados}
           onAbrirCliente={(clienteId) => navigate(`/clientes/${clienteId}`)}
           onProgramarRelatorio={programarRelatorio}
+        />
+        <div className="dash-acao-coluna">
+        <VencendoCard
+          total={d.vencendo.total}
+          itens={d.vencendo.itens}
+          filtroServico={d.filtroServicoVencendo}
+          onFiltroServico={d.setFiltroServicoVencendo}
         />
         <ProximasAgendasCard
           tiposDisponiveis={d.tiposDisponiveis}
@@ -195,10 +195,11 @@ export default function DashboardPage() {
           onVerAgenda={() => navigate('/agenda')}
           onSelecionarEvento={(ev) => navigate('/agenda', { state: { focusDate: ev.date } })}
         />
+        </div>
       </div>
 
       {/* 4. Análise */}
-      <h2 className="dash-bloco-titulo">4. Análise</h2>
+      <h2 className="dash-bloco-titulo">Análises</h2>
       <div className="dash-two-col">
         <Top10AtendimentosCard
           itens={d.top10AtendimentosAno.itens}

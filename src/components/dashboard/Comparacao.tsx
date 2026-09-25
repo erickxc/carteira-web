@@ -1,3 +1,26 @@
+import { Info } from 'lucide-react';
+
+/** Ícone ⓘ ao lado do título com a regra do card no hover/foco — tira o texto
+ * explicativo do corpo do card sem esconder a regra de quem quer saber. */
+export function InfoComoConta({ texto }: { texto: string }) {
+  return (
+    <span className="kpi-info" title={texto} aria-label={texto} role="img" tabIndex={0}>
+      <Info size={13} />
+    </span>
+  );
+}
+
+/** Legenda compacta numa linha: ponto colorido + rótulo + número (nunca só a cor). */
+export function LegendaCompacta({ itens }: { itens: { cor: string; label: string; n: number }[] }) {
+  return (
+    <div className="kpi-legenda">
+      {itens.map((i) => (
+        <span key={i.label}><i style={{ background: i.cor }} />{i.label} <strong>{i.n}</strong></span>
+      ))}
+    </div>
+  );
+}
+
 interface ComparacaoProps {
   atual: number;
   /** null = não há como comparar (o card deve dizer por quê em `semBase`). */

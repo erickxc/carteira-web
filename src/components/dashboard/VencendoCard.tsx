@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { Card, Chip } from '../../ui';
+import { InfoComoConta } from './Comparacao';
 import type { ServicoCad } from '../../utils/cadenciaServico';
 
 type FiltroServico = ServicoCad | 'Todos';
@@ -26,21 +27,18 @@ interface VencendoCardProps {
  * (`itensVencendo` do motor compartilhado). Um atendimento com 2 serviços vencendo aparece 2x. */
 export function VencendoCard({ total, itens, filtroServico, onFiltroServico }: VencendoCardProps) {
   return (
-    <Card className="cobertura-card gauge-card">
+    <Card className="kpi-card">
       <div className="section-header">
-        <h3>Vencendo {total > 0 && <span className="vencendo-total">{total}</span>}</h3>
+        <h3>Vencendo {total > 0 && <span className="vencendo-total" style={{ marginLeft: 6 }}>{total}</span>} <InfoComoConta texto="Prazo de Monitoria (30 dias) ou Price (15 dias) vencendo nos próximos 5 dias, sem reunião marcada." /></h3>
         <span className="text-text-muted" style={{ fontSize: 12 }}>próx. 5 dias</span>
       </div>
-      <p className="text-text-muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 12, lineHeight: 1.4 }}>
-        Prazo de Monitoria ou Precificação <strong>vencendo nos próximos 5 dias</strong>, sem reunião marcada.
-      </p>
-      <div className="gauge-card-filtros flex flex-wrap gap-[0.4rem] mb-4">
+      <div className="flex flex-wrap gap-[0.35rem] mb-2">
         {SERVICOS.map((s) => (
           <Chip key={s} active={filtroServico === s} onClick={() => onFiltroServico(s)}>{SERVICO_LABEL[s]}</Chip>
         ))}
       </div>
       {total === 0 ? (
-        <div className="empty-state">Nenhuma ação vencendo nos próximos 5 dias. 🎉</div>
+        <div className="empty-state">Nenhum prazo vencendo nos próximos 5 dias.</div>
       ) : (
         <div className="vencendo-resumo">
           <ul className="vencendo-lista">
