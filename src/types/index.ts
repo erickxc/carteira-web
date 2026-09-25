@@ -407,6 +407,8 @@ export interface StatusHistoricoItem {
   estado: string;
   pausadoAte: string;
   mudouEm: string;
+  /** Quando a linha foi gravada; o menor valor é o início do log. */
+  gravadoEm?: string;
 }
 
 export interface AnaliseIA {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { DonutChart } from '../DonutChart';
 import { GaugeDetalhe } from './GaugeDetalhe';
+import { Comparacao, Medidor } from './Comparacao';
 import { Card, Chip } from '../../ui';
 import type { ServicoCad } from '../../utils/cadenciaServico';
 
@@ -14,64 +14,58 @@ interface AderenciaCardProps {
   agendaMarcada: number;
   contatoRecente: number;
   precisa: number;
-  pct: number;
   emDiaClientes: string[];
   agendaMarcadaClientes: string[];
   contatoRecenteClientes: string[];
   precisaClientes: string[];
+  anterior: { emDia: number; total: number };
+  rotuloAnterior: string;
   filtroServico: FiltroServico;
   onFiltroServico: (s: FiltroServico) => void;
 }
 
-/** "Aderência à Cadência" — % da carteira (clientes ativos, fora Marco) dentro
- * da cadência por serviço vs. quem precisa de ação (vencido/vencendo/nunca).
- * "Todos" (geral) conta em dia se PELO MENOS 1 serviço contratado está em dia;
- * os filtros Monitoria/Price olham só o relógio daquele serviço. Quem não está
- * em dia mas já tem reunião futura marcada cai em "Agenda marcada" (já sendo
- * tratado), não junto com "Precisa contato" (ninguém cuidando ainda). */
-export function AderenciaCard({ total, emDia, agendaMarcada, contatoRecente, precisa, pct, emDiaClientes, agendaMarcadaClientes, contatoRecenteClientes, precisaClientes, filtroServico, onFiltroServico }: AderenciaCardProps) {
+/** "Atendimentos no Ritmo" — dos atendimentos com prazo, quantos estão com TODOS os
+ * serviços no prazo (filtrado por serviço: só aquele). Fora do prazo é quebrado em
+ * três situações informativas, que não mudam o número principal. */
+export function AderenciaCard({
+  total, emDia, agendaMarcada, contatoRecente, precisa,
+  emDiaClientes, agendaMarcadaClientes, contatoRecenteClientes, precisaClientes,
+  anterior, rotuloAnterior, filtroServico, onFiltroServico,
+}: AderenciaCardProps) {
   const [aberto, setAberto] = useState(false);
+  const fora = total - emDia;
   return (
     <Card className="cobertura-card gauge-card">
       <div className="section-header">
-        <h3>Carteira no Ritmo</h3>
-        <span className="text-text-muted" style={{ fontSize: 12 }}>{total} clientes</span>
+        <h3>Atendimentos no Ritmo</h3>
+        <span className="text-text-muted" style={{ fontSize: 12 }}>hoje</span>
       </div>
-      <p className="text-text-muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 12, lineHeight: 1.4 }}>
-        Situação da carteira na cadência de Monitoria/Price.
-      </p>
-      <div className="gauge-card-filtros flex flex-wrap gap-[0.4rem] mb-4">
+      <div className="gauge-card-filtros flex flex-wrap gap-[0.4rem] mb-3">
         {SERVICOS.map((s) => (
           <Chip key={s} active={filtroServico === s} onClick={() => onFiltroServico(s)}>{s === 'Todos' ? 'Geral' : s}</Chip>
         ))}
       </div>
       {total === 0 ? (
-        <div className="empty-state">Nenhum cliente na régua.</div>
+        <div className="empty-state">Nenhum atendimento com prazo.</div>
       ) : (
-        <DonutChart
-          items={[
-            { label: 'Em dia', value: emDia },
-            { label: 'Agenda marcada', value: agendaMarcada },
-            { label: 'Aguardando Retorno', value: contatoRecente },
-            { label: 'Precisa contato', value: precisa },
-          ]}
-          colors={['var(--success)', 'var(--warning)', '#6f8cc4', 'var(--danger)']}
-          centerValue={`${pct}%`}
-          centerLabel="em dia"
-          size={96}
-          thickness={13}
-        />
-      )}
-      {total > 0 && (
         <>
+          <p className="kpi-valor-grande">{emDia} <span className="kpi-denominador">de {total} atendimentos em dia</span></p>
+          <Medidor n={emDia} total={total} rotulo="atendimentos em dia" />
+          <Comparacao atual={emDia} anterior={anterior.total > 0 ? anterior.emDia : null} subirEhBom rotulo={rotuloAnterior} />
+          <p className="kpi-como-conta">
+            {fora} fora do prazo: {agendaMarcada} com reunião marcada, {contatoRecente} com contato recente, {precisa} sem nada.
+          </p>
+          <p className="kpi-como-conta">
+            Em dia = {filtroServico === 'Todos' ? 'todos os serviços do atendimento' : `o prazo de ${filtroServico}`} dentro do prazo (Monitoria 30 dias, Price 15). Contato e reunião futura não contam.
+          </p>
           <button type="button" className="gauge-toggle" onClick={() => setAberto((v) => !v)} aria-expanded={aberto}>
-            {aberto ? 'Ver menos' : 'Ver clientes'} <ChevronDown size={14} className={aberto ? 'gauge-toggle-icon is-open' : 'gauge-toggle-icon'} />
+            {aberto ? 'Ver menos' : 'Ver atendimentos'} <ChevronDown size={14} className={aberto ? 'gauge-toggle-icon is-open' : 'gauge-toggle-icon'} />
           </button>
           <GaugeDetalhe aberto={aberto} grupos={[
             { label: 'Em dia', cor: 'var(--success)', clientes: emDiaClientes },
-            { label: 'Agenda marcada', cor: 'var(--warning)', clientes: agendaMarcadaClientes },
-            { label: 'Aguardando Retorno', cor: '#6f8cc4', clientes: contatoRecenteClientes },
-            { label: 'Precisa contato', cor: 'var(--danger)', clientes: precisaClientes },
+            { label: 'Fora do prazo, reunião marcada', cor: 'var(--warning)', clientes: agendaMarcadaClientes },
+            { label: 'Fora do prazo, contato recente', cor: 'var(--warning)', clientes: contatoRecenteClientes },
+            { label: 'Fora do prazo, sem nada', cor: 'var(--danger)', clientes: precisaClientes },
           ]} />
         </>
       )}

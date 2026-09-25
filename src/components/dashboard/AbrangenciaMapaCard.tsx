@@ -136,8 +136,9 @@ export function AbrangenciaMapaCard({ clientes }: AbrangenciaMapaCardProps) {
     <Card className="cobertura-card" style={{ position: 'relative' }}>
       <div className="section-header">
         <h3 style={{ fontSize: '0.92rem' }}>Abrangência da Monitoria</h3>
-        <span className="text-text-muted" style={{ fontSize: 11 }}>{totalComUf} loja(s)</span>
+        <span className="text-text-muted" style={{ fontSize: 11 }}>{totalComUf} atendimento(s)</span>
       </div>
+      <p className="kpi-como-conta" style={{ margin: '-0.25rem 0 0.5rem' }}>Estado estimado pelo DDD do telefone de contato (o endereço não está preenchido).</p>
 
       <div
         role="button"

@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { Bot } from 'lucide-react';
 import { Card } from '../../ui';
 
@@ -24,6 +24,8 @@ interface StackedBarCardProps {
    *  Risco" usa isso, é gerado pelo monitorIA, não é só uma contagem de
    *  cadastro como os outros StackedBarCard da mesma tela. */
   destaque?: boolean;
+  /** Linhas abaixo da legenda: comparação com o mês anterior e "como conta". */
+  extra?: ReactNode;
 }
 
 /**
@@ -32,7 +34,7 @@ interface StackedBarCardProps {
  * serviços. Um gap de superfície separa os segmentos (nunca uma borda), e as
  * pontas da barra (não cada segmento) são as únicas arredondadas.
  */
-export function StackedBarCard({ titulo, subtitulo, segmentos, emptyMsg, insight, icone: Icone, destaque }: StackedBarCardProps) {
+export function StackedBarCard({ titulo, subtitulo, segmentos, emptyMsg, insight, icone: Icone, destaque, extra }: StackedBarCardProps) {
   const total = segmentos.reduce((s, i) => s + i.n, 0);
 
   return (
@@ -73,6 +75,7 @@ export function StackedBarCard({ titulo, subtitulo, segmentos, emptyMsg, insight
               </span>
             ))}
           </div>
+          {extra}
         </>
       )}
     </Card>

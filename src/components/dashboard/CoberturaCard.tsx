@@ -1,58 +1,50 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { DonutChart } from '../DonutChart';
 import { GaugeDetalhe } from './GaugeDetalhe';
+import { Comparacao, Medidor } from './Comparacao';
 import { Card } from '../../ui';
 
 interface CoberturaCardProps {
   total: number;
   cobertos: number;
   semContato: number;
-  pct: number;
-  mesAno: string;
+  /** Janela, ex.: "ago + set". */
+  janela: string;
   cobertosClientes: string[];
   semContatoClientes: string[];
+  anterior: { cobertos: number; total: number };
+  rotuloAnterior: string;
 }
 
-/** "Cobertura da Carteira" — % de clientes ativos com ao menos 1 reunião no período. */
-export function CoberturaCard({ total, cobertos, semContato, pct, mesAno, cobertosClientes, semContatoClientes }: CoberturaCardProps) {
+/** "Cobertura dos Atendimentos" — atendimentos com pelo menos 1 entrega CONCLUÍDA
+ * (reunião, relatório ou precificação) no mês e no anterior. */
+export function CoberturaCard({ total, cobertos, semContato, janela, cobertosClientes, semContatoClientes, anterior, rotuloAnterior }: CoberturaCardProps) {
   const [aberto, setAberto] = useState(false);
   return (
     <Card className="cobertura-card gauge-card">
       <div className="section-header">
-        <h3>Cobertura da Carteira</h3>
-        <span className="text-text-muted" style={{ fontSize: 12 }}>{mesAno} · {total} ativos</span>
+        <h3>Cobertura dos Atendimentos</h3>
+        <span className="text-text-muted" style={{ fontSize: 12 }}>{janela}</span>
       </div>
-      <p className="text-text-muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 12, lineHeight: 1.4, minHeight: '2.8em' }}>
-        Clientes com <strong>ao menos 1 reunião ou relatório</strong> nos últimos 2 meses vs. <strong>sem contato</strong>.
-      </p>
-      {/* Spacer invisível: "Carteira no Ritmo" tem uma linha de filtros
-          (Geral/Monitoria/Price) aqui que este card não tem — sem reservar o
-          mesmo espaço, o donut e o botão "Ver clientes" ficam desalinhados
-          entre os dois cards, mesmo os dois tendo a mesma altura total. */}
-      <div className="gauge-card-filtros mb-4" aria-hidden="true" />
+      {/* Mesma altura da linha de filtros do card ao lado, pra alinhar os números. */}
+      <div className="gauge-card-filtros mb-3" aria-hidden="true" />
       {total === 0 ? (
-        <div className="empty-state">Nenhum cliente ativo.</div>
+        <div className="empty-state">Nenhum atendimento ativo.</div>
       ) : (
-        <DonutChart
-          items={[
-            { label: 'Atendidos', value: cobertos },
-            { label: 'Sem contato', value: semContato },
-          ]}
-          colors={['var(--accent)', 'var(--border-strong)']}
-          centerValue={`${pct}%`}
-          size={96}
-          thickness={13}
-        />
-      )}
-      {total > 0 && (
         <>
+          <p className="kpi-valor-grande">{cobertos} <span className="kpi-denominador">de {total} atendimentos com entrega</span></p>
+          <Medidor n={cobertos} total={total} rotulo="atendimentos com entrega" />
+          <Comparacao atual={cobertos} anterior={anterior.total > 0 ? anterior.cobertos : null} subirEhBom rotulo={rotuloAnterior} />
+          <p className="kpi-como-conta">{semContato} sem nenhuma entrega na janela.</p>
+          <p className="kpi-como-conta">
+            Conta reunião, relatório ou precificação CONCLUÍDOS no mês e no anterior. Agendado não conta. Quem só tem serviços independentes fica fora.
+          </p>
           <button type="button" className="gauge-toggle" onClick={() => setAberto((v) => !v)} aria-expanded={aberto}>
-            {aberto ? 'Ver menos' : 'Ver clientes'} <ChevronDown size={14} className={aberto ? 'gauge-toggle-icon is-open' : 'gauge-toggle-icon'} />
+            {aberto ? 'Ver menos' : 'Ver atendimentos'} <ChevronDown size={14} className={aberto ? 'gauge-toggle-icon is-open' : 'gauge-toggle-icon'} />
           </button>
           <GaugeDetalhe aberto={aberto} grupos={[
-            { label: 'Atendidos', cor: 'var(--accent)', clientes: cobertosClientes },
-            { label: 'Sem contato', cor: 'var(--border-strong)', clientes: semContatoClientes },
+            { label: 'Com entrega', cor: 'var(--success)', clientes: cobertosClientes },
+            { label: 'Sem entrega', cor: 'var(--danger)', clientes: semContatoClientes },
           ]} />
         </>
       )}

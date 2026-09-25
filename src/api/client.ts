@@ -474,6 +474,7 @@ export async function buscarAnaliseIA(clienteId: string): Promise<AnaliseIA | nu
  *  o ícone "IA" por risco e ordenar a coluna sem precisar passar o mouse
  *  linha por linha. Uma chamada só no mount da tela. */
 export const buscarAnalisesIA = () => request<AnaliseIA[]>('/ia/analises');
+export const buscarHistoricoAnalisesIA = () => request<AnaliseIA[]>('/ia/analises/historico');
 export const listarStatusHistorico = () => request<StatusHistoricoItem[]>('/status-historico');
 
 export interface MensagemChatIA {

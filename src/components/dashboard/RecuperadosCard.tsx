@@ -52,25 +52,28 @@ export function RecuperadosCard({ clientes, agenda, agora }: RecuperadosCardProp
 
   const porTipo = recuperados.reduce(
     (acc, r) => {
-      if (/relat/i.test(r.entrega.tipo)) acc.relatorio++; else acc.reuniao++;
+      if (/relat/i.test(r.entrega.tipo)) acc.relatorio++;
+      else if (/precific/i.test(r.entrega.tipo)) acc.precificacao++;
+      else acc.reuniao++;
       return acc;
     },
-    { reuniao: 0, relatorio: 0 }
+    { reuniao: 0, relatorio: 0, precificacao: 0 }
   );
 
   // Plural por extenso: concatenar sufixo daria "reuniãoões".
   const partes = [
     porTipo.reuniao > 0 ? `${porTipo.reuniao} ${porTipo.reuniao > 1 ? 'reuniões' : 'reunião'}` : null,
     porTipo.relatorio > 0 ? `${porTipo.relatorio} ${porTipo.relatorio > 1 ? 'relatórios' : 'relatório'}` : null,
+    porTipo.precificacao > 0 ? `${porTipo.precificacao} ${porTipo.precificacao > 1 ? 'precificações' : 'precificação'}` : null,
   ].filter(Boolean);
 
   return (
     <Card flat className="recuperados-card">
       <div className="section-header" style={{ display: 'block', gap: 4 }}>
-        <h3 style={{ marginBottom: 2 }}>Clientes recuperados</h3>
+        <h3 style={{ marginBottom: 2 }}>Atendimentos recuperados</h3>
         <p
           className="atend-subtitulo"
-          title={`${janela.descricao} — clientes que voltaram a ter reunião ou relatório CONCLUÍDO após ${LIMIAR_RECUPERACAO_DIAS}+ dias sem nenhum atendimento`}
+          title={`${janela.descricao} — atendimentos que voltaram a ter reunião, relatório ou precificação CONCLUÍDO após ${LIMIAR_RECUPERACAO_DIAS}+ dias sem nenhum atendimento`}
         >
           {janela.curta} · voltaram após {LIMIAR_RECUPERACAO_DIAS}+ dias parados
         </p>

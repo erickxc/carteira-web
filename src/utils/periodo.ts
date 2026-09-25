@@ -41,6 +41,15 @@ export function periodosDisponiveis(dataMaisAntiga: Date | null, agora: Date = n
   return PERIODOS.filter((p) => p.mesesNecessarios <= mesesDeHistorico);
 }
 
+/** Janela do mês escolhido no topo do dashboard: o mês corrente vai até hoje; um mês passado é fechado. */
+export function janelaDoMes(periodo: Date, agora: Date): Janela {
+  if (periodo.getFullYear() === agora.getFullYear() && periodo.getMonth() === agora.getMonth()) return janelaDe('mes_atual', agora);
+  const inicio = startOfMonth(periodo);
+  const fim = endOfMonth(periodo);
+  const mes = format(periodo, "MMMM 'de' yyyy", { locale: ptBR });
+  return { inicio, fim, descricao: `${mes} · ${format(inicio, 'dd/MM/yyyy')} a ${format(fim, 'dd/MM/yyyy')}`, curta: mes };
+}
+
 /**
  * Traduz o filtro de período em um intervalo concreto.
  *

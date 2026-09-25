@@ -29,6 +29,12 @@ router.get('/analises', (_req, res) => {
   res.json(repo.get('AnalisesIA'));
 });
 
+/** Versões anteriores das análises (append-only) — base da comparação de risco no
+ * Dashboard da Carteira. Buscada só por aquela tela, não no boot do app. */
+router.get('/analises/historico', (_req, res) => {
+  res.json(repo.get('AnalisesIAHistorico'));
+});
+
 /**
  * Alertas conversáveis da tela do monitorIA. Recalculados a cada chamada (são
  * derivados de cliente/agenda/análise, que mudam o tempo todo) — nada é

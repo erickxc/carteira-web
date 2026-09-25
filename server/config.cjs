@@ -497,7 +497,9 @@ const USO_IA_HEADERS = [
 // cópia mensal. Permite reconstruir "quem estava ativo em julho" sem que o
 // histórico se reescreva quando o cadastro muda depois. Ver
 // `server/dominio/statusHistorico.cjs`.
-const STATUS_HISTORICO_HEADERS = ['id', 'clientId', 'status', 'estado', 'pausadoAte', 'mudouEm'];
+// `gravadoEm`: quando a linha foi gravada (≠ `mudouEm` na linha-base, que usa o
+// cadastro). O menor `gravadoEm` é o início do log: meses antes dele são aproximação.
+const STATUS_HISTORICO_HEADERS = ['id', 'clientId', 'status', 'estado', 'pausadoAte', 'mudouEm', 'gravadoEm'];
 
 // Headers explícitos por planilha — evita que o SheetJS derive as colunas
 // apenas das chaves da primeira linha do array (se a primeira linha for uma

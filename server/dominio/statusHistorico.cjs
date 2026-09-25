@@ -43,6 +43,7 @@ function sincronizar(repo, agora = new Date()) {
       estado: c.estado ?? '',
       pausadoAte: c.pausadoAte ?? '',
       mudouEm: u ? agora.toISOString() : (c.createdAt || DESDE_SEMPRE),
+      gravadoEm: agora.toISOString(),
     });
   }
   if (novos.length) repo.save('StatusHistorico', [...historico, ...novos]);

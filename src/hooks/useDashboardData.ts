@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { contarAtendidosNoMes } from '../utils/atendidosNoMes';
 import { clientesEm } from '../utils/statusHistorico';
+import { riscoEm } from '../utils/riscoEm';
 import {
   addDays, differenceInCalendarDays, eachMonthOfInterval, endOfMonth, format, isSameMonth,
   max as maxDate, min as minDate, parseISO, startOfMonth, subMonths,
@@ -10,21 +11,39 @@ import { useCarteira } from '../context/CarteiraContext';
 import { usePersistedState } from './usePersistedState';
 import { isClienteAtivo } from '../utils/formatters';
 import { clienteStatusCor, riscoIACor } from '../utils/badges';
-import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
 import {
-  atendimentoEmDia, buildFilaCadencia, contatoRecenteNaoRefletido, ehEntrega, itensVencendo, relogioNoPrazo, type ServicoCad,
+  buildFilaCadencia, ehEntrega, ehServicoDeReuniao, itensVencendo, type ServicoCad,
 } from '../utils/cadenciaServico';
 import { mesesComDados } from '../utils/periodo';
-import type { Cliente, EventoAgenda } from '../types';
+import { calcularIndicadoresPrazo, LIMIAR_SEM_ACOMPANHAMENTO_DIAS, recortarAte } from '../utils/indicadoresPrazo';
+import type { AnaliseIA, Cliente, EventoAgenda } from '../types';
 
-const FOLLOW_UP_THRESHOLD_DAYS = 30;
+const FOLLOW_UP_THRESHOLD_DAYS = LIMIAR_SEM_ACOMPANHAMENTO_DIAS;
+
+/** Média de serviços COM PRAZO (Monitoria e Price) por atendimento. */
+function mediaServicosDe(lista: Cliente[]): number {
+  if (lista.length === 0) return 0;
+  return lista.reduce((s, c) => s + (c.servicos ?? []).filter(ehServicoDeReuniao).length, 0) / lista.length;
+}
+
+/** Clientes distintos: uma rede (`grupo`) conta uma vez; loja sem grupo conta sozinha. */
+function contarClientesDistintos(lista: Cliente[]): number {
+  const grupos = new Set<string>();
+  let semGrupo = 0;
+  for (const c of lista) {
+    if (c.grupo) grupos.add(c.grupo);
+    else semGrupo++;
+  }
+  return grupos.size + semGrupo;
+}
 
 /**
  * Toda a camada de dados da Visão Geral (filtros + cálculos derivados) — a
  * página só monta a UI a partir do que este hook devolve. Separado do
  * DashboardPage.tsx pra não misturar "o que calcular" com "como desenhar".
  */
-export function useDashboardData() {
+export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {}) {
+  const { historicoAnalises } = opts;
   // `filtroMonitor` vem do Context — é o filtro GLOBAL ("quem sou eu"),
   // compartilhado com o header e com o monitorIA, não mais local desta tela.
   const { clientes, agenda, acoes, lembretes, cadencias, analisesIA, statusHistorico, filtroMonitor, setFiltroMonitor, monitoresDisponiveis } = useCarteira();
@@ -96,24 +115,23 @@ export function useDashboardData() {
   // grupo) — as duas métricas divergem e cada dashboard mostra a que faz
   // sentido pro seu propósito (Visão Geral = atendimentos; Dashboard da
   // Carteira = clientes).
-  // Carteira ATIVA como estava no período escolhido: mês corrente = cadastro de hoje;
-  // mês passado = situação vigente no fim daquele mês (log StatusHistorico), pra o
-  // histórico não mudar quando alguém troca o status de um cliente depois. Só os
-  // cards "Clientes ativos"/"Total de atendimentos" usam isto por enquanto.
-  const ativosNoPeriodo = useMemo(() => {
-    const base = isSameMonth(periodo, hoje) ? clientes : clientesEm(clientes, statusHistorico, dataReferencia);
-    return base.filter((c) => isClienteAtivo(c, dataReferencia) && (filtroMonitor === 'Todos' || c.monitor === filtroMonitor));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientes, statusHistorico, filtroMonitor, dataReferencia]);
-  const totalClientesDistintos = useMemo(() => {
-    const grupos = new Set<string>();
-    let semGrupo = 0;
-    for (const c of ativosNoPeriodo) {
-      if (c.grupo) grupos.add(c.grupo);
-      else semGrupo++;
-    }
-    return grupos.size + semGrupo;
-  }, [ativosNoPeriodo]);
+  // Carteira ATIVA numa data: no mês corrente, o cadastro de hoje; em outra data,
+  // a situação vigente naquele dia (log StatusHistorico) e só quem já existia.
+  // Serve tanto ao mês escolhido no topo quanto à comparação com um mês antes.
+  const ativosEm = useCallback((data: Date) => {
+    const base = isSameMonth(data, new Date()) ? clientes : clientesEm(clientes, statusHistorico, data);
+    return base.filter((c) =>
+      (!c.createdAt || parseISO(c.createdAt) <= data) &&
+      isClienteAtivo(c, data) &&
+      (filtroMonitor === 'Todos' || c.monitor === filtroMonitor)
+    );
+  }, [clientes, statusHistorico, filtroMonitor]);
+  /** Mesma data, um mês antes — referência de toda comparação da tela. */
+  const referenciaAnterior = useMemo(() => subMonths(dataReferencia, 1), [dataReferencia]);
+  const ativosNoPeriodo = useMemo(() => ativosEm(dataReferencia), [ativosEm, dataReferencia]);
+  const ativosAnterior = useMemo(() => ativosEm(referenciaAnterior), [ativosEm, referenciaAnterior]);
+  const totalClientesDistintos = useMemo(() => contarClientesDistintos(ativosNoPeriodo), [ativosNoPeriodo]);
+  const totalClientesDistintosAnterior = useMemo(() => contarClientesDistintos(ativosAnterior), [ativosAnterior]);
   const atendidosNoMes = useMemo(
     () => contarAtendidosNoMes(ativosNoPeriodo, agenda, dataReferencia, dataReferencia),
     [ativosNoPeriodo, agenda, dataReferencia]
@@ -135,13 +153,21 @@ export function useDashboardData() {
     [acoes, ativosIds]
   );
 
-  // Última interação por atendimento ativo = evento concluído de qualquer tipo +
-  // ações concluídas. Usa `agendaPorMonitor`, NÃO `agendaAtiva`: o filtro "Tipo"
-  // do topo não pode mudar quem está sem acompanhamento (filtrar "Reunião"
-  // escondia os contatos e inflava a lista).
-  const ultimaInteracao = useMemo(
-    () => buildUltimaInteracaoMap(agendaPorMonitor, acoes, { now: dataReferencia, isRelevant: (cid) => ativosIds.has(cid) }),
-    [agendaPorMonitor, acoes, ativosIds, dataReferencia]
+  // Indicadores de prazo (Ritmo, Cobertura por Serviço, Cobertura, Sem
+  // acompanhamento) — UMA função para o mês escolhido e para a mesma data um mês
+  // antes, então valor e comparação nunca usam regras diferentes. O passado é
+  // aproximado: tira o que foi criado depois, mas o status dos eventos é o de hoje.
+  const prazo = useMemo(
+    () => calcularIndicadoresPrazo({ ativos: ativosNoPeriodo, agenda, acoes, cadencias, now: dataReferencia, periodo, filtroServico: filtroServicoAderencia }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ativosNoPeriodo, agenda, acoes, cadencias, dataReferencia, filtroServicoAderencia]
+  );
+  const prazoAnterior = useMemo(
+    () => calcularIndicadoresPrazo({
+      ativos: ativosAnterior, agenda: recortarAte(agenda, referenciaAnterior), acoes: recortarAte(acoes, referenciaAnterior),
+      cadencias, now: referenciaAnterior, periodo: startOfMonth(referenciaAnterior), filtroServico: filtroServicoAderencia,
+    }),
+    [ativosAnterior, agenda, acoes, cadencias, referenciaAnterior, filtroServicoAderencia]
   );
 
   const anosDisponiveis = useMemo(() => {
@@ -256,9 +282,12 @@ export function useDashboardData() {
   // reunião pra outro dia via drag-and-drop ou o botão de reagendar — o evento
   // continua vivo, só muda de data). Antes só contava a (1); como (2) é o jeito
   // mais comum de remarcar no dia a dia, o card ficava sempre zerado/errado.
-  const reagendamentosMes = reunioesAtivas.filter((a) =>
-    (/reagend/i.test(a.status || '') || (a.reagendamentos ?? 0) > 0) && isSameMonth(parseISO(a.date), periodo)
-  ).length;
+  const foiReagendada = (a: EventoAgenda) => /reagend/i.test(a.status || '') || (a.reagendamentos ?? 0) > 0;
+  const reagendamentosMes = reunioesAtivas.filter((a) => foiReagendada(a) && isSameMonth(parseISO(a.date), periodo)).length;
+  const reagendamentosMesAnterior = reunioesAtivas.filter((a) => {
+    const d = parseISO(a.date);
+    return foiReagendada(a) && isSameMonth(d, periodoAnterior) && d.getDate() <= diaCorte;
+  }).length;
 
   // --- Linha: REUNIÕES CONCLUÍDAS por mês (bate com o card). A linha sólida é
   // o realizado; a projeção (concluídas + agendadas do mês) vira ponto pontilhado. ---
@@ -285,98 +314,64 @@ export function useDashboardData() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reunioesAtivas, mes, ano]);
 
-  // --- COBERTURA por serviço: dos atendimentos que TÊM o relógio do serviço
-  // (contratado e não independente), quantos estão no prazo. Mesma regra do
-  // "Atendimentos no Ritmo" (`relogioNoPrazo`: em dia ou vencendo) e de
-  // `buscarCoberturaServicos` no backend. Independente fica fora da base: não
-  // tem prazo, e contá-lo fazia o atendimento aparecer descoberto para sempre
-  // (9 em Price, 4 em Monitoria na base real de 25/09/2026).
+  // --- Cobertura por serviço: dos atendimentos que TÊM o relógio do serviço
+  // (contratado e não independente), quantos estão no prazo. Vem de
+  // `calcularIndicadoresPrazo` (mesma regra do Ritmo e do agente).
   const { servicosDist, totalAtendidos } = useMemo(() => {
-    const JANELA = 30;
-    const fila = buildFilaCadencia(ativos, agenda, acoes, cadencias, dataReferencia);
-
-    // Top atendimentos por SERVIÇO tratado — ranking de esforço (quantas
-    // entregas nos últimos 30 dias): é "quem mais recebeu", não "quem está em dia".
-    const temServicoPrice = (a: EventoAgenda) =>
-      /precific/i.test(a.type || '') || (a.servicos ?? []).some((s) => /(price|prec)/i.test(s));
-    const temServicoMonitoria = (a: EventoAgenda) => (a.servicos ?? []).some((s) => /monitor/i.test(s));
-    function topClientes(pred: (a: EventoAgenda) => boolean) {
-      const contagem = new Map<string, number>();
-      agendaAtiva.forEach((a) => {
-        if (!ehEntrega(a) || !pred(a)) return;
-        const d = parseISO(a.date);
-        const dias = differenceInCalendarDays(dataReferencia, d);
-        if (isNaN(d.getTime()) || dias < 0 || dias > JANELA) return;
-        contagem.set(a.clientId, (contagem.get(a.clientId) ?? 0) + 1);
-      });
-      return [...contagem.entries()]
-        .map(([clientId, n]) => ({ empresa: clientes.find((c) => c.id === clientId)?.empresa ?? '—', n }))
-        .sort((a, b) => b.n - a.n)
-        .slice(0, 5);
-    }
-
-    const defs: { label: string; color: string; servico: ServicoCad; pred: (a: EventoAgenda) => boolean }[] = [
-      { label: 'Monitoria', color: 'var(--accent)', servico: 'Monitoria', pred: temServicoMonitoria },
-      { label: 'Price', color: 'var(--accent-tertiary)', servico: 'Price', pred: temServicoPrice },
-    ];
-    const dist = defs.map((d) => {
-      const comRelogio = fila
-        .map((f) => ({ empresa: f.cliente.empresa, r: f.relogios.find((x) => x.servico === d.servico) }))
-        .filter((x): x is { empresa: string; r: NonNullable<typeof x.r> } => Boolean(x.r));
-      const cobertos = comRelogio.filter((x) => relogioNoPrazo(x.r)).map((x) => x.empresa).sort((a, b) => a.localeCompare(b));
-      const descobertos = comRelogio.filter((x) => !relogioNoPrazo(x.r)).map((x) => x.empresa).sort((a, b) => a.localeCompare(b));
+    const rotulo: Record<ServicoCad, string> = { Monitoria: 'Monitoria', Price: 'Price' };
+    const dist = prazo.porServico.map((atual) => {
+      const antes = prazoAnterior.porServico.find((x) => x.servico === atual.servico)!;
       return {
-        label: d.label,
-        n: cobertos.length,
-        base: comRelogio.length,
-        pct: comRelogio.length > 0 ? Math.round((cobertos.length / comRelogio.length) * 100) : 0,
-        color: d.color,
-        top: topClientes(d.pred),
-        descobertos: descobertos.length,
-        cobertosClientes: cobertos,
-        descobertosClientes: descobertos,
+        label: rotulo[atual.servico],
+        n: atual.cobertos.length,
+        base: atual.cobertos.length + atual.descobertos.length,
+        anterior: { n: antes.cobertos.length, base: antes.cobertos.length + antes.descobertos.length },
+        cobertosClientes: atual.cobertos,
+        descobertosClientes: atual.descobertos,
       };
     });
-    const total = fila.filter(atendimentoEmDia).length;
-    return { servicosDist: dist, totalAtendidos: total };
-  }, [ativos, agenda, acoes, cadencias, agendaAtiva, clientes, dataReferencia]);
+    return { servicosDist: dist, totalAtendidos: prazo.totalEmDia };
+  }, [prazo, prazoAnterior]);
 
-  // --- Composição da carteira (Dashboard da Carteira) — recortes direto do
-  // CADASTRO de cliente, sem depender de agenda/ações. Cada distribuição
+  // --- Composição da carteira (Dashboard da Carteira) — recortes do CADASTRO,
+  // sempre por ATENDIMENTO (loja) e com o filtro de monitor. Cada distribuição
   // devolve {label, n} ordenado por contagem desc, pra virar barra de %.
-  const clientesPorMonitor = useMemo(() => {
+  const contarPor = (lista: Cliente[], chave: (c: Cliente) => string) => {
     const contagem = new Map<string, number>();
-    ativos.forEach((c) => {
-      const key = c.monitor?.trim() || 'Sem monitor';
-      contagem.set(key, (contagem.get(key) ?? 0) + 1);
-    });
-    return [...contagem.entries()]
-      .map(([label, n]) => ({ label, n }))
-      .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
-  }, [ativos]);
+    lista.forEach((c) => { const k = chave(c); contagem.set(k, (contagem.get(k) ?? 0) + 1); });
+    return [...contagem.entries()].map(([label, n]) => ({ label, n })).sort((x, y) => y.n - x.n || x.label.localeCompare(y.label));
+  };
+  const doMonitor = (c: Cliente) => filtroMonitor === 'Todos' || c.monitor === filtroMonitor;
 
-  // "Saúde da carteira" — composição por STATUS, carteira INTEIRA (não só
-  // `ativos`, que já filtra por status "em atendimento") — senão Suspenso/
-  // Atendido pelo Marco/Problemas Externos nunca apareceriam aqui, justamente
-  // os que essa distribuição existe pra mostrar. Cor = mesma classificação
-  // semântica do badge (`clienteStatusCor`) — aqui é um fill sólido pra
-  // barra empilhada de parte-do-todo, não o badge em si.
+  const clientesPorMonitor = useMemo(() => contarPor(ativos, (c) => c.monitor?.trim() || 'Sem monitor'),
+     
+    [ativos]);
+
+  // "Fora da monitoria": os não ativos, quebrados pelo motivo. Status fora de
+  // atendimento (Suspenso, Atendido pelo Marco, Problemas Externos...) é o motivo
+  // mais informativo; depois pausa temporária; senão o próprio estado Inativo.
+  const foraDaMonitoria = useMemo(() => contarPor(inativos, (c) => {
+    const status = (c.status || '').trim();
+    if (status && !/^(ativo|regular|gratuidade)$/i.test(status)) return status;
+    if (c.pausadoAte && parseISO(c.pausadoAte) >= new Date()) return 'Pausado';
+    return 'Estado inativo';
+  }),
+     
+    [inativos]);
+
+  // "Saúde da carteira" — composição por STATUS de todos os cadastros do monitor
+  // (ativos e não ativos: é justamente para mostrar Suspenso/Marco/Problemas
+  // Externos). Cor = mesma classificação semântica do badge (`clienteStatusCor`).
   const saudeCarteira = useMemo(() => {
-    const contagem = new Map<string, number>();
-    clientes.forEach((c) => {
-      const key = c.status?.trim() || 'Regular';
-      contagem.set(key, (contagem.get(key) ?? 0) + 1);
-    });
-    const total = clientes.length;
-    return [...contagem.entries()]
-      .map(([label, n]) => ({ label, n, pct: total > 0 ? Math.round((n / total) * 100) : 0, color: clienteStatusCor(label) }))
-      .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
-  }, [clientes]);
+    const doFiltro = clientes.filter(doMonitor);
+    const total = doFiltro.length;
+    return contarPor(doFiltro, (c) => c.status?.trim() || 'Regular')
+      .map((x) => ({ ...x, pct: total > 0 ? Math.round((x.n / total) * 100) : 0, color: clienteStatusCor(x.label) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientes, filtroMonitor]);
 
-  // Profundidade de serviços contratados por cliente ATIVO — quantos têm 1,
-  // 2 ou 3+ serviços (cross-sell). Categorias ORDENADAS (não nominais), por
-  // isso a cor é uma rampa de um hue só (mais escuro = mais serviços), nunca
-  // uma cor por categoria nominal.
+  // Profundidade de serviços contratados por atendimento ativo (1, 2, 3+).
+  // Categorias ORDENADAS: rampa de um hue só (mais escuro = mais serviços).
   const profundidadeServicos = useMemo(() => {
     const baldes = [
       { label: '1 serviço', min: 1, max: 1, cor: 'color-mix(in srgb, var(--accent) 45%, var(--card-hover))' },
@@ -384,111 +379,94 @@ export function useDashboardData() {
       { label: '3+ serviços', min: 3, max: Infinity, cor: 'var(--accent)' },
     ];
     const semServico = ativos.filter((c) => (c.servicos ?? []).length === 0).length;
-    const dist = baldes
-      .map((b) => ({
-        label: b.label,
-        n: ativos.filter((c) => { const q = (c.servicos ?? []).length; return q >= b.min && q <= b.max; }).length,
-        color: b.cor,
-      }));
+    const dist = baldes.map((b) => ({
+      label: b.label,
+      n: ativos.filter((c) => { const q = (c.servicos ?? []).length; return q >= b.min && q <= b.max; }).length,
+      color: b.cor,
+    }));
     if (semServico > 0) dist.unshift({ label: 'Nenhum serviço', n: semServico, color: 'var(--text-muted)' });
     const total = ativos.length;
-    return dist
-      .filter((d) => d.n > 0)
-      .map((d) => ({ ...d, pct: total > 0 ? Math.round((d.n / total) * 100) : 0 }));
+    return dist.filter((d) => d.n > 0).map((d) => ({ ...d, pct: total > 0 ? Math.round((d.n / total) * 100) : 0 }));
   }, [ativos]);
 
-  // Distribuição de risco (baixo/médio/alto, `AnalisesIA.nivelRisco`) entre os
-  // clientes ATIVOS — mede saúde do relacionamento, não volume de atendimento
-  // (que é o que os outros cards do dashboard já cobrem). Ordem FIXA
-  // baixo→alto (não por contagem): é uma escala ordinal, ordenar por volume
-  // confundiria a leitura. "Sem análise" entra separado (mesmo padrão de
-  // "Nenhum serviço" em profundidadeServicos) — cliente sem nenhuma análise
-  // ainda não é "risco baixo", é dado ausente.
+  // Distribuição de risco (`AnalisesIA.nivelRisco`) entre os atendimentos ativos,
+  // em ordem FIXA baixo → alto (escala ordinal). "Sem análise" é dado ausente,
+  // não risco baixo. A comparação usa o risco vigente um mês antes (`riscoEm`,
+  // com o histórico que a própria tela busca); sem histórico, não compara.
   const distribuicaoRisco = useMemo(() => {
-    const analisePorCliente = new Map(analisesIA.map((a) => [a.clientId, a]));
+    const nivelAtual = new Map(analisesIA.map((a) => [a.clientId, a.nivelRisco]));
+    const nivelAnterior = riscoEm(analisesIA, historicoAnalises ?? [], referenciaAnterior);
     const niveis: { label: string; nivel: 'baixo' | 'medio' | 'alto' }[] = [
       { label: 'Risco baixo', nivel: 'baixo' },
       { label: 'Risco médio', nivel: 'medio' },
       { label: 'Risco alto', nivel: 'alto' },
     ];
-    const semAnalise = ativos.filter((c) => !analisePorCliente.has(c.id)).length;
-    const dist = niveis.map((n) => ({
+    const total = ativos.length;
+    const dist: { label: string; n: number; anterior: number | null; color: string }[] = niveis.map((n) => ({
       label: n.label,
-      n: ativos.filter((c) => analisePorCliente.get(c.id)?.nivelRisco === n.nivel).length,
+      n: ativos.filter((c) => nivelAtual.get(c.id) === n.nivel).length,
+      anterior: historicoAnalises ? ativosAnterior.filter((c) => nivelAnterior.get(c.id) === n.nivel).length : null,
       color: riscoIACor(n.nivel),
     }));
-    if (semAnalise > 0) dist.push({ label: 'Sem análise', n: semAnalise, color: 'var(--text-muted)' });
-    const total = ativos.length;
-    return dist
-      .filter((d) => d.n > 0)
-      .map((d) => ({ ...d, pct: total > 0 ? Math.round((d.n / total) * 100) : 0 }));
-  }, [ativos, analisesIA]);
+    const semAnalise = ativos.filter((c) => !nivelAtual.has(c.id)).length;
+    if (semAnalise > 0) dist.push({ label: 'Sem análise', n: semAnalise, anterior: null, color: 'var(--text-muted)' });
+    return dist.filter((d) => d.n > 0).map((d) => ({ ...d, pct: total > 0 ? Math.round((d.n / total) * 100) : 0 }));
+  }, [ativos, ativosAnterior, analisesIA, historicoAnalises, referenciaAnterior]);
 
-  const mediaServicosPorCliente = useMemo(() => {
-    if (ativos.length === 0) return 0;
-    const soma = ativos.reduce((s, c) => s + (c.servicos ?? []).length, 0);
-    return soma / ativos.length;
-  }, [ativos]);
+  // Média de serviços COM PRAZO (Monitoria e Price) por atendimento ativo — os
+  // outros serviços do cadastro são informacionais e inflavam o número.
+  const mediaServicosPorCliente = useMemo(() => mediaServicosDe(ativos), [ativos]);
+  const mediaServicosAnterior = useMemo(() => mediaServicosDe(ativosAnterior), [ativosAnterior]);
 
-  // Novos clientes cadastrados no MÊS CORRENTE (não segue o filtro mês/ano do
-  // topo, que é sobre agenda — aqui é sempre "hoje", pra virar um KPI de
-  // "carteira está crescendo agora", não histórico.
-  const novosClientesMes = useMemo(
-    () => clientes.filter((c) => { const d = parseISO(c.createdAt || ''); return !isNaN(d.getTime()) && isSameMonth(d, hoje); }).length,
+  // Novos atendimentos (cadastros) do monitor no MÊS CORRENTE; comparação com o
+  // mês anterior até o mesmo dia.
+  const novosNoMes = (mesRef: Date, ateDia: number) => clientes.filter((c) => {
+    const d = parseISO(c.createdAt || '');
+    return doMonitor(c) && !isNaN(d.getTime()) && isSameMonth(d, mesRef) && d.getDate() <= ateDia;
+  }).length;
+  const novosClientesMes = useMemo(() => novosNoMes(new Date(), 31),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [clientes]
-  );
+    [clientes, filtroMonitor]);
+  const novosClientesMesAnterior = useMemo(() => novosNoMes(subMonths(new Date(), 1), new Date().getDate()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [clientes, filtroMonitor]);
 
-  // Linha de produto (Leve/Pesada/Geral — categoria `linha_cliente`).
-  const clientesPorLinha = useMemo(() => {
-    const contagem = new Map<string, number>();
-    ativos.forEach((c) => {
-      const key = c.linha?.trim() || 'Não informada';
-      contagem.set(key, (contagem.get(key) ?? 0) + 1);
-    });
-    return [...contagem.entries()]
-      .map(([label, n]) => ({ label, n }))
-      .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
-  }, [ativos]);
+  // Segmento e linha: "Não informado" sai das barras e vira pendência de cadastro.
+  const clientesPorLinha = useMemo(() => contarPor(ativos.filter((c) => c.linha?.trim()), (c) => (c.linha ?? '').trim()),
+     
+    [ativos]);
+  const semLinha = ativos.filter((c) => !c.linha?.trim()).length;
+  const clientesPorSegmento = useMemo(() => contarPor(ativos.filter((c) => c.local?.trim()), (c) => (c.local ?? '').trim()),
+     
+    [ativos]);
+  const semSegmento = ativos.filter((c) => !c.local?.trim()).length;
 
-  const clientesPorSegmento = useMemo(() => {
-    const contagem = new Map<string, number>();
-    ativos.forEach((c) => {
-      const key = c.local?.trim() || 'Não informado';
-      contagem.set(key, (contagem.get(key) ?? 0) + 1);
-    });
-    return [...contagem.entries()]
-      .map(([label, n]) => ({ label, n }))
-      .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
-  }, [ativos]);
-
-  // --- Crescimento da carteira: total de clientes cadastrados (acumulado) mês
-  // a mês, desde o primeiro `createdAt`. Cliente legado sem `createdAt`
-  // válido não entra na série (não há como posicioná-lo no tempo), mas
-  // continua contando nas demais distribuições acima.
+  // --- Crescimento da carteira: atendimentos ATIVOS no fim de cada mês (hoje, no
+  // mês corrente), pela mesma regra de `ativosEm` — sobe e desce com entradas e
+  // saídas. Meses que terminam antes do início do log de status são aproximação
+  // (status atual projetado para trás), e o ponto diz isso no tooltip.
+  const inicioHistorico = useMemo(() => {
+    const datas = statusHistorico
+      .map((h) => (h.gravadoEm ? parseISO(h.gravadoEm) : null))
+      .filter((d): d is Date => d !== null && !isNaN(d.getTime()));
+    return datas.length ? minDate(datas) : null;
+  }, [statusHistorico]);
   const crescimentoCarteira = useMemo(() => {
-    const datas = clientes
-      .map((c) => parseISO(c.createdAt || ''))
-      .filter((d) => !isNaN(d.getTime()))
-      .sort((a, b) => a.getTime() - b.getTime());
+    const datas = clientes.map((c) => parseISO(c.createdAt || '')).filter((d) => !isNaN(d.getTime()));
     if (datas.length === 0) return [];
-    const inicio = startOfMonth(datas[0]);
-    const fim = startOfMonth(maxDate([datas[datas.length - 1], hoje]));
-    let meses = eachMonthOfInterval({ start: inicio, end: fim });
-    if (meses.length > 24) meses = meses.slice(meses.length - 24); // mesmo teto de segurança da tendência de reuniões
-    let acumulado = 0;
-    let ponteiro = 0;
+    const agora = new Date();
+    let meses = eachMonthOfInterval({ start: startOfMonth(minDate(datas)), end: startOfMonth(agora) });
+    if (meses.length > 24) meses = meses.slice(meses.length - 24); // mesmo teto da tendência de reuniões
     return meses.map((m, i) => {
-      const fimMes = endOfMonth(m);
-      while (ponteiro < datas.length && datas[ponteiro] <= fimMes) { acumulado++; ponteiro++; }
+      const ref = isSameMonth(m, agora) ? agora : endOfMonth(m);
+      const aproximado = !inicioHistorico || ref < inicioHistorico;
       return {
         label: m.getMonth() === 0 || i === 0 ? format(m, 'MMM/yy', { locale: ptBR }).replace('.', '') : format(m, 'MMM', { locale: ptBR }).replace('.', ''),
-        full: format(m, "MMMM 'de' yyyy", { locale: ptBR }),
-        value: acumulado,
+        full: format(m, "MMMM 'de' yyyy", { locale: ptBR }) + (aproximado ? ' (aproximado)' : ''),
+        value: ativosEm(ref).length,
       };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientes]);
+  }, [clientes, ativosEm, inicioHistorico]);
 
   // --- Cobertura da carteira no período: clientes ativos com >= 1 reunião,
   // relatório OU precificação nos ÚLTIMOS 2 MESES (mês selecionado + anterior,
@@ -500,40 +478,17 @@ export function useDashboardData() {
   // fica de fora (não é "atendimento" formal do mês). Só conta o que foi
   // concluído/realizado. Como Aderência, NÃO segue o filtro "Tipo" do topo —
   // senão filtrar por Contato zeraria a cobertura sem sentido. ---
-  const eventosCoberturaAtivos = useMemo(
-    // Só entrega que ACONTECEU (Concluído/Realizado): reunião ainda "Agendado"/"Pendente"
-    // não é atendimento. Mesma regra de `buscarCobertura` (server/dominio/cadenciaServico.cjs).
-    () => agenda.filter((a) => ativosIds.has(a.clientId) && ehEntrega(a)),
-    [agenda, ativosIds]
-  );
   const cobertura = useMemo(() => {
-    const periodoAnteriorCobertura = subMonths(periodo, 1);
-    const atendidosIds = new Set(
-      eventosCoberturaAtivos
-        .filter((a) => { const d = parseISO(a.date); return isSameMonth(d, periodo) || isSameMonth(d, periodoAnteriorCobertura); })
-        .map((a) => a.clientId)
-    );
-    // Cliente cujos serviços CONTRATADOS são TODOS marcados como
-    // "independente" (`servicosIndependentes` — "o cliente faz sozinho, não
-    // depende de reunião/monitoria", mesmo campo que `cadenciaServico.ts` já
-    // usa pra não gerar relógio de cadência) nunca vai ter reunião/relatório
-    // por natureza — cobrar "contato" dele aqui puniria por desenho um cliente
-    // que nunca deveria precisar de um. Fica fora do denominador (nem
-    // "atendido" nem "sem contato"), igual à cadência já trata.
-    const precisaDeContato = (c: Cliente) => {
-      const servicos = c.servicos ?? [];
-      if (servicos.length === 0) return true;
-      const independentes = c.servicosIndependentes ?? [];
-      return servicos.some((s) => !independentes.includes(s));
+    const { cobertos, semContato } = prazo.cobertura;
+    const total = cobertos.length + semContato.length;
+    const antes = prazoAnterior.cobertura;
+    return {
+      cobertos: cobertos.length, semContato: semContato.length, total,
+      pct: total > 0 ? Math.round((cobertos.length / total) * 100) : 0,
+      cobertosClientes: cobertos, semContatoClientes: semContato,
+      anterior: { cobertos: antes.cobertos.length, total: antes.cobertos.length + antes.semContato.length },
     };
-    const relevantes = ativos.filter(precisaDeContato);
-    const cobertosC = relevantes.filter((c) => atendidosIds.has(c.id)).map((c) => c.empresa).sort((a, b) => a.localeCompare(b));
-    const semC = relevantes.filter((c) => !atendidosIds.has(c.id)).map((c) => c.empresa).sort((a, b) => a.localeCompare(b));
-    const total = relevantes.length;
-    const pct = total > 0 ? Math.round((cobertosC.length / total) * 100) : 0;
-    return { cobertos: cobertosC.length, semContato: semC.length, total, pct, cobertosClientes: cobertosC, semContatoClientes: semC };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventosCoberturaAtivos, ativos, mes, ano]);
+  }, [prazo, prazoAnterior]);
 
   // --- Atendimentos no Ritmo: dos atendimentos com relógio, quantos estão em dia.
   // Em dia = TODOS os relógios no prazo (`atendimentoEmDia`); filtrado por serviço,
@@ -543,57 +498,17 @@ export function useDashboardData() {
   // - contato recente: falamos com o cliente dentro do prazo de recontato;
   // - precisa contato: nenhum dos dois.
   const aderencia = useMemo(() => {
-    // `ativos` já respeita o filtro Monitor do topo (igual Cobertura/Serviços).
-    // `agenda` fica sem filtrar por Tipo de propósito: a cadência de Monitoria/
-    // Price tem semântica própria de tipo de evento (reunião/relatório) — filtrar
-    // pelo "Tipo" do topo quebraria esse cálculo, não é um filtro que se aplique aqui.
-    const fila = buildFilaCadencia(ativos, agenda, acoes, cadencias, dataReferencia);
-    const nomes = (arr: typeof fila) => arr.map((f) => f.cliente.empresa).sort((a, b) => a.localeCompare(b));
-    // Contato/ligação sem resposta ainda não reflete no relógio do serviço
-    // (só reunião/relatório zeram Monitoria/Price) — sem isso, quem acabou de
-    // ser contatado (e está dentro do prazo de recontato) aparecia junto com
-    // quem ninguém tratou ainda.
-    const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now: dataReferencia });
-
-    const relevantes = filtroServicoAderencia === 'Todos'
-      ? fila
-      : fila.filter((f) => f.relogios.some((r) => r.servico === filtroServicoAderencia));
-
-    // "Todos" (geral): olha todos os relógios contratados; filtrado por
-    // serviço: olha só o relógio daquele serviço.
-    function relogiosRelevantes(f: (typeof fila)[number]) {
-      return filtroServicoAderencia === 'Todos'
-        ? f.relogios
-        : f.relogios.filter((r) => r.servico === filtroServicoAderencia);
-    }
-    function classificar(f: (typeof fila)[number]): 'em_dia' | 'agenda_marcada' | 'contato_recente' | 'precisa_contato' {
-      const rels = relogiosRelevantes(f);
-      if (atendimentoEmDia({ relogios: rels })) return 'em_dia';
-      if (rels.some((r) => r.status === 'coberto')) return 'agenda_marcada';
-      const ultimoContato = ultimaInteracaoMap.get(f.cliente.id) ?? null;
-      if (
-        ultimoContato
-        && contatoRecenteNaoRefletido(f.relogios, ultimoContato)
-        && differenceInCalendarDays(dataReferencia, ultimoContato) <= cadencias.recontato_dias
-      ) {
-        return 'contato_recente';
-      }
-      return 'precisa_contato';
-    }
-
-    const total = relevantes.length;
-    const emDiaClientes = nomes(relevantes.filter((f) => classificar(f) === 'em_dia'));
-    const agendaMarcadaClientes = nomes(relevantes.filter((f) => classificar(f) === 'agenda_marcada'));
-    const contatoRecenteClientes = nomes(relevantes.filter((f) => classificar(f) === 'contato_recente'));
-    const precisaClientes = nomes(relevantes.filter((f) => classificar(f) === 'precisa_contato'));
-    const pct = total > 0 ? Math.round((emDiaClientes.length / total) * 100) : 0;
+    const r = prazo.ritmo;
     return {
-      total, pct,
-      emDia: emDiaClientes.length, agendaMarcada: agendaMarcadaClientes.length,
-      contatoRecente: contatoRecenteClientes.length, precisa: precisaClientes.length,
-      emDiaClientes, agendaMarcadaClientes, contatoRecenteClientes, precisaClientes,
+      total: r.total,
+      pct: r.total > 0 ? Math.round((r.emDia.length / r.total) * 100) : 0,
+      emDia: r.emDia.length, agendaMarcada: r.agendaMarcada.length,
+      contatoRecente: r.contatoRecente.length, precisa: r.precisa.length,
+      emDiaClientes: r.emDia, agendaMarcadaClientes: r.agendaMarcada,
+      contatoRecenteClientes: r.contatoRecente, precisaClientes: r.precisa,
+      anterior: { emDia: prazoAnterior.ritmo.emDia.length, total: prazoAnterior.ritmo.total },
     };
-  }, [ativos, agenda, acoes, cadencias, filtroServicoAderencia, dataReferencia]);
+  }, [prazo, prazoAnterior]);
 
   // --- Vencendo (próx. 5 dias): relógios de Monitoria/Price a menos de 5 dias do
   // prazo e sem reunião futura marcada (`itensVencendo`, a mesma função do agente
@@ -609,7 +524,7 @@ export function useDashboardData() {
   }, [ativos, agenda, acoes, cadencias, filtroServicoVencendo, dataReferencia]);
 
   // --- Próximas agendas (forward-looking) ---
-  const tiposDisponiveis = useMemo(() => ['Todos', ...new Set(agendaAtiva.map((a) => a.type).filter(Boolean))], [agendaAtiva]);
+  const tiposDisponiveis = useMemo(() => ['Todos', ...new Set(agendaPorMonitor.map((a) => a.type).filter((t) => t && !/relat/i.test(t)))], [agendaPorMonitor]);
   // Chave de ordenação "yyyy-MM-dd HH:MM" (dia + hora), não `date.getTime()`
   // direto: o campo `time` (HH:MM) é separado de `date` e NÃO entra no
   // timestamp — dois eventos do mesmo dia empatavam em `date.getTime()` e
@@ -618,30 +533,33 @@ export function useDashboardData() {
   // dia sem horário mais cedo). Sem horário marcado, ordena como '00:00'
   // (início do dia) — mesmo critério já usado pro resto da Agenda.
   const chaveOrdem = (a: EventoAgenda) => `${format(parseISO(a.date), 'yyyy-MM-dd')} ${a.time || '00:00'}`;
+  // Um só filtro de tipo (o do card): usa `agendaPorMonitor`, não `agendaAtiva`
+  // (que já vinha filtrada pelo Tipo do topo). Relatórios ficam fora da lista e
+  // viram uma linha de resumo da semana: são envio programado, não compromisso
+  // com o cliente, e os automáticos (dezenas por mês) tomavam as 5 posições.
+  const aindaVai = (a: EventoAgenda) => !/conclu|realiz|cancel|reagend/i.test(a.status || '') && differenceInCalendarDays(parseISO(a.date), hoje) >= 0;
   const proximos = useMemo(() =>
-    agendaAtiva
-      // Concluído/Realizado não é "próxima"; Cancelado/Reagendado não vai acontecer.
-      .filter((a) => !/conclu|realiz|cancel|reagend/i.test(a.status || ''))
-      .filter((a) => differenceInCalendarDays(parseISO(a.date), hoje) >= 0)
+    agendaPorMonitor
+      .filter((a) => aindaVai(a) && !/relat/i.test(a.type || ''))
       .filter((a) => filtroTipo === 'Todos' || a.type === filtroTipo)
       .sort((a, b) => chaveOrdem(a).localeCompare(chaveOrdem(b)))
       .slice(0, 5),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agendaAtiva, filtroTipo]);
+    [agendaPorMonitor, filtroTipo]);
+  const relatoriosSemana = useMemo(() =>
+    agendaPorMonitor
+      .filter((a) => aindaVai(a) && /relat/i.test(a.type || '') && differenceInCalendarDays(parseISO(a.date), hoje) < 7)
+      .sort((a, b) => chaveOrdem(a).localeCompare(chaveOrdem(b))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [agendaPorMonitor]);
 
   // --- Alertas de acompanhamento (reunião OU ação concluída) ---
-  const alertas = ativos
-    .map((cliente) => {
-      const uc = ultimaInteracao.get(cliente.id);
-      const dias = uc ? differenceInCalendarDays(dataReferencia, uc) : null;
-      return { cliente, uc, dias };
-    })
-    .filter((e) => e.dias === null || e.dias >= FOLLOW_UP_THRESHOLD_DAYS)
-    .sort((a, b) => (b.dias ?? 99999) - (a.dias ?? 99999))
-    .slice(0, 6);
+  const alertas = prazo.semAcompanhamento;
+  const alertasAnterior = prazoAnterior.semAcompanhamento.length;
 
+  // Lembretes do monitor do filtro global (pelo cliente do lembrete); sem cliente, sempre aparece.
   const alertasProgramados = lembretes
-    .filter((r) => r.status === 'ativo')
+    .filter((r) => r.status === 'ativo' && (!r.clientId || ativosIds.has(r.clientId)))
     .sort((a, b) => parseISO(a.datetime).getTime() - parseISO(b.datetime).getTime())
     .slice(0, 6);
 
@@ -652,19 +570,20 @@ export function useDashboardData() {
     mes, setMes, ano, setAno, periodo, dataReferencia,
     monitoresDisponiveis, tiposEventoDisponiveis, anosDisponiveis, mesesDisponiveis,
     // base
-    ativos, inativos, ativosNoPeriodo, totalClientesDistintos, atendidosNoMes, agendaPorMonitor, acoesPorMonitor,
+    ativos, inativos, ativosNoPeriodo, ativosAnterior, referenciaAnterior, totalClientesDistintos, totalClientesDistintosAnterior, atendidosNoMes, agendaPorMonitor, acoesPorMonitor,
     // KPIs
-    reunioesConcluidasMes, variacao, diaCorte, reunioesAgendadasMes, reagendamentosMes,
+    reunioesConcluidasMes, reunioesConcluidasMesAnterior, variacao, diaCorte, reunioesAgendadasMes, reagendamentosMes, reagendamentosMesAnterior,
     // gráfico
     linhaPorMes, linhaHighlight,
     // cards
     servicosDist, totalAtendidos, cobertura, aderencia,
     clientesPorMonitor, clientesPorSegmento, clientesPorLinha, crescimentoCarteira,
-    saudeCarteira, profundidadeServicos, distribuicaoRisco, mediaServicosPorCliente, novosClientesMes,
+    saudeCarteira, profundidadeServicos, distribuicaoRisco, mediaServicosPorCliente, mediaServicosAnterior, novosClientesMes, novosClientesMesAnterior,
+    foraDaMonitoria, semLinha, semSegmento, inicioHistorico,
     top10AtendimentosAno, filtroServicoTop10, setFiltroServicoTop10,
     vencendo, filtroServicoVencendo, setFiltroServicoVencendo,
-    tiposDisponiveis, proximos,
-    alertas, alertasProgramados,
+    tiposDisponiveis, proximos, relatoriosSemana,
+    alertas, alertasAnterior, alertasProgramados,
     followUpThresholdDays: FOLLOW_UP_THRESHOLD_DAYS,
   };
 }

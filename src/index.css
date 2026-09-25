@@ -548,6 +548,24 @@ textarea:focus-visible {
   align-items: stretch;
 }
 
+/* Contrato de KPI (Visão Geral e Dashboard da Carteira): "X de Y", comparação
+   com o período anterior e uma linha fixa de "como conta". Cor só semântica e
+   sempre acompanhada de texto (seta + número), nunca só a cor. */
+.kpi-denominador { font-size: 0.85rem; font-weight: 500; letter-spacing: normal; color: var(--text-secondary); }
+.kpi-comparacao { font-size: 0.76rem; font-weight: 500; margin: 0.3rem 0 0; }
+.kpi-comparacao.is-boa { color: var(--success); }
+.kpi-comparacao.is-ruim { color: var(--danger); }
+.kpi-comparacao.is-neutra { color: var(--text-secondary); }
+.kpi-como-conta { font-size: 0.72rem; line-height: 1.35; color: var(--text-muted); margin: 0.35rem 0 0; }
+.kpi-valor-grande { font-size: 2.1rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em; color: var(--text-primary); }
+.kpi-medidor { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; margin: 0.55rem 0 0.35rem; }
+.kpi-medidor > span { display: block; height: 100%; border-radius: 4px; }
+.kpi-medidor.is-boa > span { background: var(--success); }
+.kpi-medidor.is-atencao > span { background: var(--warning); }
+.kpi-medidor.is-ruim > span { background: var(--danger); }
+.dash-bloco-titulo { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 0.25rem 0 0.6rem; }
+.dash-bloco-titulo span { text-transform: none; letter-spacing: normal; font-weight: 400; }
+
 /* StatCard compacto (topo do dashboard) com barra de acento à esquerda */
 .stat-card-sm { padding: 0.85rem 1.2rem 0.85rem 1.35rem; overflow: hidden; }
 .stat-card-accent-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
@@ -564,8 +582,6 @@ textarea:focus-visible {
    sobrando no FIM do card, não alinha o que vem antes). */
 .gauge-card-filtros { min-height: 27px; }
 .cobertura-card .section-header { margin-bottom: 0.6rem; }
-.cobertura-card .donut-wrap { gap: 1.25rem; }
-.cobertura-card .donut-legend li { font-size: 0.8rem; }
 
 /* Gauge cards (Carteira no Ritmo / Cobertura): botão "Ver clientes" expande o
    PRÓPRIO card (in-flow, clique — não hover) revelando a lista de cada fatia.
@@ -729,33 +745,6 @@ textarea:focus-visible {
 .dash-two-col > .glass-card { display: flex; flex-direction: column; }
 
 @media (max-width: 980px) { .dash-two-col { grid-template-columns: 1fr; } }
-
-.donut-wrap { display: flex; align-items: center; gap: 1.75rem; flex-wrap: wrap; }
-.donut-svg-wrap { position: relative; flex-shrink: 0; }
-
-.donut-center {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.donut-center-value { font-size: 1.6rem; font-weight: 600; line-height: 1; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-.donut-center-label { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 3px; }
-
-.donut-legend { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 0.65rem; }
-.donut-legend li { display: flex; align-items: center; gap: 0.55rem; font-size: 0.875rem; }
-.donut-swatch { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-.donut-legend-label { flex: 1; white-space: normal; color: var(--text-secondary); }
-/* min-width + right-align: sem isso, o número ("5" vs "37") tinha larguras
-   diferentes e "empurrava" a coluna de % pra posições diferentes em cada
-   linha — coluna de números ficava serrilhada/desalinhada entre as fatias. */
-.donut-legend-val { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 26px; text-align: right; flex-shrink: 0; }
-.donut-legend-pct { color: var(--text-muted); font-size: 0.8rem; width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
-
 
 /* Prévia da agenda */
 .agenda-preview { display: flex; flex-direction: column; gap: 0.4rem; }
@@ -1331,96 +1320,8 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   letter-spacing: 0.03em;
 }
 
-/* --- Dashboard: anéis radiais de serviços (substitui barras finas) --- */
-.radial-row { display: flex; flex: 1; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1.75rem; padding: 0.5rem 0 0.25rem; }
-.radial-block { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 168px; }
-.radial-item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.radial-svg-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
-.radial-svg-wrap svg circle { transition: stroke-dasharray 0.6s cubic-bezier(0.22,0.61,0.36,1); }
-.radial-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-.radial-center-value { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-.radial-center-label { font-size: 0.62rem; color: var(--text-muted); margin-top: 2px; }
-.radial-item-label { display: flex; align-items: center; gap: 6px; font-size: 0.88rem; font-weight: 600; color: var(--text-primary); }
-
-/* Top 3 clientes por serviço — empilhado abaixo do anel (layout padrão) */
-.radial-top3 { width: 100%; display: flex; flex-direction: column; gap: 5px; padding-top: 10px; border-top: 1px solid var(--border); }
-.radial-top3-title { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 2px; }
-/* width:100%: align-items:flex-end no .radial-top3-right (pro alinhamento à
-   direita) tira o "stretch" que forçaria a linha a respeitar a largura do
-   pai — sem isso a linha crescia livre pelo conteúdo (nome sem quebra) e
-   vazava pra fora do card à esquerda, em vez de truncar com "…". */
-.radial-top3-row { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; width: 100%; }
-.radial-top3-rank { color: var(--accent); font-weight: 700; width: 16px; flex-shrink: 0; }
-/* min-width:0: sem isso um item flex não encolhe abaixo do tamanho do
-   próprio conteúdo — a reticência nunca ativava e nomes compridos estouravam
-   a coluna inteira (escondidos atrás da borda do card, sem "…" nenhum). */
-.radial-top3-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
-.radial-top3-n { color: var(--text-muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
-
 .servicos-card { container-type: inline-size; }
 
-/* Layout espelhado (2 serviços): rankings nas pontas, anéis maiores no centro.
-   O card precisa de container-type: inline-size (ver .servicos-card) pro
-   @container abaixo reagir à largura do CARD, não da janela — um card de
-   coluna pode estar apertado numa janela de 1920px, uma media query de
-   viewport nunca pegaria isso.
-   Tamanhos calibrados pra CABER sem quebrar linha na largura real de um card
-   de coluna (~580-600px de content-box, já descontando padding) — o threshold
-   antigo (590px) media o CONTENT-BOX do container (que já desconta padding),
-   mas os tamanhos (anel 130px + top3 145px) precisavam de ~605px, sempre
-   estourando e caindo no fallback empilhado (por isso a fila desalinhada
-   virava a regra, não a exceção). 130px/145px também tinha vindo pra baixo
-   demais numa 1ª tentativa (anel 100px), deixando um vão vazio enorme embaixo
-   do card — 130px/145px final cabe com folga (~545px de ~586px) e ainda
-   preenche o card decentemente. */
-.radial-row-mirrored { align-items: center; gap: 1rem; flex-wrap: nowrap; }
-/* Antes era `width: 130px` fixo, e o card de coluna num monitor grande tem
-   sobra horizontal de dezenas de pixels que ficava sem uso enquanto o nome era
-   truncado: "Altese - GM, Ford, Fiat, VW" precisa de 160px e recebia 108px.
-   Agora as duas listas crescem com o espaço disponível (`flex: 1`) a partir de
-   um piso de 130px — abaixo disso, nomes longos cortam o INÍCIO do texto sem
-   reticências (lista à direita/row-reverse trunca pelo lado oposto ao normal),
-   então o piso não deve ser reduzido sem checar nomes reais. */
-.radial-row-mirrored .radial-top3 { flex: 1 1 130px; min-width: 130px; max-width: 210px; border-top: none; padding-top: 0; }
-.radial-row-mirrored .radial-top3-right { align-items: flex-end; text-align: right; }
-.radial-row-mirrored .radial-top3-right .radial-top3-row { flex-direction: row-reverse; }
-/* Nome herda text-align:right do container acima — com nomes compridos isso
-   faz o texto estourar (overflow) pela ESQUERDA, lado em que o navegador não
-   desenha reticências (só funciona no fim do texto em ltr): o início do nome
-   sumia sem aviso nenhum. text-align:left aqui restaura a truncagem normal
-   (com "…" no fim), que é mais legível mesmo. */
-.radial-row-mirrored .radial-top3-right .radial-top3-name { text-align: left; }
-/* Card largo (monitor grande): o conteúdo ocupava 154px de um card de ~494px —
-   340px vazios, porque o grid estica este card para acompanhar a lista de
-   próximas agendas ao lado. Aqui os anéis crescem (o SVG escala pelo width) e o
-   conteúdo respira, em vez de ficar uma faixa fina no meio do vazio. */
-@container (min-width: 620px) {
-  .radial-row-mirrored { gap: 1.5rem; }
-  .radial-row-mirrored .radial-svg-wrap { width: 150px !important; height: 150px !important; }
-  .radial-row-mirrored .radial-svg-wrap svg { width: 100%; height: 100%; }
-  .radial-row-mirrored .radial-center-value { font-size: 1.5rem; }
-  .radial-row-mirrored .radial-center-label { font-size: 0.7rem; }
-  .radial-row-mirrored .radial-item { gap: 12px; }
-}
-
-@container (max-width: 520px) {
-  .radial-row-mirrored { flex-wrap: wrap; }
-  /* `flex: 1 1 100%` (e não só width) porque no modo lado a lado as listas usam
-     `flex: 1 1 130px`: sem resetar a base, o flex-grow as fazia dividir a linha
-     em larguras diferentes uma da outra em vez de cada uma ocupar 100%. */
-  .radial-row-mirrored .radial-top3 { flex: 1 1 100%; width: 100%; min-width: 0; max-width: none; border-top: 1px solid var(--border); padding-top: 10px; }
-  .radial-row-mirrored .radial-top3-right { align-items: flex-start; text-align: left; }
-  .radial-row-mirrored .radial-top3-right .radial-top3-row { flex-direction: row; }
-}
-@media (max-width: 720px) {
-  .radial-row-mirrored { flex-wrap: wrap; }
-  /* `flex: 1 1 100%` (e não só width) porque no modo lado a lado as listas usam
-     `flex: 1 1 130px`: sem resetar a base, o flex-grow as fazia dividir a linha
-     em larguras diferentes uma da outra em vez de cada uma ocupar 100%. */
-  .radial-row-mirrored .radial-top3 { flex: 1 1 100%; width: 100%; min-width: 0; max-width: none; border-top: 1px solid var(--border); padding-top: 10px; }
-  .radial-row-mirrored .radial-top3-right { align-items: flex-start; text-align: left; }
-  .radial-row-mirrored .radial-top3-right .radial-top3-row { flex-direction: row; }
-}
 /* --- Multi-seleção de chips (serviços na reunião) --- */
 
 /* --- Agenda: card v3 (limpo, superfície neutra + barra de status) --- */

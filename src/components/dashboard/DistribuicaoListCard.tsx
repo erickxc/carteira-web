@@ -16,6 +16,8 @@ interface DistribuicaoListCardProps {
   limite?: number;
   /** Frase de leitura direta, acima da lista (ex.: "Fulano responde por 62% da carteira"). */
   insight?: string;
+  /** Cadastros sem o campo: sai das barras e vira pendência ("15 sem segmento"). */
+  pendencia?: string;
 }
 
 /**
@@ -24,7 +26,7 @@ interface DistribuicaoListCardProps {
  * Segmento no Dashboard da Carteira. Mesmo padrão visual de `ListaEstados`
  * (AbrangenciaMapaCard), mas com barra de proporção em vez de mapa.
  */
-export function DistribuicaoListCard({ titulo, subtitulo, items, emptyMsg, limite, insight }: DistribuicaoListCardProps) {
+export function DistribuicaoListCard({ titulo, subtitulo, items, emptyMsg, limite, insight, pendencia }: DistribuicaoListCardProps) {
   const total = items.reduce((s, i) => s + i.n, 0);
   const visiveis = limite ? items.slice(0, limite) : items;
   const restoN = limite ? items.slice(limite).reduce((s, i) => s + i.n, 0) : 0;
@@ -76,6 +78,7 @@ export function DistribuicaoListCard({ titulo, subtitulo, items, emptyMsg, limit
           </div>
         </>
       )}
+      {pendencia && <p className="kpi-como-conta" style={{ marginTop: 10 }}>{pendencia}</p>}
     </Card>
   );
 }
