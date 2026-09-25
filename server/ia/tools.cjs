@@ -1754,7 +1754,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_cobertura',
-    description: 'Mesmo cálculo do card "Cobertura" da Visão Geral — % de clientes ativos com pelo menos 1 reunião ou relatório REALIZADO nos últimos 2 meses (mês atual + anterior). Devolve também a lista de quem está sem contato.',
+    description: 'Mesmo cálculo do card "Cobertura" da Visão Geral — % de clientes ativos com pelo menos 1 reunião, relatório ou precificação CONCLUÍDO/REALIZADO nos últimos 2 meses (mês atual + anterior); agendado ainda não conta. Devolve também a lista de quem está sem contato.',
     parameters: { type: 'object', properties: {} },
     executar: buscarCoberturaTool,
   },

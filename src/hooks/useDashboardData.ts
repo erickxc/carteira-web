@@ -529,11 +529,13 @@ export function useDashboardData() {
   // logo no início do mês seguinte). Precificação é TIPO de evento próprio
   // (não só serviço dentro de Reunião — ver `EventoAgenda.type`), por isso
   // entra no mesmo balde de "entrega" que Reunião/Relatório: só Contato/Ligação
-  // fica de fora (não é "atendimento" formal do mês). Cancelado/reagendado não
-  // conta (não aconteceu). Como Aderência, NÃO segue o filtro "Tipo" do topo —
+  // fica de fora (não é "atendimento" formal do mês). Só conta o que foi
+  // concluído/realizado. Como Aderência, NÃO segue o filtro "Tipo" do topo —
   // senão filtrar por Contato zeraria a cobertura sem sentido. ---
   const eventosCoberturaAtivos = useMemo(
-    () => agenda.filter((a) => ativosIds.has(a.clientId) && /reuni|relat|precific/i.test(a.type || '') && !/cancel|reagend/i.test(a.status || '')),
+    // Só entrega que ACONTECEU (Concluído/Realizado): reunião ainda "Agendado"/"Pendente"
+    // não é atendimento. Mesma regra de `buscarCobertura` (server/dominio/cadenciaServico.cjs).
+    () => agenda.filter((a) => ativosIds.has(a.clientId) && /reuni|relat|precific/i.test(a.type || '') && /conclu|realiz/i.test(a.status || '')),
     [agenda, ativosIds]
   );
   const cobertura = useMemo(() => {

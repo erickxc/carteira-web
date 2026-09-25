@@ -12,6 +12,7 @@ teste, ajuste interno), não entra aqui.
 
 - Na Visão Geral, "Clientes ativos" e "Total de atendimentos" de um mês passado agora mostram quem estava ativo naquele mês, não o status de hoje. O histórico começa a contar a partir desta versão.
 - O card "Agendadas" da Visão Geral agora mostra só as reuniões que ainda vão acontecer; as já concluídas ficam apenas em "Reuniões concluídas".
+- A Cobertura da Visão Geral agora só considera reuniões, relatórios e precificações já concluídos; o que está apenas agendado não conta.
 - O aviso de mudança de endereço ganhou a opção "Não mostrar novamente".
 
 ## 1.4.45

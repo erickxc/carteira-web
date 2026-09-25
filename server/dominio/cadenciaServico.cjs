@@ -108,18 +108,26 @@ function buscarVencendo(clientes, agenda, cadencias, now = new Date(), janelaVen
 
 /**
  * Porta do bloco "Cobertura da carteira" de `useDashboardData.ts` — %
- * de clientes ativos com ≥1 reunião/relatório realizado nos ÚLTIMOS 2 MESES
- * (mês corrente + anterior). Cancelado/reagendado não conta.
+ * de clientes ativos com ≥1 reunião/relatório/precificação CONCLUÍDO ou
+ * REALIZADO nos ÚLTIMOS 2 MESES (mês corrente + anterior). Cliente cujos
+ * serviços são todos "independentes" fica fora do denominador. Qualquer
+ * mudança aqui precisa ser espelhada lá (e vice-versa).
  */
 function buscarCobertura(clientes, agenda, now = new Date()) {
-  const ativos = clientes.filter((c) => isClienteAtivo(c, now));
+  const precisaDeContato = (c) => {
+    const servicos = listaJSON(c.servicos);
+    if (servicos.length === 0) return true;
+    const independentes = listaJSON(c.servicosIndependentes);
+    return servicos.some((s) => !independentes.includes(s));
+  };
+  const ativos = clientes.filter((c) => isClienteAtivo(c, now) && precisaDeContato(c));
   const ativosIds = new Set(ativos.map((c) => c.id));
   const doisMesesAtras = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const inicioMesAtual = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const atendidosIds = new Set(
     agenda
-      .filter((a) => ativosIds.has(a.clientId) && /reuni|relat/i.test(a.type || '') && !/cancel|reagend/i.test(a.status || ''))
+      .filter((a) => ativosIds.has(a.clientId) && /reuni|relat|precific/i.test(a.type || '') && /conclu|realiz/i.test(a.status || ''))
       .filter((a) => { const d = parseISO(a.date); return !isNaN(d.getTime()) && d >= doisMesesAtras && d < new Date(inicioMesAtual.getFullYear(), inicioMesAtual.getMonth() + 1, 1); })
       .map((a) => a.clientId)
   );

@@ -212,3 +212,23 @@ describe('buscarAlertasSemAcompanhamento — reflete o mesmo comportamento de Ca
     expect(alertas.find((a: { id: string }) => a.id === 'c1')).toBeUndefined();
   });
 });
+
+describe('buscarCobertura', () => {
+  const now = new Date(2026, 8, 24, 12);
+  const cliente = (id: string, extra = {}) => ({ id, empresa: id, estado: 'Ativo', status: 'Regular', servicos: ['Monitoria'], ...extra });
+  const ev = (clientId: string, type: string, status: string) => ({ clientId, type, status, date: '2026-09-10T03:00:00.000Z' });
+
+  it('só conta reunião/relatório/precificação concluída ou realizada; agendada não', () => {
+    const r = cadencia.buscarCobertura(
+      [cliente('agendado'), cliente('concluido'), cliente('precificacao'), cliente('realizado')],
+      [ev('agendado', 'Reunião', 'Agendado'), ev('concluido', 'Reunião', 'Concluído'), ev('precificacao', 'Precificação', 'Concluído'), ev('realizado', 'Relatório', 'Realizado')],
+      now,
+    );
+    expect(r).toMatchObject({ total: 4, cobertos: 3, semContato: 1, semContatoClientes: ['agendado'] });
+  });
+
+  it('cliente com todos os serviços independentes fica fora do denominador', () => {
+    const r = cadencia.buscarCobertura([cliente('indep', { servicosIndependentes: ['Monitoria'] }), cliente('normal')], [], now);
+    expect(r.total).toBe(1);
+  });
+});
