@@ -142,6 +142,21 @@ describe('buildFilaCadencia — o mesmo motor do frontend, via require() do back
     expect(cadencia.buildFilaCadencia(clientes, [], [], {}, AGORA)).toHaveLength(0);
   });
 
+  it('reunião marcada para HOJE (data à meia-noite) ainda conta como marcada depois que o dia começa', () => {
+    const clientes = [{ id: 'c1', empresa: 'Peça', estado: 'Ativo', status: 'Regular', servicos: ['Precificação'], createdAt: '2026-01-01T00:00:00.000Z' }];
+    const agora = new Date(2026, 8, 28, 10, 0);
+    const agenda = [
+      { clientId: 'c1', date: new Date(2026, 8, 10).toISOString(), type: 'Reunião', status: 'Concluído', servicos: ['Precificação'] },
+      { clientId: 'c1', date: new Date(2026, 8, 28).toISOString(), time: '14:00', type: 'Reunião', status: 'Agendado', servicos: ['Precificação'] },
+    ];
+    const r = cadencia.buildFilaCadencia(clientes, agenda, [], { price_dias: 15 }, agora)[0].relogios[0];
+    expect(r.statusReal).toBe('vencido');
+    expect(r.status).toBe('coberto');
+    // Concluída hoje é histórico ("último"), não "próximo".
+    const concluida = agenda.map((e) => ({ ...e, status: 'Concluído' }));
+    expect(cadencia.buildFilaCadencia(clientes, concluida, [], { price_dias: 15 }, agora)[0].relogios[0].proximo).toBeNull();
+  });
+
   it('reunião de Monitoria recente zera o relógio (em dia)', () => {
     const clientes = [{ id: 'c1', empresa: 'Cliente X', estado: 'Ativo', status: 'Regular', servicos: ['Monitoria'] }];
     const agenda = [{ clientId: 'c1', date: '2026-09-01T12:00:00.000Z', type: 'Reunião', status: 'Concluído', servicos: ['Monitoria'] }];

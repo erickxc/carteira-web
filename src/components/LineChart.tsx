@@ -19,6 +19,10 @@ interface LineChartProps {
   /** Nome acessível do gráfico (`aria-label` do `<svg>`) — cada card usa um
    *  gráfico pra uma série diferente, então não pode ficar fixo. */
   titulo?: string;
+  /** Largura base do desenho: menor em card estreito, para o texto não encolher. */
+  largura?: number;
+  /** Topo fixo do eixo Y (ex.: 100 para porcentagem); sem ele, o maior valor. */
+  teto?: number;
 }
 
 const W = 760;
@@ -36,16 +40,18 @@ export function LineChart({
   unidade = 'reunião(ões)',
   ocultarRotulos = false,
   titulo = 'Reuniões por mês',
+  largura = W,
+  teto,
 }: LineChartProps) {
   const H = height;
   const padL = 34;
   const padR = 14;
   const padT = 18;
   const padB = 30;
-  const plotW = W - padL - padR;
+  const plotW = largura - padL - padR;
   const plotH = H - padT - padB;
 
-  const max = Math.max(1, ...points.map((p) => Math.max(p.value, p.projecao ?? 0)));
+  const max = teto ?? Math.max(1, ...points.map((p) => Math.max(p.value, p.projecao ?? 0)));
   const n = points.length;
   const x = (i: number) => padL + (n <= 1 ? plotW / 2 : (i * plotW) / (n - 1));
   const y = (v: number) => padT + plotH * (1 - v / max);
@@ -59,7 +65,7 @@ export function LineChart({
   const ticks = [0, max / 2, max];
 
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={titulo} style={{ display: 'block' }}>
+    <svg width="100%" viewBox={`0 0 ${largura} ${H}`} role="img" aria-label={titulo} style={{ display: 'block' }}>
       <defs>
         <linearGradient id="lc-area" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.22" />

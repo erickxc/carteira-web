@@ -366,6 +366,9 @@ export interface EventoAgenda {
   sala?: string;
   /** De quem partiu a interação (Contato/Ligação). Ausente = não informado. */
   origem?: OrigemEvento;
+  /** 'cancelamento' = contato registrado ao cancelar uma reunião: conta como conversa,
+   *  mas não deixa o atendimento "aguardando retorno" (quem remarca é o monitor). */
+  motivoContato?: 'cancelamento';
   /**
    * Quantas vezes esta reunião foi remarcada (arrastada no calendário, movida
    * no Kanban ou remarcada pelo botão). Contador PRÓPRIO, separado do status

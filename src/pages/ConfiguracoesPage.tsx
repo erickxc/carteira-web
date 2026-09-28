@@ -8,7 +8,7 @@ import {
   verificarIniciarComWindows, definirIniciarComWindows, type StatusIniciarComWindows,
   verificarEnderecoLocal, definirEnderecoLocal,
 } from '../api/client';
-import { Badge, Button, Card, Field, Input, Textarea } from '../ui';
+import { Badge, Button, Card, Field, Input, Tabs, Textarea } from '../ui';
 import { Dropdown } from '../components/Dropdown';
 import { corDoServico } from '../utils/corServico';
 import ProvedorIACard from '../components/config/ProvedorIACard';
@@ -679,13 +679,13 @@ export default function ConfiguracoesPage() {
       <h1 className="page-title">Configurações</h1>
       <p className="page-subtitle">{SUBTITULO[aba]}</p>
 
-      <div className="tabs" style={{ margin: '1.25rem 0 2rem' }}>
+      <Tabs style={{ margin: '1.25rem 0 2rem' }}>
         {ABAS.map(({ chave, label }) => (
           <button key={chave} className={`tab${aba === chave ? ' is-active' : ''}`} onClick={() => setAba(chave)}>
             {label}
           </button>
         ))}
-      </div>
+      </Tabs>
 
       {aba === 'sistema' && (
         <>

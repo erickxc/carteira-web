@@ -515,7 +515,7 @@ textarea:focus-visible {
      texto de tendência ("↓ 62% vs mês anterior até dia 8") quebrar linha —
      StatCard já trunca com reticências como rede de segurança, mas o ganho
      aqui evita truncar na maioria dos casos. */
-  grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   margin-bottom: 1rem;
   align-items: stretch;
 }
@@ -540,11 +540,8 @@ textarea:focus-visible {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
-  /* stretch: os 4 cards ficam com a MESMA altura (a do conteúdo mais alto),
-     por pedido explícito — antes cada um tinha uma altura diferente (285 a
-     364px) e destoava visualmente. "Ver clientes" expandido tem teto de 480px
-     (.gauge-detalhe.is-open), então o crescimento é sempre parelho — todos
-     esticam juntos, não fica um card avulso mais alto. */
+  /* stretch: os cards têm a mesma altura; a lista de um grupo abre no painel
+     abaixo da fileira, então nenhum card cresce. */
   align-items: stretch;
 }
 
@@ -577,18 +574,53 @@ textarea:focus-visible {
 .kpi-linha { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
 .kpi-linha .kpi-comparacao { margin: 0; }
 /* Os dois serviços lado a lado: o card fica da altura dos vizinhos. */
-.kpi-servicos { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.85rem 1.25rem; }
+.kpi-servicos { display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 0.85rem 1rem; }
 .kpi-servico-nome { font-size: 0.74rem; color: var(--text-secondary); margin: 0 0 0.1rem; }
 /* margin-top auto: "Ver ..." fica no rodapé, alinhado entre os cards da mesma fileira. */
 .kpi-card .gauge-toggle { margin-top: auto; padding-top: 0.6rem; }
+/* Legenda clicável dos cards de prazo: abre o grupo no painel abaixo. */
+.kpi-card > .kpi-legenda:last-child { margin-top: auto; padding-top: 0.6rem; }
+.kpi-legenda-botao { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; padding: 2px 0; font: inherit; color: inherit; cursor: pointer; border-bottom: 1px dashed var(--border-strong); }
+.kpi-legenda-botao:hover { color: var(--text-primary); border-bottom-color: var(--text-primary); }
+.kpi-legenda-botao.is-ativo { color: var(--text-primary); border-bottom: 1px solid var(--text-primary); }
+/* Popup da legenda (hover/foco): o que o grupo significa + os atendimentos,
+   com só as colunas que explicam o grupo. Fica no <body> (portal). */
+.legenda-pop { position: fixed; z-index: 1000; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35); padding: 0.75rem 0 0.35rem; }
+.legenda-pop-titulo { display: flex; align-items: center; gap: 6px; margin: 0; padding: 0 0.9rem; font-size: 0.86rem; font-weight: 600; color: var(--text-primary); }
+.legenda-pop-titulo i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.legenda-pop-desc { margin: 0.2rem 0 0.55rem; padding: 0 0.9rem; font-size: 0.74rem; line-height: 1.35; color: var(--text-secondary); }
+.legenda-pop-vazio { margin: 0; padding: 0.3rem 0.9rem 0.5rem; font-size: 0.8rem; color: var(--text-muted); }
+.legenda-pop-lista { overflow: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.legenda-pop-lista table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.legenda-pop-lista th { position: sticky; top: 0; background: var(--card); text-align: left; font-size: 0.7rem; font-weight: 500; color: var(--text-muted); padding: 0.45rem 0.6rem 0.35rem; white-space: nowrap; }
+.legenda-pop-lista td { padding: 0.3rem 0.6rem; white-space: nowrap; color: var(--text-secondary); }
+.legenda-pop-lista th:first-child, .legenda-pop-lista td:first-child { padding-left: 0.9rem; }
+.legenda-pop-lista th:last-child, .legenda-pop-lista td:last-child { padding-right: 0.9rem; }
+.legenda-pop-lista tbody tr { cursor: pointer; }
+.legenda-pop-lista tbody tr:hover td { background: var(--card-hover); }
+.legenda-pop-nome { color: var(--text-primary) !important; font-weight: 500; max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
+.legenda-pop-lista td.is-ruim { color: var(--danger); }
+.legenda-pop-lista td.is-atencao { color: var(--warning); }
+.legenda-pop-lista td.is-boa { color: var(--success); }
+.legenda-pop-lista td.is-neutra:not([style]) { color: var(--text-muted); }
 /* "A fazer": card com abas (2/3) + Vencendo (1/3), mesma altura. minmax(0, …)
    impede que conteúdo longo empurre a coluna pra fora da tela. */
-.dash-acao { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1rem; margin-bottom: 1.5rem; align-items: stretch; }
+.dash-acao { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 1rem; margin-bottom: 1.5rem; align-items: stretch; }
 @media (max-width: 980px) { .dash-acao { grid-template-columns: minmax(0, 1fr); } }
 .kpi-card .vencendo-lista { min-height: 0; max-height: 250px; }
-.kpi-abas { display: inline-flex; gap: 2px; padding: 2px; border-radius: 999px; background: var(--card-hover); min-width: 0; }
-.kpi-abas button { border: 0; background: transparent; color: var(--text-secondary); font-size: 0.82rem; font-weight: 600; padding: 0.3rem 0.75rem; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.kpi-abas button.is-ativa { background: var(--card); color: var(--text-primary); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+.kpi-abas { position: relative; display: inline-flex; gap: 2px; padding: 2px; border-radius: 999px; background: var(--card-hover); min-width: 0; }
+.kpi-abas.is-cheio { display: flex; flex: 1; }
+.kpi-abas.is-cheio button { flex: 1; justify-content: center; padding-top: 0.4rem; padding-bottom: 0.4rem; }
+.vencendo-topo { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.7rem; }
+.kpi-abas-indicador { position: absolute; top: 0; left: 0; border-radius: 999px; background: var(--card); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), width 0.25s cubic-bezier(0.2, 0, 0, 1), height 0.25s cubic-bezier(0.2, 0, 0, 1); }
+.kpi-abas button { position: relative; z-index: 1; transition: color 0.2s ease; border: 0; background: transparent; color: var(--text-secondary); font-size: 0.82rem; font-weight: 600; padding: 0.3rem 0.75rem; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.kpi-abas button.is-ativa { color: var(--text-primary); }
+.afazer-conteudo, .afazer-painel.is-ativo { animation: afazer-entrar 0.2s ease; }
+.afazer-paineis { display: grid; }
+.afazer-painel { grid-area: 1 / 1; min-width: 0; visibility: hidden; }
+.afazer-painel.is-ativo { visibility: visible; }
+@keyframes afazer-entrar { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .kpi-abas-indicador, .tabs-indicador, .afazer-conteudo, .afazer-painel { transition: none; animation: none; } }
 .kpi-abas .vencendo-total { font-size: 0.85rem; }
 .afazer-contagem { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); }
 /* Linha compacta e de altura única nas duas abas: alinhada e previsível. */
@@ -621,10 +653,7 @@ textarea:focus-visible {
 .gauge-card-filtros { min-height: 27px; }
 .cobertura-card .section-header { margin-bottom: 0.6rem; }
 
-/* Gauge cards (Carteira no Ritmo / Cobertura): botão "Ver clientes" expande o
-   PRÓPRIO card (in-flow, clique — não hover) revelando a lista de cada fatia.
-   Altura anima via max-height clássico (o truque grid-template-rows 0fr→1fr
-   quebrava o layout quando havia scroll interno nas colunas — texto espremido). */
+/* Botão "Ver todos / Ver menos" no rodapé das listas dos cards. */
 .gauge-toggle {
   display: flex; align-items: center; justify-content: center; gap: 4px;
   width: 100%; margin-top: 10px; padding: 5px 0;
@@ -635,48 +664,6 @@ textarea:focus-visible {
 .gauge-toggle:hover { color: var(--accent); }
 .gauge-toggle-icon { transition: transform 0.25s ease; }
 .gauge-toggle-icon.is-open { transform: rotate(180deg); }
-.gauge-detalhe { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
-.gauge-detalhe.is-open { max-height: 480px; }
-.gauge-detalhe-grid {
-  border-top: 1px solid var(--border);
-  margin-top: 10px; padding-top: 12px;
-  /* Uma coluna: os grupos ficam empilhados e cada nome usa a largura inteira do
-     card (ver o comentário em GaugeDetalhe.tsx). O componente informa quantos
-     grupos existem em `--gauge-grupos`, usado abaixo para dividir a altura. */
-  display: grid; grid-template-columns: 1fr; gap: 10px;
-}
-.gauge-detalhe-col { min-width: 0; display: flex; flex-direction: column; }
-/* Título fixo (fora da área que rola) — a lista nunca passa por cima dele. */
-/* white-space:nowrap: com 3 colunas (Carteira no Ritmo) o rótulo "Agenda
-   marcada" quebra em 2 linhas por ter menos largura que com 2 colunas
-   (Cobertura da Carteira) — isso empurrava a grade toda ~17px mais alta e
-   desalinhava os dois cards quando ambos expandidos. */
-.gauge-detalhe-titulo { display: flex; align-items: center; gap: 6px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 7px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gauge-detalhe-col ul {
-  /* display:block (NÃO flex): um container flex encolhe os <li> pra caber em
-     vez de estourar e rolar — foi o que "sumia" o scroll e espremia o texto.
-     height FIXA (não max-height): colunas com listas mais curtas (ou que
-     quebram linha sozinhas no grid responsivo, ex.: "auto-fit" empilhando 1
-     coluna por linha em telas estreitas) ficavam mais baixas que as outras —
-     altura fixa garante caixas do mesmo tamanho sempre, com ou sem scroll. */
-  list-style: none; margin: 0; padding: 0;
-  /* Altura TOTAL constante (~390px) repartida entre os grupos: com 3 grupos dá
-     ~104px cada, com 2 dá ~169px — então o card de Aderência (3 grupos) e o de
-     Cobertura (2) terminam na mesma altura, que é o que mantinha a fila de
-     gauges alinhada quando ambos estão expandidos. Os 26px descontados são o
-     título de cada grupo mais o gap. */
-  height: calc(390px / var(--gauge-grupos, 3) - 26px);
-  overflow-y: auto;
-  /* Scrollbar totalmente escondida — tentamos "fina, só o dedo" antes, mas o
-     botão de seta do scrollbar nativo (Windows) não some só estilizando
-     track/thumb/scrollbar-button; a lista cortada na última linha já avisa
-     que tem mais conteúdo, então nem precisa de indicador visível. */
-  scrollbar-width: none;
-}
-.gauge-detalhe-col ul::-webkit-scrollbar { display: none; width: 0; height: 0; }
-.gauge-detalhe-col li { font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gauge-detalhe-vazio { display: block; height: calc(390px / var(--gauge-grupos, 3) - 26px); font-size: 0.8rem; color: var(--text-muted); }
-@media (prefers-reduced-motion: reduce) { .gauge-detalhe { transition: none; } }
 
 /* Card "Vencendo" — sem donut (só 1 categoria não faz proporção): número
    grande + lista ao lado, sempre visível (sem "Ver clientes"). Vencendo não
@@ -690,6 +677,7 @@ textarea:focus-visible {
    scroll de 133px de altura fixa). Agora a lista cresce com o card. */
 .vencendo-resumo { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .vencendo-total { font-size: 1.05rem; font-weight: 700; color: var(--warning); font-variant-numeric: tabular-nums; }
+.vencendo-total.is-vencido { color: var(--danger); }
 .vencendo-lista {
   flex: 1; min-width: 0; list-style: none; margin: 0; padding: 0;
   min-height: 150px; max-height: 260px; overflow-y: auto;
@@ -783,6 +771,46 @@ textarea:focus-visible {
 .dash-two-col > .glass-card { display: flex; flex-direction: column; }
 
 @media (max-width: 980px) { .dash-two-col { grid-template-columns: 1fr; } }
+/* Análises: gráfico do mês (2/3) + calendário do dia a dia (1/3); linha de card único. */
+.dash-2-1 { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1rem; margin-bottom: 1.5rem; align-items: stretch; }
+@media (max-width: 1180px) { .dash-2-1 { grid-template-columns: minmax(0, 1fr); } }
+.dash-1-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr); gap: 1rem; margin-bottom: 1.5rem; align-items: stretch; }
+@media (max-width: 1180px) { .dash-1-2 { grid-template-columns: minmax(0, 1fr); } }
+.carga-num { display: block; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); }
+.carga-sub-linha { display: block; font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
+.dash-analise-linha { margin-bottom: 1.5rem; }
+/* Tabela em card de meia largura: colunas justas, nome sem quebrar. */
+.tabela-compacta th, .tabela-compacta td { padding-left: 0.55rem; padding-right: 0.55rem; }
+.tabela-compacta th:first-child, .tabela-compacta td:first-child { padding-left: 0.75rem; white-space: nowrap; }
+/* Onde vai o esforço: tabela Reun./Cont./Prec./Total, barra do total atrás do número. */
+.esforco-tabela { display: flex; flex-direction: column; margin-top: 0.5rem; }
+.esforco-cab, .esforco-linha { display: grid; grid-template-columns: minmax(0, 1fr) 44px 44px 44px 92px; align-items: center; gap: 6px; }
+.esforco-cab { font-size: 0.68rem; color: var(--text-muted); padding-bottom: 0.35rem; border-bottom: 1px solid var(--border); }
+.esforco-cab span:not(:first-child), .esforco-linha span { text-align: right; font-variant-numeric: tabular-nums; }
+.esforco-linha { font-size: 0.8rem; padding: 0.34rem 0; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+.esforco-linha:last-child { border-bottom: 0; }
+.esforco-linha .is-atencao { color: var(--warning); font-weight: 600; }
+.esforco-nome { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.esforco-total { position: relative; display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.esforco-total i { height: 6px; border-radius: 999px; background: var(--accent); opacity: 0.7; max-width: 60px; }
+.esforco-total strong { color: var(--text-primary); min-width: 18px; }
+/* Lista das análises (Cancelamentos, Recuperados): nome · valor · data, uma linha por atendimento. */
+.lista-analise { list-style: none; margin: 0.6rem 0 0; padding: 0; flex: 1 1 0; min-height: 140px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.lista-analise li { display: grid; grid-template-columns: minmax(0, 1fr) auto 92px; align-items: center; gap: 10px; padding: 0.35rem 0; border-bottom: 1px solid var(--border); font-size: 0.8rem; }
+.lista-analise li:last-child { border-bottom: 0; }
+.lista-analise-nome { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.lista-analise-valor { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lista-analise-valor.is-ruim { color: var(--danger); font-weight: 600; }
+.lista-analise-data { color: var(--text-muted); font-size: 0.74rem; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Reuniões por dia: grade seg–sex */
+.dia-grade { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin-top: 0.7rem; }
+.dia-grade-semana { font-size: 0.68rem; color: var(--text-muted); text-align: center; }
+.dia-grade-celula { position: relative; height: 34px; border-radius: 6px; background: var(--card-hover); display: flex; align-items: center; justify-content: center; font-size: 0.82rem; color: var(--text-primary); }
+.dia-grade-celula strong { font-variant-numeric: tabular-nums; }
+.dia-grade-num { position: absolute; top: 2px; left: 4px; font-size: 0.6rem; color: var(--text-muted); }
+.dia-grade-cancel { position: absolute; top: 2px; right: 4px; font-size: 0.62rem; font-weight: 700; color: var(--danger); }
+.dia-grade-celula.is-feriado { opacity: 0.35; }
+.dia-grade-celula.is-hoje { outline: 1px solid var(--text-primary); outline-offset: -1px; }
 
 /* Prévia da agenda */
 .agenda-preview { display: flex; flex-direction: column; gap: 0.4rem; }
@@ -1567,7 +1595,11 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .calendar-chip-reagendar:hover { background: var(--accent-soft); color: var(--accent); }
 
 /* --- Módulo Ação: tabs, tabela de chamados, cards --- */
-.tabs { display: inline-flex; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+.tabs { position: relative; display: inline-flex; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+/* Fundo da aba ativa: um elemento só que desliza (ui/Tabs.tsx). */
+.tabs-indicador { position: absolute; left: 0; top: 0; border-radius: 7px; background: var(--accent); transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), width 0.25s cubic-bezier(0.2, 0, 0, 1), height 0.25s cubic-bezier(0.2, 0, 0, 1); }
+.tabs-compacto { padding: 2px; gap: 2px; border-radius: 8px; }
+.tabs-compacto .tabs-indicador { border-radius: 6px; }
 .tab {
   padding: 0.5rem 1.1rem;
   border: none;
@@ -1577,20 +1609,22 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.12s ease;
+  position: relative;
+  z-index: 1;
+  transition: color 0.2s ease, border-color 0.2s ease;
 }
 .tab:hover { color: var(--text-primary); }
-.tab.is-active { background: var(--accent); color: #000; }
+.tab.is-active { color: #000; }
 
 /* --- Sub-abas (ex.: Monitoria/Price dentro de Acompanhamento) --- */
 .tabs-sub { background: transparent; border: none; padding-top: 0.75rem; border-top: 1px solid var(--border); gap: 10px; }
 .tabs-sub .tab {
   padding: 0.4rem 0.9rem;
   border: 1px solid var(--border);
-  background: var(--card);
+  background: transparent;
   font-size: 0.82rem;
 }
-.tabs-sub .tab.is-active { background: var(--accent); border-color: var(--accent); color: #000; }
+.tabs-sub .tab.is-active { border-color: var(--accent); color: #000; }
 
 /* cards de acompanhamento (parte 4) */
 .acao-card {
@@ -2068,78 +2102,7 @@ button.base-sync:hover { border-color: var(--border-strong); }
   color: var(--text-secondary);
 }
 
-/* Dois KPIs clicáveis (recuperados x ainda parados) — funcionam como abas da
-   lista abaixo, por isso são <button> e não texto. */
-.recup-duo {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-.recup-kpi {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  align-items: flex-start;
-  padding: 0.6rem 0.75rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--card-hover);
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-  min-width: 0;
-  transition: background 0.12s ease, border-color 0.12s ease;
-}
-.recup-kpi:hover { background: var(--card); border-color: var(--border-strong); }
-/* Aba selecionada: borda na cor do próprio indicador (accent x atenção). */
-.recup-kpi.is-active { border-color: var(--accent); background: var(--accent-soft); }
-.recup-kpi.is-alerta.is-active { border-color: var(--warning); background: var(--warning-bg); }
-.recup-kpi-num {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 1.6rem;
-  font-weight: 700;
-  line-height: 1.05;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-.recup-kpi.is-alerta .recup-kpi-num { color: var(--warning-fg); }
-.recup-kpi-label { font-size: 0.78rem; font-weight: 600; color: var(--text-primary); }
-.recup-kpi-nota { font-size: 0.7rem; color: var(--text-muted); }
-
-/* Lista de clientes recuperados — rola quando passa de ~5 itens, pra o card
-   não empurrar o resto da Visão Geral pra baixo. */
-.recup-lista {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 340px;
-  overflow-y: auto;
-  padding-right: 2px;
-}
-.recup-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  width: 100%;
-  padding: 10px 12px;
-  background: var(--card-hover);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-family: inherit;
-  cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease;
-}
-.recup-item:hover { background: var(--card); border-color: var(--accent); }
-.recup-item-dir { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-
-/* Em meia tela cabem 2 por linha; minmax menor que antes (190px) porque o card
-   agora divide a largura com o de recuperados. */
+/* Métricas do ciclo (Desfecho): em meia tela cabem 2 ou 3 por linha. */
 .atend-metricas {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));

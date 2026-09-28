@@ -8,26 +8,26 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.49
+
+- A Visão Geral passa a contar todas as entregas (reunião, relatório e precificação); o filtro do topo troca para só reuniões.
+- Novo card "Reuniões nas entregas": quanto das entregas do mês foi reunião.
+- Reunião marcada para hoje conta como marcada o dia todo.
+- Prazos mais claros nos cards de Atendimentos ("3d atrasada", "vence em 5d").
+- "Ritmo mês a mês" mostra a carteira inteira.
+
+## 1.4.48
+
+- "Carga por monitor" mais enxuta: atrasados e reuniões com a quebra por serviço na mesma célula.
+- O monitorIA agora responde quem mais cancela reunião e a taxa de cancelamento.
+
 ## 1.4.47
 
-- Na Visão Geral, "Clientes ativos" e "Total de atendimentos" de um mês passado agora mostram quem estava ativo naquele mês, não o status de hoje. O histórico começa a contar a partir desta versão.
-- O card "Agendadas" da Visão Geral agora mostra só as reuniões que ainda vão acontecer; as já concluídas ficam apenas em "Reuniões concluídas".
-- A Cobertura da Visão Geral agora só considera reuniões, relatórios e precificações já concluídos; o que está apenas agendado não conta.
-- O aviso de mudança de endereço ganhou a opção "Não mostrar novamente".
-- Um atendimento só conta como em dia quando todos os serviços dele estão no prazo.
-- O prazo só zera com entrega concluída e com o serviço marcado. Reunião apenas agendada não conta.
-- Atendimento novo tem um prazo de carência antes de aparecer como atrasado.
-- "Sem acompanhamento" considera só contatos e entregas concluídos.
-- Price passa a ter prazo padrão de 15 dias.
-- "Vencendo" mostra só Monitoria e Price, e "Cobertura por Serviço" não conta mais serviço independente.
-- Todo evento, inclusive contato e ligação, agora exige o serviço. O formulário já sugere o serviço quando dá para saber.
-- Na Agenda, a opção "Só sem serviço" lista os eventos antigos que ainda precisam do serviço marcado.
-- A Visão Geral foi reorganizada em 4 blocos: números do mês, prazo, o que fazer agora e análise.
-- Cada número agora mostra "X de Y", a comparação com o mês anterior e uma linha explicando o que conta.
-- "Atendimentos sem acompanhamento" mostra o total e ganhou "Ver todos".
-- "Próximas agendas" resume os relatórios da semana numa linha só.
-- O card de desfecho das reuniões segue o mês escolhido no topo.
-- No Dashboard da Carteira, "Fora da monitoria" mostra o motivo, o Crescimento mostra os atendimentos ativos de cada mês e o risco é comparado com o mês anterior.
+- Visão Geral reorganizada: cada número mostra "X de Y" e a comparação com o mês anterior; o ⓘ explica como conta.
+- Prazo mais fiel: só entrega concluída, com o serviço marcado, zera o prazo. Price passa a 15 dias.
+- Todo evento agora exige o serviço.
+- Análises novas: Ritmo mês a mês, Carga por monitor, Cancelamentos, Reuniões por dia e Onde vai o esforço.
+- O card "Vencendo" ganhou a aba "Vencidos".
 
 ## 1.4.45
 

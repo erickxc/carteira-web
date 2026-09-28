@@ -1,14 +1,15 @@
-import { useMemo } from 'react';
-import { format } from 'date-fns';
+import { useMemo, useState } from 'react';
+import { format, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarSync, PhoneCall, PhoneIncoming } from 'lucide-react';
+import { CalendarSync, PhoneCall } from 'lucide-react';
 import {
   calcularCicloAtendimento, calcularConfiabilidade, calcularEsforcoAgenda, formatarDias,
-  serieEsforcoPorMes,
+  serieRealizacaoPorMes,
 } from '../../utils/metricasAtendimento';
 import { LineChart } from '../LineChart';
 import { dentroDaJanela, type Janela } from '../../utils/periodo';
-import { Card } from '../../ui';
+import { Card, Chip } from '../../ui';
+import { rotuloModo, type ModoContagem } from '../../utils/analises';
 import type { Acao, EventoAgenda } from '../../types';
 
 interface AtendimentoCardProps {
@@ -18,25 +19,49 @@ interface AtendimentoCardProps {
   /** Mês escolhido no topo do dashboard (`janelaDoMes`): o card segue o mesmo período. */
   janela: Janela;
   agora: Date;
+  /** Entregas (reunião + relatório + precificação) ou só reuniões — seletor do topo. */
+  modo: ModoContagem;
 }
 
 /** Cores semânticas do desfecho — verde/amarelo/vermelho, não a paleta da marca:
  *  aqui a cor carrega o significado (deu certo / escorregou / não aconteceu). */
 const CORES = {
   realizadas: 'var(--success)',
-  reagendadas: 'var(--warning)',
   canceladas: 'var(--danger)',
 };
+/** Ciclo (entre reuniões, retomar contato) usa 90 dias: no mês a amostra é de 1 a 5 casos. */
+type FiltroServico = 'Todos' | 'Monitoria' | 'Price';
+const FILTROS: { key: FiltroServico; label: string }[] = [
+  { key: 'Todos', label: 'Geral' }, { key: 'Monitoria', label: 'Monitoria' }, { key: 'Price', label: 'Precificação' },
+];
+/** Evento do serviço: pelo serviço marcado; precificação avulsa é sempre Price. */
+function doServico(e: EventoAgenda, f: FiltroServico): boolean {
+  if (f === 'Todos') return true;
+  const servicos = (e.servicos ?? []).join(' ');
+  return f === 'Price' ? /prec|price/i.test(servicos) || /precific/i.test(e.type || '') : /monitor/i.test(servicos);
+}
+/** Ação do serviço: pelo serviço informado (ação sem serviço só entra em "Geral"). */
+function acaoDoServico(a: Acao, f: FiltroServico): boolean {
+  if (f === 'Todos') return true;
+  const servico = a.servico || '';
+  return f === 'Price' ? a.tipo === 'price' || /prec|price/i.test(servico) : /monitor/i.test(servico);
+}
+const DIAS_CICLO = 90;
 
 /**
  * "Desfecho e esforço das reuniões" — três leituras de "estamos atendendo bem e com
  * que esforço?" no mês escolhido no topo:
- *  - desfecho das reuniões (realizada = concluída / reagendada / cancelada);
+ *  - desfecho das reuniões (realizada = concluída / cancelada; remarcação conta à parte);
  *  - esforço: ações por entrega (reunião, relatório ou precificação concluída);
- *  - ciclo: intervalo entre reuniões e tempo para retomar contato depois delas.
+ *  - ciclo (últimos 90 dias): intervalo entre reuniões e tempo para retomar contato depois delas.
  * Sem filtros próprios: o período é o do topo e o monitor é o do filtro global.
  */
-export function AtendimentoCard({ agenda, acoes, janela, agora }: AtendimentoCardProps) {
+export function AtendimentoCard({ agenda: agendaToda, acoes: acoesTodas, janela, agora, modo }: AtendimentoCardProps) {
+  const nome = rotuloModo(modo);
+  const [filtro, setFiltro] = useState<FiltroServico>('Todos');
+  // O filtro de serviço vale para tudo do card: desfecho, esforço, série e ciclo.
+  const agenda = useMemo(() => agendaToda.filter((e) => doServico(e, filtro)), [agendaToda, filtro]);
+  const acoes = useMemo(() => acoesTodas.filter((a) => acaoDoServico(a, filtro)), [acoesTodas, filtro]);
   const filtrada = useMemo(() => agenda.filter((e) => dentroDaJanela(e.date, janela)), [agenda, janela]);
   const acoesFiltradas = useMemo(() => acoes.filter((a) => dentroDaJanela(a.dueAt || a.createdAt, janela)), [acoes, janela]);
 
@@ -44,47 +69,50 @@ export function AtendimentoCard({ agenda, acoes, janela, agora }: AtendimentoCar
   // mudaria conforme o dia em que a tela é aberta.
   const referencia = janela.fim ?? agora;
 
-  /** Série do gráfico: histórico inteiro (recortar pelo mês deixaria um ponto só). */
+  /** Série do gráfico: taxa de realização no histórico inteiro (recortar pelo mês deixaria um ponto só). */
   const serie = useMemo(() => {
-    const pontos = serieEsforcoPorMes(agenda, acoes, agora);
     // Teto de 12 meses: além disso os rótulos ficam ilegíveis em meia tela.
-    return pontos.slice(-12).map((p) => ({
+    return serieRealizacaoPorMes(agenda, agora, modo).slice(-12).map((p) => ({
       label: format(p.mes, 'MMM', { locale: ptBR }).replace('.', ''),
-      // Composição no tooltip: um mês com 1 entrega e 15 ações dá 15.0, e sem
-      // ver o denominador o pico parece erro de cálculo em vez de amostra curta.
-      full: `${format(p.mes, "MMMM 'de' yyyy", { locale: ptBR })} (${p.totalAcoes} ações ÷ ${p.acoesEntrega} ${p.acoesEntrega === 1 ? 'entrega' : 'entregas'})`,
-      value: Number(p.acoesPorEntrega.toFixed(1)),
+      // Composição no tooltip: com poucas reuniões, uma cancelada move muito a taxa.
+      full: `${format(p.mes, "MMMM 'de' yyyy", { locale: ptBR })} (${p.realizadas} de ${p.total}; ${p.canceladas} ${p.canceladas === 1 ? 'cancelada' : 'canceladas'})`,
+      value: Math.round(p.taxaRealizacao),
     }));
-  }, [agenda, acoes, agora]);
+  }, [agenda, agora, modo]);
 
-  const conf = useMemo(() => calcularConfiabilidade(filtrada, referencia), [filtrada, referencia]);
+  const conf = useMemo(() => calcularConfiabilidade(filtrada, referencia, modo), [filtrada, referencia, modo]);
   const esforco = useMemo(() => calcularEsforcoAgenda(filtrada, acoesFiltradas, referencia), [filtrada, acoesFiltradas, referencia]);
-  const ciclo = useMemo(() => calcularCicloAtendimento(filtrada, referencia), [filtrada, referencia]);
+  const ciclo = useMemo(() => {
+    const inicio = subDays(referencia, DIAS_CICLO);
+    return calcularCicloAtendimento(agenda.filter((e) => { const d = new Date(e.date); return d >= inicio && d <= referencia; }), referencia, modo);
+  }, [agenda, referencia, modo]);
 
   const barras = [
     { key: 'realizadas' as const, label: 'Realizadas', valor: conf.realizadas },
-    { key: 'reagendadas' as const, label: 'Reagendadas', valor: conf.reagendadas },
     { key: 'canceladas' as const, label: 'Canceladas', valor: conf.canceladas },
   ];
 
   return (
     <Card flat className="atendimento-card">
       <div className="section-header" style={{ flexWrap: 'wrap', gap: 4, display: 'block' }}>
-        <h3 style={{ marginBottom: 2 }}>Desfecho e esforço das reuniões</h3>
+        <h3 style={{ marginBottom: 2 }}>Desfecho e esforço das {nome.plural}</h3>
         <p className="atend-subtitulo" title={janela.descricao}>
-          {janela.curta} · {conf.total} {conf.total === 1 ? 'reunião' : 'reuniões'} com desfecho
+          {janela.curta} · {conf.total} {conf.total === 1 ? nome.singular : nome.plural} com desfecho
         </p>
       </div>
+      <div className="flex flex-wrap gap-[0.35rem] mb-2">
+        {FILTROS.map((f) => <Chip key={f.key} active={filtro === f.key} onClick={() => setFiltro(f.key)}>{f.label}</Chip>)}
+      </div>
       <p className="kpi-como-conta" style={{ marginBottom: 12 }}>
-        Realizada = concluída. Reunião que já passou e continua &quot;Agendado&quot; fica fora até ser registrada.
+        Realizada = concluída. {nome.Plural} que já passou e continua &quot;Agendado&quot; fica fora até ser registrada.
       </p>
 
       {conf.total === 0 ? (
-        <div className="empty-state">Nenhuma reunião com desfecho nesse período.</div>
+        <div className="empty-state">Nenhuma {nome.singular} com desfecho nesse período.</div>
       ) : (
         <>
           {/* Barra empilhada do desfecho */}
-          <div className="atend-barra" role="img" aria-label={`Realizadas ${conf.realizadas}, reagendadas ${conf.reagendadas}, canceladas ${conf.canceladas}`}>
+          <div className="atend-barra" role="img" aria-label={`Realizadas ${conf.realizadas}, canceladas ${conf.canceladas}`}>
             {barras.filter((b) => b.valor > 0).map((b) => (
               <div
                 key={b.key}
@@ -133,28 +161,25 @@ export function AtendimentoCard({ agenda, acoes, janela, agora }: AtendimentoCar
         <div className="atend-serie">
           <span className="atend-serie-titulo">
             Evolução mensal
-            <span className="text-text-muted" style={{ fontWeight: 400 }}> · ações por entrega</span>
+            <span className="text-text-muted" style={{ fontWeight: 400 }}> · taxa de realização</span>
           </span>
           <LineChart
             points={serie}
             height={150}
-            formatValue={(v) => v.toFixed(1)}
-            unidade="ações por entrega"
-            titulo="Ações por entrega"
+            largura={520}
+            teto={100}
+            formatValue={(v) => `${Math.round(v)}%`}
+            unidade="de realização"
+            titulo="Taxa de realização por mês"
             ocultarRotulos={serie.length > 6}
           />
         </div>
       )}
 
       <div className="atend-metricas">
-        <div className="atend-metrica" title="Contatos registrados como iniciativa do cliente — demanda espontânea, não é esforço nosso">
-          <span className="atend-metrica-label"><PhoneIncoming size={13} /> Cliente procurou</span>
-          <strong className="atend-metrica-valor">{esforco.contatosDoCliente}</strong>
-        </div>
-
         <div
           className="atend-metrica"
-          title={`${conf.reunioesRemarcadas} de ${conf.total} reuniões foram remarcadas, ${conf.remarcacoes} remarcação(ões) no total`}
+          title={`${conf.reunioesRemarcadas} de ${conf.total} ${nome.plural} foram remarcadas, ${conf.remarcacoes} remarcação(ões) no total`}
         >
           <span className="atend-metrica-label"><CalendarSync size={13} /> Remarcadas</span>
           <strong className="atend-metrica-valor">
@@ -162,8 +187,8 @@ export function AtendimentoCard({ agenda, acoes, janela, agora }: AtendimentoCar
           </strong>
         </div>
 
-        <div className="atend-metrica" title={`Média entre reuniões consecutivas do mesmo cliente (${ciclo.amostraIntervalos} par(es) medidos)`}>
-          <span className="atend-metrica-label">Entre reuniões</span>
+        <div className="atend-metrica" title={`Média entre ${nome.plural} consecutivas do mesmo cliente, últimos ${DIAS_CICLO} dias (${ciclo.amostraIntervalos} par(es) medidos)`}>
+          <span className="atend-metrica-label">Entre {nome.plural} · 90d</span>
           <strong className="atend-metrica-valor">{formatarDias(ciclo.intervaloEntreReunioes)}</strong>
         </div>
 
@@ -173,7 +198,7 @@ export function AtendimentoCard({ agenda, acoes, janela, agora }: AtendimentoCar
             ? `Da reunião até o 1º contato nosso depois dela (${ciclo.amostraRetomadas} medições). Desse contato até a reunião seguinte: ${formatarDias(ciclo.diasDoContatoAteProximaReuniao)}`
             : 'Sem contato registrado após reuniões no período'}
         >
-          <span className="atend-metrica-label">Retomar contato</span>
+          <span className="atend-metrica-label">Retomar contato · 90d</span>
           <strong className="atend-metrica-valor">{formatarDias(ciclo.diasParaRetomarContato)}</strong>
         </div>
       </div>

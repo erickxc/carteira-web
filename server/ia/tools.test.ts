@@ -134,8 +134,8 @@ function escreverDossie(clientId: string, slug: string, corpo: string) {
 // 1-8: catálogo e contrato geral das ferramentas
 // ---------------------------------------------------------------------------
 describe('catálogo de ferramentas', () => {
-  it('1. expõe exatamente as 41 ferramentas esperadas', () => {
-    expect(FERRAMENTAS).toHaveLength(41);
+  it('1. expõe exatamente as 42 ferramentas esperadas', () => {
+    expect(FERRAMENTAS).toHaveLength(42);
   });
 
   it('2. nenhum nome de ferramenta duplicado', () => {
@@ -633,6 +633,24 @@ describe('buscar_historico_eventos', () => {
   it('63. inclui evento cancelado (é histórico, não agenda ativa)', () => {
     const repo = repoBase({ Agenda: [{ id: 'a', clientId: 'c1', type: 'Reunião', status: 'Cancelado', date: '2026-08-01' }] });
     expect(exec('buscar_historico_eventos', repo, { clientId: 'c1' }).eventos).toHaveLength(1);
+  });
+});
+
+describe('buscar_cancelamentos', () => {
+  const dias = (n: number) => new Date(Date.now() - n * 86400e3).toISOString();
+  const reuniao = (id: string, status: string, n: number, over: Record<string, unknown> = {}) =>
+    ({ id, clientId: 'c1', clientName: 'Loja Teste', type: 'Reunião', status, date: dias(n), ...over });
+
+  it('conta canceladas sobre reuniões com desfecho, com reincidente e motivo', () => {
+    const r = exec('buscar_cancelamentos', repoBase({ Agenda: [
+      reuniao('a', 'Cancelado', 10, { motivo: 'Cliente viajou' }),
+      reuniao('b', 'Cancelado', 5),
+      reuniao('c', 'Concluído', 3),
+      reuniao('d', 'Agendado', 1), // sem desfecho
+      reuniao('e', 'Cancelado', 200), // fora da janela
+    ] }), {}) as { canceladas: number; reunioesComDesfecho: number; taxaCancelamento: number; reincidentes: number; atendimentos: { canceladas: number; motivos: string[] }[] };
+    expect([r.canceladas, r.reunioesComDesfecho, r.taxaCancelamento, r.reincidentes]).toEqual([2, 3, 67, 1]);
+    expect(r.atendimentos[0]).toMatchObject({ canceladas: 2, motivos: ['Cliente viajou'] });
   });
 });
 

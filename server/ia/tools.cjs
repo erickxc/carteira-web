@@ -1455,6 +1455,51 @@ function buscarProximasReunioes(repo, { dias } = {}, ctx = {}) {
 }
 
 /**
+ * Reuniões canceladas por atendimento — a mesma regra do card "Cancelamentos"
+ * da Visão Geral (src/utils/analises.ts): reuniões com desfecho = realizadas +
+ * canceladas na janela; remarcada (status Reagendado) não é cancelada. Só
+ * atendimentos ativos do escopo do monitor.
+ */
+function buscarCancelamentos(repo, { dias } = {}, ctx = {}) {
+  const janela = Math.min(Math.max(Number(dias) || 90, 1), 365);
+  const agora = new Date();
+  const inicio = new Date(agora.getTime() - janela * 86400e3);
+  const ativos = new Map(clientesDoMonitor(repo, ctx).filter((c) => isClienteAtivo(c, agora)).map((c) => [String(c.id), c]));
+  const por = new Map();
+  let canceladas = 0;
+  let comDesfecho = 0;
+  for (const e of repo.get('Agenda')) {
+    const c = ativos.get(String(e.clientId));
+    const d = new Date(e.date);
+    if (!c || !/reuni/i.test(e.type || '') || isNaN(d.getTime()) || d < inicio || d > agora) continue;
+    const cancelada = /cancel/i.test(e.status || '');
+    if (!cancelada && !/conclu|realiz/i.test(e.status || '')) continue;
+    comDesfecho++;
+    const x = por.get(c.id) ?? { clientId: c.id, empresa: c.empresa, monitor: c.monitor || null, canceladas: 0, comDesfecho: 0, ultimaCancelada: null, motivos: [] };
+    x.comDesfecho++;
+    if (cancelada) {
+      canceladas++;
+      x.canceladas++;
+      const dia = dataCivilEvento(e.date);
+      if (!x.ultimaCancelada || dia > x.ultimaCancelada) x.ultimaCancelada = dia;
+      if (e.motivo) x.motivos.push(String(e.motivo).slice(0, 160));
+    }
+    por.set(c.id, x);
+  }
+  const atendimentos = [...por.values()].filter((x) => x.canceladas > 0)
+    .sort((a, b) => b.canceladas - a.canceladas || String(b.ultimaCancelada).localeCompare(String(a.ultimaCancelada)))
+    .slice(0, 30);
+  return {
+    janelaDias: janela,
+    canceladas,
+    reunioesComDesfecho: comDesfecho,
+    taxaCancelamento: comDesfecho > 0 ? Math.round((canceladas / comDesfecho) * 100) : 0,
+    reincidentes: atendimentos.filter((x) => x.canceladas >= 2).length,
+    atendimentos,
+  };
+}
+
+/**
  * Lembretes de um cliente — fecha a assimetria de o agente poder CRIAR
  * lembrete (`criar_lembrete`) mas não ter como LER os que já existem (nem
  * `buscar_dossie_cliente` nem `buscar_historico_eventos` incluem Lembretes),
@@ -1804,6 +1849,12 @@ const FERRAMENTAS = [
     description: 'Próximos eventos da AGENDA DA CARTEIRA (reunião/contato/relatório/precificação, dos clientes do monitor) — nunca a agenda pessoal do Marco (isso é buscar_agenda_ceo). Use pra "quais reuniões eu tenho marcada", "o que tenho essa semana", "minha agenda dos próximos dias". Exclui eventos já concluídos/realizados e cancelados/reagendados — só o que ainda vai acontecer.',
     parameters: { type: 'object', properties: { dias: { type: 'number', description: 'Janela de dias à frente (padrão 14, máx 60).' } } },
     executar: buscarProximasReunioes,
+  },
+  {
+    name: 'buscar_cancelamentos',
+    description: 'Reuniões CANCELADAS por atendimento numa janela (padrão 90 dias): total, taxa de cancelamento sobre as reuniões com desfecho (realizadas + canceladas), quem cancelou 2+ vezes (reincidentes), data da última cancelada e os motivos registrados. Mesma regra do card "Cancelamentos" da Visão Geral. Use pra "quem mais cancela", "quantas reuniões foram canceladas", "taxa de cancelamento", "o cliente X costuma cancelar?".',
+    parameters: { type: 'object', properties: { dias: { type: 'number', description: 'Janela de dias para trás (padrão 90, máx 365).' } } },
+    executar: buscarCancelamentos,
   },
   {
     name: 'buscar_lembretes_cliente',

@@ -4,7 +4,7 @@ import {
   calcularConfiabilidade,
   calcularEsforcoAgenda,
   formatarDias,
-  serieEsforcoPorMes,
+  serieRealizacaoPorMes,
 } from './metricasAtendimento';
 import type { Acao, EventoAgenda } from '../types';
 
@@ -138,25 +138,24 @@ describe('calcularEsforcoAgenda', () => {
   });
 });
 
-describe('serieEsforcoPorMes', () => {
-  it('omite meses sem entrega em vez de gerar ponto zero', () => {
-    const soContato = evento({ type: 'Contato', date: iso(40) });
-    const serie = serieEsforcoPorMes([soContato], [], NOW);
-    expect(serie).toHaveLength(0);
+describe('serieRealizacaoPorMes', () => {
+  it('omite meses sem reunião com desfecho em vez de gerar 0%', () => {
+    expect(serieRealizacaoPorMes([evento({ type: 'Contato', date: iso(40) })], NOW)).toHaveLength(0);
   });
 
-  it('gera um ponto por mês com entrega, calculado isoladamente por mês', () => {
+  it('um ponto por mês, com a taxa calculada só com as reuniões daquele mês', () => {
     const mesPassado = new Date(NOW);
     mesPassado.setMonth(mesPassado.getMonth() - 1);
-    const reuniaoMesPassado = evento({ type: 'Reunião', date: mesPassado.toISOString() });
-    const reuniaoMesAtual = evento({ type: 'Reunião', date: iso(2) });
-    const serie = serieEsforcoPorMes([reuniaoMesPassado, reuniaoMesAtual], [], NOW);
-    expect(serie.length).toBeGreaterThanOrEqual(2);
-    expect(serie.every((p) => p.acoesEntrega > 0)).toBe(true);
+    const serie = serieRealizacaoPorMes([
+      evento({ date: mesPassado.toISOString() }),
+      evento({ date: mesPassado.toISOString(), status: 'Cancelado' }),
+      evento({ date: iso(2) }),
+    ], NOW);
+    expect(serie.map((p) => Math.round(p.taxaRealizacao))).toEqual([50, 100]);
   });
 
-  it('retorna vazio quando não há nenhum evento/ação no passado', () => {
-    expect(serieEsforcoPorMes([], [], NOW)).toEqual([]);
+  it('retorna vazio sem eventos no passado', () => {
+    expect(serieRealizacaoPorMes([], NOW)).toEqual([]);
   });
 });
 

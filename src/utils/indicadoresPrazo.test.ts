@@ -11,6 +11,8 @@ const cli = (id: string, servicos: string[], extra: Partial<Cliente> = {}) =>
 const ev = (clientId: string, type: string, status: string, dias: number, servicos: string[]) =>
   ({ id: `${clientId}-${type}-${dias}`, clientId, clientName: clientId, type, status, date: diasAtras(dias), servicos }) as EventoAgenda;
 
+const nomes = (xs: { nome: string }[]) => xs.map((x) => x.nome);
+
 function calcular(ativos: Cliente[], agenda: EventoAgenda[], acoes: Acao[] = []) {
   return calcularIndicadoresPrazo({ ativos, agenda, acoes, cadencias: CAD, now: NOW, periodo: new Date(2026, 8, 1) });
 }
@@ -26,20 +28,31 @@ describe('calcularIndicadoresPrazo', () => {
   it('Ritmo: em dia só com todos os serviços no prazo', () => {
     const r = calcular(ativos, agenda);
     expect(r.ritmo.total).toBe(3);
-    expect(r.ritmo.emDia).toEqual(['emdia']);
+    expect(nomes(r.ritmo.emDia)).toEqual(['emdia']);
     expect(r.totalEmDia).toBe(1);
   });
 
   it('Cobertura por Serviço: base só com relógio do serviço', () => {
     const r = calcular(ativos, agenda);
-    expect(r.porServico.find((s) => s.servico === 'Monitoria')).toMatchObject({ cobertos: ['emdia', 'meio'], descobertos: ['nunca'] });
-    expect(r.porServico.find((s) => s.servico === 'Price')).toMatchObject({ cobertos: [], descobertos: ['meio'] });
+    const m = r.porServico.find((s) => s.servico === 'Monitoria')!;
+    expect([nomes(m.cobertos), nomes(m.descobertos)]).toEqual([['emdia', 'meio'], ['nunca']]);
+    const p = r.porServico.find((s) => s.servico === 'Price')!;
+    expect([nomes(p.cobertos), nomes(p.descobertos)]).toEqual([[], ['meio']]);
   });
 
   it('Cobertura: só entrega concluída conta', () => {
     const r = calcular(ativos, agenda);
-    expect(r.cobertura.cobertos).toEqual(['emdia', 'meio']);
-    expect(r.cobertura.semContato).toEqual(['nunca']);
+    expect(nomes(r.cobertura.cobertos)).toEqual(['emdia', 'meio']);
+    expect(nomes(r.cobertura.semContato)).toEqual(['nunca']);
+  });
+
+  it('Linhas: prazos por serviço e última entrega de cada atendimento', () => {
+    const r = calcular(ativos, agenda);
+    const meio = r.linhas.get('meio')!;
+    expect(meio.relogios.Monitoria?.statusReal).toBe('em_dia');
+    expect(meio.relogios.Price?.statusReal).toBe('nunca');
+    expect(meio.ultimaEntrega?.tipo).toBe('Reunião');
+    expect(r.linhas.get('nunca')!.ultimaEntrega).toBeNull();
   });
 
   it('Sem acompanhamento: lista completa, mais antigo primeiro, sem contar "Agendado"', () => {

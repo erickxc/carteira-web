@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Coins, RefreshCw, Wrench } from 'lucide-react';
 import { buscarUsoIA, type TurnoUsoIA, type UsoIAResposta } from '../../api/client';
-import { Badge, Card } from '../../ui';
+import { Badge, Card, Tabs } from '../../ui';
 
 /**
  * Painel de consumo de IA — tokens e custo por pergunta, nos dois provedores.
@@ -56,17 +56,19 @@ export default function UsoIACard() {
       <div className="section-header">
         <h3><Coins size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Consumo do monitorIA</h3>
         <div className="flex items-center gap-2">
-          {DIAS_OPCOES.map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setDias(d)}
-              className={`tab${dias === d ? ' is-active' : ''}`}
-              style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
-            >
-              {d === 1 ? 'Hoje' : `${d}d`}
-            </button>
-          ))}
+          <Tabs className="tabs-compacto">
+            {DIAS_OPCOES.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDias(d)}
+                className={`tab${dias === d ? ' is-active' : ''}`}
+                style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+              >
+                {d === 1 ? 'Hoje' : `${d}d`}
+              </button>
+            ))}
+          </Tabs>
           <button
             type="button"
             onClick={() => carregar(dias)}

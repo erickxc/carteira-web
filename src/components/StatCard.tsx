@@ -1,3 +1,4 @@
+import { InfoComoConta } from './dashboard/Comparacao';
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Card } from '../ui';
@@ -31,7 +32,11 @@ export function StatCard({ title, value, icon: Icon, denominador, comparacao, co
     >
       <span className="stat-card-accent-bar" />
       <div className="flex-1 min-w-0 flex flex-col items-start">
-        <p className="text-[0.8rem] font-medium mb-[0.3rem] max-w-full leading-tight min-h-[2.1em] flex items-start text-[color:var(--text-secondary)]">{title}</p>
+        {/* "Como conta" fica no ⓘ, como nos outros cards do dashboard: o corpo mostra só número e comparação. */}
+        <p className="text-[0.8rem] font-medium mb-[0.3rem] max-w-full leading-tight min-h-[2.1em] flex items-start text-[color:var(--text-secondary)]">
+          {title}
+          {comoConta && <InfoComoConta texto={comoConta} />}
+        </p>
         {/* Algarismos proporcionais: tabular-nums deixa número grande "frouxo"; fica só em tabelas. */}
         <h3 className="text-[1.9rem] font-bold leading-[1.1] tracking-[-0.02em] text-[color:var(--text-primary)]">
           {value}
@@ -44,7 +49,6 @@ export function StatCard({ title, value, icon: Icon, denominador, comparacao, co
             <span title={trend} className="overflow-hidden text-ellipsis whitespace-nowrap min-w-0">{trend}</span>
           </p>
         )}
-        {comoConta && <p className="kpi-como-conta">{comoConta}</p>}
       </div>
       <div className="w-[34px] h-[34px] rounded-[var(--radius-sm)] shrink-0 flex items-center justify-center bg-[var(--accent)] text-[color:var(--accent-contrast)] shadow-[0_2px_10px_rgba(218,187,108,0.35)]">
         <Icon className="w-[17px] h-[17px]" />

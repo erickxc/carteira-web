@@ -3,7 +3,7 @@ import { contarAtendidosNoMes } from '../utils/atendidosNoMes';
 import { clientesEm } from '../utils/statusHistorico';
 import { riscoEm } from '../utils/riscoEm';
 import {
-  addDays, differenceInCalendarDays, eachMonthOfInterval, endOfMonth, format, isSameMonth,
+  addDays, subDays, differenceInCalendarDays, eachMonthOfInterval, endOfMonth, format, isSameMonth,
   max as maxDate, min as minDate, parseISO, startOfMonth, subMonths,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -16,6 +16,7 @@ import {
 } from '../utils/cadenciaServico';
 import { mesesComDados } from '../utils/periodo';
 import { calcularIndicadoresPrazo, LIMIAR_SEM_ACOMPANHAMENTO_DIAS, recortarAte } from '../utils/indicadoresPrazo';
+import { cancelamentosPorAtendimento, cargaPorMonitor, contaNoModo, esforcoPorAtendimento, finsDeMes, reunioesPorDia, type ModoContagem } from '../utils/analises';
 import type { AnaliseIA, Cliente, EventoAgenda } from '../types';
 
 const FOLLOW_UP_THRESHOLD_DAYS = LIMIAR_SEM_ACOMPANHAMENTO_DIAS;
@@ -46,20 +47,20 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   const { historicoAnalises } = opts;
   // `filtroMonitor` vem do Context — é o filtro GLOBAL ("quem sou eu"),
   // compartilhado com o header e com o monitorIA, não mais local desta tela.
-  const { clientes, agenda, acoes, lembretes, cadencias, analisesIA, statusHistorico, filtroMonitor, setFiltroMonitor, monitoresDisponiveis } = useCarteira();
+  const { clientes, agenda, acoes, cadencias, analisesIA, statusHistorico, filtroMonitor, setFiltroMonitor, monitoresDisponiveis } = useCarteira();
   const [filtroTipo, setFiltroTipo] = usePersistedState<string>('filtro:dash:tipo', 'Todos');
-  const [filtroTipoEvento, setFiltroTipoEvento] = usePersistedState<string>('filtro:dash:tipoEvento', 'Todos');
   const [filtroServicoAderencia, setFiltroServicoAderencia] = usePersistedState<ServicoCad | 'Todos'>('filtro:dash:servicoAderencia', 'Todos');
   const [filtroServicoVencendo, setFiltroServicoVencendo] = usePersistedState<ServicoCad | 'Todos'>('filtro:dash:servicoVencendo', 'Todos');
   // Só Monitoria/Price aqui (não Relatório): Relatório é TIPO de evento e já
   // entra na conta de atendimento — não é um serviço marcado no evento.
-  const [filtroServicoTop10, setFiltroServicoTop10] = usePersistedState<'Todos' | 'Monitoria' | 'Price'>('filtro:dash:servicoTop10', 'Todos');
 
   const hoje = new Date();
+  // Entregas (reunião + relatório + precificação) ou só reuniões: vale para todo card que conta volume.
+  const [modoContagem, setModoContagem] = usePersistedState<ModoContagem>('filtro:dash:modoContagem', 'entregas');
   const [mes, setMes] = useState(hoje.getMonth());
   const [ano, setAno] = useState(hoje.getFullYear());
-  const periodo = new Date(ano, mes, 1);
-  const periodoAnterior = subMonths(periodo, 1);
+  const periodo = useMemo(() => new Date(ano, mes, 1), [ano, mes]);
+  const periodoAnterior = useMemo(() => subMonths(periodo, 1), [periodo]);
   /**
    * Âncora de "agora" pros cálculos "tempo real" (aderência, vencendo,
    * cobertura por serviço, e os cards de Atendimento/Recuperados) — pedido do
@@ -84,12 +85,6 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
     () => (isSameMonth(periodo, hoje) ? hoje : endOfMonth(periodo)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [ano, mes]
-  );
-
-  // Opções de filtro derivadas da base (não mostra opção que não existe nos dados).
-  const tiposEventoDisponiveis = useMemo(
-    () => ['Todos', ...[...new Set(agenda.map((a) => a.type).filter(Boolean))].sort()],
-    [agenda]
   );
 
   // Toda a operação considera apenas clientes ATIVOS (exclui suspensos), com os
@@ -118,12 +113,13 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   // Carteira ATIVA numa data: no mês corrente, o cadastro de hoje; em outra data,
   // a situação vigente naquele dia (log StatusHistorico) e só quem já existia.
   // Serve tanto ao mês escolhido no topo quanto à comparação com um mês antes.
-  const ativosEm = useCallback((data: Date) => {
+  // `todaCarteira`: ignora o filtro de monitor (usado pelo Ritmo mês a mês).
+  const ativosEm = useCallback((data: Date, todaCarteira = false) => {
     const base = isSameMonth(data, new Date()) ? clientes : clientesEm(clientes, statusHistorico, data);
     return base.filter((c) =>
       (!c.createdAt || parseISO(c.createdAt) <= data) &&
       isClienteAtivo(c, data) &&
-      (filtroMonitor === 'Todos' || c.monitor === filtroMonitor)
+      (todaCarteira || filtroMonitor === 'Todos' || c.monitor === filtroMonitor)
     );
   }, [clientes, statusHistorico, filtroMonitor]);
   /** Mesma data, um mês antes — referência de toda comparação da tela. */
@@ -137,8 +133,8 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
     [ativosNoPeriodo, agenda, dataReferencia]
   );
   const agendaAtiva = useMemo(
-    () => agenda.filter((a) => ativosIds.has(a.clientId) && (filtroTipoEvento === 'Todos' || a.type === filtroTipoEvento)),
-    [agenda, ativosIds, filtroTipoEvento]
+    () => agenda.filter((a) => ativosIds.has(a.clientId)),
+    [agenda, ativosIds]
   );
   // Variantes só com o filtro de Monitor (sem o de Tipo de evento) — pros
   // cards que precisam de todos os tipos de evento/ação de um monitor
@@ -199,11 +195,12 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   // deve depender do estado atual do cadastro — é fato passado, não se
   // recalcula (bug real, visto no gráfico "Reuniões por Mês" caindo pra meses
   // anteriores conforme clientes mudavam de status).
+  // No modo "entregas" a base inclui relatório e precificação (seletor do topo).
   const reunioesAtivas = useMemo(
     () => agenda.filter((a) =>
-      /reuni/i.test(a.type || '') && (filtroMonitor === 'Todos' || (a.monitores ?? []).includes(filtroMonitor))
+      contaNoModo(a, modoContagem) && (filtroMonitor === 'Todos' || (a.monitores ?? []).includes(filtroMonitor))
     ),
-    [agenda, filtroMonitor]
+    [agenda, filtroMonitor, modoContagem]
   );
 
   // CONCLUÍDAS = reuniões que aconteceram (status Concluído OU Realizado — os
@@ -227,38 +224,6 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   // resto do dashboard. Usa `agenda`/`ativosIds` direto (não `reunioesAtivas`,
   // que é só tipo Reunião e alimenta os KPIs/gráfico mensal — mudar o
   // significado dali quebraria esses outros cards).
-  const top10AtendimentosAno = useMemo(() => {
-    // Filtro por serviço tratado NO EVENTO (não no cadastro do cliente): a
-    // pergunta aqui é "quantas entregas DE MONITORIA esse atendimento teve".
-    // Evento sem serviço não conta em nenhum dos dois (serviço é obrigatório).
-    const combinaServico = (a: EventoAgenda) => {
-      if (filtroServicoTop10 === 'Todos') return true;
-      const servicos = (a.servicos ?? []).join(' ');
-      if (filtroServicoTop10 === 'Price') return /(price|prec)/i.test(servicos) || /precific/i.test(a.type || '');
-      return /monitor/i.test(servicos);
-    };
-
-    const contagem = new Map<string, number>();
-    // Amplitude real dos atendimentos contados (nem todo ano tem atendimento
-    // de jan a dez) — o card mostra esse intervalo, não só o ano inteiro, pra
-    // não sugerir cobertura que a base não tem.
-    let inicio: Date | null = null;
-    let fim: Date | null = null;
-    agenda.forEach((a) => {
-      if (!ativosIds.has(a.clientId) || !ehEntrega(a)) return;
-      if (!combinaServico(a)) return;
-      const d = parseISO(a.date);
-      if (isNaN(d.getTime()) || d.getFullYear() !== ano) return;
-      contagem.set(a.clientId, (contagem.get(a.clientId) ?? 0) + 1);
-      if (!inicio || d < inicio) inicio = d;
-      if (!fim || d > fim) fim = d;
-    });
-    const itens = [...contagem.entries()]
-      .map(([clientId, n]) => ({ label: clientes.find((c) => c.id === clientId)?.empresa ?? '—', n }))
-      .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label))
-      .slice(0, 10);
-    return { itens, inicio, fim };
-  }, [agenda, ativosIds, ano, clientes, filtroServicoTop10]);
 
   // --- KPIs (escopo do período, base de ativos) ---
   const reunioesConcluidasMes = reunioesAtivas.filter((a) => concluida(a) && isSameMonth(parseISO(a.date), periodo)).length;
@@ -295,7 +260,9 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
     const datas = reunioesAtivas.map((a) => parseISO(a.date)).filter((d) => !isNaN(d.getTime()));
     if (datas.length === 0) return { linhaPorMes: [], linhaHighlight: -1 };
     const inicio = startOfMonth(minDate(datas));
-    const fim = startOfMonth(maxDate([...datas, hoje, periodo]));
+    // Termina no mês escolhido ou no atual: relatórios automáticos já ficam
+    // agendados para 2027, e a linha se estendia por meses só de projeção.
+    const fim = startOfMonth(maxDate([hoje, periodo]));
     let meses = eachMonthOfInterval({ start: inicio, end: fim });
     if (meses.length > 24) meses = meses.slice(meses.length - 24); // teto de segurança
     const pts = meses.map((m, i) => {
@@ -520,7 +487,14 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
       // Filtro salvo antigo ('Relatório') vira 'Todos' — esse relógio não existe mais.
       .filter((i) => !['Monitoria', 'Price'].includes(filtroServicoVencendo) || i.relogio.servico === filtroServicoVencendo)
       .map((i) => ({ nome: i.cliente.empresa, servico: i.relogio.servico, data: addDays(dataReferencia, i.diasParaVencer), dias: i.diasParaVencer }));
-    return { total: itens.length, itens };
+    // Vencidos: prazo venceu há 1–15 dias e nenhuma entrega foi marcada depois.
+    // Mesmo filtro de serviço; "nunca" entra quando a carência acabou nesses dias.
+    const vencidos = fila
+      .flatMap((f) => f.relogios.filter((r) => !r.proximo && r.atrasoReal >= 1 && r.atrasoReal <= 15).map((r) => ({ cliente: f.cliente, relogio: r })))
+      .filter((i) => !['Monitoria', 'Price'].includes(filtroServicoVencendo) || i.relogio.servico === filtroServicoVencendo)
+      .sort((a, b) => a.relogio.atrasoReal - b.relogio.atrasoReal || a.cliente.empresa.localeCompare(b.cliente.empresa))
+      .map((i) => ({ nome: i.cliente.empresa, servico: i.relogio.servico, data: subDays(dataReferencia, i.relogio.atrasoReal), dias: i.relogio.atrasoReal }));
+    return { total: itens.length, itens, vencidos };
   }, [ativos, agenda, acoes, cadencias, filtroServicoVencendo, dataReferencia]);
 
   // --- Próximas agendas (forward-looking) ---
@@ -569,18 +543,65 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   const alertas = prazo.semAcompanhamento;
   const alertasAnterior = prazoAnterior.semAcompanhamento.length;
 
-  // Lembretes do monitor do filtro global (pelo cliente do lembrete); sem cliente, sempre aparece.
-  const alertasProgramados = lembretes
-    .filter((r) => r.status === 'ativo' && (!r.clientId || ativosIds.has(r.clientId)))
-    .sort((a, b) => parseISO(a.datetime).getTime() - parseISO(b.datetime).getTime())
-    .slice(0, 6);
+  // --- Análises ---
+  // Onde vai o esforço (dimensionamento) e quem cancela: últimos 90 dias até a data de referência.
+  const esforco = useMemo(() => {
+    const todos = esforcoPorAtendimento(ativosNoPeriodo, agenda, acoes, dataReferencia);
+    return { itens: todos.slice(0, 10), total: todos.reduce((s, x) => s + x.total, 0), atendimentos: todos.length };
+  }, [ativosNoPeriodo, agenda, acoes, dataReferencia]);
+  const cancelamentos = useMemo(() => cancelamentosPorAtendimento(ativosNoPeriodo, agenda, dataReferencia, modoContagem), [ativosNoPeriodo, agenda, dataReferencia, modoContagem]);
+  const agendaDiaria = useMemo(() => reunioesPorDia(agendaPorMonitor, periodo, new Date(), modoContagem), [agendaPorMonitor, periodo, modoContagem]);
+
+  // Reuniões nas entregas: das entregas concluídas no mês, quantas foram reunião.
+  // Não segue o seletor (mede um contra o outro). Mesmo corte de dia do mês
+  // anterior dos outros cards do topo.
+  const reuniaoNasEntregas = useMemo(() => {
+    const doMonitor = (a: EventoAgenda) => filtroMonitor === 'Todos' || (a.monitores ?? []).includes(filtroMonitor);
+    const conta = (ref: Date, ateDia: number) => {
+      const entregas = agenda.filter((a) => {
+        const d = parseISO(a.date);
+        return doMonitor(a) && ehEntrega(a) && isSameMonth(d, ref) && d.getDate() <= ateDia;
+      });
+      return { entregas: entregas.length, reunioes: entregas.filter((a) => /reuni/i.test(a.type || '')).length };
+    };
+    return { atual: conta(periodo, 31), anterior: conta(periodoAnterior, diaCorte) };
+  }, [agenda, filtroMonitor, periodo, periodoAnterior, diaCorte]);
+
+  // Ritmo mês a mês: % de atendimentos em dia no fim de cada um dos últimos 6
+  // meses, pela mesma função do card (recortando o que foi criado depois). O
+  // status de evento é o de hoje, então meses antigos são aproximados.
+  // Carteira inteira (sem filtro de monitor) e % sobre TODOS os atendimentos
+  // ativos: quem não tem prazo nenhum (só serviço independente) conta como em dia.
+  const ritmoPorMes = useMemo(() => finsDeMes(dataReferencia, 6).flatMap((ref) => {
+    const ativosRef = ativosEm(ref, true);
+    const r = calcularIndicadoresPrazo({
+      ativos: ativosRef, agenda: recortarAte(agenda, ref), acoes: recortarAte(acoes, ref),
+      cadencias, now: ref, periodo: startOfMonth(ref),
+    });
+    if (ativosRef.length === 0 || r.ritmo.total === 0) return [];
+    const emDia = r.ritmo.emDia.length + (ativosRef.length - r.ritmo.total);
+    const aproximado = !inicioHistorico || ref < inicioHistorico;
+    const nome = format(ref, 'MMM', { locale: ptBR }).replace('.', '');
+    return [{
+      label: nome,
+      full: `${format(ref, "MMMM 'de' yyyy", { locale: ptBR })}: ${emDia} de ${ativosRef.length} atendimentos em dia${aproximado ? ' (aproximado)' : ''}`,
+      value: Math.round((emDia / ativosRef.length) * 100),
+    }];
+  }), [dataReferencia, ativosEm, agenda, acoes, cadencias, inicioHistorico]);
+
+  // Carga por monitor (só com o filtro global em "Todos"): produção e atraso do
+  // mês escolhido, com TODOS os prazos (não segue o filtro de serviço do card Ritmo).
+  const cargaMonitores = useMemo(() => {
+    if (filtroMonitor !== 'Todos') return [];
+    return cargaPorMonitor(ativosNoPeriodo, clientes, prazo.linhas, agenda, acoes, periodo, dataReferencia, cadencias.recontato_dias, modoContagem);
+  }, [filtroMonitor, prazo, ativosNoPeriodo, clientes, agenda, acoes, periodo, dataReferencia, cadencias.recontato_dias, modoContagem]);
 
   return {
     // filtros
-    filtroTipo, setFiltroTipo, filtroMonitor, setFiltroMonitor, filtroTipoEvento, setFiltroTipoEvento,
+    filtroTipo, setFiltroTipo, filtroMonitor, setFiltroMonitor,
     filtroServicoAderencia, setFiltroServicoAderencia,
     mes, setMes, ano, setAno, periodo, dataReferencia,
-    monitoresDisponiveis, tiposEventoDisponiveis, anosDisponiveis, mesesDisponiveis,
+    monitoresDisponiveis, anosDisponiveis, mesesDisponiveis,
     // base
     ativos, inativos, ativosNoPeriodo, ativosAnterior, referenciaAnterior, totalClientesDistintos, totalClientesDistintosAnterior, atendidosNoMes, agendaPorMonitor, acoesPorMonitor,
     // KPIs
@@ -588,14 +609,15 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
     // gráfico
     linhaPorMes, linhaHighlight,
     // cards
-    servicosDist, totalAtendidos, cobertura, aderencia,
+    servicosDist, totalAtendidos, cobertura, aderencia, linhasAtendimento: prazo.linhas,
     clientesPorMonitor, clientesPorSegmento, clientesPorLinha, crescimentoCarteira,
     saudeCarteira, profundidadeServicos, distribuicaoRisco, mediaServicosPorCliente, mediaServicosAnterior, novosClientesMes, novosClientesMesAnterior,
     foraDaMonitoria, semLinha, semSegmento, inicioHistorico,
-    top10AtendimentosAno, filtroServicoTop10, setFiltroServicoTop10,
+    esforco, cancelamentos, agendaDiaria, ritmoPorMes, cargaPorMonitor: cargaMonitores, reuniaoNasEntregas,
+    modoContagem, setModoContagem,
     vencendo, filtroServicoVencendo, setFiltroServicoVencendo,
     tiposDisponiveis, proximos, relatoriosSemana, proximaPorCliente,
-    alertas, alertasAnterior, alertasProgramados,
+    alertas, alertasAnterior,
     followUpThresholdDays: FOLLOW_UP_THRESHOLD_DAYS,
   };
 }

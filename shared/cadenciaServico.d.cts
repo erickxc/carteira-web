@@ -25,6 +25,8 @@ export interface EventoCadencia {
   status?: string;
   type?: string;
   servicos?: string[] | string;
+  /** 'cancelamento' = aviso registrado ao cancelar uma reunião. */
+  motivoContato?: string;
 }
 
 export interface AcaoCadencia {
@@ -89,8 +91,9 @@ export function isClienteAtivo(cliente: { estado?: string; status?: string; paus
 export function buildUltimaInteracaoMap(
   agenda: EventoCadencia[],
   acoes: AcaoCadencia[],
-  opts?: { now?: Date; isRelevant?: (clientId: string) => boolean }
+  opts?: { now?: Date; isRelevant?: (clientId: string) => boolean; paraRetorno?: boolean }
 ): Map<string, Date>;
+export function ehAvisoDeCancelamento(e: { motivoContato?: string }): boolean;
 
 export function temServico(c: ClienteCadencia, re: RegExp, flag: string): boolean;
 export function ehIndependente(c: ClienteCadencia, re: RegExp): boolean;

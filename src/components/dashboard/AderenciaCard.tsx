@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
-import { GaugeDetalhe } from './GaugeDetalhe';
-import { Comparacao, InfoComoConta, LegendaCompacta, Medidor } from './Comparacao';
+import { Comparacao, InfoComoConta, Medidor } from './Comparacao';
+import { LegendaGrupos } from './LegendaGrupos';
+import type { GrupoPrazo } from '../../utils/gruposPrazo';
+import type { LinhaAtendimento } from '../../utils/indicadoresPrazo';
 import { Card, Chip } from '../../ui';
 import type { ServicoCad } from '../../utils/cadenciaServico';
 
@@ -11,28 +11,23 @@ const SERVICOS: FiltroServico[] = ['Todos', 'Monitoria', 'Price'];
 interface AderenciaCardProps {
   total: number;
   emDia: number;
-  agendaMarcada: number;
-  contatoRecente: number;
-  precisa: number;
-  emDiaClientes: string[];
-  agendaMarcadaClientes: string[];
-  contatoRecenteClientes: string[];
-  precisaClientes: string[];
   anterior: { emDia: number; total: number };
   rotuloAnterior: string;
   filtroServico: FiltroServico;
   onFiltroServico: (s: FiltroServico) => void;
+  /** Grupos da legenda; passar o mouse mostra os atendimentos de cada um. */
+  grupos: GrupoPrazo[];
+  linhas: Map<string, LinhaAtendimento>;
+  onAbrirCliente: (id: string) => void;
 }
 
 /** "Atendimentos no Ritmo" — dos atendimentos com prazo, quantos estão com TODOS os
  * serviços no prazo (filtrado por serviço: só aquele). A quebra de quem está fora
  * do prazo é informativa e não muda o número principal. */
 export function AderenciaCard({
-  total, emDia, agendaMarcada, contatoRecente, precisa,
-  emDiaClientes, agendaMarcadaClientes, contatoRecenteClientes, precisaClientes,
-  anterior, rotuloAnterior, filtroServico, onFiltroServico,
+  total, emDia,
+  anterior, rotuloAnterior, filtroServico, onFiltroServico, grupos, linhas, onAbrirCliente,
 }: AderenciaCardProps) {
-  const [aberto, setAberto] = useState(false);
   const regra = `Em dia = ${filtroServico === 'Todos' ? 'todos os serviços do atendimento' : `o prazo de ${filtroServico}`} dentro do prazo (Monitoria 30 dias, Price 15). Só entrega concluída com o serviço marcado zera o prazo; contato e reunião futura não contam.`;
   return (
     <Card className="kpi-card">
@@ -52,20 +47,7 @@ export function AderenciaCard({
           <p className="kpi-valor-grande">{emDia} <span className="kpi-denominador">de {total} em dia</span></p>
           <Medidor n={emDia} total={total} rotulo="atendimentos em dia" />
           <Comparacao atual={emDia} anterior={anterior.total > 0 ? anterior.emDia : null} subirEhBom rotulo={rotuloAnterior} />
-          <LegendaCompacta itens={[
-            { cor: 'var(--warning)', label: 'reunião marcada', n: agendaMarcada },
-            { cor: 'var(--warning)', label: 'contato recente', n: contatoRecente },
-            { cor: 'var(--danger)', label: 'sem nada', n: precisa },
-          ]} />
-          <button type="button" className="gauge-toggle" onClick={() => setAberto((v) => !v)} aria-expanded={aberto}>
-            {aberto ? 'Ver menos' : 'Ver atendimentos'} <ChevronDown size={14} className={aberto ? 'gauge-toggle-icon is-open' : 'gauge-toggle-icon'} />
-          </button>
-          <GaugeDetalhe aberto={aberto} grupos={[
-            { label: 'Em dia', cor: 'var(--success)', clientes: emDiaClientes },
-            { label: 'Fora do prazo, reunião marcada', cor: 'var(--warning)', clientes: agendaMarcadaClientes },
-            { label: 'Fora do prazo, contato recente', cor: 'var(--warning)', clientes: contatoRecenteClientes },
-            { label: 'Fora do prazo, sem nada', cor: 'var(--danger)', clientes: precisaClientes },
-          ]} />
+          <LegendaGrupos grupos={grupos} linhas={linhas} onAbrirCliente={onAbrirCliente} />
         </>
       )}
     </Card>

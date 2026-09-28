@@ -5,6 +5,7 @@ import { eventoStatusBadge } from '../../utils/badges';
 import { corTipo, corTipoBg } from '../../utils/tipoCor';
 import { Badge, Card, Chip, type BadgeVariant } from '../../ui';
 import { Comparacao, InfoComoConta } from './Comparacao';
+import { AbasDeslizantes } from './AbasDeslizantes';
 import type { Cliente, EventoAgenda } from '../../types';
 
 interface AlertaCliente { cliente: Cliente; uc: Date | null | undefined; dias: number | null }
@@ -58,14 +59,10 @@ export function AFazerCard(p: AFazerCardProps) {
   return (
     <Card className="kpi-card afazer-card">
       <div className="section-header">
-        <div className="kpi-abas" role="tablist" aria-label="A fazer">
-          <button type="button" role="tab" aria-selected={aba === 'sem'} className={aba === 'sem' ? 'is-ativa' : ''} onClick={() => trocar('sem')}>
-            Sem acompanhamento <span className="vencendo-total">{p.alertas.length}</span>
-          </button>
-          <button type="button" role="tab" aria-selected={aba === 'proximas'} className={aba === 'proximas' ? 'is-ativa' : ''} onClick={() => trocar('proximas')}>
-            Próximas agendas <span className="afazer-contagem">{p.proximos.length}</span>
-          </button>
-        </div>
+        <AbasDeslizantes rotulo="A fazer" ativa={aba} onTrocar={trocar} abas={[
+          { key: 'sem', label: 'Sem acompanhamento', contagem: p.alertas.length, classeContagem: 'vencendo-total' },
+          { key: 'proximas', label: 'Próximas agendas', contagem: p.proximos.length },
+        ]} />
         {aba === 'sem' ? (
           <span className="flex items-center gap-2">
             <Comparacao atual={p.alertas.length} anterior={p.totalAnterior} subirEhBom={false} rotulo={p.rotuloAnterior} />
@@ -76,7 +73,10 @@ export function AFazerCard(p: AFazerCardProps) {
         )}
       </div>
 
-      {aba === 'sem' ? (
+      {/* As duas abas ocupam a mesma célula: o card fica na altura da maior e não pula na troca. */}
+      <div className="afazer-paineis">
+      <div className={`afazer-painel${aba === 'sem' ? ' is-ativo' : ''}`} inert={aba !== 'sem'}>
+      {(
         p.alertas.length === 0 ? (
           <div className="empty-state">Todo atendimento teve contato nos últimos {p.followUpDays} dias.</div>
         ) : (
@@ -113,7 +113,10 @@ export function AFazerCard(p: AFazerCardProps) {
             )}
           </>
         )
-      ) : (
+      )}
+      </div>
+      <div className={`afazer-painel${aba === 'proximas' ? ' is-ativo' : ''}`} inert={aba !== 'proximas'}>
+      {(
         <>
           <div className="flex flex-wrap gap-[0.35rem] mb-2">
             {p.tiposDisponiveis.map((t) => (
@@ -147,6 +150,8 @@ export function AFazerCard(p: AFazerCardProps) {
           )}
         </>
       )}
+      </div>
+      </div>
     </Card>
   );
 }

@@ -19,7 +19,7 @@ import { sugerirAgenda, type SugestaoSlot } from '../utils/sugestaoAgenda';
 import { gerarAta } from '../utils/ata';
 import { corTipo } from '../utils/tipoCor';
 import { usePersistedState } from '../hooks/usePersistedState';
-import { Button, Card } from '../ui';
+import { Button, Card, Tabs } from '../ui';
 import type { EventoAgenda, EventoCeo } from '../types';
 
 interface AgendaLocationState { focusDate?: string; openNewEvent?: boolean; initialType?: string; }
@@ -288,10 +288,10 @@ export default function AgendaPage() {
         <div className="flex-between" style={{ marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
           <strong style={{ textTransform: 'capitalize', fontSize: '1.3rem' }}>{tituloPeriodo()}</strong>
           <div className="flex-row" style={{ gap: 8 }}>
-            <div className="tabs">
+            <Tabs>
               <button className={`tab${view === 'mes' ? ' is-active' : ''}`} onClick={() => setView('mes')}><CalendarDays size={15} /> Mês</button>
               <button className={`tab${view === 'kanban' ? ' is-active' : ''}`} onClick={() => setView('kanban')}><LayoutGrid size={15} /> Semana</button>
-            </div>
+            </Tabs>
             <Button variant="secondary" style={{ padding: '0.45rem 0.8rem' }} onClick={irHoje}>Hoje</Button>
             <Button variant="secondary" size="icon" onClick={irAnterior} aria-label="Anterior"><ChevronLeft size={18} /></Button>
             <Button variant="secondary" size="icon" onClick={irProximo} aria-label="Próximo"><ChevronRight size={18} /></Button>

@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, isSameMonth, parseISO, subMonths } from 'date-fns';
-import { atendimentoEmDia, buildFilaCadencia, contatoRecenteNaoRefletido, ehEntrega, relogioNoPrazo, type ServicoCad } from './cadenciaServico';
+import { atendimentoEmDia, buildFilaCadencia, contatoRecenteNaoRefletido, ehEntrega, relogioNoPrazo, type RelogioServico, type ServicoCad } from './cadenciaServico';
 import { buildUltimaInteracaoMap } from './ultimaInteracao';
 import type { Acao, Cadencias, Cliente, EventoAgenda } from '../types';
 
@@ -20,16 +20,33 @@ export interface EntradaIndicadores {
   filtroServico?: ServicoCad | 'Todos';
 }
 
-export interface IndicadoresPrazo {
-  ritmo: { total: number; emDia: string[]; agendaMarcada: string[]; contatoRecente: string[]; precisa: string[] };
-  porServico: { servico: ServicoCad; cobertos: string[]; descobertos: string[] }[];
-  /** Atendimentos com TODOS os relógios no prazo (sem recorte de serviço). */
-  totalEmDia: number;
-  cobertura: { cobertos: string[]; semContato: string[] };
-  semAcompanhamento: { cliente: Cliente; uc: Date | null; dias: number | null }[];
+export interface ItemPrazo { id: string; nome: string }
+
+/** Uma linha da tabela de atendimentos: os dois prazos, a última entrega e o próximo compromisso. */
+export interface LinhaAtendimento {
+  id: string;
+  nome: string;
+  monitor: string;
+  relogios: Partial<Record<ServicoCad, RelogioServico>>;
+  ultimaEntrega: { data: Date; tipo: string } | null;
+  /** Próxima entrega marcada de algum serviço. */
+  proxima: Date | null;
+  /** Último contato que espera retorno (sem o aviso de cancelamento). */
+  ultimoContato: Date | null;
 }
 
-const porNome = (a: string, b: string) => a.localeCompare(b);
+export interface IndicadoresPrazo {
+  ritmo: { total: number; emDia: ItemPrazo[]; agendaMarcada: ItemPrazo[]; contatoRecente: ItemPrazo[]; precisa: ItemPrazo[] };
+  porServico: { servico: ServicoCad; cobertos: ItemPrazo[]; descobertos: ItemPrazo[] }[];
+  /** Atendimentos com TODOS os relógios no prazo (sem recorte de serviço). */
+  totalEmDia: number;
+  cobertura: { cobertos: ItemPrazo[]; semContato: ItemPrazo[] };
+  semAcompanhamento: { cliente: Cliente; uc: Date | null; dias: number | null }[];
+  linhas: Map<string, LinhaAtendimento>;
+}
+
+const porNome = (a: ItemPrazo, b: ItemPrazo) => a.nome.localeCompare(b.nome);
+const item = (c: Cliente): ItemPrazo => ({ id: c.id, nome: c.empresa });
 
 /**
  * Fonte única dos cards do bloco "Os atendimentos estão no prazo?" e de
@@ -42,24 +59,25 @@ export function calcularIndicadoresPrazo(e: EntradaIndicadores): IndicadoresPraz
   const ativosIds = new Set(ativos.map((c) => c.id));
   const fila = buildFilaCadencia(ativos, agenda, acoes, cadencias, now);
   const ultimaInteracao = buildUltimaInteracaoMap(agenda, acoes, { now, isRelevant: (cid) => ativosIds.has(cid) });
+  // "Aguardando retorno" ignora o aviso de cancelamento (quem age é o monitor).
+  const ultimoContatoRetorno = buildUltimaInteracaoMap(agenda, acoes, { now, isRelevant: (cid) => ativosIds.has(cid), paraRetorno: true });
 
   // Ritmo: em dia = todos os relógios (do recorte) no prazo. Fora do prazo cai
   // num balde informativo: reunião do serviço marcada, contato recente, ou nada.
   const relogiosDo = (f: (typeof fila)[number]) =>
     filtroServico === 'Todos' ? f.relogios : f.relogios.filter((r) => r.servico === filtroServico);
   const relevantes = fila.filter((f) => relogiosDo(f).length > 0);
-  const ritmo = { total: relevantes.length, emDia: [] as string[], agendaMarcada: [] as string[], contatoRecente: [] as string[], precisa: [] as string[] };
+  const ritmo = { total: relevantes.length, emDia: [] as ItemPrazo[], agendaMarcada: [] as ItemPrazo[], contatoRecente: [] as ItemPrazo[], precisa: [] as ItemPrazo[] };
   for (const f of relevantes) {
     const rels = relogiosDo(f);
-    const nome = f.cliente.empresa;
-    if (atendimentoEmDia({ relogios: rels })) { ritmo.emDia.push(nome); continue; }
-    if (rels.some((r) => r.status === 'coberto')) { ritmo.agendaMarcada.push(nome); continue; }
-    const uc = ultimaInteracao.get(f.cliente.id) ?? null;
+    if (atendimentoEmDia({ relogios: rels })) { ritmo.emDia.push(item(f.cliente)); continue; }
+    if (rels.some((r) => r.status === 'coberto')) { ritmo.agendaMarcada.push(item(f.cliente)); continue; }
+    const uc = ultimoContatoRetorno.get(f.cliente.id) ?? null;
     if (uc && contatoRecenteNaoRefletido(f.relogios, uc) && differenceInCalendarDays(now, uc) <= cadencias.recontato_dias) {
-      ritmo.contatoRecente.push(nome);
+      ritmo.contatoRecente.push(item(f.cliente));
       continue;
     }
-    ritmo.precisa.push(nome);
+    ritmo.precisa.push(item(f.cliente));
   }
   for (const k of ['emDia', 'agendaMarcada', 'contatoRecente', 'precisa'] as const) ritmo[k].sort(porNome);
 
@@ -67,24 +85,30 @@ export function calcularIndicadoresPrazo(e: EntradaIndicadores): IndicadoresPraz
   const porServico = (['Monitoria', 'Price'] as ServicoCad[]).map((servico) => {
     const comRelogio = fila.flatMap((f) => {
       const r = f.relogios.find((x) => x.servico === servico);
-      return r ? [{ nome: f.cliente.empresa, noPrazo: relogioNoPrazo(r) }] : [];
+      return r ? [{ item: item(f.cliente), noPrazo: relogioNoPrazo(r) }] : [];
     });
     return {
       servico,
-      cobertos: comRelogio.filter((x) => x.noPrazo).map((x) => x.nome).sort(porNome),
-      descobertos: comRelogio.filter((x) => !x.noPrazo).map((x) => x.nome).sort(porNome),
+      cobertos: comRelogio.filter((x) => x.noPrazo).map((x) => x.item).sort(porNome),
+      descobertos: comRelogio.filter((x) => !x.noPrazo).map((x) => x.item).sort(porNome),
     };
   });
 
   // Cobertura: entrega concluída no mês de referência ou no anterior. Quem tem
   // todos os serviços independentes fica fora (nunca precisaria de entrega).
   const mesAnterior = subMonths(periodo, 1);
+  const ultimaEntrega = new Map<string, { d: Date; tipo: string }>();
+  for (const a of agenda) {
+    if (!ativosIds.has(a.clientId) || !ehEntrega(a)) continue;
+    const d = parseISO(a.date);
+    if (d > now) continue;
+    const atual = ultimaEntrega.get(a.clientId);
+    if (!atual || d > atual.d) ultimaEntrega.set(a.clientId, { d, tipo: a.type });
+  }
   const atendidos = new Set(
-    agenda
-      .filter((a) => ativosIds.has(a.clientId) && ehEntrega(a))
-      .filter((a) => { const d = parseISO(a.date); return d <= now && (isSameMonth(d, periodo) || isSameMonth(d, mesAnterior)); })
-      .map((a) => a.clientId)
+    [...ultimaEntrega].filter(([, u]) => isSameMonth(u.d, periodo) || isSameMonth(u.d, mesAnterior)).map(([id]) => id)
   );
+
   const precisaDeContato = (c: Cliente) => {
     const servicos = c.servicos ?? [];
     if (servicos.length === 0) return true;
@@ -93,8 +117,8 @@ export function calcularIndicadoresPrazo(e: EntradaIndicadores): IndicadoresPraz
   };
   const baseCobertura = ativos.filter(precisaDeContato);
   const cobertura = {
-    cobertos: baseCobertura.filter((c) => atendidos.has(c.id)).map((c) => c.empresa).sort(porNome),
-    semContato: baseCobertura.filter((c) => !atendidos.has(c.id)).map((c) => c.empresa).sort(porNome),
+    cobertos: baseCobertura.filter((c) => atendidos.has(c.id)).map(item).sort(porNome),
+    semContato: baseCobertura.filter((c) => !atendidos.has(c.id)).map(item).sort(porNome),
   };
 
   const semAcompanhamento = ativos
@@ -105,7 +129,23 @@ export function calcularIndicadoresPrazo(e: EntradaIndicadores): IndicadoresPraz
     .filter((x) => x.dias === null || x.dias >= LIMIAR_SEM_ACOMPANHAMENTO_DIAS)
     .sort((a, b) => (b.dias ?? 99999) - (a.dias ?? 99999));
 
-  return { ritmo, porServico, totalEmDia: fila.filter(atendimentoEmDia).length, cobertura, semAcompanhamento };
+  const filaPorId = new Map(fila.map((f) => [f.cliente.id, f]));
+  const linhas = new Map<string, LinhaAtendimento>(ativos.map((c) => {
+    const rels = filaPorId.get(c.id)?.relogios ?? [];
+    const proximas = rels.map((r) => r.proximo).filter((d): d is Date => !!d);
+    const u = ultimaEntrega.get(c.id);
+    return [c.id, {
+      id: c.id,
+      nome: c.empresa,
+      monitor: c.monitor || '',
+      relogios: Object.fromEntries(rels.map((r) => [r.servico, r])),
+      ultimaEntrega: u ? { data: u.d, tipo: u.tipo } : null,
+      proxima: proximas.length ? new Date(Math.min(...proximas.map((d) => d.getTime()))) : null,
+      ultimoContato: ultimoContatoRetorno.get(c.id) ?? null,
+    }];
+  }));
+
+  return { linhas, ritmo, porServico, totalEmDia: fila.filter(atendimentoEmDia).length, cobertura, semAcompanhamento };
 }
 
 /**

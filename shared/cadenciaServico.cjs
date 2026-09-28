@@ -119,9 +119,15 @@ function isClienteAtivo(cliente, now = new Date()) {
  *
  * `isRelevant`: filtro opcional por clientId, calculado ANTES do push (evita
  * montar entradas de clientes fora do recorte que ninguém vai usar).
+ *
+ * `paraRetorno`: para decidir "aguardando retorno" (contato recente que espera
+ * o cliente responder). Ignora o aviso de cancelamento: ele é conversa com o
+ * cliente, mas depois de uma reunião cancelada quem precisa agir é o monitor
+ * (remarcar), não o cliente. Sem a opção, o aviso conta (sem acompanhamento).
  */
 function buildUltimaInteracaoMap(agenda, acoes, opts = {}) {
   const now = opts.now ?? new Date();
+  const ignorar = opts.paraRetorno ? ehAvisoDeCancelamento : () => false;
   const isRelevant = opts.isRelevant ?? (() => true);
   const m = new Map();
   const push = (cid, d) => {
@@ -129,9 +135,14 @@ function buildUltimaInteracaoMap(agenda, acoes, opts = {}) {
     const cur = m.get(cid);
     if (!cur || d > cur) m.set(cid, d);
   };
-  agenda.filter(ehConcluido).forEach((a) => push(a.clientId, parseISO(a.date)));
+  agenda.filter((a) => ehConcluido(a) && !ignorar(a)).forEach((a) => push(a.clientId, parseISO(a.date)));
   acoes.filter((a) => a.status === 'concluido').forEach((a) => push(a.clientId, parseISO(a.dueAt || a.updatedAt || a.createdAt)));
   return m;
+}
+
+/** Contato registrado ao cancelar uma reunião (EventFormModal grava a marca). */
+function ehAvisoDeCancelamento(e) {
+  return e.motivoContato === 'cancelamento';
 }
 
 function temServico(c, re, flag) {
@@ -173,12 +184,21 @@ function ehToquePrice(a) {
  * nunca atendido em Price aparecia "em dia"/"coberto" só por ter uma reunião
  * de Monitoria marcada. Validado contra dados reais (ex.: Ramar Caxias·Price,
  * Comkit·Monitoria — nunca tratados, mas apareciam cobertos por outro serviço). */
+/**
+ * Próxima entrega marcada: evento não cancelado de HOJE em diante, comparando
+ * pelo dia do calendário. A data do evento é gravada à meia-noite (o horário
+ * fica em `time`), então `d <= now` descartava a reunião de hoje assim que o
+ * dia começava, e o atendimento caía em "sem nada" com reunião marcada para a
+ * tarde. A de hoje já concluída é histórico ("último"), não "próximo".
+ */
 function calcularProximoPorServico(eventos, ehToque, now) {
   let proximo = null;
   for (const a of eventos) {
     if (!naoCancelado(a) || !ehToque(a)) continue;
     const d = parseISO(a.date);
-    if (isNaN(d.getTime()) || d <= now) continue;
+    if (isNaN(d.getTime())) continue;
+    const dias = differenceInCalendarDays(d, now);
+    if (dias < 0 || (dias === 0 && ehConcluido(a))) continue;
     if (!proximo || d < proximo) proximo = d;
   }
   return proximo;
@@ -397,7 +417,7 @@ function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(),
     out.push({ cliente: c, relogios, score, precisaAcao, nivelRisco });
   }
 
-  const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now });
+  const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now, paraRetorno: true });
   // Quantos relógios do cliente pedem ação (vencido/vencendo/nunca) — atrasado
   // em 2 serviços é pior que atrasado em 1, mesmo que o pior atraso (score)
   // dos dois dê um número parecido ou até maior no de 1 só. Checado ANTES do
@@ -454,6 +474,7 @@ exports.PESO_NUNCA = PESO_NUNCA;
 exports.listaJSON = listaJSON;
 exports.isClienteAtivo = isClienteAtivo;
 exports.buildUltimaInteracaoMap = buildUltimaInteracaoMap;
+exports.ehAvisoDeCancelamento = ehAvisoDeCancelamento;
 exports.temServico = temServico;
 exports.ehIndependente = ehIndependente;
 exports.naoCancelado = naoCancelado;

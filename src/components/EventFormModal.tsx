@@ -91,6 +91,8 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   // reunião já existente tem `monitores` gravado de propósito, trocar de
   // cliente numa edição não deveria mexer nisso sozinho.
   const monitorEditadoManualmente = useRef(false);
+  /** O aviso de cancelamento é registrado uma vez só por formulário (marcar e depois salvar não duplica). */
+  const contatoCancelamentoRegistrado = useRef(false);
   const toggleMonitor = (m: string) => {
     monitorEditadoManualmente.current = true;
     setMonitores((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
@@ -470,7 +472,8 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
    *  do cancelamento em si se perderia. */
   async function registrarContatoDoCancelamento() {
     const cliente = clientes.find((c) => c.id === clientId);
-    if (!cliente) return;
+    if (!cliente || contatoCancelamentoRegistrado.current) return;
+    contatoCancelamentoRegistrado.current = true;
     const tipoContato = opcoesPorTipo('tipo_evento').find((t) => /contato/i.test(t)) ?? 'Contato';
     const agora = new Date();
     try {
@@ -478,9 +481,10 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         clientId, clientName: cliente.empresa, type: tipoContato,
         subject: 'Contato ao cancelar reunião pendente', description: '',
         date: agora.toISOString(), time: format(agora, 'HH:mm'),
-        status: statusConcluido, origem: 'nos', servicos, monitores,
+        status: statusConcluido, origem: 'nos', motivoContato: 'cancelamento', servicos, monitores,
       });
     } catch (err) {
+      contatoCancelamentoRegistrado.current = false;
       toastError(err instanceof Error ? err.message : 'Falha ao registrar o contato do cancelamento.');
     }
   }

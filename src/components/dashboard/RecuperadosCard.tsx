@@ -1,186 +1,77 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { AlertTriangle, CalendarCheck, TrendingUp } from 'lucide-react';
 import { calcularAindaSemAtendimento, calcularRecuperados, LIMIAR_RECUPERACAO_DIAS } from '../../utils/recuperados';
-import { janelaDe, periodosDisponiveis, type PeriodoKey } from '../../utils/periodo';
-import { Badge, Card } from '../../ui';
+import type { Janela } from '../../utils/periodo';
+import { Card } from '../../ui';
+import { AbasDeslizantes } from './AbasDeslizantes';
+import { InfoComoConta } from './Comparacao';
 import type { Cliente, EventoAgenda } from '../../types';
 
 interface RecuperadosCardProps {
   clientes: Cliente[];
   agenda: EventoAgenda[];
-  /** Âncora de "agora" — vem do filtro de mês/ano do Dashboard (ver
-   *  `useDashboardData.dataReferencia`), não mais `new Date()` fixo. */
+  /** Mês escolhido no topo (`janelaDoMes`): recuperados são os daquele mês. */
+  janela: Janela;
   agora: Date;
+  mes: string;
+  onAbrirCliente: (id: string) => void;
 }
 
+type Aba = 'recuperados' | 'parados';
+
 /**
- * Clientes recuperados: estavam 2+ meses sem reunião nem relatório e voltaram a
- * ter um dos dois — realizado ou já marcado.
- *
- * KPI + lista (não gráfico de barras): o valor aqui está em saber QUAIS clientes
- * voltaram e quanto tempo ficaram parados, não na forma da distribuição. A
- * contagem sozinha não permite agir; a lista, sim.
+ * Atendimentos recuperados no mês: estavam 60+ dias sem entrega concluída e
+ * voltaram a ter uma. Ao lado, quem segue parado hoje — sem ele, "5 recuperados"
+ * não diz se sobraram 2 ou 30.
  */
-export function RecuperadosCard({ clientes, agenda, agora }: RecuperadosCardProps) {
-  // Padrão = trimestre: cobre os "últimos 2 meses" pedidos, sem depender de
-  // onde estamos no mês corrente (dia 2 do mês, "mês atual" mostraria quase nada).
-  const [periodo, setPeriodo] = useState<PeriodoKey>('trimestre');
-  /** Alterna entre a lista de recuperados e a de quem segue parado. */
-  const [aba, setAba] = useState<'recuperados' | 'parados'>('recuperados');
-
-  const janela = useMemo(() => janelaDe(periodo, agora), [periodo, agora]);
-
-  const periodos = useMemo(() => {
-    let maisAntiga: Date | null = null;
-    for (const e of agenda) {
-      if (!e.date) continue;
-      const d = new Date(e.date);
-      if (isNaN(d.getTime())) continue;
-      if (!maisAntiga || d < maisAntiga) maisAntiga = d;
-    }
-    return periodosDisponiveis(maisAntiga, agora);
-  }, [agenda, agora]);
-
-  const recuperados = useMemo(
-    () => calcularRecuperados(clientes, agenda, janela, agora),
-    [clientes, agenda, janela, agora]
-  );
-  // Não depende do período: é uma foto de agora ("quem ainda está parado hoje").
+export function RecuperadosCard({ clientes, agenda, janela, agora, mes, onAbrirCliente }: RecuperadosCardProps) {
+  const [aba, setAba] = useState<Aba>('recuperados');
+  const recuperados = useMemo(() => calcularRecuperados(clientes, agenda, janela, agora), [clientes, agenda, janela, agora]);
   const parados = useMemo(() => calcularAindaSemAtendimento(clientes, agenda, agora), [clientes, agenda, agora]);
 
-  const porTipo = recuperados.reduce(
-    (acc, r) => {
-      if (/relat/i.test(r.entrega.tipo)) acc.relatorio++;
-      else if (/precific/i.test(r.entrega.tipo)) acc.precificacao++;
-      else acc.reuniao++;
-      return acc;
-    },
-    { reuniao: 0, relatorio: 0, precificacao: 0 }
-  );
-
-  // Plural por extenso: concatenar sufixo daria "reuniãoões".
-  const partes = [
-    porTipo.reuniao > 0 ? `${porTipo.reuniao} ${porTipo.reuniao > 1 ? 'reuniões' : 'reunião'}` : null,
-    porTipo.relatorio > 0 ? `${porTipo.relatorio} ${porTipo.relatorio > 1 ? 'relatórios' : 'relatório'}` : null,
-    porTipo.precificacao > 0 ? `${porTipo.precificacao} ${porTipo.precificacao > 1 ? 'precificações' : 'precificação'}` : null,
-  ].filter(Boolean);
-
   return (
-    <Card flat className="recuperados-card">
-      <div className="section-header" style={{ display: 'block', gap: 4 }}>
-        <h3 style={{ marginBottom: 2 }}>Atendimentos recuperados</h3>
-        <p
-          className="atend-subtitulo"
-          title={`${janela.descricao} — atendimentos que voltaram a ter reunião, relatório ou precificação CONCLUÍDO após ${LIMIAR_RECUPERACAO_DIAS}+ dias sem nenhum atendimento`}
-        >
-          {janela.curta} · voltaram após {LIMIAR_RECUPERACAO_DIAS}+ dias parados
-        </p>
+    <Card className="kpi-card">
+      <div className="section-header">
+        <h3>Atendimentos recuperados <InfoComoConta texto={`Recuperado = estava ${LIMIAR_RECUPERACAO_DIAS}+ dias sem reunião, relatório ou precificação CONCLUÍDA e voltou a ter uma no mês. Ainda parados = ativos sem entrega concluída há ${LIMIAR_RECUPERACAO_DIAS}+ dias hoje (Marco, suspensos e problemas externos não entram).`} /></h3>
+        <span className="text-text-muted" style={{ fontSize: 12 }}>{mes}</span>
       </div>
-
-      <div className="flex-row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-        {periodos.map((p) => (
-          <button
-            key={p.key}
-            className={`filtro-btn${periodo === p.key ? ' is-active' : ''}`}
-            onClick={() => setPeriodo(p.key)}
-          >
-            {p.label}
-          </button>
-        ))}
+      <div className="vencendo-topo">
+        <AbasDeslizantes cheio rotulo="Recuperados" ativa={aba} onTrocar={setAba} abas={[
+          { key: 'recuperados', label: 'Recuperados', contagem: recuperados.length },
+          { key: 'parados', label: 'Ainda parados', contagem: parados.length, classeContagem: 'vencendo-total is-vencido' },
+        ]} />
       </div>
-
-      {/* Dois números lado a lado: recuperados no período x quem segue parado
-          hoje. Sem o segundo, "5 recuperados" não diz se sobraram 2 ou 30. */}
-      <div className="recup-duo">
-        <button
-          className={`recup-kpi${aba === 'recuperados' ? ' is-active' : ''}`}
-          onClick={() => setAba('recuperados')}
-          title={`Voltaram a ter reunião ou relatório concluído após ${LIMIAR_RECUPERACAO_DIAS}+ dias parados`}
-        >
-          <span className="recup-kpi-num"><TrendingUp size={16} /> {recuperados.length}</span>
-          <span className="recup-kpi-label">recuperados</span>
-          <span className="recup-kpi-nota">
-            {recuperados.length === 0 ? 'no período' : partes.join(' · ')}
-          </span>
-        </button>
-        <button
-          className={`recup-kpi is-alerta${aba === 'parados' ? ' is-active' : ''}`}
-          onClick={() => setAba('parados')}
-          title={`Clientes ativos sem nenhuma reunião/relatório concluído há ${LIMIAR_RECUPERACAO_DIAS}+ dias. Suspenso, Problemas Externos e Atendido pelo Marco não entram.`}
-        >
-          <span className="recup-kpi-num"><AlertTriangle size={16} /> {parados.length}</span>
-          <span className="recup-kpi-label">ainda sem atendimento</span>
-          <span className="recup-kpi-nota">hoje · exclui Marco e suspensos</span>
-        </button>
-      </div>
-
-      {aba === 'parados' ? (
-        parados.length === 0 ? (
-          <div className="empty-state">Nenhum cliente ativo parado há {LIMIAR_RECUPERACAO_DIAS}+ dias.</div>
+      <div key={aba} className="afazer-conteudo">
+        {aba === 'recuperados' ? (
+          recuperados.length === 0 ? (
+            <div className="empty-state">Nenhum atendimento recuperado em {mes}.</div>
+          ) : (
+            <ul className="lista-analise">
+              {recuperados.map((r) => (
+                <li key={r.cliente.id}>
+                  <button type="button" className="link-button lista-analise-nome" onClick={() => onAbrirCliente(r.cliente.id)} title={r.cliente.empresa}>{r.cliente.empresa}</button>
+                  <span className="lista-analise-valor" title={r.motivo === 'nunca' ? 'Primeira entrega desde o cadastro' : 'Dias sem entrega antes de voltar'}>
+                    {r.diasParado}d {r.motivo === 'nunca' ? 'desde o cadastro' : 'parado'}
+                  </span>
+                  <span className="lista-analise-data">{r.entrega.tipo} {format(r.entrega.data, 'dd/MM')}</span>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : parados.length === 0 ? (
+          <div className="empty-state">Nenhum atendimento parado há {LIMIAR_RECUPERACAO_DIAS}+ dias.</div>
         ) : (
-          <div className="recup-lista custom-scrollbar">
+          <ul className="lista-analise">
             {parados.map((p) => (
-              <Link
-                key={p.cliente.id}
-                className="recup-item"
-                to={`/clientes/${p.cliente.id}`}
-                state={{ from: '/', fromLabel: 'Visão Geral' }}
-                title="Abrir o cliente"
-              >
-                <div style={{ minWidth: 0, textAlign: 'left' }}>
-                  <strong style={{ fontSize: 13.5 }}>{p.cliente.empresa}</strong>
-                  <div className="flex-row" style={{ gap: 5, flexWrap: 'wrap', marginTop: 3 }}>
-                    <Badge variant="danger" style={{ fontSize: 10 }}>
-                      {p.diasSemEntrega === null ? 'nunca atendido' : `${p.diasSemEntrega}d parado`}
-                    </Badge>
-                    {p.cliente.monitor && (
-                      <span className="text-text-muted" style={{ fontSize: 11.5 }}>{p.cliente.monitor}</span>
-                    )}
-                  </div>
-                </div>
-              </Link>
+              <li key={p.cliente.id}>
+                <button type="button" className="link-button lista-analise-nome" onClick={() => onAbrirCliente(p.cliente.id)} title={p.cliente.empresa}>{p.cliente.empresa}</button>
+                <span className="lista-analise-valor is-ruim">{p.diasSemEntrega === null ? 'nunca atendido' : `${p.diasSemEntrega}d sem entrega`}</span>
+                <span className="lista-analise-data">{p.cliente.monitor || '—'}</span>
+              </li>
             ))}
-          </div>
-        )
-      ) : recuperados.length === 0 ? (
-        <div className="empty-state">Nenhum cliente recuperado nesse período.</div>
-      ) : (
-        <div className="recup-lista custom-scrollbar">
-          {recuperados.map((r) => (
-            <Link
-              key={r.cliente.id}
-              className="recup-item"
-              to={`/clientes/${r.cliente.id}`}
-              state={{ from: '/', fromLabel: 'Visão Geral' }}
-              title="Abrir o cliente"
-            >
-              <div style={{ minWidth: 0, textAlign: 'left' }}>
-                <strong style={{ fontSize: 13.5 }}>{r.cliente.empresa}</strong>
-                <div className="flex-row" style={{ gap: 5, flexWrap: 'wrap', marginTop: 3 }}>
-                  <Badge variant="muted" style={{ fontSize: 10 }} title={r.motivo === 'nunca' ? 'Nunca havia sido atendido' : 'Dias sem reunião nem relatório'}>
-                    {r.diasParado}d parado
-                  </Badge>
-                  <Badge variant="accent" style={{ fontSize: 10 }}>{r.entrega.tipo}</Badge>
-                  {/* Monitor de QUEM FEZ a entrega (evento), não o da carteira:
-                      a reunião pode ter sido feita por outro monitor. */}
-                  {r.entrega.monitor && (
-                    <span className="text-text-muted" style={{ fontSize: 11.5 }}>{r.entrega.monitor}</span>
-                  )}
-                </div>
-              </div>
-              {/* Badge "concluída" saiu: o card já diz que só conta concluída. */}
-              <div className="recup-item-dir">
-                <CalendarCheck size={12} className="text-[color:var(--success)] shrink-0" />
-                <span style={{ fontSize: 12.5 }} className="text-text-secondary">
-                  {format(r.entrega.data, 'dd/MM/yy')}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
+          </ul>
+        )}
+      </div>
     </Card>
   );
 }

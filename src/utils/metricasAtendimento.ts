@@ -1,5 +1,6 @@
 import { addMonths, differenceInCalendarDays, endOfMonth, parseISO, startOfMonth } from 'date-fns';
 import { ehConcluido } from './cadenciaServico';
+import { contaNoModo, type ModoContagem } from './analises';
 import type { Acao, EventoAgenda } from '../types';
 
 /**
@@ -65,11 +66,11 @@ export interface Confiabilidade {
  * marcado para uma data já vencida — incluindo o que foi cancelado ou
  * reagendado, porque é justamente isso que a taxa quer medir.
  */
-export function calcularConfiabilidade(eventos: EventoAgenda[], agora: Date = new Date()): Confiabilidade {
+export function calcularConfiabilidade(eventos: EventoAgenda[], agora: Date = new Date(), modo: ModoContagem = 'reunioes'): Confiabilidade {
   let realizadas = 0, reagendadas = 0, canceladas = 0;
   let reunioesRemarcadas = 0, remarcacoes = 0;
   for (const e of eventos) {
-    if (!ehReuniao(e)) continue;
+    if (!contaNoModo(e, modo)) continue;
     const d = dataDe(e);
     if (!d || d > agora) continue; // ainda vai acontecer: não é desfecho
     if (foiCancelado(e)) canceladas++;
@@ -178,70 +179,33 @@ export function calcularEsforcoAgenda(
 }
 
 // ---------------------------------------------------------------------------
-// Série mensal do esforço (gráfico de tendência)
+// Série mensal da taxa de realização (gráfico de tendência)
 // ---------------------------------------------------------------------------
 
-export interface PontoEsforcoMes {
+export interface PontoRealizacaoMes {
   /** Primeiro dia do mês. */
   mes: Date;
-  acoesPorEntrega: number;
-  totalAcoes: number;
-  acoesEntrega: number;
+  taxaRealizacao: number;
+  realizadas: number;
+  canceladas: number;
+  total: number;
 }
 
 /**
- * `acoesPorEntrega` mês a mês — a série que dá sentido ao nome "Tendência":
- * um número único não mostra se o esforço por entrega está subindo ou caindo.
- *
- * Cada mês é calculado isoladamente pela MESMA função do card, então o ponto do
- * mês bate com o número que aparece ao filtrar aquele mês.
- *
- * Mês sem nenhuma entrega é OMITIDO em vez de virar 0: sem denominador o
- * indicador não existe, e plotar zero sugeriria "esforço nenhum" quando o caso é
- * "nada entregue". Meses são varridos do mais antigo ao atual, sem buracos.
+ * Taxa de realização mês a mês, pela MESMA função do card (o ponto do mês bate
+ * com o número ao filtrar aquele mês). Mês sem reunião com desfecho é omitido:
+ * sem denominador a taxa não existe, e 0% sugeriria "tudo cancelado".
  */
-export function serieEsforcoPorMes(
-  eventos: EventoAgenda[],
-  acoes: Acao[],
-  agora: Date = new Date()
-): PontoEsforcoMes[] {
-  const datas: number[] = [];
-  for (const e of eventos) {
-    const d = dataDe(e);
-    if (d && d <= agora) datas.push(d.getTime());
-  }
-  for (const a of acoes) {
-    const iso = a.dueAt || a.createdAt;
-    if (!iso) continue;
-    const d = parseISO(iso);
-    if (!isNaN(d.getTime()) && d <= agora) datas.push(d.getTime());
-  }
+export function serieRealizacaoPorMes(eventos: EventoAgenda[], agora: Date = new Date(), modo: ModoContagem = 'reunioes'): PontoRealizacaoMes[] {
+  const datas = eventos.map(dataDe).filter((d): d is Date => d !== null && d <= agora).map((d) => d.getTime());
   if (datas.length === 0) return [];
-
-  const inicio = startOfMonth(new Date(Math.min(...datas)));
-  const fim = startOfMonth(agora);
-  const out: PontoEsforcoMes[] = [];
-
-  for (let m = inicio; m <= fim; m = addMonths(m, 1)) {
-    const inicioMes = m;
+  const out: PontoRealizacaoMes[] = [];
+  for (let m = startOfMonth(new Date(Math.min(...datas))); m <= startOfMonth(agora); m = addMonths(m, 1)) {
     const fimMes = endOfMonth(m);
-    const doMes = (iso: string | undefined) => {
-      if (!iso) return false;
-      const d = parseISO(iso);
-      return !isNaN(d.getTime()) && d >= inicioMes && d <= fimMes;
-    };
-    const evsMes = eventos.filter((e) => doMes(e.date));
-    const acoesMes = acoes.filter((a) => doMes(a.dueAt || a.createdAt));
-    // `fimMes` como referência de "já aconteceu": no mês corrente o próprio
-    // `agora` limita, nos anteriores o mês está fechado.
-    const r = calcularEsforcoAgenda(evsMes, acoesMes, fimMes < agora ? fimMes : agora);
-    if (r.acoesPorEntrega === null) continue;
-    out.push({
-      mes: inicioMes,
-      acoesPorEntrega: r.acoesPorEntrega,
-      totalAcoes: r.totalAcoes,
-      acoesEntrega: r.acoesEntrega,
-    });
+    const doMes = eventos.filter((e) => { const d = dataDe(e); return d !== null && d >= m && d <= fimMes; });
+    const c = calcularConfiabilidade(doMes, fimMes < agora ? fimMes : agora, modo);
+    if (c.total === 0) continue;
+    out.push({ mes: m, taxaRealizacao: c.taxaRealizacao, realizadas: c.realizadas, canceladas: c.canceladas, total: c.total });
   }
   return out;
 }
@@ -282,7 +246,7 @@ export interface CicloAtendimento {
  * reuniões de clientes diferentes seriam pareadas entre si e o número não
  * significaria nada.
  */
-export function calcularCicloAtendimento(eventos: EventoAgenda[], agora: Date = new Date()): CicloAtendimento {
+export function calcularCicloAtendimento(eventos: EventoAgenda[], agora: Date = new Date(), modo: ModoContagem = 'reunioes'): CicloAtendimento {
   const porCliente = new Map<string, EventoAgenda[]>();
   for (const e of eventos) {
     if (!e.clientId || !aconteceu(e, agora)) continue;
@@ -296,7 +260,7 @@ export function calcularCicloAtendimento(eventos: EventoAgenda[], agora: Date = 
 
   for (const lista of porCliente.values()) {
     const ordenados = [...lista].sort((a, b) => dataDe(a)!.getTime() - dataDe(b)!.getTime());
-    const reunioes = ordenados.filter(ehReuniao);
+    const reunioes = ordenados.filter((e) => contaNoModo(e, modo));
     // Contato nosso — inclui legado sem origem (ver calcularEsforcoAgenda).
     const contatos = ordenados.filter((e) => ehContato(e) && e.origem !== 'cliente');
 

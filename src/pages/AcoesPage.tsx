@@ -16,7 +16,7 @@ import { confirmDialog } from '../utils/confirmDialog';
 import { eventoStatusBadge, isAtendidoMarco } from '../utils/badges';
 import { ordenarPorProximidade, type Item } from '../utils/acoesHelpers';
 import { buscarAlertasAlvos, type AlertaAlvos } from '../api/client';
-import { Badge, Button, Card, Chip, Td, Th, type BadgeVariant } from '../ui';
+import { Badge, Button, Card, Chip, Tabs, Td, Th, type BadgeVariant } from '../ui';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../types';
 
 const ACAO_STATUS_BADGE: Record<string, BadgeVariant> = { programado: 'accent', concluido: 'success', sem_sucesso: 'warning', dispensado: 'muted' };
@@ -284,18 +284,18 @@ export default function AcoesPage() {
         </div>
       </div>
 
-      <div className="tabs" style={{ margin: '1.25rem 0 2rem' }}>
+      <Tabs style={{ margin: '1.25rem 0 2rem' }}>
         <button className={`tab${aba === 'acompanhamento' ? ' is-active' : ''}`} onClick={() => setAba('acompanhamento')}>Acompanhamento</button>
         <button className={`tab${aba === 'acoes' ? ' is-active' : ''}`} onClick={() => setAba('acoes')}>Ações</button>
-      </div>
+      </Tabs>
 
       {aba === 'acompanhamento' ? (
         <>
-          <div className="tabs tabs-sub" style={{ marginTop: '0.25rem', marginBottom: '1.25rem' }}>
+          <Tabs className="tabs-sub" style={{ marginTop: '0.25rem', marginBottom: '1.25rem' }}>
             <button className={`tab${acProduto === 'Monitoria' ? ' is-active' : ''}`} onClick={() => setAcProduto('Monitoria')}>Monitoria</button>
             <button className={`tab${acProduto === 'Price' ? ' is-active' : ''}`} onClick={() => setAcProduto('Price')}>Price</button>
             <button className={`tab${acProduto === 'Todos' ? ' is-active' : ''}`} onClick={() => setAcProduto('Todos')}>Todos</button>
-          </div>
+          </Tabs>
 
           <Card flat className="mb-4">
             <div className="filter-grid">

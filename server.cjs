@@ -131,9 +131,12 @@ function rodarBackupSqliteELoggar(origem) {
 // rede de segurança pra caminhos de escrita sem gancho; cron diário idem.
 const { repoPlanilha: repoStatusHistorico } = require('./server/dominio/repo.cjs');
 const { sincronizarSemQuebrar: sincronizarStatusHistorico } = require('./server/dominio/statusHistorico.cjs');
+// Avisos de cancelamento antigos (antes do campo motivoContato): marca no boot.
+const { marcarSemQuebrar: marcarAvisosDeCancelamento } = require('./server/dominio/avisoCancelamento.cjs');
 
 if (isServer) {
   sincronizarStatusHistorico(repoStatusHistorico(), 'boot');
+  marcarAvisosDeCancelamento(repoStatusHistorico());
   cron.schedule('0 4 * * *', () => sincronizarStatusHistorico(repoStatusHistorico(), 'cron diário'));
   rodarBackup('boot');
   cron.schedule('0 5 * * *', () => rodarBackup('cron diário'));

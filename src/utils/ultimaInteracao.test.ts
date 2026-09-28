@@ -58,3 +58,17 @@ describe('buildUltimaInteracaoMap: só evento concluído conta como contato', ()
     expect(m.has('c1')).toBe(false);
   });
 });
+
+describe('buildUltimaInteracaoMap: aviso de cancelamento', () => {
+  const aviso = ev({ id: 'e2', type: 'Contato', date: '2026-08-30T12:00:00.000Z', motivoContato: 'cancelamento' });
+  const antes = ev({ type: 'Contato', date: '2026-08-10T12:00:00.000Z' });
+
+  it('conta como conversa com o cliente (sem acompanhamento)', () => {
+    expect(buildUltimaInteracaoMap([antes, aviso], [], { now: AGORA }).get('c1')?.toISOString()).toBe('2026-08-30T12:00:00.000Z');
+  });
+
+  it('não conta para "aguardando retorno": quem age depois do cancelamento é o monitor', () => {
+    expect(buildUltimaInteracaoMap([antes, aviso], [], { now: AGORA, paraRetorno: true }).get('c1')?.toISOString()).toBe('2026-08-10T12:00:00.000Z');
+    expect(buildUltimaInteracaoMap([aviso], [], { now: AGORA, paraRetorno: true }).has('c1')).toBe(false);
+  });
+});

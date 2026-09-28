@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Building2, CalendarCheck, CalendarClock, CalendarX2, Users } from 'lucide-react';
-import { useCarteira } from '../context/CarteiraContext';
+import { Building2, CalendarCheck, CalendarClock, CalendarX2, Percent, Users } from 'lucide-react';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { StatCard } from '../components/StatCard';
+import { rotuloModo } from '../utils/analises';
 import { Dropdown } from '../components/Dropdown';
 import { Comparacao } from '../components/dashboard/Comparacao';
 import { CoberturaCard } from '../components/dashboard/CoberturaCard';
@@ -13,11 +13,16 @@ import { AderenciaCard } from '../components/dashboard/AderenciaCard';
 import { VencendoCard } from '../components/dashboard/VencendoCard';
 import { ServicosCard } from '../components/dashboard/ServicosCard';
 import { AFazerCard } from '../components/dashboard/AFazerCard';
-import { AlertasProgramadosCard } from '../components/dashboard/AlertasProgramadosCard';
 import { TendenciaMensalCard } from '../components/dashboard/TendenciaMensalCard';
 import { Top10AtendimentosCard } from '../components/dashboard/Top10AtendimentosCard';
 import { AtendimentoCard } from '../components/dashboard/AtendimentoCard';
 import { RecuperadosCard } from '../components/dashboard/RecuperadosCard';
+import { CancelamentosCard } from '../components/dashboard/CancelamentosCard';
+import { RitmoMensalCard } from '../components/dashboard/RitmoMensalCard';
+import { CargaMonitorCard } from '../components/dashboard/CargaMonitorCard';
+import { ReunioesDiaCard } from '../components/dashboard/ReunioesDiaCard';
+import { montarGruposPrazo } from '../utils/gruposPrazo';
+import type { ServicoCad } from '../utils/cadenciaServico';
 import { ReminderFormModal } from '../components/ReminderFormModal';
 import { janelaDoMes } from '../utils/periodo';
 import type { Cliente } from '../types';
@@ -32,8 +37,8 @@ const curto = (i: number) => MESES[(i + 12) % 12].slice(0, 3).toLowerCase();
  * "como conta" — ver docs/superpowers/specs/2026-09-25-dashboard-kpis-atendimento-design.md.
  */
 export default function DashboardPage() {
-  const { clientes } = useCarteira();
   const navigate = useNavigate();
+  const abrirCliente = (clienteId: string) => navigate(`/clientes/${clienteId}`);
   const [programados, setProgramados] = useState<Set<string>>(new Set());
   const [relatorioModal, setRelatorioModal] = useState<Cliente | null>(null);
   const d = useDashboardData();
@@ -43,11 +48,28 @@ export default function DashboardPage() {
   // Rótulos das comparações: carteira hoje × mesma data do mês anterior;
   // contagens do mês × mês anterior até o mesmo dia.
   const rotuloData = format(d.referenciaAnterior, 'dd/MM');
-  const mesAnterior = MESES[(d.mes + 11) % 12].toLowerCase();
-  const rotuloMes = mesCorrente ? `${mesAnterior} até dia ${d.diaCorte}` : mesAnterior;
+  const mesCurto = `${curto(d.mes)}/${d.ano}`;
+  // Mesmo formato das comparações vizinhas ("vs 28/08" = até essa data no mês
+  // anterior), para caber numa linha do card; mês fechado compara com o mês inteiro.
+  const rotuloMes = mesCorrente
+    ? `${String(d.diaCorte).padStart(2, '0')}/${String(((d.mes + 11) % 12) + 1).padStart(2, '0')}`
+    : curto(d.mes - 1);
   const janelaCobertura = `${curto(d.mes - 1)} + ${curto(d.mes)}`;
+  const grupos = useMemo(() => montarGruposPrazo({
+    ritmo: { emDia: d.aderencia.emDiaClientes, agendaMarcada: d.aderencia.agendaMarcadaClientes, contatoRecente: d.aderencia.contatoRecenteClientes, precisa: d.aderencia.precisaClientes },
+    cobertura: { cobertos: d.cobertura.cobertosClientes, semContato: d.cobertura.semContatoClientes },
+    servicos: d.servicosDist.map((s) => ({ servico: s.label as ServicoCad, descobertos: s.descobertosClientes })),
+    filtroServico: d.filtroServicoAderencia,
+    janela: janelaCobertura,
+    hoje: d.dataReferencia,
+  }), [d.aderencia, d.cobertura, d.servicosDist, d.filtroServicoAderencia, janelaCobertura, d.dataReferencia]);
   const quando = mesCorrente ? 'este mês' : `em ${format(d.periodo, 'MMM/yy', { locale: ptBR })}`;
   const janelaAtendimento = useMemo(() => janelaDoMes(d.periodo, new Date()), [d.periodo]);
+  const nome = rotuloModo(d.modoContagem);
+  const rne = d.reuniaoNasEntregas;
+  const pctReuniao = (x: { reunioes: number; entregas: number }) => (x.entregas > 0 ? Math.round((x.reunioes / x.entregas) * 100) : null);
+  const pctAtual = pctReuniao(rne.atual);
+  const pctAnterior = pctReuniao(rne.anterior);
 
   // Abre o modal de lembrete pré-preenchido pra escolher dia/hora do envio do relatório.
   function programarRelatorio(cliente: Cliente) {
@@ -63,13 +85,14 @@ export default function DashboardPage() {
         </div>
         <div className="flex-row" style={{ gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {/* Filtro de monitor: é GLOBAL, no header (src/App.tsx) — ver CarteiraContext.filtroMonitor. */}
-          <div style={{ minWidth: 150 }}>
+          {/* O que os cards de volume contam: todas as entregas (reunião + relatório + precificação) ou só reuniões. */}
+          <div style={{ minWidth: 170 }}>
             <Dropdown
-              label="Todos os tipos"
-              defaultValue="Todos"
-              options={d.tiposEventoDisponiveis.map((t) => ({ value: t, label: t === 'Todos' ? 'Todos os tipos' : t }))}
-              value={d.filtroTipoEvento}
-              onChange={(v) => d.setFiltroTipoEvento(v as string)}
+              label="Todas as entregas"
+              defaultValue="entregas"
+              options={[{ value: 'entregas', label: 'Todas as entregas' }, { value: 'reunioes', label: 'Só reuniões' }]}
+              value={d.modoContagem}
+              onChange={(v) => d.setModoContagem(v as 'entregas' | 'reunioes')}
             />
           </div>
           <div style={{ minWidth: 130 }}>
@@ -111,27 +134,41 @@ export default function DashboardPage() {
           onClick={() => navigate('/clientes')}
         />
         <StatCard
-          title="Reuniões concluídas"
+          title={`${nome.Plural} concluídas`}
           value={d.reunioesConcluidasMes}
           icon={CalendarCheck}
           comparacao={<Comparacao atual={d.reunioesConcluidasMes} anterior={d.reunioesConcluidasMesAnterior} subirEhBom rotulo={rotuloMes} />}
-          comoConta="Reuniões do mês com status Concluído ou Realizado."
+          comoConta={d.modoContagem === 'entregas' ? 'Reuniões, relatórios e precificações do mês com status Concluído ou Realizado.' : 'Reuniões do mês com status Concluído ou Realizado.'}
         />
         <StatCard
-          title="Reuniões agendadas"
+          title={`${nome.Plural} agendadas`}
           value={d.reunioesAgendadasMes}
           icon={CalendarClock}
-          comparacao={<Comparacao atual={d.reunioesAgendadasMes} anterior={null} subirEhBom rotulo="" semBase="ainda vão acontecer" />}
+          comparacao={<Comparacao atual={d.reunioesAgendadasMes} anterior={null} subirEhBom rotulo="" semBase="a acontecer" />}
           comoConta="Não inclui as concluídas. Sem comparação: o sistema não guarda o que estava agendado no passado."
           onClick={() => navigate('/agenda')}
         />
         <StatCard
-          title="Reuniões reagendadas"
+          title={`${nome.Plural} reagendadas`}
           value={d.reagendamentosMes}
           icon={CalendarX2}
           comparacao={<Comparacao atual={d.reagendamentosMes} anterior={d.reagendamentosMesAnterior} subirEhBom={false} rotulo={rotuloMes} />}
-          comoConta="Reuniões do mês movidas ao menos 1 vez."
+          comoConta={`${nome.Plural} do mês movidas ao menos 1 vez.`}
           onClick={() => navigate('/agenda')}
+        />
+        <StatCard
+          title="Reuniões nas entregas"
+          value={pctAtual === null ? '—' : `${pctAtual}%`}
+          icon={Percent}
+          comparacao={
+            pctAtual === null || pctAnterior === null ? undefined : (
+              <p className="kpi-comparacao is-neutra">
+                {pctAtual === pctAnterior ? '= ' : pctAtual > pctAnterior ? '▲ ' : '▼ '}
+                {pctAtual === pctAnterior ? `igual a ${rotuloMes}` : `${Math.abs(pctAtual - pctAnterior)} p.p. vs ${rotuloMes}`} ({pctAnterior}%)
+              </p>
+            )
+          }
+          comoConta={`${rne.atual.reunioes} de ${rne.atual.entregas} entregas concluídas no mês foram reunião; o resto é relatório e precificação. Não segue o filtro "Todas as entregas / Só reuniões".`}
         />
       </div>
 
@@ -141,29 +178,25 @@ export default function DashboardPage() {
         <AderenciaCard
           total={d.aderencia.total}
           emDia={d.aderencia.emDia}
-          agendaMarcada={d.aderencia.agendaMarcada}
-          contatoRecente={d.aderencia.contatoRecente}
-          precisa={d.aderencia.precisa}
-          emDiaClientes={d.aderencia.emDiaClientes}
-          agendaMarcadaClientes={d.aderencia.agendaMarcadaClientes}
-          contatoRecenteClientes={d.aderencia.contatoRecenteClientes}
-          precisaClientes={d.aderencia.precisaClientes}
           anterior={d.aderencia.anterior}
           rotuloAnterior={rotuloData}
           filtroServico={d.filtroServicoAderencia}
           onFiltroServico={d.setFiltroServicoAderencia}
+          grupos={grupos.ritmo}
+          linhas={d.linhasAtendimento}
+          onAbrirCliente={abrirCliente}
         />
         <CoberturaCard
           total={d.cobertura.total}
           cobertos={d.cobertura.cobertos}
-          semContato={d.cobertura.semContato}
           janela={janelaCobertura}
-          cobertosClientes={d.cobertura.cobertosClientes}
-          semContatoClientes={d.cobertura.semContatoClientes}
           anterior={d.cobertura.anterior}
           rotuloAnterior={rotuloData}
+          grupos={grupos.cobertura}
+          linhas={d.linhasAtendimento}
+          onAbrirCliente={abrirCliente}
         />
-        <ServicosCard servicosDist={d.servicosDist} rotuloAnterior={rotuloData} />
+        <ServicosCard servicosDist={d.servicosDist} rotuloAnterior={rotuloData} grupos={grupos.servico} linhas={d.linhasAtendimento} onAbrirCliente={abrirCliente} />
       </div>
 
       {/* 3. Ação */}
@@ -176,7 +209,7 @@ export default function DashboardPage() {
           followUpDays={d.followUpThresholdDays}
           proximaPorCliente={d.proximaPorCliente}
           programados={programados}
-          onAbrirCliente={(clienteId) => navigate(`/clientes/${clienteId}`)}
+          onAbrirCliente={abrirCliente}
           onProgramarRelatorio={programarRelatorio}
           tiposDisponiveis={d.tiposDisponiveis}
           filtroTipo={d.filtroTipo}
@@ -189,6 +222,7 @@ export default function DashboardPage() {
         <VencendoCard
           total={d.vencendo.total}
           itens={d.vencendo.itens}
+          vencidos={d.vencendo.vencidos}
           filtroServico={d.filtroServicoVencendo}
           onFiltroServico={d.setFiltroServicoVencendo}
         />
@@ -196,27 +230,28 @@ export default function DashboardPage() {
 
       {/* 4. Análise */}
       <h2 className="dash-bloco-titulo">Análises</h2>
-      <div className="dash-two-col">
-        <Top10AtendimentosCard
-          itens={d.top10AtendimentosAno.itens}
-          inicio={d.top10AtendimentosAno.inicio}
-          fim={d.top10AtendimentosAno.fim}
-          ano={d.ano}
-          filtro={d.filtroServicoTop10}
-          onFiltro={d.setFiltroServicoTop10}
-        />
-        <AlertasProgramadosCard
-          alertasProgramados={d.alertasProgramados}
-          nomeCliente={(clientId) => clientes.find((c) => c.id === clientId)?.empresa}
-        />
+      {/* Uma pergunta por linha: volume (mês e dia) → as reuniões acontecem? →
+          os prazos estão em dia? → onde está a carteira. */}
+      <div className="dash-2-1">
+        <TendenciaMensalCard linhaPorMes={d.linhaPorMes} linhaHighlight={d.linhaHighlight} modo={d.modoContagem} />
+        <ReunioesDiaCard dados={d.agendaDiaria} mes={mesCurto} modo={d.modoContagem} />
       </div>
 
       <div className="dash-two-col">
-        <AtendimentoCard agenda={d.agendaPorMonitor} acoes={d.acoesPorMonitor} janela={janelaAtendimento} agora={d.dataReferencia} />
-        <RecuperadosCard clientes={d.ativos} agenda={d.agendaPorMonitor} agora={d.dataReferencia} />
+        <AtendimentoCard agenda={d.agendaPorMonitor} acoes={d.acoesPorMonitor} janela={janelaAtendimento} agora={d.dataReferencia} modo={d.modoContagem} />
+        <CancelamentosCard dados={d.cancelamentos} modo={d.modoContagem} onAbrirCliente={abrirCliente} />
       </div>
 
-      <TendenciaMensalCard linhaPorMes={d.linhaPorMes} linhaHighlight={d.linhaHighlight} />
+      {/* Carga por monitor só com o filtro global em "Todos": com um monitor escolhido não há o que comparar. */}
+      <div className={d.cargaPorMonitor.length > 1 ? 'dash-1-2' : 'dash-analise-linha'}>
+        <RitmoMensalCard pontos={d.ritmoPorMes} />
+        {d.cargaPorMonitor.length > 1 && <CargaMonitorCard linhas={d.cargaPorMonitor} mes={mesCurto} modo={d.modoContagem} />}
+      </div>
+
+      <div className="dash-two-col">
+        <Top10AtendimentosCard itens={d.esforco.itens} total={d.esforco.total} atendimentos={d.esforco.atendimentos} onAbrirCliente={abrirCliente} />
+        <RecuperadosCard clientes={d.ativos} agenda={d.agendaPorMonitor} janela={janelaAtendimento} agora={d.dataReferencia} mes={mesCurto} onAbrirCliente={abrirCliente} />
+      </div>
 
       {relatorioModal && (
         <ReminderFormModal

@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
-import { GaugeDetalhe } from './GaugeDetalhe';
 import { Comparacao, InfoComoConta, Medidor } from './Comparacao';
+import { LegendaGrupos } from './LegendaGrupos';
+import type { GrupoPrazo } from '../../utils/gruposPrazo';
+import type { LinhaAtendimento } from '../../utils/indicadoresPrazo';
 import { Card } from '../../ui';
 
 interface ServicoDist {
@@ -9,20 +9,21 @@ interface ServicoDist {
   n: number;
   base: number;
   anterior: { n: number; base: number };
-  cobertosClientes: string[];
-  descobertosClientes: string[];
 }
 
 interface ServicosCardProps {
   servicosDist: ServicoDist[];
   rotuloAnterior: string;
+  /** Grupos da legenda; passar o mouse mostra os atendimentos de cada um. */
+  grupos: GrupoPrazo[];
+  linhas: Map<string, LinhaAtendimento>;
+  onAbrirCliente: (id: string) => void;
 }
 
 const REGRA = 'Conta só quem tem prazo do serviço (contratado e não independente): Monitoria 30 dias, Price 15. Um atendimento com os dois serviços aparece nas duas linhas.';
 
 /** "Cobertura por Serviço" — dos atendimentos com prazo de cada serviço, quantos estão no prazo. */
-export function ServicosCard({ servicosDist, rotuloAnterior }: ServicosCardProps) {
-  const [aberto, setAberto] = useState(false);
+export function ServicosCard({ servicosDist, rotuloAnterior, grupos, linhas, onAbrirCliente }: ServicosCardProps) {
   return (
     <Card className="kpi-card">
       <div className="section-header">
@@ -39,12 +40,7 @@ export function ServicosCard({ servicosDist, rotuloAnterior }: ServicosCardProps
         </div>
       ))}
       </div>
-      <button type="button" className="gauge-toggle" onClick={() => setAberto((v) => !v)} aria-expanded={aberto}>
-        {aberto ? 'Ver menos' : 'Ver fora do prazo'} <ChevronDown size={14} className={aberto ? 'gauge-toggle-icon is-open' : 'gauge-toggle-icon'} />
-      </button>
-      <GaugeDetalhe aberto={aberto} grupos={servicosDist.map((s) => ({
-        label: `${s.label} fora do prazo`, cor: 'var(--danger)', clientes: s.descobertosClientes,
-      }))} />
+      <LegendaGrupos grupos={grupos} linhas={linhas} onAbrirCliente={onAbrirCliente} />
     </Card>
   );
 }

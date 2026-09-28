@@ -10,7 +10,7 @@ import type { Acao, EventoAgenda } from '../types';
 export function buildUltimaInteracaoMap(
   agenda: EventoAgenda[],
   acoes: Acao[],
-  opts?: { now?: Date; isRelevant?: (clientId: string) => boolean }
+  opts?: { now?: Date; isRelevant?: (clientId: string) => boolean; paraRetorno?: boolean }
 ): Map<string, Date> {
   return motor.buildUltimaInteracaoMap(agenda, acoes, opts);
 }

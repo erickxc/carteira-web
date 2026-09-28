@@ -30,7 +30,7 @@ const {
 function calcularAderencia(clientes, agenda, acoes, cadencias, now = new Date(), opts = {}) {
   const fila = buildFilaCadencia(clientes, agenda, acoes, cadencias, now);
   const relevantes = opts.servico ? fila.filter((f) => f.relogios.some((r) => r.servico === opts.servico)) : fila;
-  const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now });
+  const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now, paraRetorno: true });
 
   function relogiosRelevantes(f) {
     return opts.servico ? f.relogios.filter((r) => r.servico === opts.servico) : f.relogios;
