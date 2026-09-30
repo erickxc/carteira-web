@@ -8,6 +8,12 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.4.50
+
+- Risco do monitorIA mais fiel: contato, ligação e relatório não contam mais como "reunião sem ata".
+- Ata não preenchida vira pendência do monitor, não risco do cliente; reuniões sem registro até julho não pesam.
+- monitorIA acha o cliente pelo nome e mostra também os prazos que já venceram.
+
 ## 1.4.49
 
 - A Visão Geral passa a contar todas as entregas (reunião, relatório e precificação); o filtro do topo troca para só reuniões.

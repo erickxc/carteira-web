@@ -1632,7 +1632,18 @@ function buscarVencendoTool(repo, { dias } = {}, ctx = {}) {
   // Teto de 60 dias: mesmo limite de `buscar_agenda_ceo`, evita o modelo pedir
   // "o ano inteiro" e a resposta virar uma lista enorme sem filtro nenhum.
   const janela = Math.min(Math.max(Number(dias) || 5, 1), 60);
-  return buscarVencendo(clientesDoMonitor(repo, ctx), repo.get('Agenda'), repo.get('Acoes'), cadencias, new Date(), janela);
+  const clientes = clientesDoMonitor(repo, ctx);
+  const agora = new Date();
+  const vencendo = buscarVencendo(clientes, repo.get('Agenda'), repo.get('Acoes'), cadencias, agora, janela);
+  // Mesma aba "Vencidos" do card: prazo venceu há 1-15 dias e nada foi marcado.
+  // Sem isto, "quem está vencido?" caía em buscar_vencendo e o modelo lia os
+  // que AINDA vão vencer como vencidos (visto na prática).
+  const fila = buildFilaCadencia(clientes.filter((c) => isClienteAtivo(c, agora)), repo.get('Agenda'), repo.get('Acoes'), cadencias, agora);
+  const vencidos = fila
+    .flatMap((f) => f.relogios.filter((r) => !r.proximo && r.atrasoReal >= 1 && r.atrasoReal <= 15)
+      .map((r) => ({ id: f.cliente.id, empresa: f.cliente.empresa, servico: r.servico, diasVencido: r.atrasoReal })))
+    .sort((a, b) => a.diasVencido - b.diasVencido);
+  return { ...vencendo, vencidos: { janelaDias: 15, total: vencidos.length, itens: vencidos } };
 }
 
 /** Mesmo cálculo do card "Cobertura" da Visão Geral (últimos 2 meses). */
@@ -1799,7 +1810,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_vencendo',
-    description: 'Mesmo cálculo do card "Vencendo" da Visão Geral — atendimentos com prazo de Monitoria (30 dias) ou Price (15 dias) vencendo dentro de "dias" (padrão 5, pode pedir qualquer janela até 60 — "semana que vem" é uns 12-14 dias a partir de hoje, calcule pelo dia da semana atual) e sem reunião futura marcada. Relatório não tem prazo próprio: relatório concluído com Monitoria zera a Monitoria. A lista é por SERVIÇO (um atendimento com 2 serviços vencendo aparece 2x).',
+    description: 'Mesmo cálculo do card "Vencendo" da Visão Geral. "itens" = prazos de Monitoria (30 dias) ou Price (15 dias) que AINDA VÃO VENCER dentro de "dias" (NÃO estão vencidos). "vencidos" = prazos que JÁ VENCERAM nos últimos 15 dias sem nada marcado (aba Vencidos do card) — use este para "quem está vencido/atrasado". Janela de "itens" (padrão 5, pode pedir qualquer janela até 60 — "semana que vem" é uns 12-14 dias a partir de hoje, calcule pelo dia da semana atual) e sem reunião futura marcada. Relatório não tem prazo próprio: relatório concluído com Monitoria zera a Monitoria. A lista é por SERVIÇO (um atendimento com 2 serviços vencendo aparece 2x).',
     parameters: {
       type: 'object',
       properties: {
@@ -2165,4 +2176,22 @@ const FERRAMENTAS = [
 // `lerCadencias` exportado pra `alertas.cjs` usar a MESMA leitura de cadência
 // (seed + overrides) — duas versões disso na base seriam duas verdades sobre
 // quando um cliente vence.
-module.exports = { FERRAMENTAS, lerCadencias, opcoesDe, resolverOpcao };
+/**
+ * O modelo às vezes passa o NOME do cliente em `clientId` (visto na prática:
+ * "Peça.com" → "cliente não encontrado", com o cliente na carteira). Se não há
+ * cliente com esse id, aceita o nome exato (sem acento/maiúscula) ou um trecho
+ * que case com UM só cliente. Ambíguo ou inexistente: deixa como veio e a
+ * ferramenta devolve o erro de sempre.
+ */
+function resolverClientIdPorNome(repo, argumentos) {
+  if (!argumentos || typeof argumentos.clientId !== 'string' || !argumentos.clientId.trim()) return argumentos;
+  const clientes = repo.get('Clientes');
+  if (clientes.some((c) => String(c.id) === argumentos.clientId)) return argumentos;
+  const alvo = normalizar(argumentos.clientId);
+  const exatos = clientes.filter((c) => normalizar(c.empresa) === alvo);
+  const candidatos = exatos.length ? exatos : clientes.filter((c) => normalizar(c.empresa).includes(alvo));
+  return candidatos.length === 1 ? { ...argumentos, clientId: candidatos[0].id } : argumentos;
+}
+
+module.exports = {
+  resolverClientIdPorNome, FERRAMENTAS, lerCadencias, opcoesDe, resolverOpcao };

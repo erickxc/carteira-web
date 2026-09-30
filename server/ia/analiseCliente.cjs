@@ -53,14 +53,31 @@ function textoPrecificacoes(itensRaw) {
  * cancelada 2x", que é justamente o padrão de desengajamento que vale virar
  * Ponto de Atenção no dossiê (pedido do usuário).
  */
+// Até julho/2026 a equipe ainda não registrava ata/resumo: evento vazio dessa
+// época não é sinal de nada (orientação do time).
+const INICIO_REGISTRO = '2026-08-01';
+
+/**
+ * O que dizer quando o evento não tem ata/resumo. O TIPO entra porque o prompt
+ * recebia só data e status: contato, ligação e relatório concluídos (que não
+ * têm ata) chegavam como "(sem registro)" e o modelo lia "reunião sem ata" —
+ * achado real validando o risco da carteira (CG. Braga, Guigo, Itatiaia com
+ * contatos contados como reuniões vazias; Golfinho, MEGA, Viannax com relatórios).
+ */
+function semRegistro(ev) {
+  if (!/reuni/i.test(ev.type || '')) return `(sem registro — normal para ${ev.type || 'este tipo de evento'}, que não tem ata)`;
+  if ((ev.date || '') < INICIO_REGISTRO) return '(sem registro — antes de agosto/2026 a equipe ainda não registrava ata; não é sinal)';
+  return '(sem registro — ata não preenchida pelo monitor da 2D)';
+}
+
 function textoEvento(ev) {
-  const corpo = ev.ata?.trim() || ev.resumo?.trim() || ev.description?.trim() || '(sem registro)';
+  const corpo = ev.ata?.trim() || ev.resumo?.trim() || ev.description?.trim() || semRegistro(ev);
   const motivo = ev.motivo?.trim() ? `\nMotivo: ${ev.motivo.trim()}` : '';
   const reagendamentos = Number(ev.reagendamentos) > 0
     ? `\nEsta reunião já foi remarcada ${ev.reagendamentos}x antes deste registro.`
     : '';
   const extra = textoProdutosSituacao(ev.produtosSituacao) + textoPrecificacoes(ev.precificacoes);
-  return `[${ev.date ?? ''} — ${ev.status ?? ''}]\n${corpo}${motivo}${reagendamentos}${extra}`;
+  return `[${ev.date ?? ''} — ${ev.type || 'Evento'} — ${ev.status ?? ''}]\n${corpo}${motivo}${reagendamentos}${extra}`;
 }
 
 // Template fixo do dossiê — decisão do usuário: nada de prosa longa, tópicos
@@ -138,6 +155,7 @@ Critério de "nivelRisco" (aplique com critério, não some sinais mecanicamente
 - "baixo": sem sinal negativo relevante, ou sinal isolado/pontual sem repetição.
 - "medio": sinal negativo real mas ainda de UMA ÚNICA rodada de análise (primeira vez que aparece) — mesmo que afete vários clientes finais da loja — OU um sinal já confirmado em rodadas anteriores mas contido/estável, sem sinal de piora.
 - "alto": reservado para quando o MESMO sinal negativo já apareceu confirmado em pelo menos 2 rodadas de análise (ver "DOSSIÊ ATUAL" — ele já tinha esse "Ponto de Atenção" antes?), OU quando o sinal ameaça a relação da loja com a 2D em si (loja evitando reunião, insatisfação explícita com a monitoria, queda agregada e generalizada de faturamento sem qualquer ação em curso) — não apenas queda de compra de alguns clientes finais específicos, por mais numerosos que sejam.
+- Registro vazio NÃO é risco do cliente: cada evento traz o TIPO no cabeçalho, e só Reunião tem ata — Contato, Ligação, Relatório e Precificação sem registro são normais e não contam como "reunião sem ata/sem conteúdo". Reunião sem ata ANTES de agosto/2026 é de quando a equipe ainda não registrava, não é sinal. Reunião sem ata a partir de agosto/2026 é registro que o monitor da 2D não fez: pode entrar em "Pendências" como tarefa interna, mas NUNCA sobe o "nivelRisco" nem vira "desengajamento" ou "não conformidade" do cliente — quem escreve a ata é a 2D, não a loja.
 - Quantos clientes finais têm problema NÃO decide o nível sozinho: 4 clientes finais em queda na primeira reunião que isso aparece é "medio", não "alto" — vira "alto" se persistir/piorar na próxima rodada. Pondere também contra "Oportunidades" registradas: clientes finais crescendo ao mesmo tempo que outros caem costuma ser rotatividade normal de carteira da loja, não crise.
 
 Responda em JSON com exatamente estes campos:
@@ -151,7 +169,7 @@ Responda em JSON com exatamente estes campos:
 
 Regras:
 - Não invente informação que não está nas reuniões ou no dossiê anterior; se um dado não aparece, não afirme sobre ele.
-- O "Perfil" NUNCA contradiz o segmento de negócio do cliente indicado logo no início deste prompt, quando houver — não infira um ramo diferente a partir de assunto/jargão ambíguo de uma reunião (ex.: um assunto de reunião chamado "Alvo Mais Atacado" é terminologia de vendas/monitoria da própria 2D, não indício de que o cliente atua em segurança/cyber). Sem segmento indicado, não invente um. Quando as reuniões novas têm conteúdo vazio/genérico (assunto repetido, sem pauta, sem decisão, sem produto/cliente final citado), diga isso EXPLICITAMENTE em "Pontos de Atenção" (ex.: "Nx reuniões seguidas sem conteúdo registrado além do assunto") em vez de preencher a lacuna com uma narrativa de negócio inventada.
+- O "Perfil" NUNCA contradiz o segmento de negócio do cliente indicado logo no início deste prompt, quando houver — não infira um ramo diferente a partir de assunto/jargão ambíguo de uma reunião (ex.: um assunto de reunião chamado "Alvo Mais Atacado" é terminologia de vendas/monitoria da própria 2D, não indício de que o cliente atua em segurança/cyber). Sem segmento indicado, não invente um. Quando as reuniões novas (a partir de agosto/2026) têm conteúdo vazio/genérico (assunto repetido, sem pauta, sem decisão, sem produto/cliente final citado), diga isso EXPLICITAMENTE em "Pendências" como tarefa interna da 2D (ex.: "preencher a ata das reuniões de 17/09 e 24/09") em vez de preencher a lacuna com uma narrativa de negócio inventada.
 - Se a ata/registro mencionar QUAL cliente final (comprador da loja, não a rede) está associado a um fato — ex.: "Widmen: venda zerada", uma linha de "Orientações" no formato "Cliente / Produto: situação" — preserve esse nome no "Pontos de Atenção"/"Oportunidades" e em "fatores". Generalizar "vendas zeraram" sem dizer de qual cliente perde informação que já estava disponível — não faça isso.
 - "fatores" só pode ser lista vazia quando "nivelRisco" é "baixo" — não force fator artificial nesse caso. Com "medio" ou "alto", "fatores" é OBRIGATÓRIO (1 a 4 itens): é o campo que a ficha do cliente usa pra explicar POR QUE o risco é esse, e vazio ali deixa o usuário sem resposta. Os fatores devem ser os mesmos fatos que você registrou em "Pontos de Atenção", não uma lista nova.
 - Reunião marcada como "Motivo:" (cancelamento) ou "já foi remarcada Nx" (ver texto de cada reunião abaixo) é sinal de desengajamento, não detalhe operacional — trate 2+ ocorrências disso no MESMO cliente (nesta rodada ou já registradas no dossiê anterior) como padrão, cite o motivo concreto em "Pontos de Atenção" (ex.: "reunião já foi cancelada 2x — motivo alegado: agenda do responsável"), e pese isso no "nivelRisco" como faria com queda de venda repetida. Uma única ocorrência isolada, sem repetição, não sustenta "alto" sozinha. IMPORTANTE: antes de chamar de "padrão consolidado"/"estrutural", confira se houve reunião normal (concluída sem cancelamento/remarcação) ENTRE as ocorrências — se houve, isso é contra-evidência de que não é estrutural, e a frase deve refletir isso ("cancelamento em [data], mas reunião seguinte em [data] ocorreu normalmente — desengajamento não é constante") em vez de ignorar o intervalo bom pra forçar uma narrativa de crise contínua.

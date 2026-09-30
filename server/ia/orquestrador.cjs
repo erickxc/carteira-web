@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { repoPlanilha } = require('../dominio/repo.cjs');
 const ollamaClient = require('./ollamaClient.cjs');
-const { FERRAMENTAS } = require('./tools.cjs');
+const { FERRAMENTAS, resolverClientIdPorNome } = require('./tools.cjs');
 const { MAX_ITERACOES_FERRAMENTA } = require('./normas.cjs');
 const { registrarUso } = require('./uso.cjs');
 const { executarMutacao } = require('../fila/mutacao.cjs');
@@ -216,7 +216,7 @@ async function conversar({ mensagens, origem = 'chat', repo = repoPlanilha(), ol
           // vazia) e uma rejeição virava unhandled rejection, podendo
           // derrubar o processo (mesma classe do bug de consultarLimiteConta
           // em 02/09/2026).
-          resultado = ferramenta ? await ferramenta.executar(repo, argumentos, { monitor }) : { erro: `Ferramenta "${nome}" não existe.` };
+          resultado = ferramenta ? await ferramenta.executar(repo, resolverClientIdPorNome(repo, argumentos), { monitor }) : { erro: `Ferramenta "${nome}" não existe.` };
         } catch (err) {
           resultado = { erro: err.message };
         }

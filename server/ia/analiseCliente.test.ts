@@ -366,6 +366,27 @@ describe('analiseCliente: textoEvento inclui motivo e histórico de remarcação
   });
 });
 
+describe('analiseCliente: tipo do evento e registro vazio', () => {
+  it('o cabeçalho traz o tipo, pra contato/relatório não virarem "reunião sem ata"', () => {
+    expect(textoEvento({ date: '2026-09-18', type: 'Contato', status: 'Concluído' })).toContain('— Contato — Concluído]');
+  });
+
+  it('contato e relatório sem registro são normais, não reunião vazia', () => {
+    expect(textoEvento({ date: '2026-09-18', type: 'Contato', status: 'Concluído' })).toContain('normal para Contato');
+    expect(textoEvento({ date: '2026-09-17', type: 'Relatório', status: 'Concluído' })).toContain('normal para Relatório');
+  });
+
+  it('reunião vazia antes de agosto/2026 não é sinal; depois é pendência do monitor', () => {
+    expect(textoEvento({ date: '2026-07-20', type: 'Reunião', status: 'Concluído' })).toContain('ainda não registrava');
+    expect(textoEvento({ date: '2026-09-17', type: 'Reunião', status: 'Concluído' })).toContain('não preenchida pelo monitor da 2D');
+  });
+
+  it('o prompt proíbe subir o risco do cliente por ata vazia', () => {
+    const prompt = montarPrompt({ cliente, eventosNovos: [], dossieAnterior: '' });
+    expect(prompt).toMatch(/NUNCA sobe o "nivelRisco"/);
+  });
+});
+
 describe('analiseCliente: registro da monitoria (cliente final / produto / tag)', () => {
   it('registro SÓ de cliente final (sem produto) aparece no prompt (legado, sem direcao)', () => {
     const texto = textoEvento({

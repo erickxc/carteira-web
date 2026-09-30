@@ -181,6 +181,10 @@ Hoje as três são entidades da fila, com módulo em `server/dominio/` cada (`ac
 
 **Ordem de deploy importa**: entidade nova na fila precisa estar na máquina SERVIDORA antes de qualquer cliente enfileirar com ela — senão o controller rejeita com `"Controller: entidade desconhecida"` e a operação fica `skipped` (aconteceu: testes mal isolados escreveram na fila real e 5 operações ficaram presas até serem limpas à mão). Ao testar qualquer coisa que use a fila, isole **`ONEDRIVE_ROOT` E `SQLITE_DIR`** e recarregue TODOS os módulos que cacheiam caminho — incluindo `machine.cjs` (guarda machineId/seq) — ver `server/ia/modoCliente.test.ts`.
 
+### Risco da análise automática: tipo do evento e ata vazia
+
+Validando o risco da carteira (29/09/2026), 17 de 39 classificações estavam erradas pela mesma causa: `textoEvento` (`server/ia/analiseCliente.cjs`) mandava ao modelo só data e status, então contato, ligação e relatório concluídos chegavam como "(sem registro)" e viravam "reunião sem ata" — e o prompt tratava ata vazia como desengajamento do cliente, quando quem escreve a ata é o monitor. Hoje o cabeçalho traz o tipo, o texto de "sem registro" depende do tipo e da data (antes de `INICIO_REGISTRO` = 2026-08-01 a equipe não registrava ata, orientação do time), e o prompt proíbe subir o risco por ata vazia — ela vira Pendência interna.
+
 ### Dossiê (arquivo) e AnalisesIA (sheet) são DUAS fontes — mantidas em sincronia num campo
 
 Bug de produção: `corrigir_dossie_cliente` só reescrevia o arquivo do dossiê. A ficha do cliente (`AnaliseIACard`) e o dashboard leem `AnalisesIA.sugestaoProximaPauta`/`resumo`/`nivelRisco` — um campo **separado**, gerado só pela análise automática. Usuário confirmava "a reunião já aconteceu, atualiza a pauta" pelo chat, o agente confirmava, o dossiê mudava — e a ficha do cliente continuava mostrando a pauta antiga, porque lia a outra fonte.

@@ -47,3 +47,7 @@ gerar_icones.ps1
 Configurar_Agendamento.bat
 .claude/contextos/
 .superpowers/
+
+# Saída da skill /brag (vídeo de teste)
+brag-output*/
+relatorio-*/

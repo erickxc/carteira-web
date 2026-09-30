@@ -5,7 +5,7 @@ const estado = require('../ia/claudeCli/estado.cjs');
 const login = require('../ia/claudeCli/login.cjs');
 const claudeCli = require('../ia/claudeCli/cliente.cjs');
 const { limparCacheLocalizacao } = require('../ia/claudeCli/localizar.cjs');
-const { FERRAMENTAS } = require('../ia/tools.cjs');
+const { FERRAMENTAS, resolverClientIdPorNome } = require('../ia/tools.cjs');
 const { registrarAcao } = require('../ia/orquestrador.cjs');
 const { conversar } = require('../ia/provider.cjs');
 const { montarSystemPrompt } = require('../ia/agente.cjs');
@@ -219,7 +219,8 @@ router.post('/interno/ferramenta', apenasMcp, async (req, res) => {
     // sobrevive ao JSON.stringify vazia) — pior, uma rejeição virava
     // unhandled rejection e podia derrubar o processo inteiro (mesma classe
     // do bug de consultarLimiteConta em 02/09/2026).
-    resultado = await ferramenta.executar(repo, argumentos, { monitor });
+    // Nome do cliente no lugar do id é resolvido aqui (ver resolverClientIdPorNome).
+    resultado = await ferramenta.executar(repo, resolverClientIdPorNome(repo, argumentos), { monitor });
   } catch (err) {
     resultado = { erro: err.message };
   }

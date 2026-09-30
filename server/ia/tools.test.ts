@@ -1765,3 +1765,27 @@ describe('buscar_proximas_reunioes', () => {
     expect(r.eventos[0].time).toBeNull();
   });
 });
+
+describe('resolverClientIdPorNome e vencidos', () => {
+  it('aceita o nome do cliente no lugar do id; ambíguo ou desconhecido fica como veio', async () => {
+    const { resolverClientIdPorNome } = await import('./tools.cjs');
+    const repo = repoBase({ Clientes: [clienteBase({ id: 'c1', empresa: 'Peça.com' }), clienteBase({ id: 'c2', empresa: 'Pecita - Itaguaí' }), clienteBase({ id: 'c3', empresa: 'Pecita - TOP1000' })] });
+    expect(resolverClientIdPorNome(repo, { clientId: 'peca.com' }).clientId).toBe('c1');
+    expect(resolverClientIdPorNome(repo, { clientId: 'c2' }).clientId).toBe('c2');
+    expect(resolverClientIdPorNome(repo, { clientId: 'Pecita' }).clientId).toBe('Pecita');
+    expect(resolverClientIdPorNome(repo, { dias: 5 })).toEqual({ dias: 5 });
+  });
+
+  it('buscar_vencendo devolve à parte os que já venceram (últimos 15 dias, nada marcado)', () => {
+    const dias = (n: number) => new Date(Date.now() - n * 86400e3).toISOString();
+    const repo = repoBase({
+      Clientes: [clienteBase({ servicos: ['Monitoria'] })],
+      Agenda: [{ id: 'e1', clientId: 'c1', type: 'Reunião', status: 'Concluído', date: dias(36), servicos: ['Monitoria'] }],
+      Cadencias: [{ chave: 'monitoria_dias', valor: 30 }],
+    });
+    const r = exec('buscar_vencendo', repo, {}) as { total: number; vencidos: { total: number; itens: { diasVencido: number }[] } };
+    expect(r.total).toBe(0);
+    expect(r.vencidos.total).toBe(1);
+    expect(r.vencidos.itens[0].diasVencido).toBe(6);
+  });
+});
