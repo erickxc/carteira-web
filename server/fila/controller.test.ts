@@ -11,7 +11,7 @@ const MODULOS_PARA_RESETAR = [
   '../dominio/repo.cjs', '../dominio/clientes.cjs', '../dominio/agenda.cjs',
   '../dominio/lembretes.cjs', '../dominio/acoes.cjs', '../dominio/modelos.cjs',
   './caminhos.cjs', './entidades.cjs', './aplicar.cjs', './escrever.cjs', './pendentes.cjs', './mutacao.cjs',
-  './snapshot.cjs', './controller.cjs',
+  './snapshot.cjs', './ponteLegada.cjs', './controller.cjs',
 ];
 
 let oneDriveDir: string;
@@ -216,5 +216,69 @@ describe('fila/controller + snapshot + leitura remota: round-trip completo', () 
     limparCaches();
     const dbSqliteCliente = carregar<typeof import('../dbSqlite.cjs')>('../dbSqlite.cjs');
     expect(dbSqliteCliente.getSheetDataRemota('Clientes')).toEqual([]);
+  });
+});
+
+describe('fila/controller: ponte da pasta antiga (migração 1.4.51)', () => {
+  let legadoDir: string;
+  beforeEach(() => {
+    legadoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carteira-legado-'));
+    process.env.DATA_DIR_LEGADO = legadoDir;
+    limparCaches();
+  });
+  afterEach(() => {
+    delete process.env.DATA_DIR_LEGADO;
+    fs.rmSync(legadoDir, { recursive: true, force: true });
+  });
+
+  it('traz operação e anexo gravados por máquina antiga e devolve ack e snapshot pra lá', async () => {
+    const { escreverOperacao } = carregar<typeof import('./escrever.cjs')>('./escrever.cjs');
+    const { rodarCicloComSnapshot } = carregar<typeof import('./controller.cjs')>('./controller.cjs');
+    const dbSqlite = carregar<typeof import('../dbSqlite.cjs')>('../dbSqlite.cjs');
+    const { PENDENTES_DIR } = carregar<typeof import('./caminhos.cjs')>('./caminhos.cjs');
+    const { DATA_DIR } = carregar<typeof import('../config.cjs')>('../config.cjs');
+
+    // Máquina antiga: operação na fila antiga, anexo no uploads antigo.
+    const op = escreverOperacao({ entity: 'clientes', operation: 'create', recordId: 'c9', changes: { empresa: 'Da Pasta Antiga' } });
+    fs.mkdirSync(path.join(legadoDir, 'filas', 'pendentes'), { recursive: true });
+    fs.renameSync(path.join(PENDENTES_DIR, `${op.operationId}.json`), path.join(legadoDir, 'filas', 'pendentes', `${op.operationId}.json`));
+    fs.mkdirSync(path.join(legadoDir, 'uploads'));
+    fs.writeFileSync(path.join(legadoDir, 'uploads', 'ata.pdf'), 'pdf');
+
+    await rodarCicloComSnapshot();
+
+    expect(dbSqlite.getSheetData('Clientes')).toMatchObject([{ id: 'c9', empresa: 'Da Pasta Antiga' }]);
+    expect(fs.readFileSync(path.join(DATA_DIR, 'uploads', 'ata.pdf'), 'utf8')).toBe('pdf');
+    expect(fs.readdirSync(path.join(legadoDir, 'filas', 'pendentes'))).toEqual([]);
+    const ack = JSON.parse(fs.readFileSync(path.join(legadoDir, 'filas', 'resultados', `${op.operationId}.json`), 'utf8'));
+    expect(ack.status).toBe('applied');
+    expect(fs.existsSync(path.join(legadoDir, 'filas', 'leitura', 'carteira-snapshot.sqlite'))).toBe(true);
+  });
+});
+
+describe('fila/controller: ponte — anexo enviado por máquina nova chega na pasta antiga', () => {
+  let legadoDir: string;
+  beforeEach(() => {
+    legadoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carteira-legado-'));
+    process.env.DATA_DIR_LEGADO = legadoDir;
+    limparCaches();
+  });
+  afterEach(() => {
+    delete process.env.DATA_DIR_LEGADO;
+    fs.rmSync(legadoDir, { recursive: true, force: true });
+  });
+
+  it('copia o anexo que falta, sem devolvê-lo depois', async () => {
+    const { rodarCicloComSnapshot } = carregar<typeof import('./controller.cjs')>('./controller.cjs');
+    const { DATA_DIR } = carregar<typeof import('../config.cjs')>('../config.cjs');
+    fs.mkdirSync(path.join(DATA_DIR, 'uploads'), { recursive: true });
+    fs.writeFileSync(path.join(DATA_DIR, 'uploads', 'nova.pdf'), 'pdf');
+
+    await rodarCicloComSnapshot();
+    const mtimeNovo = fs.statSync(path.join(DATA_DIR, 'uploads', 'nova.pdf')).mtimeMs;
+    await rodarCicloComSnapshot();
+
+    expect(fs.readFileSync(path.join(legadoDir, 'uploads', 'nova.pdf'), 'utf8')).toBe('pdf');
+    expect(fs.statSync(path.join(DATA_DIR, 'uploads', 'nova.pdf')).mtimeMs).toBe(mtimeNovo);
   });
 });

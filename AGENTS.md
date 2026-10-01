@@ -24,9 +24,7 @@ Não há suíte de testes configurada. `npm run build` (roda `tsc -b` antes do V
 
 **Todo dado do app — a planilha `database.xlsx` e a pasta `uploads/` de anexos — mora dentro do OneDrive do usuário, nunca dentro da pasta do projeto.** Isso é intencional e explícito, pedido pelo usuário: o backup/sincronização dos dados fica por conta do OneDrive, sem depender de servidor de banco de dados nenhum (nem local, nem hospedado).
 
-- Caminho hoje, hardcoded em `server.cjs` (constantes `ONEDRIVE_ROOT` / `DATA_DIR`):
-  `C:\Users\Monitor1-2D\OneDrive - 2dconsultores.com.br\01 - Marco + Monitores\6 - Erick\Carteira Web\`
-  - `database.xlsx` e a pasta `uploads/` ficam dentro dessa pasta `Carteira Web`.
+- Caminho hoje (1.4.51+), em `server/config.cjs` (constantes `ONEDRIVE_ROOT` / `DATA_DIR`): raiz `...\01 - Marco + Monitores\Ecossistema-Monitoria\Carteira\`, dados do app na subpasta `dados\`. Detalhes no `CLAUDE.md`.
 - **Não existe fallback para pasta local.** Se `ONEDRIVE_ROOT` não existir nesta máquina (OneDrive não sincronizado, pasta renomeada, rodando em outra máquina/usuário), `server.cjs` **falha ao iniciar** (`process.exit(1)` com mensagem clara) em vez de silenciosamente criar os dados em outro lugar. Não "conserte" esse erro adicionando um caminho alternativo — se o caminho mudar de verdade, atualize `ONEDRIVE_ROOT` e avise o usuário, não invente um fallback.
 - Já passamos por duas arquiteturas antes de chegar aqui nesta mesma sessão: Excel local na pasta do projeto → PostgreSQL local (instalado via winget) → PostgreSQL hospedado no Render → **Excel dentro do OneDrive (atual)**. O PostgreSQL 17 local (serviço `postgresql-x64-17`) **não é mais usado** e já foi **parado + desativado** (StartType=Disabled) — estava exposto na LAN em `0.0.0.0:5432` sem função, era só superfície de ataque. Continua **instalado** (dados no disco em `C:\Program Files\PostgreSQL\17\data`); reativar é só religar o serviço. Confirme com o usuário antes de **desinstalar** (aí sim os dados somem).
 

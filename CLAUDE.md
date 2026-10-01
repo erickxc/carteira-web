@@ -11,6 +11,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm install         # instalar dependências
 npm start           # roda backend (server.cjs, porta 3011) + Vite dev server (porta 5173) via concurrently
+npm run start:dev   # igual ao start, mas com .env.dev: backend na 3012 sobre uma CÓPIA dos dados em .dev/ (sem IA no boot, sem auto-atualização, sem DW)
+node scripts/prepararDev.cjs  # (re)cria a cópia .dev/ a partir da produção (só lê a produção)
 npm run dev         # só o Vite dev server
 node server.cjs     # só o backend Express (falha ao subir se a pasta do OneDrive não existir — ver abaixo)
 npm run build       # tsc -b && vite build — falha se houver erro de tipo
@@ -26,11 +28,11 @@ Gates automáticos: `npm run build` (roda `tsc -b` antes do Vite) e `npm test`. 
 
 **Todo dado do app — a planilha `database.xlsx` e a pasta `uploads/` de anexos — mora dentro do OneDrive do usuário, nunca dentro da pasta do projeto.** Isso é intencional e explícito, pedido pelo usuário: o backup/sincronização dos dados fica por conta do OneDrive, sem depender de servidor de banco de dados nenhum (nem local, nem hospedado).
 
-- Caminho hoje, em `server/config.cjs` (constantes `ONEDRIVE_ROOT` / `DATA_DIR`), sobrescrevível por `ONEDRIVE_ROOT` no `.env` (não versionado) por máquina:
-  `C:\Users\Kerol\OneDrive - 2dconsultores.com.br\01 - Marco + Monitores\6 - Erick\Carteira Web\`
-  - **Não é mais `Monitor1-2D`/`Monitor-2D`** — essa máquina foi substituída por **Karol-2D** (usuário `Kerol`) como ambiente de produção atual. Se você ver `Monitor1-2D` em algum lugar (ex.: `iniciar-servidor.vbs`), é só o *default histórico* do script — na prática o `.env` da máquina manda.
-  - **Arquivo real usado hoje é `database_dev.xlsx`, não `database.xlsx`** (constante `DB_FILE` em `server/config.cjs`) — nome "dev" ficou do período de migração de schema, mas é o banco em uso de fato em produção agora. O `database.xlsx` antigo (pasta `6 - Erick`, um nível acima) é o banco legado pré-migração; não é mais escrito.
-  - A pasta `uploads/` fica dentro de `Carteira Web/`, junto do `database_dev.xlsx`.
+- Caminho a partir da 1.4.51, em `server/config.cjs` (constantes `ONEDRIVE_ROOT` / `DATA_DIR`), sobrescrevível por `ONEDRIVE_ROOT` no `.env` (não versionado) por máquina:
+  - Raiz (`ONEDRIVE_ROOT`): `...\01 - Marco + Monitores\Ecossistema-Monitoria\Carteira\` — espelho `database_dev.xlsx` (entrada do analisador do Ecossistema), `backups/`, `releases/` e `dossie/` (do analisador, não deste app).
+  - Dados do app (`DATA_DIR`): subpasta `dados\` — uploads, dossiês do monitorIA, fila, credenciais, `reunioes_json`, JSONs de Alvos. Subpasta de propósito: soltos na raiz, o `database_dev.xlsx` legado colidiria com o espelho, e a retenção de 2 de `server/backup.cjs` apagaria os exports de `backupSqlite`.
+  - **Até a 1.4.50 era `...\6 - Erick\Carteira Web\`.** `config.cjs` derruba o boot se `ONEDRIVE_ROOT` ainda apontar pra pasta que contém `Carteira Web` (`.env` esquecido no layout antigo). Na transição, a máquina servidora define `DATA_DIR_LEGADO` (a pasta antiga) e `server/fila/ponteLegada.cjs` traz pro lugar novo o que máquinas ainda na versão antiga gravam lá (arquivos e fila) e devolve ack/snapshot — remover os dois quando as 3 máquinas cliente estiverem na 1.4.51+.
+  - **Arquivo `database_dev.xlsx` dentro de `dados/`** (constante `DB_FILE`) é a planilha legada pré-SQLite; o espelho vivo é o da raiz.
 - **Não existe fallback para pasta local.** Se `ONEDRIVE_ROOT` não existir nesta máquina (OneDrive não sincronizado, pasta renomeada, rodando em outra máquina/usuário), `server.cjs` **falha ao iniciar** (`process.exit(1)` com mensagem clara) em vez de silenciosamente criar os dados em outro lugar. Não "conserte" esse erro adicionando um caminho alternativo — se o caminho mudar de verdade, atualize o `.env` da máquina (ou o default em `server/config.cjs`) e avise o usuário, não invente um fallback.
 - Já passamos por várias arquiteturas antes de chegar aqui: Excel local na pasta do projeto → PostgreSQL local (instalado via winget) → PostgreSQL hospedado no Render → **Excel dentro do OneDrive (atual)**. O PostgreSQL 17 local (serviço `postgresql-x64-17`) **não é mais usado** e já foi **parado + desativado** (StartType=Disabled) — estava exposto na LAN em `0.0.0.0:5432` sem função, era só superfície de ataque. Continua **instalado** (dados no disco em `C:\Program Files\PostgreSQL\17\data`); reativar é só religar o serviço. Confirme com o usuário antes de **desinstalar** (aí sim os dados somem).
 

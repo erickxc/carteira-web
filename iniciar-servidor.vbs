@@ -20,7 +20,7 @@ node = "C:\Program Files\nodejs\node.exe"
 
 ' Default = caminho da máquina de produção (Monitor1-2D), o mesmo default do
 ' server/config.cjs. Um .env na pasta do projeto sobrescreve.
-oneDrive = "C:\Users\Monitor1-2D\OneDrive - 2dconsultores.com.br\01 - Marco + Monitores\6 - Erick"
+oneDrive = "C:\Users\Monitor1-2D\OneDrive - 2dconsultores.com.br\01 - Marco + Monitores\Ecossistema-Monitoria\Carteira"
 
 envFile = fso.BuildPath(proj, ".env")
 args = "server.cjs"

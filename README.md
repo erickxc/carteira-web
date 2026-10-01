@@ -43,12 +43,12 @@ Comandos individuais:
 
 ## Onde ficam os dados
 
-Todo o dado (planilha + anexos) vive **dentro do OneDrive**, nunca na pasta do projeto. O caminho está fixo no topo do `server.cjs`:
+Todo o dado (planilha + anexos) vive **dentro do OneDrive**, nunca na pasta do projeto. O caminho padrão está em `server/config.cjs` (sobrescrevível por `ONEDRIVE_ROOT` no `.env`):
 
 ```js
-const ONEDRIVE_ROOT = 'C:/Users/.../OneDrive - .../6 - Erick';
-const DATA_DIR = path.join(ONEDRIVE_ROOT, 'Carteira Web');
-// → database_dev.xlsx e uploads/ ficam em DATA_DIR
+const ONEDRIVE_ROOT = '<homedir>/OneDrive - .../01 - Marco + Monitores/Ecossistema-Monitoria/Carteira';
+const DATA_DIR = path.join(ONEDRIVE_ROOT, 'dados');
+// → uploads/, dossies/, filas/ ficam em DATA_DIR; espelho .xlsx, backups/ e releases/ na raiz
 ```
 
 - Na primeira execução, o backend cria `database_dev.xlsx` (abas `Clientes`, `Agenda`, `Lembretes`, `Categorias`) e semeia as categorias iniciais.

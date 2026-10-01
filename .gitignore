@@ -51,3 +51,6 @@ Configurar_Agendamento.bat
 # Saída da skill /brag (vídeo de teste)
 brag-output*/
 relatorio-*/
+
+# Cópia local dos dados para desenvolvimento (npm run start:dev)
+.dev/

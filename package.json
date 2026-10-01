@@ -1,10 +1,11 @@
 {
   "name": "carteira-web",
   "private": true,
-  "version": "1.4.50",
+  "version": "1.5.0",
   "type": "module",
   "scripts": {
     "start": "concurrently \"node server.cjs\" \"vite\"",
+    "start:dev": "concurrently \"node --env-file=.env.dev server.cjs\" \"node --env-file=.env.dev node_modules/vite/bin/vite.js\"",
     "dev": "vite",
     "build": "node scripts/gerarZipExtensao.cjs && tsc -b && vite build",
     "build:launcher": "node launcher/build.cjs",

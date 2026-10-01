@@ -4,8 +4,9 @@ const path = require('path');
 
 const RELATIVE_BASE = path.join(
   '01 - Marco + Monitores',
-  '6 - Erick',
-  'Carteira Web',
+  'Ecossistema-Monitoria',
+  'Carteira',
+  'dados',
   'database_dev.xlsx'
 );
 

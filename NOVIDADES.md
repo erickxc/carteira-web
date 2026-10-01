@@ -8,6 +8,12 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.5.0
+
+- A Carteira mudou de casa: os dados agora ficam no Ecossistema da Monitoria (pasta Ecossistema-Monitoria → Carteira), junto do resto da monitoria.
+- Nada muda no uso: anexos, dossiês e tudo o que foi registrado vieram junto, e quem ainda não atualizou continua funcionando normalmente durante a troca.
+- O download da extensão de acessos (Configurações → Sistema) agora entrega sempre a versão mais recente.
+
 ## 1.4.50
 
 - Risco do monitorIA mais fiel: contato, ligação e relatório não contam mais como "reunião sem ata".

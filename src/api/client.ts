@@ -451,6 +451,9 @@ export async function enviarAnexo(file: File): Promise<Anexo> {
   });
 }
 
+/** Zip da extensão de acessos, montado na hora a partir da pasta do OneDrive (sempre a versão mais recente). */
+export const urlDownloadExtensao = () => `${API_BASE}/extensao/download`;
+
 // (urlAnexo abaixo usa API_ORIGIN — mesmo host do front)
 
 export async function removerAnexo(filename: string): Promise<void> {

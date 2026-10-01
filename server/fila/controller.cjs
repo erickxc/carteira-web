@@ -27,6 +27,7 @@ const { aplicarOperacao } = require('./aplicar.cjs');
 const { ENTIDADES } = require('./entidades.cjs');
 const { publicarSnapshot } = require('./snapshot.cjs');
 const { machineId } = require('../machine.cjs');
+const ponteLegada = require('./ponteLegada.cjs');
 
 // Depois desse número de tentativas com erro, a operação é marcada como
 // "skipped" e sai da fila (fica em resultados/ + processadas/ para
@@ -195,12 +196,14 @@ function processarUmCicloSemLock() {
 /** Ciclo completo: aplica pendentes + publica o snapshot de leitura (mesmo
  * sem nada pendente — é a leitura inicial de uma máquina remota nova). */
 async function rodarCicloComSnapshot() {
+  ponteLegada.antesDoCiclo();
   const resultado = processarUmCiclo();
   try {
     await publicarSnapshot();
   } catch (err) {
     console.warn('Controller: falha ao publicar snapshot de leitura:', err.message);
   }
+  ponteLegada.depoisDoCiclo();
   return resultado;
 }
 

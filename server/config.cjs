@@ -98,9 +98,14 @@ const CEO_AGENDA_CALENDAR_ID = process.env.CEO_AGENDA_CALENDAR_ID || 'negocios@2
  * varia, e é exatamente isso que `os.homedir()` resolve certo em cada
  * máquina (mesmo padrão já usado em `launcher/config.cjs:RELEASES_DIR`).
  */
+//
+// Raiz = pasta da Carteira dentro do Ecossistema-Monitoria (até a 1.4.50 era
+// "6 - Erick", com os dados em "Carteira Web"). Espelho .xlsx, backups e
+// releases ficam soltos na raiz; os dados do app, na subpasta `dados` — sem
+// colidir com o `database_dev.xlsx` do espelho nem com a retenção de `backups/`.
 const ONEDRIVE_ROOT = process.env.ONEDRIVE_ROOT
-  || path.join(os.homedir(), 'OneDrive - 2dconsultores.com.br', '01 - Marco + Monitores', '6 - Erick');
-const DATA_DIR = path.join(ONEDRIVE_ROOT, 'Carteira Web');
+  || path.join(os.homedir(), 'OneDrive - 2dconsultores.com.br', '01 - Marco + Monitores', 'Ecossistema-Monitoria', 'Carteira');
+const DATA_DIR = path.join(ONEDRIVE_ROOT, 'dados');
 // Credenciais OAuth (Google Cloud) usadas só para ler a Agenda do CEO — ficam
 // fora do repositório, junto com o resto dos dados sensíveis no OneDrive.
 const CEO_AGENDA_OAUTH_CLIENT_PATH = process.env.CEO_AGENDA_OAUTH_CLIENT_PATH || path.join(DATA_DIR, 'ceo-agenda-oauth-client.json');
@@ -113,8 +118,8 @@ const REUNIOES_DIR = path.join(DATA_DIR, 'reunioes_json');
  * sistema (Ecossistema-Monitoria). Fonte SOMENTE LEITURA: nada aqui é escrito
  * por este app, e o conteúdo NÃO entra no SQLite — é lido, agregado e cacheado.
  *
- * Fica FORA de `DATA_DIR` de propósito: é irmã de "6 - Erick" dentro de
- * "01 - Marco + Monitores", não é dado da Carteira. Por isso o default sobe um
+ * Fica FORA de `DATA_DIR` de propósito: é irmã de "Carteira" dentro do
+ * Ecossistema-Monitoria, não é dado da Carteira. Por isso o default sobe um
  * nível a partir de `ONEDRIVE_ROOT`. Sobrescrevível por `ALVOS_DIR` no `.env`.
  *
  * Não faz `process.exit` se não existir: diferente da planilha do app, isto é
@@ -122,7 +127,7 @@ const REUNIOES_DIR = path.join(DATA_DIR, 'reunioes_json');
  * app sobe normalmente.
  */
 const ALVOS_DIR = process.env.ALVOS_DIR
-  || path.join(ONEDRIVE_ROOT, '..', 'Ecossistema-Monitoria', 'Dados Alvos');
+  || path.join(ONEDRIVE_ROOT, '..', 'Dados Alvos');
 
 /**
  * Tags de CLIENTE FINAL (Alerta, Inadimplente, Cliente Balcão, Encerrou
@@ -132,7 +137,7 @@ const ALVOS_DIR = process.env.ALVOS_DIR
  * ecossistema lendo a fonte única.
  */
 const TAGS_CLIENTE_FINAL_PATH = process.env.TAGS_CLIENTE_FINAL_PATH
-  || path.join(ONEDRIVE_ROOT, '..', 'Ecossistema-Monitoria', 'Bancos', 'tags.json');
+  || path.join(ONEDRIVE_ROOT, '..', 'Bancos', 'tags.json');
 // Falha alto e claro se o OneDrive não estiver sincronizado nesta máquina —
 // nunca cria essa árvore de pastas do zero, para não fingir estar "salvo no
 // OneDrive" quando na verdade é só uma pasta local desconectada da nuvem.
@@ -140,6 +145,15 @@ if (!fs.existsSync(ONEDRIVE_ROOT)) {
   console.error(
     `Pasta do OneDrive não encontrada: ${ONEDRIVE_ROOT}\n` +
     `Verifique se o OneDrive está instalado, sincronizado e com essa pasta disponível nesta máquina.`
+  );
+  process.exit(1);
+}
+// `.env` com ONEDRIVE_ROOT ainda no layout antigo ("6 - Erick"): sem isto o
+// servidor criaria uma `dados/` vazia lá e seguiria gravando no lugar errado.
+if (fs.existsSync(path.join(ONEDRIVE_ROOT, 'Carteira Web'))) {
+  console.error(
+    `ONEDRIVE_ROOT aponta para o layout antigo: ${ONEDRIVE_ROOT}\n` +
+    'Os dados da Carteira mudaram para Ecossistema-Monitoria\\Carteira\\dados — atualize (ou remova) ONEDRIVE_ROOT no .env desta máquina.'
   );
   process.exit(1);
 }
@@ -333,16 +347,27 @@ const CLAUDE_CLI_CWD = process.env.CLAUDE_CLI_CWD || path.join(SQLITE_DIR, 'clau
 const CLAUDE_MCP_SERVER = 'carteira';
 
 /**
- * Destino do backup/export diário (SQLite snapshot + `.xlsx`) — pasta própria,
- * SEPARADA do `ONEDRIVE_ROOT` acima (que continua sendo onde vivem uploads e
- * as credenciais da Agenda do CEO). Caminho pedido pelo usuário para esse
- * fluxo novo; não implica mudar `ONEDRIVE_ROOT`. Só cria a pasta se o
- * OneDrive já estiver montado nesta máquina — mesma cautela do `ONEDRIVE_ROOT`,
- * não finge estar "salvo no OneDrive" se a pasta não existe de verdade.
+ * Destino do backup/export diário (SQLite snapshot + `.xlsx`) e das releases:
+ * a própria raiz, fora de `dados/`. O espelho `.xlsx` daqui é entrada do
+ * analisador do Ecossistema.
  */
-// Mesmo motivo do `ONEDRIVE_ROOT` acima: `os.homedir()`, nunca `C:\Users\Kerol`.
-const BACKUP_ONEDRIVE_DIR = process.env.BACKUP_ONEDRIVE_DIR
-  || path.join(os.homedir(), 'OneDrive - 2dconsultores.com.br', '01 - Marco + Monitores', 'Ecossistema-Monitoria', 'Carteira');
+const BACKUP_ONEDRIVE_DIR = process.env.BACKUP_ONEDRIVE_DIR || ONEDRIVE_ROOT;
+
+/**
+ * Transição da 1.4.51: a pasta de dados ANTERIOR ("6 - Erick\Carteira Web").
+ * Só a máquina servidora define (no `.env`), e só enquanto alguma máquina
+ * cliente ainda roda versão antiga — ver `server/fila/ponteLegada.cjs`.
+ * Sem default de propósito: em teste, cair na pasta real seria puxar a fila
+ * de produção.
+ */
+const DATA_DIR_LEGADO = process.env.DATA_DIR_LEGADO || '';
+
+/**
+ * Extensão de acessos (Chrome) — a versão em uso vive no OneDrive do
+ * Ecossistema, não no repositório: o botão de Configurações → Sistema baixa
+ * DESTA pasta, montando o zip na hora (`server/routes/extensao.cjs`).
+ */
+const EXTENSAO_DIR = process.env.EXTENSAO_DIR || path.join(BACKUP_ONEDRIVE_DIR, '..', 'Extensão', '2D Acessos');
 
 /**
  * Snapshot somente-leitura do SQLite real, publicado periodicamente pelo
@@ -577,7 +602,7 @@ const CATEGORIAS_SEED = [
 
 module.exports = {
   HOST, PORT, CEO_AGENDA_CALENDAR_ID, CEO_AGENDA_OAUTH_CLIENT_PATH, CEO_AGENDA_OAUTH_TOKEN_PATH,
-  ONEDRIVE_ROOT, DATA_DIR, REUNIOES_DIR, DB_FILE, UPLOADS_DIR, SQLITE_DIR, SQLITE_FILE, BACKUP_ONEDRIVE_DIR,
+  ONEDRIVE_ROOT, DATA_DIR, DATA_DIR_LEGADO, REUNIOES_DIR, DB_FILE, UPLOADS_DIR, SQLITE_DIR, SQLITE_FILE, BACKUP_ONEDRIVE_DIR, EXTENSAO_DIR,
   ALVOS_DIR, TAGS_CLIENTE_FINAL_PATH,
   SNAPSHOT_DIR, SNAPSHOT_FILE, DOSSIES_DIR, OLLAMA_URL, OLLAMA_MODEL, OLLAMA_MODELS, OLLAMA_API_KEY,
   CONFIG_IA_COMPARTILHADO,
