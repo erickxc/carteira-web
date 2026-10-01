@@ -250,6 +250,11 @@ if (fs.existsSync(DIST_DIR)) {
 app.listen(PORT, HOST, () => {
   console.log(`Server running on http://${HOST}:${PORT} (acesso pela intranet)`);
   console.log(`Dados salvos em: ${DATA_DIR}`);
+  try {
+    require('./server/registroVersao.cjs').registrarVersao();
+  } catch (err) {
+    console.warn('Falha ao registrar a versão desta máquina:', err.message);
+  }
   // Procura versão nova sozinho e reinicia pra instalar quando ninguém
   // estiver usando — o botão "Atualizar agora" continua existindo pra quem
   // não quiser esperar a ociosidade. Só age quando o app subiu pelo `.exe`.
