@@ -22,14 +22,30 @@ import { CATEGORIA_TIPO_LABEL, SEGMENTO_LABEL, type Cadencias, type Categoria, t
 
 const TIPOS: CategoriaTipo[] = ['servico', 'tipo_evento', 'status_cliente', 'status_evento', 'monitor', 'tipo_lembrete', 'sala', 'local_cliente', 'grupo_referencia'];
 
-const CADENCIA_CAMPOS: { chave: keyof Cadencias; label: string; ajuda: string; min?: number; max?: number }[] = [
-  { chave: 'monitoria_dias', label: 'Monitoria a cada (dias)', ajuda: 'Prazo de Monitoria. Zera com reunião ou relatório CONCLUÍDO com Monitoria marcado (ou Ação de relatório). Passou disso, o atendimento fica fora do prazo.' },
-  { chave: 'price_dias', label: 'Price a cada (dias)', ajuda: 'Prazo de Price (padrão 15). Zera com precificação, ou reunião/relatório com Price marcado, CONCLUÍDOS (ou Ação de price). Passou disso, o atendimento fica fora do prazo.' },
-  { chave: 'reuniao_dias', label: 'Reunião a cada (dias)', ajuda: 'Cliente engajado sem próxima reunião marcada vira recomendação após este intervalo.' },
-  { chave: 'relatorio_dias', label: 'Relatório a cada (dias)', ajuda: 'Sugere envio de relatório do período após este intervalo sem contato.' },
-  { chave: 'esfriando_dias', label: 'Esfriando após (dias)', ajuda: 'Cliente sem contato há mais que isso entra no segmento Esfriando.' },
-  { chave: 'primeiro_contato_dias', label: 'Primeiro contato (dias)', ajuda: 'Janela alvo para buscar clientes nunca atendidos.' },
-  { chave: 'recontato_dias', label: 'Aguardando retorno (dias)', ajuda: 'Depois de um contato/ligação sem resposta, o cliente fica nessa janela como "Aguardando Retorno" em vez de "Precisa contato".' },
+// `ajuda` é a linha curta visível; `detalhe` (tooltip) guarda a regra completa.
+const CADENCIA_SECOES: { titulo: string; campos: { chave: keyof Cadencias; label: string; ajuda: string; detalhe?: string }[] }[] = [
+  {
+    titulo: 'Prazos dos serviços',
+    campos: [
+      { chave: 'monitoria_dias', label: 'Monitoria', ajuda: 'Zera com reunião ou relatório concluído com Monitoria.', detalhe: 'Prazo de Monitoria. Zera com reunião ou relatório CONCLUÍDO com Monitoria marcado (ou Ação de relatório). Passou disso, o atendimento fica fora do prazo.' },
+      { chave: 'price_dias', label: 'Price', ajuda: 'Zera com precificação ou reunião/relatório com Price.', detalhe: 'Prazo de Price (padrão 15). Zera com precificação, ou reunião/relatório com Price marcado, CONCLUÍDOS (ou Ação de price). Passou disso, o atendimento fica fora do prazo.' },
+    ],
+  },
+  {
+    titulo: 'Recomendações',
+    campos: [
+      { chave: 'reuniao_dias', label: 'Reunião', ajuda: 'Engajado sem próxima reunião vira recomendação.' },
+      { chave: 'relatorio_dias', label: 'Relatório', ajuda: 'Sem contato nesse intervalo, sugere relatório.' },
+      { chave: 'primeiro_contato_dias', label: 'Primeiro contato', ajuda: 'Janela para buscar quem nunca foi atendido.' },
+    ],
+  },
+  {
+    titulo: 'Segmentos',
+    campos: [
+      { chave: 'esfriando_dias', label: 'Esfriando após', ajuda: 'Sem contato há mais que isso, vira Esfriando.' },
+      { chave: 'recontato_dias', label: 'Aguardando retorno', ajuda: 'Após contato sem resposta, antes de "Precisa contato".', detalhe: 'Depois de um contato/ligação sem resposta, o cliente fica nessa janela como "Aguardando Retorno" em vez de "Precisa contato".' },
+    ],
+  },
 ];
 
 const SEGMENTOS: Segmento[] = ['engajado', 'esfriando', 'frio'];
@@ -69,18 +85,29 @@ function CadenciasCard() {
       <p className="text-text-muted" style={{ fontSize: 12, marginTop: -8, marginBottom: 14 }}>
         Regras que geram as recomendações da Central de Ações.
       </p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-        {CADENCIA_CAMPOS.map(({ chave, label, ajuda, min = 1, max }) => (
-          <Field key={chave} label={label}>
-            <Input
-              type="number"
-              min={min}
-              max={max}
-              value={form[chave]}
-              onChange={(e) => setForm((f) => ({ ...f, [chave]: Number(e.target.value) }))}
-            />
-            <span className="text-text-muted" style={{ fontSize: 11 }}>{ajuda}</span>
-          </Field>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '8px 24px' }}>
+        {CADENCIA_SECOES.map(({ titulo, campos }) => (
+          <section key={titulo}>
+            <span className="block text-[0.72rem] uppercase tracking-wide text-text-muted" style={{ marginBottom: 4 }}>{titulo}</span>
+            {campos.map(({ chave, label, ajuda, detalhe }) => (
+              <label key={chave} className="flex items-center justify-between gap-3 py-1.5" title={detalhe}>
+                <span className="flex flex-col min-w-0">
+                  <span className="text-[0.8rem] font-medium text-text-secondary">{label}</span>
+                  <span className="text-text-muted" style={{ fontSize: 11 }}>{ajuda}</span>
+                </span>
+                <span className="flex items-center gap-1.5 shrink-0">
+                  <Input
+                    type="number"
+                    min={1}
+                    className="w-[64px] text-right !py-1"
+                    value={form[chave]}
+                    onChange={(e) => setForm((f) => ({ ...f, [chave]: Number(e.target.value) }))}
+                  />
+                  <span className="text-text-muted" style={{ fontSize: 11 }}>dias</span>
+                </span>
+              </label>
+            ))}
+          </section>
         ))}
       </div>
       <div className="flex-row" style={{ marginTop: 14, justifyContent: 'flex-end' }}>

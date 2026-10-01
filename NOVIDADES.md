@@ -8,6 +8,10 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.5.2
+
+- Configurações → Cadências mais enxuta: os prazos agora ficam separados em Prazos dos serviços, Recomendações e Segmentos, um por linha.
+
 ## 1.5.0
 
 - A Carteira mudou de casa: os dados agora ficam no Ecossistema da Monitoria (pasta Ecossistema-Monitoria → Carteira), junto do resto da monitoria.
