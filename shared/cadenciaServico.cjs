@@ -357,6 +357,8 @@ function classificarCadencia(f) {
  * quem vem primeiro DENTRO do mesmo bloco. Opcional: sem passar nada, a
  * ordenação continua idêntica a antes desta função existir.
  */
+const chaveGrupo = (c) => String(c?.grupo || '').trim().toLowerCase();
+
 function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(), opts = {}) {
   const monDias = Number(cadencias?.monitoria_dias) || 30;
   const priceDias = Number(cadencias?.price_dias) || 15;
@@ -391,10 +393,28 @@ function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(),
     acoesRelatorioPorCliente.get(a.clientId).push(d);
   });
 
+  // Precificação de uma loja de grupo (ex.: Altese) normalmente vale pro grupo
+  // inteiro: o Price de cada loja também conta as das lojas-irmãs (concluídas
+  // e agendadas, e Ações de Price), exceto evento marcado `escopoPrice: 'loja'`.
+  // Monitoria continua por loja.
+  // ponytail: o grupo sai de `clientes` recebido — loja-irmã fora da lista
+  // (inativa, ou de outro monitor quando o chamador filtra) não é vista. Em
+  // 10/2026 todo grupo tem um monitor só; se mudar, passar a lista completa.
+  const idsPorGrupo = new Map();
+  for (const c of clientes) {
+    const g = chaveGrupo(c);
+    if (!g) continue;
+    if (!idsPorGrupo.has(g)) idsPorGrupo.set(g, []);
+    idsPorGrupo.get(g).push(c.id);
+  }
+  const irmas = (c) => (idsPorGrupo.get(chaveGrupo(c)) ?? []).filter((id) => id !== c.id);
+
   const out = [];
   for (const c of clientes) {
     if (!isClienteAtivo(c, now)) continue;
     const evs = porCliente.get(c.id) ?? [];
+    const evsPrice = [...evs, ...irmas(c).flatMap((id) => (porCliente.get(id) ?? []).filter((a) => a.escopoPrice !== 'loja'))];
+    const acoesPrice = [c.id, ...irmas(c)].flatMap((id) => acoesPricePorCliente.get(id) ?? []);
     // Sem `createdAt` vira Invalid Date de propósito: `calcularRelogio` trata como
     // "sem cadastro conhecido" (nunca atendido), em vez de dar carência a partir de hoje.
     const desde = c.createdAt ? parseISO(c.createdAt) : new Date(NaN);
@@ -404,7 +424,7 @@ function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(),
       todosRelogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, desde, JANELA_VENCENDO, acoesRelatorioPorCliente.get(c.id) ?? []));
     }
     if (temServico(c, /(price|prec)/i, 'price') && !ehIndependente(c, /(price|prec)/i)) {
-      todosRelogios.push(calcularRelogio('Price', evs, ehToquePrice, priceDias, now, desde, JANELA_VENCENDO, acoesPricePorCliente.get(c.id) ?? []));
+      todosRelogios.push(calcularRelogio('Price', evsPrice, ehToquePrice, priceDias, now, desde, JANELA_VENCENDO, acoesPrice));
     }
     // Recorte por serviço ANTES de derivar score/precisaAcao: tudo o que vem
     // depois (ordenação, agrupamento por severidade, contagem de "precisam de

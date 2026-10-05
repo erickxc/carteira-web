@@ -354,15 +354,6 @@ const CLAUDE_MCP_SERVER = 'carteira';
 const BACKUP_ONEDRIVE_DIR = process.env.BACKUP_ONEDRIVE_DIR || ONEDRIVE_ROOT;
 
 /**
- * Transição da 1.4.51: a pasta de dados ANTERIOR ("6 - Erick\Carteira Web").
- * Só a máquina servidora define (no `.env`), e só enquanto alguma máquina
- * cliente ainda roda versão antiga — ver `server/fila/ponteLegada.cjs`.
- * Sem default de propósito: em teste, cair na pasta real seria puxar a fila
- * de produção.
- */
-const DATA_DIR_LEGADO = process.env.DATA_DIR_LEGADO || '';
-
-/**
  * Extensão de acessos (Chrome) — a versão em uso vive no OneDrive do
  * Ecossistema, não no repositório: o botão de Configurações → Sistema baixa
  * DESTA pasta, montando o zip na hora (`server/routes/extensao.cjs`).
@@ -399,7 +390,7 @@ const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', '
 // `origem` = de quem partiu a interação ('nos' | 'cliente'). Vazio nos eventos
 // antigos (tratado como não informado, nunca como 'nos') — é o que permite
 // separar contato que NÓS fizemos de contato que o CLIENTE fez.
-const AGENDA_HEADERS = ['id', 'createdAt', 'clientId', 'clientName', 'type', 'subject', 'date', 'time', 'duracao', 'description', 'status', 'motivo', 'monitores', 'sala', 'origem', 'reagendamentos', 'datasAnteriores', 'motivoContato', 'servicos', 'checklist', 'preAnalise', 'ata', 'resumo', 'transcricao', 'serie', 'attachments', 'userId', 'notifiedDay', 'notes', 'produtosSituacao', 'precificacoes'];
+const AGENDA_HEADERS = ['id', 'createdAt', 'clientId', 'clientName', 'type', 'subject', 'date', 'time', 'duracao', 'description', 'status', 'motivo', 'monitores', 'sala', 'origem', 'reagendamentos', 'datasAnteriores', 'motivoContato', 'escopoPrice', 'servicos', 'checklist', 'preAnalise', 'ata', 'resumo', 'transcricao', 'serie', 'attachments', 'userId', 'notifiedDay', 'notes', 'produtosSituacao', 'precificacoes'];
 const LEMBRETES_HEADERS = ['id', 'createdAt', 'title', 'datetime', 'description', 'status', 'clientId', 'eventId', 'recurrence', 'type', 'userId'];
 const CATEGORIAS_HEADERS = ['id', 'tipo', 'valor', 'ordem', 'createdAt', 'tipoLink', 'urlAplicacao', 'cor'];
 const ACOES_HEADERS = ['id', 'clientId', 'tipo', 'segmento', 'status', 'servico', 'monitor', 'notes', 'dueAt', 'createdAt', 'updatedAt'];
@@ -602,7 +593,7 @@ const CATEGORIAS_SEED = [
 
 module.exports = {
   HOST, PORT, CEO_AGENDA_CALENDAR_ID, CEO_AGENDA_OAUTH_CLIENT_PATH, CEO_AGENDA_OAUTH_TOKEN_PATH,
-  ONEDRIVE_ROOT, DATA_DIR, DATA_DIR_LEGADO, REUNIOES_DIR, DB_FILE, UPLOADS_DIR, SQLITE_DIR, SQLITE_FILE, BACKUP_ONEDRIVE_DIR, EXTENSAO_DIR,
+  ONEDRIVE_ROOT, DATA_DIR, REUNIOES_DIR, DB_FILE, UPLOADS_DIR, SQLITE_DIR, SQLITE_FILE, BACKUP_ONEDRIVE_DIR, EXTENSAO_DIR,
   ALVOS_DIR, TAGS_CLIENTE_FINAL_PATH,
   SNAPSHOT_DIR, SNAPSHOT_FILE, DOSSIES_DIR, OLLAMA_URL, OLLAMA_MODEL, OLLAMA_MODELS, OLLAMA_API_KEY,
   CONFIG_IA_COMPARTILHADO,

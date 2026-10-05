@@ -351,3 +351,41 @@ describe('buildFilaCadencia — Ação de Relatório conta como toque de Monitor
     expect(price.status).toBe('nunca');
   });
 });
+
+// Precificação de uma loja de grupo (ex.: Altese) normalmente vale pro grupo
+// inteiro; `escopoPrice: 'loja'` marca a exceção.
+describe('buildFilaCadencia — precificação vale pro grupo', () => {
+  const recreio = cliente({ id: 'a1', empresa: 'Altese - Recreio', grupo: 'Altese', servicos: ['Monitoria', 'Precificação'] });
+  const gm = cliente({ id: 'a2', empresa: 'Altese - GM', grupo: 'Altese', servicos: ['Monitoria', 'Precificação'] });
+  const outra = cliente({ id: 'x1', empresa: 'Outra', servicos: ['Precificação'] });
+  const price = (item: FilaCadItem) => item.relogios.find((r) => r.servico === 'Price')!;
+  const monitoria = (item: FilaCadItem) => item.relogios.find((r) => r.servico === 'Monitoria')!;
+  const precificacaoRecreio = (o: Partial<EventoAgenda> = {}) =>
+    evento({ id: 'p1', clientId: 'a1', type: 'Precificação', servicos: ['Precificação'], date: iso(2), ...o });
+
+  it('concluída numa loja zera o Price das outras lojas do grupo', () => {
+    const fila = buildFilaCadencia([recreio, gm, outra], [precificacaoRecreio()], [], CADENCIAS, NOW);
+    const itemGm = fila.find((f) => f.cliente.id === 'a2')!;
+    expect(price(itemGm).statusReal).toBe('em_dia');
+    expect(price(itemGm).ultimo?.toISOString()).toBe(iso(2));
+    expect(monitoria(itemGm).status).toBe('nunca'); // Monitoria continua por loja
+    expect(price(fila.find((f) => f.cliente.id === 'x1')!).status).toBe('nunca'); // fora do grupo
+  });
+
+  it('marcada como só da loja não conta pras outras', () => {
+    const fila = buildFilaCadencia([recreio, gm], [precificacaoRecreio({ escopoPrice: 'loja' })], [], CADENCIAS, NOW);
+    expect(price(fila.find((f) => f.cliente.id === 'a2')!).status).toBe('nunca');
+    expect(price(fila.find((f) => f.cliente.id === 'a1')!).statusReal).toBe('em_dia');
+  });
+
+  it('agendada numa loja cobre as outras lojas do grupo', () => {
+    const futura = precificacaoRecreio({ status: 'Agendado', date: new Date(NOW.getTime() + 3 * 86400e3).toISOString() });
+    const fila = buildFilaCadencia([recreio, gm], [futura], [], CADENCIAS, NOW);
+    expect(price(fila.find((f) => f.cliente.id === 'a2')!).status).toBe('coberto');
+  });
+
+  it('Ação de Price concluída numa loja também vale pro grupo', () => {
+    const fila = buildFilaCadencia([recreio, gm], [], [acao({ clientId: 'a1', tipo: 'price' })], CADENCIAS, NOW);
+    expect(price(fila.find((f) => f.cliente.id === 'a2')!).statusReal).toBe('em_dia');
+  });
+});

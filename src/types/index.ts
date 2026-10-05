@@ -369,6 +369,9 @@ export interface EventoAgenda {
   /** 'cancelamento' = contato registrado ao cancelar uma reunião: conta como conversa,
    *  mas não deixa o atendimento "aguardando retorno" (quem remarca é o monitor). */
   motivoContato?: 'cancelamento';
+  /** Precificação de loja de grupo vale pro grupo inteiro (ausente/vazio);
+   *  'loja' = só desta loja (`buildFilaCadencia`). */
+  escopoPrice?: 'loja' | '';
   /**
    * Quantas vezes esta reunião foi remarcada (arrastada no calendário, movida
    * no Kanban ou remarcada pelo botão). Contador PRÓPRIO, separado do status

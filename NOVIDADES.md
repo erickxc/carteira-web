@@ -8,6 +8,10 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.5.3
+
+- Precificação de uma loja de grupo (ex.: Altese) agora vale para todas as lojas do grupo — inclusive a agendada. Quando for só daquela loja, é só desmarcar a opção no evento.
+
 ## 1.5.2
 
 - Configurações → Cadências mais enxuta: os prazos agora ficam separados em Prazos dos serviços, Recomendações e Segmentos, um por linha.

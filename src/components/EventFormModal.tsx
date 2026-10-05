@@ -114,6 +114,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const [servicosEscolhidos, setServicosEscolhidos] = useState<string[] | null>(servicosGravados.length > 0 ? servicosGravados : null);
   const servicos = servicosEscolhidos ?? servicoPadraoDoEvento({ type }, clientes.find((c) => c.id === clientId)) ?? [];
   const [sala, setSala] = useState(initial?.sala ?? '');
+  const [priceSoDaLoja, setPriceSoDaLoja] = useState(initial?.escopoPrice === 'loja');
   // Contato/Ligação criados aqui são, por definição, iniciativa nossa (quem
   // registra é o monitor). Contato recebido do cliente entra pelo
   // RegistroContatoModal, que grava 'cliente'. Em edição, preserva o que já
@@ -211,6 +212,14 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   // Passa o cliente no contexto: é dele que saem os participantes (contatos do
   // serviço tratado) no cabeçalho da ata.
   const clienteSelecionado = clientes.find((c) => c.id === clientId);
+  // Precificação de loja de grupo vale pro grupo inteiro por padrão
+  // (`buildFilaCadencia`); desmarcar grava `escopoPrice: 'loja'`.
+  const grupoDoCliente = clienteSelecionado?.grupo?.trim().toLowerCase() ?? '';
+  const qtdOutrasDoGrupo = grupoDoCliente
+    ? clientes.filter((c) => c.id !== clientId && c.grupo?.trim().toLowerCase() === grupoDoCliente).length
+    : 0;
+  const contaComoPrice = /precific/i.test(type) || (/reuni|relat/i.test(type) && servicos.some((s) => /(price|prec)/i.test(s)));
+  const mostrarEscopoPrice = qtdOutrasDoGrupo > 0 && contaComoPrice;
   const ataAuto = gerarAta(
     {
       clientName: clienteSelecionado?.empresa ?? '',
@@ -376,6 +385,8 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         // Só faz sentido em interação pontual (Contato/Ligação): reunião e
         // relatório não são "quem procurou quem".
         origem: ehInteracao ? (origem || undefined) : undefined,
+        // '' (e não undefined) pra limpar um 'loja' gravado antes ao editar.
+        escopoPrice: mostrarEscopoPrice && priceSoDaLoja ? 'loja' as const : '' as const,
       };
       // Contato/Relatório não têm ata. Fora isso: ata manual tem prioridade;
       // se vazia, gera automaticamente.
@@ -705,6 +716,12 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                     <Chip variant="toggle" key={s} active={servicos.includes(s)} onClick={() => toggleServico(s)}>{s}</Chip>
                   ))}
                 </div>
+              )}
+              {mostrarEscopoPrice && (
+                <label className="check-row" style={{ margin: '0.5rem 0 0', textTransform: 'none' }}>
+                  <input type="checkbox" checked={!priceSoDaLoja} onChange={(e) => setPriceSoDaLoja(!e.target.checked)} />
+                  Precificação vale para todo o grupo {clienteSelecionado?.grupo} ({qtdOutrasDoGrupo + 1} lojas)
+                </label>
               )}
             </Field>
 
