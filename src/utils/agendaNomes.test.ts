@@ -59,3 +59,23 @@ describe('resolverNomesClientes', () => {
     expect(nomes).toEqual(['Altese - Recreio + Barra', 'Altese - GM, Ford, Fiat, VW']);
   });
 });
+
+describe('resolverNomesClientes — precificação do grupo mostra o nome do grupo', () => {
+  const recreio = { ...cliente('a1', 'Altese - Recreio'), grupo: 'Altese' } as Cliente;
+  const gm = { ...cliente('a2', 'Altese - GM'), grupo: 'Altese' } as Cliente;
+
+  it('evento que conta como Price numa loja de grupo vira o nome do grupo', () => {
+    const [ev] = resolverNomesClientes([evento({ clientId: 'a2', type: 'Precificação' })], [recreio, gm]);
+    expect(ev.clientName).toBe('Altese');
+  });
+
+  it('mantém a loja quando é só da loja, não é Price, ou o grupo tem uma loja só', () => {
+    const r = resolverNomesClientes([
+      evento({ id: 'x1', clientId: 'a2', type: 'Precificação', escopoPrice: 'loja' }),
+      evento({ id: 'x2', clientId: 'a2', type: 'Reunião', servicos: ['Monitoria'] }),
+    ], [recreio, gm]);
+    expect(r.map((e) => e.clientName)).toEqual(['Altese - GM', 'Altese - GM']);
+    const [solo] = resolverNomesClientes([evento({ clientId: 'a2', type: 'Precificação' })], [gm]);
+    expect(solo.clientName).toBe('Altese - GM');
+  });
+});

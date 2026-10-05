@@ -53,6 +53,9 @@ export const buildFilaCadencia = motor.buildFilaCadencia as (
 /** Agenda + cópia de cada precificação do grupo pra cada loja-irmã — só pra medida por atendimento (ver motor). */
 export const comPrecificacaoDoGrupo = motor.comPrecificacaoDoGrupo as (agenda: EventoAgenda[], clientes: Cliente[]) => EventoAgenda[];
 
+/** Evento conta como Price (precificação, ou reunião/relatório com Price). */
+export const ehToquePrice = motor.ehToquePrice as (a: EventoAgenda) => boolean;
+
 export const ehServicoDeReuniao = (nome: string) => /monitor|price|prec/i.test(nome);
 
 /** Relógios a menos de `janela` dias do prazo, sem reunião futura marcada — ver `shared/cadenciaServico.cjs`. */

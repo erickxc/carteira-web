@@ -8,6 +8,10 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.5.5
+
+- Na agenda, a precificação do grupo aparece com o nome do grupo (ex.: "Altese"), não da loja onde foi salva.
+
 ## 1.5.4
 
 - Precificação de loja de grupo agora conta como atendimento de todas as lojas e aparece no histórico de cada uma, marcada como "do grupo".

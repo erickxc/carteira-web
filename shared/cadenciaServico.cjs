@@ -375,6 +375,7 @@ const chaveGrupo = (c) => String(c?.grupo || '').trim().toLowerCase();
 function comPrecificacaoDoGrupo(agenda, clientes) {
   const grupoDe = new Map();
   const lojasPorGrupo = new Map();
+  const nomeDe = new Map(clientes.map((c) => [String(c.id), c.empresa]));
   for (const c of clientes) {
     const g = chaveGrupo(c);
     if (!g) continue;
@@ -389,7 +390,7 @@ function comPrecificacaoDoGrupo(agenda, clientes) {
     if (!g) continue;
     for (const c of lojasPorGrupo.get(g)) {
       if (String(c.id) === String(a.clientId)) continue;
-      copias.push({ ...a, id: `${a.id}@${c.id}`, clientId: c.id, clientName: c.empresa, doGrupo: { origemId: a.id, lojaOrigem: a.clientName } });
+      copias.push({ ...a, id: `${a.id}@${c.id}`, clientId: c.id, clientName: c.empresa, doGrupo: { origemId: a.id, lojaOrigem: nomeDe.get(String(a.clientId)) || a.clientName } });
     }
   }
   return copias.length ? agenda.concat(copias) : agenda;
