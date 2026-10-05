@@ -25,6 +25,7 @@ import { ModalShell } from '../components/ModalShell';
 import { Badge, Button, Card, Textarea } from '../ui';
 import { CLIENTE_ESTADO_OPCOES, type Contato, type EventoAgenda } from '../types';
 import { buscarCatalogoAlvos } from '../api/client';
+import { comPrecificacaoDoGrupo } from '../utils/cadenciaServico';
 
 export default function ClienteDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -85,8 +86,9 @@ export default function ClienteDetailPage() {
   const servicosSemContato = useMemo(() => servicosSemResponsavel(cliente, contatos), [cliente, contatos]);
 
   const historico = useMemo(
-    () => agenda.filter((a) => a.clientId === id).sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()),
-    [agenda, id]
+    // Inclui a precificação do grupo salva numa loja-irmã (`doGrupo`).
+    () => comPrecificacaoDoGrupo(agenda, clientes).filter((a) => a.clientId === id).sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()),
+    [agenda, clientes, id]
   );
 
   // Linha do tempo unificada: antes o histórico mostrava só eventos de agenda,
@@ -375,7 +377,7 @@ export default function ClienteDetailPage() {
         timeline={timeline}
         filtro={filtroTimeline}
         onFiltroChange={setFiltroTimeline}
-        onEditarEvento={setEventoEditando}
+        onEditarEvento={(ev) => setEventoEditando(ev.doGrupo ? agenda.find((a) => a.id === ev.doGrupo!.origemId) ?? null : ev)}
         expandida={timelineExpandida}
         onToggleExpandir={() => setTimelineExpandida((v) => !v)}
         totalOcultos={timelineOcultos}

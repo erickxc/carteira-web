@@ -50,6 +50,9 @@ export const buildFilaCadencia = motor.buildFilaCadencia as (
  * aparecem em "Serviços tratados" de um evento e não entram em métrica de
  * monitoria. Mesma dupla de regex já usada no motor compartilhado.
  */
+/** Agenda + cópia de cada precificação do grupo pra cada loja-irmã — só pra medida por atendimento (ver motor). */
+export const comPrecificacaoDoGrupo = motor.comPrecificacaoDoGrupo as (agenda: EventoAgenda[], clientes: Cliente[]) => EventoAgenda[];
+
 export const ehServicoDeReuniao = (nome: string) => /monitor|price|prec/i.test(nome);
 
 /** Relógios a menos de `janela` dias do prazo, sem reunião futura marcada — ver `shared/cadenciaServico.cjs`. */

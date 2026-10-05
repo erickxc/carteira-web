@@ -372,6 +372,9 @@ export interface EventoAgenda {
   /** Precificação de loja de grupo vale pro grupo inteiro (ausente/vazio);
    *  'loja' = só desta loja (`buildFilaCadencia`). */
   escopoPrice?: 'loja' | '';
+  /** Só em cópia gerada por `comPrecificacaoDoGrupo` (nunca gravada): a
+   *  precificação do grupo vista nesta loja; editar = abrir `origemId`. */
+  doGrupo?: { origemId: string; lojaOrigem: string };
   /**
    * Quantas vezes esta reunião foi remarcada (arrastada no calendário, movida
    * no Kanban ou remarcada pelo botão). Contador PRÓPRIO, separado do status

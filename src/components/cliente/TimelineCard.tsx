@@ -144,6 +144,7 @@ export function TimelineCard({
                         {ORIGEM_LABEL[evento.origem]}
                       </Badge>
                     )}
+                    {evento.doGrupo && <Badge variant="muted">Do grupo · salvo em {evento.doGrupo.lojaOrigem}</Badge>}
                   </div>
                   {evento.description && <p className="text-text-muted" style={{ fontSize: 13, margin: 0 }}>{evento.description}</p>}
                   {evento.attachments.length > 0 && (

@@ -359,6 +359,42 @@ function classificarCadencia(f) {
  */
 const chaveGrupo = (c) => String(c?.grupo || '').trim().toLowerCase();
 
+/**
+ * Precificação de loja de grupo (ex.: Altese) é atendimento do GRUPO: devolve
+ * a agenda com uma cópia de cada evento que conta como Price (`ehToquePrice`,
+ * concluído ou agendado) pra cada loja-irmã — `clientId` da irmã, id
+ * `<original>@<irmã>` e `doGrupo: { origemId, lojaOrigem }`. Exceção:
+ * `escopoPrice: 'loja'`. Usar SÓ em medida por atendimento (prazo de Price,
+ * última interação, cobertura, histórico do cliente); volume (entregas no mês,
+ * carga, cancelamentos) conta a original uma vez. Cópia nunca é editada: quem
+ * a abre deve abrir `doGrupo.origemId`.
+ * ponytail: o grupo sai de `clientes` recebido — loja-irmã fora da lista
+ * (inativa, ou de outro monitor quando o chamador filtra) não é vista. Em
+ * 10/2026 todo grupo tem um monitor só; se mudar, passar a lista completa.
+ */
+function comPrecificacaoDoGrupo(agenda, clientes) {
+  const grupoDe = new Map();
+  const lojasPorGrupo = new Map();
+  for (const c of clientes) {
+    const g = chaveGrupo(c);
+    if (!g) continue;
+    grupoDe.set(String(c.id), g);
+    if (!lojasPorGrupo.has(g)) lojasPorGrupo.set(g, []);
+    lojasPorGrupo.get(g).push(c);
+  }
+  const copias = [];
+  for (const a of agenda) {
+    if (a.doGrupo || a.escopoPrice === 'loja' || !ehToquePrice(a)) continue;
+    const g = grupoDe.get(String(a.clientId));
+    if (!g) continue;
+    for (const c of lojasPorGrupo.get(g)) {
+      if (String(c.id) === String(a.clientId)) continue;
+      copias.push({ ...a, id: `${a.id}@${c.id}`, clientId: c.id, clientName: c.empresa, doGrupo: { origemId: a.id, lojaOrigem: a.clientName } });
+    }
+  }
+  return copias.length ? agenda.concat(copias) : agenda;
+}
+
 function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(), opts = {}) {
   const monDias = Number(cadencias?.monitoria_dias) || 30;
   const priceDias = Number(cadencias?.price_dias) || 15;
@@ -393,13 +429,14 @@ function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(),
     acoesRelatorioPorCliente.get(a.clientId).push(d);
   });
 
-  // Precificação de uma loja de grupo (ex.: Altese) normalmente vale pro grupo
-  // inteiro: o Price de cada loja também conta as das lojas-irmãs (concluídas
-  // e agendadas, e Ações de Price), exceto evento marcado `escopoPrice: 'loja'`.
-  // Monitoria continua por loja.
-  // ponytail: o grupo sai de `clientes` recebido — loja-irmã fora da lista
-  // (inativa, ou de outro monitor quando o chamador filtra) não é vista. Em
-  // 10/2026 todo grupo tem um monitor só; se mudar, passar a lista completa.
+  // Price de loja de grupo conta as precificações das irmãs
+  // (`comPrecificacaoDoGrupo`) e as Ações de Price delas; Monitoria é por loja.
+  const agendaGrupo = comPrecificacaoDoGrupo(agenda, clientes);
+  const porClienteGrupo = new Map();
+  agendaGrupo.forEach((a) => {
+    if (!porClienteGrupo.has(a.clientId)) porClienteGrupo.set(a.clientId, []);
+    porClienteGrupo.get(a.clientId).push(a);
+  });
   const idsPorGrupo = new Map();
   for (const c of clientes) {
     const g = chaveGrupo(c);
@@ -412,8 +449,9 @@ function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(),
   const out = [];
   for (const c of clientes) {
     if (!isClienteAtivo(c, now)) continue;
-    const evs = porCliente.get(c.id) ?? [];
-    const evsPrice = [...evs, ...irmas(c).flatMap((id) => (porCliente.get(id) ?? []).filter((a) => a.escopoPrice !== 'loja'))];
+    // Sem as cópias do grupo, caso o chamador já tenha expandido a agenda.
+    const evs = (porCliente.get(c.id) ?? []).filter((a) => !a.doGrupo);
+    const evsPrice = porClienteGrupo.get(c.id) ?? [];
     const acoesPrice = [c.id, ...irmas(c)].flatMap((id) => acoesPricePorCliente.get(id) ?? []);
     // Sem `createdAt` vira Invalid Date de propósito: `calcularRelogio` trata como
     // "sem cadastro conhecido" (nunca atendido), em vez de dar carência a partir de hoje.
@@ -437,7 +475,7 @@ function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(),
     out.push({ cliente: c, relogios, score, precisaAcao, nivelRisco });
   }
 
-  const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now, paraRetorno: true });
+  const ultimaInteracaoMap = buildUltimaInteracaoMap(agendaGrupo, acoes, { now, paraRetorno: true });
   // Quantos relógios do cliente pedem ação (vencido/vencendo/nunca) — atrasado
   // em 2 serviços é pior que atrasado em 1, mesmo que o pior atraso (score)
   // dos dois dê um número parecido ou até maior no de 1 só. Checado ANTES do
@@ -511,4 +549,5 @@ exports.calcularRelogio = calcularRelogio;
 exports.contatoRecenteNaoRefletido = contatoRecenteNaoRefletido;
 exports.classificarCadencia = classificarCadencia;
 exports.buildFilaCadencia = buildFilaCadencia;
+exports.comPrecificacaoDoGrupo = comPrecificacaoDoGrupo;
 exports.rotuloRelogio = rotuloRelogio;

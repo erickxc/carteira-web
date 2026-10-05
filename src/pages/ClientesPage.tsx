@@ -10,6 +10,7 @@ import { usePersistedState } from '../hooks/usePersistedState';
 import { truthy } from '../utils/formatters';
 import { clienteStatusCor, isGratuidade } from '../utils/badges';
 import { toastError, toastSuccess } from '../utils/toast';
+import { comPrecificacaoDoGrupo } from '../utils/cadenciaServico';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
 import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
@@ -225,7 +226,8 @@ export default function ClientesPage() {
       const atual = ultimoMap.get(a.clientId);
       if (!atual || d > parseISO(atual.date)) ultimoMap.set(a.clientId, a);
     };
-    agenda.forEach((a) => {
+    // Inclui a precificação do grupo salva numa loja-irmã.
+    comPrecificacaoDoGrupo(agenda, clientes).forEach((a) => {
       const d = parseISO(a.date);
       if (isNaN(d.getTime())) return;
       if (cancelado(a)) { marcarUltimo(a, d); return; }
@@ -238,7 +240,7 @@ export default function ClientesPage() {
     });
     return { proximoAgendamento: proximoMap, ultimoContato: ultimoMap };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agenda]);
+  }, [agenda, clientes]);
 
   // Opções derivadas dos dados / categorias.
   const monitorOpcoes = useMemo(

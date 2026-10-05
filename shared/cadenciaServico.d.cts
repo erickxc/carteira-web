@@ -17,6 +17,9 @@ export interface ClienteCadencia {
   servicosIndependentes?: string[] | string;
   monitoria?: boolean;
   price?: boolean;
+  /** Rede/grupo da loja: precificação de uma loja vale pras irmãs. */
+  grupo?: string;
+  empresa?: string;
 }
 
 export interface EventoCadencia {
@@ -27,6 +30,8 @@ export interface EventoCadencia {
   servicos?: string[] | string;
   /** 'cancelamento' = aviso registrado ao cancelar uma reunião. */
   motivoContato?: string;
+  /** 'loja' = precificação só desta loja (padrão: vale pro grupo). */
+  escopoPrice?: string;
 }
 
 export interface AcaoCadencia {
@@ -142,5 +147,8 @@ export function buildFilaCadencia<C extends ClienteCadencia>(
   now?: Date,
   opts?: { servico?: ServicoCad; riscoPorCliente?: Map<string, NivelRisco> }
 ): FilaCadItem<C>[];
+
+/** Agenda + cópia de cada precificação do grupo pra cada loja-irmã (medida por atendimento). */
+export function comPrecificacaoDoGrupo<E extends EventoCadencia>(agenda: E[], clientes: ClienteCadencia[]): E[];
 
 export function rotuloRelogio(r: RelogioServico): string;

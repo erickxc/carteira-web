@@ -10,8 +10,12 @@ const { gerarAta } = require('./ataTexto.cjs');
 const { gerarAtaPdfBuffer } = require('./ataPdf.cjs');
 const {
   calcularAderencia, listaJSON, buscarVencendo, buscarCobertura, buscarCoberturaServicos, buscarAlertasSemAcompanhamento,
-  buildFilaCadencia, classificarCadencia, isClienteAtivo,
+  buildFilaCadencia, classificarCadencia, isClienteAtivo, comPrecificacaoDoGrupo,
 } = require('../dominio/cadenciaServico.cjs');
+
+/** Agenda vista por atendimento: inclui a precificação do grupo salva numa
+ *  loja-irmã (cópia com `doGrupo`; o `id` real é `doGrupo.origemId`). */
+const agendaPorAtendimento = (repo) => comPrecificacaoDoGrupo(repo.get('Agenda'), repo.get('Clientes'));
 const { servicoPadraoDoEvento } = require('../../shared/cadenciaServico.cjs');
 const { sugerirAgenda } = require('../dominio/sugestaoAgenda.cjs');
 const { getCache: getCacheCeoAgenda } = require('../ceoAgenda.cjs');
@@ -114,7 +118,7 @@ function identidadeCliente(cliente) {
  */
 function situacaoCadastro(repo, cliente) {
   const agora = new Date();
-  const futuros = repo.get('Agenda')
+  const futuros = agendaPorAtendimento(repo)
     .filter((a) => String(a.clientId) === String(cliente.id))
     .filter((a) => new Date(a.date) > agora)
     .filter((a) => !/cancel/i.test(a.status || ''))
@@ -415,7 +419,7 @@ function buscarRegistrosProduto(repo, { clientId }) {
   const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
   if (!cliente) throw new Error(`buscar_registros_produto: cliente "${clientId}" não encontrado.`);
 
-  const registros = repo.get('Agenda')
+  const registros = agendaPorAtendimento(repo)
     .filter((a) => String(a.clientId) === String(clientId))
     .map((a) => ({ ...a, produtosSituacao: listaJSON(a.produtosSituacao), precificacoes: listaJSON(a.precificacoes) }))
     .filter((a) => a.produtosSituacao.length > 0 || a.precificacoes.length > 0)
@@ -424,6 +428,7 @@ function buscarRegistrosProduto(repo, { clientId }) {
     .map((a) => ({
       date: dataCivilEvento(a.date), hora: a.time || null, type: a.type, status: a.status,
       reagendamentos: a.reagendamentos || 0,
+      ...(a.doGrupo ? { doGrupo: true, salvoEm: a.doGrupo.lojaOrigem } : {}),
       produtosSituacao: a.produtosSituacao,
       precificacoes: a.precificacoes,
     }));
@@ -1352,7 +1357,7 @@ function buscarHistoricoEventos(repo, { clientId, limite }) {
   if (!cliente) throw new Error(`buscar_historico_eventos: cliente "${clientId}" não encontrado.`);
   const teto = Math.min(Math.max(Number(limite) || 15, 1), 15);
 
-  const eventos = repo.get('Agenda')
+  const eventos = agendaPorAtendimento(repo)
     .filter((a) => String(a.clientId) === String(clientId))
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, teto)
@@ -1361,7 +1366,9 @@ function buscarHistoricoEventos(repo, { clientId, limite }) {
       // `gerar_ata_pdf`/`redigir_ata_reuniao` depois de achar a reunião aqui —
       // caso real, ele respondeu "não consegui obter o ID do evento no formato
       // esperado" e mandou o usuário gerar o PDF à mão na tela.
-      id: a.id,
+      id: a.doGrupo?.origemId ?? a.id,
+      // Precificação do grupo salva em outra loja — o evento é dela.
+      ...(a.doGrupo ? { doGrupo: true, salvoEm: a.doGrupo.lojaOrigem } : {}),
       // `date` é a data CIVIL (sem hora) e `time` é a ÚNICA fonte da hora —
       // ver dataCivilEvento: devolver o ISO completo fez o agente anunciar
       // "reunião às 12h" pra um evento sem hora marcada.

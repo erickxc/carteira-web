@@ -18,7 +18,7 @@ const motor = require('../../shared/cadenciaServico.cjs');
 const {
   isClienteAtivo, buildUltimaInteracaoMap, buildFilaCadencia, classificarCadencia,
   contatoRecenteNaoRefletido, rotuloRelogio, listaJSON,
-  atendimentoEmDia, relogioNoPrazo, itensVencendo, ehEntrega,
+  atendimentoEmDia, relogioNoPrazo, itensVencendo, ehEntrega, comPrecificacaoDoGrupo,
 } = motor;
 
 /**
@@ -30,7 +30,7 @@ const {
 function calcularAderencia(clientes, agenda, acoes, cadencias, now = new Date(), opts = {}) {
   const fila = buildFilaCadencia(clientes, agenda, acoes, cadencias, now);
   const relevantes = opts.servico ? fila.filter((f) => f.relogios.some((r) => r.servico === opts.servico)) : fila;
-  const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now, paraRetorno: true });
+  const ultimaInteracaoMap = buildUltimaInteracaoMap(comPrecificacaoDoGrupo(agenda, clientes), acoes, { now, paraRetorno: true });
 
   function relogiosRelevantes(f) {
     return opts.servico ? f.relogios.filter((r) => r.servico === opts.servico) : f.relogios;
@@ -94,7 +94,8 @@ function buscarCobertura(clientes, agenda, now = new Date()) {
   const inicioMesAtual = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const atendidosIds = new Set(
-    agenda
+    // Precificação do grupo cobre cada loja do grupo.
+    comPrecificacaoDoGrupo(agenda, clientes)
       .filter((a) => ativosIds.has(a.clientId) && ehEntrega(a))
       .filter((a) => { const d = parseISO(a.date); return !isNaN(d.getTime()) && d >= doisMesesAtras && d < new Date(inicioMesAtual.getFullYear(), inicioMesAtual.getMonth() + 1, 1); })
       .map((a) => a.clientId)
@@ -136,7 +137,7 @@ function buscarCoberturaServicos(clientes, agenda, acoes, cadencias, now = new D
 function buscarAlertasSemAcompanhamento(clientes, agenda, acoes, now = new Date()) {
   const LIMIAR_DIAS = 30;
   const ativos = clientes.filter((c) => isClienteAtivo(c, now));
-  const ultimaInteracaoMap = buildUltimaInteracaoMap(agenda, acoes, { now });
+  const ultimaInteracaoMap = buildUltimaInteracaoMap(comPrecificacaoDoGrupo(agenda, clientes), acoes, { now });
 
   return ativos
     .map((c) => {
@@ -152,7 +153,7 @@ function buscarAlertasSemAcompanhamento(clientes, agenda, acoes, now = new Date(
 module.exports = {
   // Reexportado do motor compartilhado — mesma interface pública de antes,
   // pra nenhum `require('../dominio/cadenciaServico.cjs')` existente precisar mudar.
-  isClienteAtivo, buildUltimaInteracaoMap, buildFilaCadencia, classificarCadencia, contatoRecenteNaoRefletido,
+  comPrecificacaoDoGrupo, isClienteAtivo, buildUltimaInteracaoMap, buildFilaCadencia, classificarCadencia, contatoRecenteNaoRefletido,
   listaJSON, rotuloRelogio,
   // Específico do backend.
   calcularAderencia, buscarVencendo, buscarCobertura, buscarCoberturaServicos, buscarAlertasSemAcompanhamento,

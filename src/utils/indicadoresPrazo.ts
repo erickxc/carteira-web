@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, isSameMonth, parseISO, subMonths } from 'date-fns';
-import { atendimentoEmDia, buildFilaCadencia, contatoRecenteNaoRefletido, ehEntrega, relogioNoPrazo, type RelogioServico, type ServicoCad } from './cadenciaServico';
+import { atendimentoEmDia, buildFilaCadencia, comPrecificacaoDoGrupo, contatoRecenteNaoRefletido, ehEntrega, relogioNoPrazo, type RelogioServico, type ServicoCad } from './cadenciaServico';
 import { buildUltimaInteracaoMap } from './ultimaInteracao';
 import type { Acao, Cadencias, Cliente, EventoAgenda } from '../types';
 
@@ -54,7 +54,9 @@ const item = (c: Cliente): ItemPrazo => ({ id: c.id, nome: c.empresa });
  * e o de um mês antes (comparação), então os dois nunca usam regras diferentes.
  */
 export function calcularIndicadoresPrazo(e: EntradaIndicadores): IndicadoresPrazo {
-  const { ativos, agenda, acoes, cadencias, now, periodo } = e;
+  const { ativos, acoes, cadencias, now, periodo } = e;
+  // Tudo aqui é por atendimento: precificação do grupo conta pra cada loja.
+  const agenda = comPrecificacaoDoGrupo(e.agenda, ativos);
   const filtroServico = e.filtroServico ?? 'Todos';
   const ativosIds = new Set(ativos.map((c) => c.id));
   const fila = buildFilaCadencia(ativos, agenda, acoes, cadencias, now);

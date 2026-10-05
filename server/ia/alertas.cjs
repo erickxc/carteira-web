@@ -1,4 +1,4 @@
-const { buscarVencendo, buscarAlertasSemAcompanhamento, isClienteAtivo } = require('../dominio/cadenciaServico.cjs');
+const { buscarVencendo, buscarAlertasSemAcompanhamento, isClienteAtivo, comPrecificacaoDoGrupo } = require('../dominio/cadenciaServico.cjs');
 const { lerCadencias } = require('./tools.cjs');
 const { lerDossieCliente } = require('./analisesAutomaticas.cjs');
 
@@ -55,7 +55,8 @@ function clientesComEventoFuturo(agenda, agora) {
 
 function gerarAlertas(repo, { agora = new Date(), max = 8 } = {}) {
   const clientes = repo.get('Clientes');
-  const agenda = repo.get('Agenda');
+  // Alertas são por atendimento: precificação do grupo vale pra cada loja.
+  const agenda = comPrecificacaoDoGrupo(repo.get('Agenda'), clientes);
   const acoes = repo.get('Acoes');
   const analises = repo.get('AnalisesIA');
 

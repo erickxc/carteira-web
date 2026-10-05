@@ -11,7 +11,7 @@ import { Grupo } from '../components/acoes/Grupo';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
-import { buildFilaCadencia, classificarCadencia, type FilaCadItem } from '../utils/cadenciaServico';
+import { buildFilaCadencia, classificarCadencia, comPrecificacaoDoGrupo, type FilaCadItem } from '../utils/cadenciaServico';
 import { confirmDialog } from '../utils/confirmDialog';
 import { eventoStatusBadge, isAtendidoMarco } from '../utils/badges';
 import { ordenarPorProximidade, type Item } from '../utils/acoesHelpers';
@@ -61,8 +61,10 @@ export default function AcoesPage() {
   // Histórico unificado: reuniões + ações registradas (reunião também é ação).
   const itens = useMemo<Item[]>(() => {
     const arr: Item[] = [];
-    agenda.forEach((e) => arr.push({
-      key: 'r' + e.id, refId: e.id, clientId: e.clientId, tipoLabel: e.type || 'Reunião',
+    // Por atendimento: inclui a precificação do grupo salva numa loja-irmã
+    // (abre a original — a cópia não existe no banco).
+    comPrecificacaoDoGrupo(agenda, clientes).forEach((e) => arr.push({
+      key: 'r' + e.id, refId: e.doGrupo?.origemId ?? e.id, clientId: e.clientId, tipoLabel: e.type || 'Reunião',
       date: parseISO(e.date), statusLabel: e.status || '—', statusBadge: eventoStatusBadge(e.status),
       obs: e.subject || '', origem: 'reuniao', eventDate: e.date,
     }));
@@ -72,7 +74,7 @@ export default function AcoesPage() {
       statusBadge: ACAO_STATUS_BADGE[a.status] ?? 'muted', obs: a.notes || '', origem: 'acao', acaoStatus: a.status,
     }));
     return arr.sort((x, y) => y.date.getTime() - x.date.getTime());
-  }, [agenda, acoes]);
+  }, [agenda, acoes, clientes]);
 
   const itensPorCliente = useMemo(() => {
     const agora = new Date();
@@ -86,11 +88,12 @@ export default function AcoesPage() {
   }, [itens]);
 
   const info = useMemo(() => {
-    const ult = buildUltimaInteracaoMap(agenda, acoes);
+    const ult = buildUltimaInteracaoMap(comPrecificacaoDoGrupo(agenda, clientes), acoes);
+    // Contagem é volume: cada evento uma vez, na loja onde foi salvo.
     const nReun = new Map<string, number>();
     agenda.forEach((a) => nReun.set(a.clientId, (nReun.get(a.clientId) ?? 0) + 1));
     return { ult, nReun };
-  }, [agenda, acoes]);
+  }, [agenda, acoes, clientes]);
 
   // Clientes atendidos diretamente pelo Marco (fora do modelo de cadência).
   const marco = useMemo(

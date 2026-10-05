@@ -718,10 +718,15 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                 </div>
               )}
               {mostrarEscopoPrice && (
-                <label className="check-row" style={{ margin: '0.5rem 0 0', textTransform: 'none' }}>
-                  <input type="checkbox" checked={!priceSoDaLoja} onChange={(e) => setPriceSoDaLoja(!e.target.checked)} />
-                  Precificação vale para todo o grupo {clienteSelecionado?.grupo} ({qtdOutrasDoGrupo + 1} lojas)
-                </label>
+                <div role="radiogroup" aria-label="Alcance do atendimento de precificação" className="flex flex-wrap items-center gap-2" style={{ marginTop: 10 }}>
+                  <span className="text-text-muted" style={{ fontSize: 12 }}>Atendimento:</span>
+                  <Chip variant="toggle" role="radio" aria-checked={!priceSoDaLoja} active={!priceSoDaLoja} onClick={() => setPriceSoDaLoja(false)}>
+                    Grupo {clienteSelecionado?.grupo} ({qtdOutrasDoGrupo + 1} lojas)
+                  </Chip>
+                  <Chip variant="toggle" role="radio" aria-checked={priceSoDaLoja} active={priceSoDaLoja} onClick={() => setPriceSoDaLoja(true)}>
+                    Só esta loja
+                  </Chip>
+                </div>
               )}
             </Field>
 

@@ -12,7 +12,7 @@ import { usePersistedState } from './usePersistedState';
 import { isClienteAtivo } from '../utils/formatters';
 import { clienteStatusCor, riscoIACor } from '../utils/badges';
 import {
-  buildFilaCadencia, ehEntrega, ehServicoDeReuniao, itensVencendo, type ServicoCad,
+  buildFilaCadencia, comPrecificacaoDoGrupo, ehEntrega, ehServicoDeReuniao, itensVencendo, type ServicoCad,
 } from '../utils/cadenciaServico';
 import { mesesComDados } from '../utils/periodo';
 import { calcularIndicadoresPrazo, LIMIAR_SEM_ACOMPANHAMENTO_DIAS, recortarAte } from '../utils/indicadoresPrazo';
@@ -530,14 +530,14 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   // acompanhamento" com o que já está marcado, pra não cobrar quem já tem reunião.
   const proximaPorCliente = useMemo(() => {
     const m = new Map<string, EventoAgenda>();
-    for (const a of agendaPorMonitor) {
+    for (const a of comPrecificacaoDoGrupo(agendaPorMonitor, clientes)) {
       if (!aindaVai(a) || /relat/i.test(a.type || '')) continue;
       const atual = m.get(a.clientId);
       if (!atual || chaveOrdem(a) < chaveOrdem(atual)) m.set(a.clientId, a);
     }
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agendaPorMonitor]);
+  }, [agendaPorMonitor, clientes]);
 
   // --- Alertas de acompanhamento (reunião OU ação concluída) ---
   const alertas = prazo.semAcompanhamento;

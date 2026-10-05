@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildFilaCadencia,
+  comPrecificacaoDoGrupo,
   classificarCadencia,
   contatoRecenteNaoRefletido,
   rotuloRelogio,
@@ -387,5 +388,27 @@ describe('buildFilaCadencia — precificação vale pro grupo', () => {
   it('Ação de Price concluída numa loja também vale pro grupo', () => {
     const fila = buildFilaCadencia([recreio, gm], [], [acao({ clientId: 'a1', tipo: 'price' })], CADENCIAS, NOW);
     expect(price(fila.find((f) => f.cliente.id === 'a2')!).statusReal).toBe('em_dia');
+  });
+});
+
+describe('comPrecificacaoDoGrupo', () => {
+  const recreio = cliente({ id: 'a1', empresa: 'Altese - Recreio', grupo: 'Altese' });
+  const gm = cliente({ id: 'a2', empresa: 'Altese - GM', grupo: 'Altese' });
+  const solo = cliente({ id: 's1', empresa: 'Solo' });
+
+  it('copia a precificação pra cada loja-irmã, apontando pra original', () => {
+    const p = evento({ id: 'p1', clientId: 'a1', clientName: 'Altese - Recreio', type: 'Precificação', servicos: ['Precificação'] });
+    const r = comPrecificacaoDoGrupo([p], [recreio, gm, solo]);
+    expect(r).toHaveLength(2);
+    expect(r[1]).toMatchObject({ id: 'p1@a2', clientId: 'a2', clientName: 'Altese - GM', doGrupo: { origemId: 'p1', lojaOrigem: 'Altese - Recreio' } });
+  });
+
+  it('não copia: só da loja, evento que não é Price, loja sem grupo, e não recopia a cópia', () => {
+    const soLoja = evento({ id: 'p1', clientId: 'a1', type: 'Precificação', escopoPrice: 'loja' });
+    const monitoria = evento({ id: 'm1', clientId: 'a1', type: 'Reunião', servicos: ['Monitoria'] });
+    const daSolo = evento({ id: 'p2', clientId: 's1', type: 'Precificação' });
+    expect(comPrecificacaoDoGrupo([soLoja, monitoria, daSolo], [recreio, gm, solo])).toHaveLength(3);
+    const umaVez = comPrecificacaoDoGrupo([evento({ id: 'p3', clientId: 'a1', type: 'Precificação' })], [recreio, gm]);
+    expect(comPrecificacaoDoGrupo(umaVez.slice(1), [recreio, gm])).toHaveLength(1);
   });
 });

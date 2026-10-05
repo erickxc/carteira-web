@@ -8,6 +8,11 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.5.4
+
+- Precificação de loja de grupo agora conta como atendimento de todas as lojas e aparece no histórico de cada uma, marcada como "do grupo".
+- Ao salvar uma precificação de loja de grupo, escolha "Grupo" ou "Só esta loja".
+
 ## 1.5.3
 
 - Precificação de uma loja de grupo (ex.: Altese) agora vale para todas as lojas do grupo — inclusive a agendada. Quando for só daquela loja, é só desmarcar a opção no evento.
