@@ -12,6 +12,8 @@ interface AderenciaCardProps {
   total: number;
   emDia: number;
   anterior: { emDia: number; total: number };
+  /** Atendimentos com a próxima entrega já marcada (em dia ou não). */
+  marcadas: number;
   rotuloAnterior: string;
   filtroServico: FiltroServico;
   onFiltroServico: (s: FiltroServico) => void;
@@ -25,7 +27,7 @@ interface AderenciaCardProps {
  * serviços no prazo (filtrado por serviço: só aquele). A quebra de quem está fora
  * do prazo é informativa e não muda o número principal. */
 export function AderenciaCard({
-  total, emDia,
+  total, emDia, marcadas,
   anterior, rotuloAnterior, filtroServico, onFiltroServico, grupos, linhas, onAbrirCliente,
 }: AderenciaCardProps) {
   const regra = `Em dia = ${filtroServico === 'Todos' ? 'todos os serviços do atendimento' : `o prazo de ${filtroServico}`} dentro do prazo (Monitoria 30 dias, Price 15). Só entrega concluída com o serviço marcado zera o prazo; contato e reunião futura não contam.`;
@@ -46,7 +48,10 @@ export function AderenciaCard({
         <>
           <p className="kpi-valor-grande">{emDia} <span className="kpi-denominador">de {total} em dia</span></p>
           <Medidor n={emDia} total={total} rotulo="atendimentos em dia" />
-          <Comparacao atual={emDia} anterior={anterior.total > 0 ? anterior.emDia : null} subirEhBom rotulo={rotuloAnterior} />
+          <div className="kpi-linha">
+            <Comparacao atual={emDia} anterior={anterior.total > 0 ? anterior.emDia : null} subirEhBom rotulo={rotuloAnterior} />
+            {marcadas > 0 && <span className="text-text-muted" style={{ fontSize: 12 }}>{marcadas} com entrega marcada</span>}
+          </div>
           <LegendaGrupos grupos={grupos} linhas={linhas} onAbrirCliente={onAbrirCliente} />
         </>
       )}

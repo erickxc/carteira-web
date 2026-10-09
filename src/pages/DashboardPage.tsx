@@ -178,6 +178,7 @@ export default function DashboardPage() {
         <AderenciaCard
           total={d.aderencia.total}
           emDia={d.aderencia.emDia}
+          marcadas={d.aderencia.emDiaMarcadaClientes.length + d.aderencia.agendaMarcadaClientes.length}
           anterior={d.aderencia.anterior}
           rotuloAnterior={rotuloData}
           filtroServico={d.filtroServicoAderencia}

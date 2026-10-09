@@ -8,6 +8,10 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.5.7
+
+- Ritmo dos atendimentos mais enxuto: legenda numa linha só e o total "com entrega marcada" ao lado da comparação.
+
 ## 1.5.6
 
 - Corrigido: salvar evento ou relatório recorrente dava erro em algumas máquinas.
