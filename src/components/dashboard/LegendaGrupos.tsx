@@ -70,6 +70,7 @@ export function LegendaGrupos({ grupos, linhas, onAbrirCliente }: LegendaGruposP
           onClick={(e) => (aberto?.key === g.key ? setAberto(null) : abrir(g.key, e.currentTarget))}
         >
           <i style={{ background: g.cor }} />{g.label} <strong>{g.itens.length}</strong>
+          {g.sufixo && <span className="text-text-muted"> · {g.sufixo}</span>}
         </button>
       ))}
       {aberto && grupo && createPortal(

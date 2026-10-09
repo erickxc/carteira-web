@@ -1,6 +1,8 @@
 const express = require('express');
 const { repoPlanilha } = require('../dominio/repo.cjs');
-const seriesDominio = require('../dominio/agendaSeries.cjs');
+const { isClient } = require('../modo.cjs');
+const { aplicarOverlay } = require('../fila/pendentes.cjs');
+const { executarMutacao } = require('../fila/mutacao.cjs');
 const { datasNoIntervalo, parseDataLocal } = require('../regraRecorrencia.cjs');
 const { validar, agendaSerieCreateSchema, agendaSerieUpdateSchema } = require('../validation.cjs');
 
@@ -8,11 +10,12 @@ const router = express.Router();
 const repo = repoPlanilha();
 
 router.get('/', (req, res) => {
-  res.json(repo.get('AgendaSeries'));
+  const dados = repo.get('AgendaSeries');
+  res.json(isClient ? aplicarOverlay('AgendaSeries', dados) : dados);
 });
 
 router.post('/', validar(agendaSerieCreateSchema), (req, res) => {
-  res.json(seriesDominio.criar(repo, req.body));
+  res.json(executarMutacao('agendaSeries', 'create', { payload: req.body }));
 });
 
 // Preview de datas ANTES de salvar — o formulário mostra "vai criar em: ..."
@@ -34,13 +37,13 @@ router.post('/preview', (req, res) => {
 });
 
 router.put('/:id', validar(agendaSerieUpdateSchema), (req, res) => {
-  const updated = seriesDominio.atualizar(repo, req.params.id, req.body);
+  const updated = executarMutacao('agendaSeries', 'update', { id: req.params.id, patch: req.body });
   if (!updated) return res.status(404).json({ error: 'Série não encontrada.' });
   res.json(updated);
 });
 
 router.delete('/:id', (req, res) => {
-  const found = seriesDominio.remover(repo, req.params.id);
+  const found = executarMutacao('agendaSeries', 'delete', { id: req.params.id });
   if (!found) return res.status(404).json({ error: 'Série não encontrada.' });
   res.json({ success: true });
 });

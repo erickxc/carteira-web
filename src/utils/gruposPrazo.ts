@@ -13,6 +13,8 @@ export interface GrupoPrazo {
   cor: string;
   /** Uma frase: o que coloca um atendimento neste grupo. */
   descricao: string;
+  /** Texto curto depois do número na legenda (ex.: "2 marcadas"). */
+  sufixo?: string;
   itens: ItemPrazo[];
   /** A última coluna é sempre "Última entrega". */
   colunas: Coluna[];
@@ -45,7 +47,7 @@ const colMarcada: Coluna = { titulo: 'Marcada', valor: (l) => (l.proxima ? { tex
 const colContato: Coluna = { titulo: 'Contato', valor: (l) => (l.ultimoContato ? { texto: dm(l.ultimoContato), tom: 'neutra' } : VAZIO) };
 
 interface Entrada {
-  ritmo: { emDia: ItemPrazo[]; agendaMarcada: ItemPrazo[]; contatoRecente: ItemPrazo[]; precisa: ItemPrazo[] };
+  ritmo: { emDia: ItemPrazo[]; emDiaMarcada: ItemPrazo[]; agendaMarcada: ItemPrazo[]; contatoRecente: ItemPrazo[]; precisa: ItemPrazo[] };
   cobertura: { cobertos: ItemPrazo[]; semContato: ItemPrazo[] };
   servicos: { servico: ServicoCad; descobertos: ItemPrazo[] }[];
   /** Recorte do Ritmo: quais prazos mostrar nas colunas. */
@@ -54,7 +56,7 @@ interface Entrada {
   hoje: Date;
 }
 
-interface GrupoBase { key: string; label: string; cor: string; descricao: string; itens: ItemPrazo[]; colunas: Coluna[] }
+interface GrupoBase { key: string; label: string; cor: string; descricao: string; sufixo?: string; itens: ItemPrazo[]; colunas: Coluna[] }
 
 /** Grupos das legendas dos cards de prazo, por card. */
 export function montarGruposPrazo(e: Entrada): Record<'ritmo' | 'cobertura' | 'servico', GrupoPrazo[]> {
@@ -78,8 +80,14 @@ export function montarGruposPrazo(e: Entrada): Record<'ritmo' | 'cobertura' | 's
   });
   return {
     ritmo: [
-      grupo({ key: 'ritmo-emdia', label: 'em dia', cor: 'var(--success)', descricao: 'Todos os prazos em dia.', itens: e.ritmo.emDia, colunas: prazos }),
-      grupo({ key: 'ritmo-reuniao', label: 'reunião marcada', cor: 'var(--warning)', descricao: 'Fora do prazo, mas com a próxima entrega já marcada.', itens: e.ritmo.agendaMarcada, colunas: [...prazos, colMarcada] }),
+      grupo({
+        key: 'ritmo-emdia', label: 'em dia', cor: 'var(--success)',
+        descricao: 'Todos os prazos em dia. "Marcada": próxima entrega já agendada.',
+        sufixo: e.ritmo.emDiaMarcada.length ? `${e.ritmo.emDiaMarcada.length} ${e.ritmo.emDiaMarcada.length === 1 ? 'marcada' : 'marcadas'}` : undefined,
+        itens: e.ritmo.emDia, colunas: [...prazos, colMarcada],
+      }),
+      // Só quem JÁ passou do prazo: "reunião marcada" lia como "quantas reuniões tenho marcadas".
+      grupo({ key: 'ritmo-reuniao', label: 'atrasado, já marcado', cor: 'var(--warning)', descricao: 'Fora do prazo, mas com a próxima entrega já marcada.', itens: e.ritmo.agendaMarcada, colunas: [...prazos, colMarcada] }),
       grupo({ key: 'ritmo-contato', label: 'contato recente', cor: 'var(--warning)', descricao: 'Fora do prazo; houve contato recente, mas contato não conta como entrega.', itens: e.ritmo.contatoRecente, colunas: [...prazos, colContato] }),
       grupo({ key: 'ritmo-semnada', label: 'sem nada', cor: 'var(--danger)', descricao: 'Fora do prazo, sem entrega marcada e sem contato recente.', itens: e.ritmo.precisa, colunas: prazos }),
     ],

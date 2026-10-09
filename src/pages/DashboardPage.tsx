@@ -56,7 +56,7 @@ export default function DashboardPage() {
     : curto(d.mes - 1);
   const janelaCobertura = `${curto(d.mes - 1)} + ${curto(d.mes)}`;
   const grupos = useMemo(() => montarGruposPrazo({
-    ritmo: { emDia: d.aderencia.emDiaClientes, agendaMarcada: d.aderencia.agendaMarcadaClientes, contatoRecente: d.aderencia.contatoRecenteClientes, precisa: d.aderencia.precisaClientes },
+    ritmo: { emDia: d.aderencia.emDiaClientes, emDiaMarcada: d.aderencia.emDiaMarcadaClientes, agendaMarcada: d.aderencia.agendaMarcadaClientes, contatoRecente: d.aderencia.contatoRecenteClientes, precisa: d.aderencia.precisaClientes },
     cobertura: { cobertos: d.cobertura.cobertosClientes, semContato: d.cobertura.semContatoClientes },
     servicos: d.servicosDist.map((s) => ({ servico: s.label as ServicoCad, descobertos: s.descobertosClientes })),
     filtroServico: d.filtroServicoAderencia,

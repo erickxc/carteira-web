@@ -8,6 +8,11 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.5.6
+
+- Corrigido: salvar evento ou relatório recorrente dava erro em algumas máquinas.
+- Ritmo dos atendimentos: "em dia" agora mostra quantos já têm a próxima entrega marcada, e o antigo "reunião marcada" virou "atrasado, já marcado".
+
 ## 1.5.5
 
 - Na agenda, a precificação do grupo aparece com o nome do grupo (ex.: "Altese"), não da loja onde foi salva.

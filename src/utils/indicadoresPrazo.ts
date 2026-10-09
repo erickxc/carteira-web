@@ -36,7 +36,8 @@ export interface LinhaAtendimento {
 }
 
 export interface IndicadoresPrazo {
-  ritmo: { total: number; emDia: ItemPrazo[]; agendaMarcada: ItemPrazo[]; contatoRecente: ItemPrazo[]; precisa: ItemPrazo[] };
+  /** `emDiaMarcada`: subconjunto de `emDia` que já tem a próxima entrega marcada. */
+  ritmo: { total: number; emDia: ItemPrazo[]; emDiaMarcada: ItemPrazo[]; agendaMarcada: ItemPrazo[]; contatoRecente: ItemPrazo[]; precisa: ItemPrazo[] };
   porServico: { servico: ServicoCad; cobertos: ItemPrazo[]; descobertos: ItemPrazo[] }[];
   /** Atendimentos com TODOS os relógios no prazo (sem recorte de serviço). */
   totalEmDia: number;
@@ -69,10 +70,14 @@ export function calcularIndicadoresPrazo(e: EntradaIndicadores): IndicadoresPraz
   const relogiosDo = (f: (typeof fila)[number]) =>
     filtroServico === 'Todos' ? f.relogios : f.relogios.filter((r) => r.servico === filtroServico);
   const relevantes = fila.filter((f) => relogiosDo(f).length > 0);
-  const ritmo = { total: relevantes.length, emDia: [] as ItemPrazo[], agendaMarcada: [] as ItemPrazo[], contatoRecente: [] as ItemPrazo[], precisa: [] as ItemPrazo[] };
+  const ritmo = { total: relevantes.length, emDia: [] as ItemPrazo[], emDiaMarcada: [] as ItemPrazo[], agendaMarcada: [] as ItemPrazo[], contatoRecente: [] as ItemPrazo[], precisa: [] as ItemPrazo[] };
   for (const f of relevantes) {
     const rels = relogiosDo(f);
-    if (atendimentoEmDia({ relogios: rels })) { ritmo.emDia.push(item(f.cliente)); continue; }
+    if (atendimentoEmDia({ relogios: rels })) {
+      ritmo.emDia.push(item(f.cliente));
+      if (rels.some((r) => r.proximo)) ritmo.emDiaMarcada.push(item(f.cliente));
+      continue;
+    }
     if (rels.some((r) => r.status === 'coberto')) { ritmo.agendaMarcada.push(item(f.cliente)); continue; }
     const uc = ultimoContatoRetorno.get(f.cliente.id) ?? null;
     if (uc && contatoRecenteNaoRefletido(f.relogios, uc) && differenceInCalendarDays(now, uc) <= cadencias.recontato_dias) {

@@ -32,6 +32,13 @@ describe('calcularIndicadoresPrazo', () => {
     expect(r.totalEmDia).toBe(1);
   });
 
+  it('Ritmo: em dia com entrega já marcada vai também para emDiaMarcada', () => {
+    const r = calcular(ativos, [...agenda, ev('emdia', 'Reunião', 'Agendado', -4, ['Monitoria'])]);
+    expect(nomes(r.ritmo.emDia)).toEqual(['emdia']);
+    expect(nomes(r.ritmo.emDiaMarcada)).toEqual(['emdia']);
+    expect(nomes(calcular(ativos, agenda).ritmo.emDiaMarcada)).toEqual([]);
+  });
+
   it('Cobertura por Serviço: base só com relógio do serviço', () => {
     const r = calcular(ativos, agenda);
     const m = r.porServico.find((s) => s.servico === 'Monitoria')!;

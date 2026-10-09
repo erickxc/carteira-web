@@ -14,7 +14,7 @@ describe('gruposPrazo', () => {
 
   it('Serviço usa a última entrega do próprio serviço; toda lista termina em "Última entrega"', () => {
     const g = montarGruposPrazo({
-      ritmo: { emDia: [], agendaMarcada: [], contatoRecente: [], precisa: [] },
+      ritmo: { emDia: [], emDiaMarcada: [], agendaMarcada: [], contatoRecente: [], precisa: [] },
       cobertura: { cobertos: [], semContato: [] },
       servicos: [{ servico: 'Price', descobertos: [{ id: 'a', nome: 'A' }] }],
       filtroServico: 'Todos', janela: 'ago + set', hoje: HOJE,

@@ -471,7 +471,7 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
       pct: r.total > 0 ? Math.round((r.emDia.length / r.total) * 100) : 0,
       emDia: r.emDia.length, agendaMarcada: r.agendaMarcada.length,
       contatoRecente: r.contatoRecente.length, precisa: r.precisa.length,
-      emDiaClientes: r.emDia, agendaMarcadaClientes: r.agendaMarcada,
+      emDiaClientes: r.emDia, emDiaMarcadaClientes: r.emDiaMarcada, agendaMarcadaClientes: r.agendaMarcada,
       contatoRecenteClientes: r.contatoRecente, precisaClientes: r.precisa,
       anterior: { emDia: prazoAnterior.ritmo.emDia.length, total: prazoAnterior.ritmo.total },
     };

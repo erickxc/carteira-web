@@ -6,6 +6,7 @@
  */
 const clientes = require('../dominio/clientes.cjs');
 const agenda = require('../dominio/agenda.cjs');
+const agendaSeries = require('../dominio/agendaSeries.cjs');
 const lembretes = require('../dominio/lembretes.cjs');
 const acoes = require('../dominio/acoes.cjs');
 const modelos = require('../dominio/modelos.cjs');
@@ -26,6 +27,9 @@ const agilSwimlanes = require('../dominio/agilSwimlanes.cjs');
 const ENTIDADES = {
   clientes: { sheet: 'Clientes', dominio: clientes },
   agenda: { sheet: 'Agenda', dominio: agenda },
+  // Séries recorrentes: mesmo bug do Ágil/IA — a rota gravava direto e, em
+  // APP_MODE=client, salvar relatório recorrente dava 500.
+  agendaSeries: { sheet: 'AgendaSeries', dominio: agendaSeries },
   lembretes: { sheet: 'Lembretes', dominio: lembretes },
   acoes: { sheet: 'Acoes', dominio: acoes },
   modelos: { sheet: 'Modelos', dominio: modelos },
