@@ -33,6 +33,10 @@ interface CardClienteProps {
    *  aqui é só o indicador visual pra a reordenação fazer sentido pra quem
    *  olha a tela). */
   nivelRisco?: 'alto' | 'medio' | 'baixo';
+  /** Dias da janela de "contato recente" (Cadências → Aguardando retorno). Com
+   *  contato dentro dela depois do último toque, o card vencido fica num vermelho
+   *  mais fraco e ganha a indicação "Contato recente". */
+  janelaContatoRecente?: number;
   onRegistrar: (clienteId: string, tipo?: AcaoTipo) => void;
   onAgendar: (clienteId: string) => void;
   onConversarAlvos?: (alerta: AlertaAlvos) => void;
@@ -48,6 +52,10 @@ const COR_SEVERIDADE: Record<ClassificacaoCadencia, string | undefined> = {
   vencido: 'var(--danger)', vencendo: 'var(--warning)', em_dia: undefined,
 };
 
+/** Vermelho de "vencido, mas já houve contato recente". */
+const VERMELHO_FRACO = 'color-mix(in srgb, var(--danger) 45%, transparent)';
+const TEXTO_VERMELHO_FRACO = 'color-mix(in srgb, var(--danger) 55%, var(--text-secondary))';
+
 /** Relógio que cobra ação (vs. os que estão resolvidos/cobertos). */
 const pedeAcao = (r: RelogioServico) => r.status === 'vencido' || r.status === 'nunca' || r.status === 'vencendo';
 
@@ -59,7 +67,7 @@ const pedeAcao = (r: RelogioServico) => r.status === 'vencido' || r.status === '
  * relativas ("hoje", "há 12d", "em 5d") para deixar óbvio o que já aconteceu e
  * o que só está agendado. Antes tudo tinha o mesmo peso, dentro de duas caixas
  * cinza aninhadas — muita tinta para pouca informação. */
-export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, historico, produtos, relogios, severidade, alertaAlvos, nivelRisco, onRegistrar, onAgendar, onConversarAlvos }: CardClienteProps) {
+export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, historico, produtos, relogios, severidade, alertaAlvos, nivelRisco, janelaContatoRecente, onRegistrar, onAgendar, onConversarAlvos }: CardClienteProps) {
   // Capturado uma vez no mount, não a cada render — chamar Date.now() direto no
   // corpo do componente é impuro (react-hooks/purity acusa em build).
   const [agora] = useState(() => new Date());
@@ -68,7 +76,12 @@ export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, his
   // buildFilaCadencia pra empurrar o cliente pro fim da própria seção.
   const temContatoRecente = contatoRecenteNaoRefletido(relogios, ultimoContato);
 
-  const corSeveridade = severidade ? COR_SEVERIDADE[severidade] : undefined;
+  const diasContato = ultimoContato ? differenceInCalendarDays(agora, ultimoContato) : null;
+  // Já falamos com o cliente há pouco: continua vencido (contato não zera prazo),
+  // mas com menos urgência visual — o próximo passo é esperar o retorno.
+  const contatoNaJanela = temContatoRecente && diasContato !== null && janelaContatoRecente !== undefined && diasContato <= janelaContatoRecente;
+  const suavizar = contatoNaJanela && severidade === 'vencido';
+  const corSeveridade = suavizar ? VERMELHO_FRACO : severidade ? COR_SEVERIDADE[severidade] : undefined;
   const gratuidade = isGratuidade(c.status);
 
   const semRelogios = !relogios || relogios.length === 0;
@@ -79,11 +92,11 @@ export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, his
   const emDestaque = problemas.length > 0 ? problemas : resolvidos;
   const rebaixados = problemas.length > 0 ? resolvidos : [];
 
-  const dias = ultimoContato ? differenceInCalendarDays(agora, ultimoContato) : null;
-  const textoContato = dias === null
-    ? 'sem contato registrado'
-    : dias === 0 ? 'contato hoje' : dias === 1 ? 'contato ontem' : `contato há ${dias}d`;
-  const linhaSecundaria = [...rebaixados.map(rotuloRelogio), textoContato].join(' · ');
+  const dias = diasContato;
+  const quando = dias === 0 ? 'hoje' : dias === 1 ? 'ontem' : `há ${dias}d`;
+  const textoContato = dias === null ? 'sem contato registrado' : `contato ${quando}`;
+  // Na janela, o contato vira a indicação própria abaixo — não repete aqui.
+  const linhaSecundaria = [...rebaixados.map(rotuloRelogio), ...(contatoNaJanela ? [] : [textoContato])].join(' · ');
 
   return (
     <Card
@@ -136,7 +149,7 @@ export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, his
       {relogios && relogios.length > 0 ? (
         <div
           className="flex flex-col gap-1.5"
-          style={temContatoRecente ? { borderLeft: '2px solid var(--accent)', paddingLeft: '0.6rem' } : undefined}
+          style={temContatoRecente && !contatoNaJanela ? { borderLeft: '2px solid var(--accent)', paddingLeft: '0.6rem' } : undefined}
           title={temContatoRecente ? `Já houve contato depois do último toque de cadência: ${rotuloDataCurto(ultimoContato!, agora)}` : undefined}
         >
           {emDestaque.map((r) => (
@@ -144,7 +157,7 @@ export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, his
               <span className={`acao-dot ${CLASSE_DOT[r.status]}`} />
               <span
                 className="text-[0.88rem]"
-                style={{ color: COR_TEXTO[r.status], fontWeight: pedeAcao(r) ? 600 : 400 }}
+                style={{ color: suavizar && pedeAcao(r) ? TEXTO_VERMELHO_FRACO : COR_TEXTO[r.status], fontWeight: pedeAcao(r) ? 600 : 400 }}
               >
                 {rotuloRelogio(r)}
               </span>
@@ -153,9 +166,16 @@ export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, his
           {/* Relógio por serviço mostra o atraso da CADÊNCIA; esta linha traz o
               que está resolvido + a última interação real (um Contato leve não
               zera o relógio, mas já foi feito). */}
-          <span className="text-[0.76rem] text-text-muted" style={{ paddingLeft: 17 }}>
-            {linhaSecundaria}
-          </span>
+          {contatoNaJanela && (
+            <span className="flex items-center gap-1.5 text-[0.78rem] text-text-secondary" style={{ paddingLeft: 17, fontWeight: 600 }}>
+              <MessageSquare size={12} aria-hidden /> Contato recente · {quando}
+            </span>
+          )}
+          {linhaSecundaria && (
+            <span className="text-[0.76rem] text-text-muted" style={{ paddingLeft: 17 }}>
+              {linhaSecundaria}
+            </span>
+          )}
         </div>
       ) : (
         <div className="flex items-center gap-2 text-[0.82rem] text-text-secondary">

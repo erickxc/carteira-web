@@ -251,6 +251,7 @@ export default function AcoesPage() {
       relogios={f.relogios}
       severidade={classificarCadencia(f)}
       nivelRisco={f.nivelRisco}
+      janelaContatoRecente={cadencias.recontato_dias}
       ultimoContato={info.ult.get(f.cliente.id) ?? null}
       totalReunioes={info.nReun.get(f.cliente.id) ?? 0}
       historico={(itensPorCliente.get(f.cliente.id) ?? []).slice(0, 3)}
