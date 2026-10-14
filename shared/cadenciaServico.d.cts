@@ -117,6 +117,8 @@ export function itensVencendo<F extends { cliente: { empresa?: string }; relogio
 ): { cliente: F['cliente']; relogio: RelogioServico; diasParaVencer: number }[];
 
 export function ehToqueMonitoria(a: EventoCadencia): boolean;
+/** Compromisso futuro confirmado: reunião/precificação não cancelada e não Pendente. */
+export function ehMarcadoConfirmado(a: EventoCadencia): boolean;
 export function ehToquePrice(a: EventoCadencia): boolean;
 
 export function calcularProximoPorServico(

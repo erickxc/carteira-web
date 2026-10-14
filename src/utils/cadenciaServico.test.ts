@@ -412,3 +412,21 @@ describe('comPrecificacaoDoGrupo', () => {
     expect(comPrecificacaoDoGrupo(umaVez.slice(1), [recreio, gm])).toHaveLength(1);
   });
 });
+
+// "Marcado" = compromisso confirmado com o cliente (decisão de 14/10/2026):
+// reunião ou precificação com status de agendamento. Pendente e relatório
+// futuro não cobrem o prazo — relatório só vale quando concluído.
+describe('buildFilaCadencia — o que conta como "marcado"', () => {
+  const futuro = (o: Partial<EventoAgenda>) => evento({ date: new Date(NOW.getTime() + 5 * 86400e3).toISOString(), status: 'Agendado', ...o });
+  const vencido = cliente({ servicos: ['Monitoria'] }); // sem entrega há 365d
+  const statusMon = (agenda: EventoAgenda[]) => buildFilaCadencia([vencido], agenda, [], CADENCIAS, NOW)[0].relogios[0].status;
+
+  it('reunião Agendado cobre', () => expect(statusMon([futuro({ type: 'Reunião' })])).toBe('coberto'));
+  it('reunião Pendente não cobre', () => expect(statusMon([futuro({ type: 'Reunião', status: 'Pendente' })])).not.toBe('coberto'));
+  it('relatório futuro não cobre', () => expect(statusMon([futuro({ type: 'Relatório' })])).not.toBe('coberto'));
+  it('precificação Agendado cobre o Price', () => {
+    const c = cliente({ servicos: ['Precificação'] });
+    const [f] = buildFilaCadencia([c], [futuro({ type: 'Precificação', servicos: ['Precificação'] })], [], CADENCIAS, NOW);
+    expect(f.relogios[0].status).toBe('coberto');
+  });
+});

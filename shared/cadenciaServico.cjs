@@ -157,6 +157,15 @@ function ehIndependente(c, re) {
 }
 
 const naoCancelado = (a) => !/cancel|reagend/i.test(a.status || '');
+
+/**
+ * "Marcado" = compromisso CONFIRMADO com o cliente: reunião ou precificação
+ * futura, não cancelada e não Pendente (Pendente = o cliente ainda não
+ * confirmou). Relatório futuro não conta: é entrega da 2D e só vale quando
+ * concluído (decisão do usuário, 14/10/2026 — os relatórios da recorrência
+ * tiravam da cobrança quem nunca teve nada confirmado).
+ */
+const ehMarcadoConfirmado = (a) => naoCancelado(a) && !/pendente/i.test(a.status || '') && !/relat/i.test(a.type || '');
 /** Evento que de fato aconteceu. "Agendado"/"Pendente" no passado não conta. */
 const ehConcluido = (a) => /conclu|realiz/i.test(a.status || '');
 
@@ -194,7 +203,7 @@ function ehToquePrice(a) {
 function calcularProximoPorServico(eventos, ehToque, now) {
   let proximo = null;
   for (const a of eventos) {
-    if (!naoCancelado(a) || !ehToque(a)) continue;
+    if (!ehMarcadoConfirmado(a) || !ehToque(a)) continue;
     const d = parseISO(a.date);
     if (isNaN(d.getTime())) continue;
     const dias = differenceInCalendarDays(d, now);
@@ -540,6 +549,7 @@ exports.ehAvisoDeCancelamento = ehAvisoDeCancelamento;
 exports.temServico = temServico;
 exports.ehIndependente = ehIndependente;
 exports.naoCancelado = naoCancelado;
+exports.ehMarcadoConfirmado = ehMarcadoConfirmado;
 exports.ehConcluido = ehConcluido;
 exports.ehEntrega = ehEntrega;
 exports.relogioNoPrazo = relogioNoPrazo;

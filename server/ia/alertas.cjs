@@ -1,4 +1,5 @@
 const { buscarVencendo, buscarAlertasSemAcompanhamento, isClienteAtivo, comPrecificacaoDoGrupo } = require('../dominio/cadenciaServico.cjs');
+const { ehMarcadoConfirmado } = require('../../shared/cadenciaServico.cjs');
 const { lerCadencias } = require('./tools.cjs');
 const { lerDossieCliente } = require('./analisesAutomaticas.cjs');
 
@@ -44,10 +45,9 @@ function clientesComEventoFuturo(agenda, agora) {
   const comFuturo = new Set();
   for (const ev of agenda) {
     if (!ev.date || String(ev.date).slice(0, 10) < hoje) continue;
-    // Cancelado/reagendado não conta como compromisso de pé — mesma
-    // classificação por regex do resto do app (`EventoStatus` é texto livre,
-    // configurável em Categorias).
-    if (/cancel|reagend/i.test(ev.status || '')) continue;
+    // Mesma regra de "marcado" do motor: reunião/precificação confirmada.
+    // Pendente, cancelado e relatório futuro não contam como compromisso de pé.
+    if (!ehMarcadoConfirmado(ev)) continue;
     comFuturo.add(String(ev.clientId));
   }
   return comFuturo;
