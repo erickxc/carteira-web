@@ -53,8 +53,9 @@ const COR_SEVERIDADE: Record<ClassificacaoCadencia, string | undefined> = {
 };
 
 /** Vermelho de "vencido, mas já houve contato recente". */
-const VERMELHO_FRACO = 'color-mix(in srgb, var(--danger) 45%, transparent)';
-const TEXTO_VERMELHO_FRACO = 'color-mix(in srgb, var(--danger) 55%, var(--text-secondary))';
+// Contraste de propósito: 45% ficava indistinguível do vencido normal (visto em uso).
+const VERMELHO_FRACO = 'color-mix(in srgb, var(--danger) 30%, transparent)';
+const TEXTO_VERMELHO_FRACO = 'color-mix(in srgb, var(--danger) 35%, var(--text-muted))';
 
 /** Relógio que cobra ação (vs. os que estão resolvidos/cobertos). */
 const pedeAcao = (r: RelogioServico) => r.status === 'vencido' || r.status === 'nunca' || r.status === 'vencendo';
@@ -154,7 +155,10 @@ export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, his
         >
           {emDestaque.map((r) => (
             <span key={r.servico} className="flex items-center gap-2">
-              <span className={`acao-dot ${CLASSE_DOT[r.status]}`} />
+              <span
+                className={`acao-dot ${CLASSE_DOT[r.status]}`}
+                style={suavizar && pedeAcao(r) ? { background: TEXTO_VERMELHO_FRACO, boxShadow: 'none' } : undefined}
+              />
               <span
                 className="text-[0.88rem]"
                 style={{ color: suavizar && pedeAcao(r) ? TEXTO_VERMELHO_FRACO : COR_TEXTO[r.status], fontWeight: pedeAcao(r) ? 600 : 400 }}
@@ -167,7 +171,7 @@ export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, his
               que está resolvido + a última interação real (um Contato leve não
               zera o relógio, mas já foi feito). */}
           {contatoNaJanela && (
-            <span className="flex items-center gap-1.5 text-[0.78rem] text-text-secondary" style={{ paddingLeft: 17, fontWeight: 600 }}>
+            <span className="flex items-center gap-1.5 text-[0.8rem]" style={{ paddingLeft: 17, fontWeight: 600, color: 'var(--accent-fg)' }}>
               <MessageSquare size={12} aria-hidden /> Contato recente · {quando}
             </span>
           )}

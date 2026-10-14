@@ -8,6 +8,10 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.5.9
+
+- Ações: o card vencido com contato recente ficou bem mais fácil de distinguir (vermelho apagado e "Contato recente" em destaque).
+
 ## 1.5.8
 
 - Ações: card vencido com contato nos últimos dias fica num vermelho mais fraco e mostra "Contato recente".
