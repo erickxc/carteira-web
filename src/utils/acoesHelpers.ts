@@ -1,5 +1,6 @@
 import { differenceInCalendarDays, format } from 'date-fns';
 import type { AcaoTipo } from '../types';
+import { contatoRecenteNaoRefletido, type RelogioServico } from './cadenciaServico';
 import type { BadgeVariant } from '../ui';
 
 /** Item unificado do histórico: reunião (agenda) OU ação registrada. */
@@ -62,4 +63,18 @@ export function sugestoes(ult: Date | null): AcaoTipo[] {
   if (dias > 45) return ['reuniao', 'relatorio'];
   if (dias > 30) return ['reuniao'];
   return ['relatorio'];
+}
+
+/**
+ * "Aguardando retorno": algum prazo cobra ação, mas já houve contato depois do
+ * último toque, dentro da janela de Cadências → Aguardando retorno. Contato não
+ * zera prazo; só muda o próximo passo (esperar a resposta, não cobrar de novo).
+ * Mesma regra no card e na separação da fila em AcoesPage.
+ */
+export function aguardandoRetorno(
+  relogios: RelogioServico[] | undefined, ultimoContato: Date | null, janelaDias: number | undefined, agora: Date = new Date(),
+): boolean {
+  if (!relogios || !ultimoContato || janelaDias === undefined) return false;
+  const pede = relogios.some((r) => r.status === 'vencido' || r.status === 'nunca' || r.status === 'vencendo');
+  return pede && contatoRecenteNaoRefletido(relogios, ultimoContato) && differenceInCalendarDays(agora, ultimoContato) <= janelaDias;
 }

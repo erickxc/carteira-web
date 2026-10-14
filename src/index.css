@@ -1265,17 +1265,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 0.85rem;
 }
-.acao-card { padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.85rem; border-radius: 16px; }
-.acao-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
-.acao-tipo {
-  flex-shrink: 0;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-.acao-card-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
 
 /* --- Agenda: quadro grande com drag & drop --- */
 .agenda-board { padding: 1.4rem 1.5rem; }
@@ -1626,29 +1616,88 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 }
 .tabs-sub .tab.is-active { border-color: var(--accent); color: #000; }
 
-/* cards de acompanhamento (parte 4) */
-.acao-card {
-  gap: 0.8rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  border-left: 4px solid var(--border);
+/* Card da fila de Ações (CardCliente): o número de dias de cada prazo é o
+   elemento principal; a cor vai só no número e no ícone de risco. */
+.acard {
+  display: flex; flex-direction: column; gap: 0.75rem;
+  padding: 0.95rem 1.05rem 0.9rem;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  min-width: 0;
 }
-.acao-card-head { gap: 0.6rem; }
-.acao-card-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.acao-card-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  padding: 0.6rem 0.75rem;
-  background: var(--card-hover);
-  border-radius: 10px;
-  border: 1px solid var(--border);
+.acard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+.acard-ident { min-width: 0; }
+.acard-nome {
+  display: block; font-size: 0.98rem; font-weight: 600; color: var(--text-primary);
+  text-decoration: none; letter-spacing: -0.01em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.acao-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; box-shadow: 0 0 0 3px transparent; }
-.acao-dot.is-ok { background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 18%, transparent); }
-.acao-dot.is-warn { background: var(--warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 18%, transparent); }
-.acao-dot.is-danger { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent); }
+.acard-nome:hover { text-decoration: underline; text-underline-offset: 3px; }
+.acard-nome:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.acard-meta { margin: 0.15rem 0 0; font-size: 0.74rem; color: var(--text-muted); }
+.acard-risco { flex-shrink: 0; display: inline-flex; padding-top: 1px; cursor: help; }
+.acard-risco[data-risco="alto"] { color: var(--danger); }
+.acard-risco[data-risco="medio"] { color: var(--warning); }
+.acard-risco[data-risco="baixo"] { color: var(--success); }
+
+.acard-prazos { margin: 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.acard-prazo { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding: 0.55rem 0; }
+.acard-prazo + .acard-prazo { border-top: 1px dashed var(--border); }
+.acard-prazo dt { font-size: 0.84rem; font-weight: 600; color: var(--text-secondary); }
+.acard-prazo dd { margin: 0; display: flex; align-items: baseline; gap: 0.4rem; }
+.acard-prazo strong {
+  font-size: 1.85rem; font-weight: 650; line-height: 1; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; color: var(--text-primary);
+}
+.acard-prazo dd span { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+.acard-prazo[data-tom="atrasado"] strong, .acard-prazo[data-tom="atrasado"] dd span { color: var(--danger-fg); }
+.acard-prazo[data-tom="vence"] strong, .acard-prazo[data-tom="vence"] dd span { color: var(--warning-fg); }
+.acard-prazo[data-tom="aguardando"] strong { color: var(--text-muted); }
+.acard-prazo[data-tom="aguardando"] dd span { color: var(--accent-fg); }
+.acard-prazo[data-tom="ok"] dd span { font-weight: 500; }
+
+.acard-servicos { margin: 0; font-size: 0.82rem; color: var(--text-secondary); }
+.acard-contato { margin: 0; font-size: 0.76rem; color: var(--text-muted); }
+.acard-cancelado { color: var(--danger-fg); }
+
+.acard-alvos { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; color: var(--warning-fg); }
+
+.acard-acoes { display: flex; align-items: center; gap: 0.45rem; margin-top: auto; }
+.acard-btn { padding: 0.38rem 0.7rem; font-size: 0.8rem; }
+.acard-link {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  background: none; border: 0; padding: 0.3rem 0.2rem; cursor: pointer;
+  font: inherit; font-size: 0.78rem; font-weight: 500; color: var(--accent-fg);
+  border-radius: 4px; white-space: nowrap;
+}
+.acard-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.acard-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.acard-sugestao { margin-left: auto; }
+
+/* Barra da fila: visão (Precisam de ação / Em dia) à esquerda, serviço à direita. */
+.acoes-barra { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.85rem; }
+.acoes-visao { display: flex; align-items: center; gap: 0.5rem; }
+.acoes-servico { margin: 0; }
+
+/* Cabeçalho de seção da fila de Ações (CabecalhoSecao). */
+.secao-acao {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.35rem 0.6rem;
+  margin: 0 0 0.85rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--border);
+  --tom-fg: var(--text-secondary); --tom-bg: var(--card-hover);
+}
+.secao-acao[data-tom="perigo"] { --tom-fg: var(--danger-fg); --tom-bg: var(--danger-bg); }
+.secao-acao[data-tom="atencao"] { --tom-fg: var(--warning-fg); --tom-bg: var(--warning-bg); }
+.secao-acao[data-tom="aguardando"] { --tom-fg: var(--accent-fg); --tom-bg: var(--accent-soft); }
+.secao-acao[data-tom="ok"] { --tom-fg: var(--success-fg); --tom-bg: var(--success-bg); }
+.secao-acao-titulo { margin: 0; font-size: 1.1rem; font-weight: 650; letter-spacing: -0.01em; color: var(--text-primary); }
+.secao-acao-qtd {
+  align-self: center; min-width: 1.6rem; padding: 0.05rem 0.5rem; border-radius: 999px; text-align: center;
+  font-size: 0.78rem; font-weight: 650; font-variant-numeric: tabular-nums;
+  color: var(--tom-fg); background: var(--tom-bg);
+}
+.secao-acao-sub { font-size: 0.8rem; color: var(--text-muted); }
+.secao-acao-n2 { border-bottom: 0; padding-bottom: 0; margin-bottom: 0.6rem; }
+.secao-acao-n2 .secao-acao-titulo { font-size: 0.92rem; font-weight: 600; }
+.section + .section > .secao-acao { margin-top: 1rem; }
 /* Toggle aumento/queda do "Registro da Monitoria" (ProdutosSituacaoField). */
 .direcao-toggle-btn {
   display: flex; align-items: center; justify-content: center;
@@ -1660,11 +1709,6 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .direcao-toggle-btn.is-active-aumento { color: var(--success); border-color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
 .direcao-toggle-btn.is-active-manteve { color: var(--text-primary); border-color: var(--text-secondary); background: var(--card-hover); }
 .direcao-toggle-btn.is-active-queda { color: var(--danger); border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
-/* Vários relógios (cadência por serviço) empilhados dentro do card. */
-.acao-card-info.is-stack { flex-direction: column; align-items: stretch; gap: 7px; }
-.acao-clock { display: flex; align-items: center; gap: 8px; }
-.acao-card-actions { padding-top: 0.7rem; border-top: 1px solid var(--border); }
-.acao-card-actions > button { flex: 1; justify-content: center; }
 
 /* --- Barra de filtros (controle único padronizado) --- */
 .filter-ctl {

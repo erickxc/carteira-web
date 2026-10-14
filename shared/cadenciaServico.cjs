@@ -514,7 +514,10 @@ function rotuloRelogio(r) {
     case 'coberto': return `${r.servico} coberta · ${r.proximo ? curto(r.proximo) : ''}`.trim();
     case 'nunca': return `${r.servico}: nunca atendido`;
     case 'vencido': return `${r.servico} vencida há ${r.atraso}d`;
-    case 'vencendo': return `${r.servico} vence em ${Math.max(0, -r.atraso)}d`;
+    case 'vencendo': {
+      const dias = Math.max(0, -r.atraso);
+      return dias === 0 ? `${r.servico} vence hoje` : `${r.servico} vence em ${dias}d`;
+    }
     default: return `${r.servico} em dia`;
   }
 }

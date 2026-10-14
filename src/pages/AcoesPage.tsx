@@ -7,6 +7,8 @@ import { useCarteira } from '../context/CarteiraContext';
 import { AcaoFormModal } from '../components/AcaoFormModal';
 import { Dropdown } from '../components/Dropdown';
 import { CardCliente } from '../components/acoes/CardCliente';
+import { InfoComoConta } from '../components/dashboard/Comparacao';
+import { CabecalhoSecao, type TomSecao } from '../components/acoes/Grupo';
 import { Grupo } from '../components/acoes/Grupo';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -14,7 +16,7 @@ import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
 import { buildFilaCadencia, classificarCadencia, comPrecificacaoDoGrupo, type FilaCadItem } from '../utils/cadenciaServico';
 import { confirmDialog } from '../utils/confirmDialog';
 import { eventoStatusBadge, isAtendidoMarco } from '../utils/badges';
-import { ordenarPorProximidade, type Item } from '../utils/acoesHelpers';
+import { aguardandoRetorno, ordenarPorProximidade, type Item } from '../utils/acoesHelpers';
 import { buscarAlertasAlvos, type AlertaAlvos } from '../api/client';
 import { Badge, Button, Card, Chip, Tabs, Td, Th, type BadgeVariant } from '../ui';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../types';
@@ -206,11 +208,17 @@ export default function AcoesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filaCadencia, debouncedAcCliente, acMonitores, acLocais, acProduto]
   );
-  const nPrecisaAcao = useMemo(() => filaVisivel.filter((f) => f.precisaAcao).length, [filaVisivel]);
   // Grupos por CADÊNCIA (mesmo motor da fila) — fonte única pros dois botões
   // (contagem do badge) e pro conteúdo de cada aba, sem duplicar o cálculo.
-  const vencidos = useMemo(() => filaVisivel.filter((f) => classificarCadencia(f) === 'vencido'), [filaVisivel]);
-  const vencendo = useMemo(() => filaVisivel.filter((f) => classificarCadencia(f) === 'vencendo'), [filaVisivel]);
+  // "Aguardando retorno" sai de Vencidos/Vencendo e vai pro fim da fila: o
+  // topo fica só com quem precisa de cobrança agora (ver `aguardandoRetorno`).
+  const estaAguardando = useMemo(() => {
+    const agora = new Date();
+    return (f: FilaCadItem) => aguardandoRetorno(f.relogios, info.ult.get(f.cliente.id) ?? null, cadencias.recontato_dias, agora);
+  }, [info, cadencias.recontato_dias]);
+  const vencidos = useMemo(() => filaVisivel.filter((f) => classificarCadencia(f) === 'vencido' && !estaAguardando(f)), [filaVisivel, estaAguardando]);
+  const vencendo = useMemo(() => filaVisivel.filter((f) => classificarCadencia(f) === 'vencendo' && !estaAguardando(f)), [filaVisivel, estaAguardando]);
+  const aguardandoFila = useMemo(() => filaVisivel.filter((f) => classificarCadencia(f) !== 'em_dia' && estaAguardando(f)), [filaVisivel, estaAguardando]);
   const emdia = useMemo(() => filaVisivel.filter((f) => classificarCadencia(f) === 'em_dia'), [filaVisivel]);
   const filtrosAcompanhamentoAtivos = !!debouncedAcCliente.trim() || acMonitores.length > 0 || acLocais.length > 0;
   function limparFiltrosAcompanhamento() { setAcCliente(''); setAcMonitores([]); setAcLocais([]); }
@@ -288,18 +296,33 @@ export default function AcoesPage() {
         </div>
       </div>
 
-      <Tabs style={{ margin: '1.25rem 0 2rem' }}>
+      <Tabs style={{ margin: '1rem 0 1.1rem' }}>
         <button className={`tab${aba === 'acompanhamento' ? ' is-active' : ''}`} onClick={() => setAba('acompanhamento')}>Acompanhamento</button>
         <button className={`tab${aba === 'acoes' ? ' is-active' : ''}`} onClick={() => setAba('acoes')}>Ações</button>
       </Tabs>
 
       {aba === 'acompanhamento' ? (
         <>
-          <Tabs className="tabs-sub" style={{ marginTop: '0.25rem', marginBottom: '1.25rem' }}>
-            <button className={`tab${acProduto === 'Monitoria' ? ' is-active' : ''}`} onClick={() => setAcProduto('Monitoria')}>Monitoria</button>
-            <button className={`tab${acProduto === 'Price' ? ' is-active' : ''}`} onClick={() => setAcProduto('Price')}>Price</button>
-            <button className={`tab${acProduto === 'Todos' ? ' is-active' : ''}`} onClick={() => setAcProduto('Todos')}>Todos</button>
-          </Tabs>
+          <div className="acoes-barra">
+            <div className="acoes-visao">
+              {/* Duas visões, mutuamente exclusivas, cobrindo toda a fila visível.
+                  Sem contador aqui: as seções abaixo já contam cada grupo. */}
+              <Chip active={visaoAcompanhamento !== 'emdia'} onClick={() => setVisaoAcompanhamento('precisa')} style={{ padding: '0.45rem 0.85rem', fontSize: '0.85rem' }}>
+                Precisam de ação
+              </Chip>
+              <Chip active={visaoAcompanhamento === 'emdia'} onClick={() => setVisaoAcompanhamento('emdia')} style={{ padding: '0.45rem 0.85rem', fontSize: '0.85rem' }}>
+                Em dia
+              </Chip>
+              <InfoComoConta texto={visaoAcompanhamento === 'emdia'
+                ? `Dentro da cadência (Monitoria ${cadencias.monitoria_dias}d · Price ${cadencias.price_dias}d): ninguém precisa de ação agora; organizado por quem vence primeiro.`
+                : `Fila por cadência por serviço (Monitoria ${cadencias.monitoria_dias}d · Price ${cadencias.price_dias}d): quem está vencido, vencendo ou nunca atendido, sem compromisso marcado que cubra. Do mais atrasado para o menos.`} />
+            </div>
+            <Tabs className="tabs-sub acoes-servico">
+              <button className={`tab${acProduto === 'Monitoria' ? ' is-active' : ''}`} onClick={() => setAcProduto('Monitoria')}>Monitoria</button>
+              <button className={`tab${acProduto === 'Price' ? ' is-active' : ''}`} onClick={() => setAcProduto('Price')}>Price</button>
+              <button className={`tab${acProduto === 'Todos' ? ' is-active' : ''}`} onClick={() => setAcProduto('Todos')}>Todos</button>
+            </Tabs>
+          </div>
 
           <Card flat className="mb-4">
             <div className="filter-grid">
@@ -325,40 +348,6 @@ export default function AcoesPage() {
             )}
           </Card>
 
-          <div className="acoes-toggle flex flex-wrap gap-[0.5rem]" style={{ marginBottom: 20 }}>
-            {/* Duas visões, mutuamente exclusivas, cobrindo toda a fila visível
-                (vencidos+vencendo de um lado, em dia do outro) — antes havia um
-                terceiro modo ("Todos os grupos") que misturava as duas coisas
-                na mesma tela; ficou redundante com as duas abas. */}
-            <Chip
-              active={visaoAcompanhamento !== 'emdia'}
-              onClick={() => setVisaoAcompanhamento('precisa')}
-              style={{ padding: '0.5rem 0.9rem', fontSize: '0.85rem' }}
-            >
-              Precisam de ação{nPrecisaAcao > 0 && (
-                <Badge
-                  variant="plain"
-                  style={{ marginLeft: 6, background: 'var(--accent-contrast)', color: 'var(--accent)', fontWeight: 700 }}
-                >
-                  {nPrecisaAcao}
-                </Badge>
-              )}
-            </Chip>
-            <Chip
-              active={visaoAcompanhamento === 'emdia'}
-              onClick={() => setVisaoAcompanhamento('emdia')}
-              style={{ padding: '0.5rem 0.9rem', fontSize: '0.85rem' }}
-            >
-              Em dia{emdia.length > 0 && (
-                <Badge
-                  variant="plain"
-                  style={{ marginLeft: 6, background: 'var(--accent-contrast)', color: 'var(--accent)', fontWeight: 700 }}
-                >
-                  {emdia.length}
-                </Badge>
-              )}
-            </Chip>
-          </div>
 
           {visaoAcompanhamento === 'emdia' ? (() => {
             // Segmentado por proximidade de vencimento — sem isso, cliente
@@ -368,53 +357,43 @@ export default function AcoesPage() {
             const emdiaPerto = emdia.filter((f) => diasAteVencer(f) <= 7);
             const emdiaMedio = emdia.filter((f) => { const d = diasAteVencer(f); return d > 7 && d <= 15; });
             const emdiaFolga = emdia.filter((f) => diasAteVencer(f) > 15);
-            const subSecao = (titulo: string, itens: FilaCadItem[]) => itens.length === 0 ? null : (
-              <div key={titulo} style={{ marginBottom: 16 }}>
-                <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
-                  <span className="text-text-secondary" style={{ fontSize: 13, fontWeight: 600 }}>{titulo}</span>
-                  <span className="text-text-muted" style={{ fontSize: 12 }}>{itens.length}</span>
-                </div>
+            const subSecao = (titulo: string, itens: FilaCadItem[], tom: TomSecao) => itens.length === 0 ? null : (
+              <div key={titulo} style={{ marginBottom: 20 }}>
+                <CabecalhoSecao titulo={titulo} qtd={itens.length} tom={tom} nivel={2} />
                 <div className="acao-grid">{itens.map(cardDeFila)}</div>
               </div>
             );
             return (
               <div className="section">
-                <p className="text-text-muted" style={{ fontSize: 13, marginBottom: 16 }}>
-                  Dentro da cadência (Monitoria {cadencias.monitoria_dias}d · Price {cadencias.price_dias}d) — nenhum precisa de ação agora, mas organizado por quem vence primeiro.
-                </p>
                 {emdia.length === 0 ? (
                   <Card flat><div className="empty-state">Nenhum cliente em dia com o filtro atual.</div></Card>
                 ) : (
                   <>
-                    {subSecao('Vence em até 7 dias', emdiaPerto)}
-                    {subSecao('Vence em 8–15 dias', emdiaMedio)}
-                    {subSecao('15+ dias / já coberto', emdiaFolga)}
+                    {subSecao('Vence em até 7 dias', emdiaPerto, 'atencao')}
+                    {subSecao('Vence em 8–15 dias', emdiaMedio, 'ok')}
+                    {subSecao('15+ dias / já coberto', emdiaFolga, 'ok')}
                   </>
                 )}
                 <Grupo titulo="Atendidos pelo Marco" sub="fora do modelo de cadência" lista={filtrarOrdenar(marco)} renderCard={renderCard(false)} />
               </div>
             );
           })() : (() => {
-            const secao = (titulo: string, sub: string, itens: FilaCadItem[]) => (
+            // Seção vazia não aparece: título com "0" e um card "Nenhum cliente" só ocupam espaço.
+            const secao = (titulo: string, sub: string, itens: FilaCadItem[], tom: TomSecao) => itens.length === 0 ? null : (
               <div className="section" key={titulo}>
-                <div className="section-header">
-                  <h3>{titulo} <span className="text-text-muted" style={{ fontWeight: 400, fontSize: 13 }}>· {sub}</span></h3>
-                  <span className="text-text-muted" style={{ fontSize: 12 }}>{itens.length}</span>
-                </div>
-                {itens.length === 0 ? <Card flat><div className="empty-state">Nenhum cliente.</div></Card> : <div className="acao-grid">{itens.map(cardDeFila)}</div>}
+                <CabecalhoSecao titulo={titulo} sub={sub} qtd={itens.length} tom={tom} />
+                <div className="acao-grid">{itens.map(cardDeFila)}</div>
               </div>
             );
             return (
               <div className="section">
-                <p className="text-text-muted" style={{ fontSize: 13, marginBottom: 16 }}>
-                  Fila por <strong>cadência por serviço</strong> (Monitoria {cadencias.monitoria_dias}d · Price {cadencias.price_dias}d): quem está vencido, vencendo ou nunca atendido — e sem próximo compromisso que cubra. Do mais vencido para o menos.
-                </p>
-                {vencidos.length === 0 && vencendo.length === 0 ? (
-                  <Card flat><div className="empty-state">Tudo dentro da cadência. 🎉</div></Card>
+                {vencidos.length === 0 && vencendo.length === 0 && aguardandoFila.length === 0 ? (
+                  <Card flat><div className="empty-state">Tudo dentro da cadência.</div></Card>
                 ) : (
                   <>
-                    {secao('Vencidos', 'cadência estourada ou nunca atendido', vencidos)}
-                    {secao('Vencendo', 'perto de vencer', vencendo)}
+                    {secao('Vencidos', 'cadência estourada ou nunca atendido', vencidos, 'perigo')}
+                    {secao('Vencendo', 'perto de vencer', vencendo, 'atencao')}
+                    {secao('Aguardando retorno', `contato nos últimos ${cadencias.recontato_dias} dias; falta a resposta do cliente`, aguardandoFila, 'aguardando')}
                   </>
                 )}
               </div>

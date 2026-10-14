@@ -8,6 +8,14 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.6.0
+
+- Ações com cards novos: o número de dias de cada prazo em destaque ("75d atrasada", "hoje vence", "21d faltam") e o risco como ícone no canto.
+- Nova seção "Aguardando retorno": quem já teve contato recente sai de Vencidos e fica no fim da fila.
+- O botão em destaque agora é o próximo passo: Agendar, ou Registrar retorno.
+- Cliente nunca atendido mostra há quantos dias está sem atendimento.
+- Topo da página mais enxuto, com seções mais claras.
+
 ## 1.5.9
 
 - Ações: o card vencido com contato recente ficou bem mais fácil de distinguir (vermelho apagado e "Contato recente" em destaque).

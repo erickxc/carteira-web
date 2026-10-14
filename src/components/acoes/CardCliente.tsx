@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { differenceInCalendarDays } from 'date-fns';
-import { CalendarPlus, MessageSquare, Plus } from 'lucide-react';
-import { rotuloDataCurto, sugestoes, type Item } from '../../utils/acoesHelpers';
-import { contatoRecenteNaoRefletido, rotuloRelogio, type CadStatus, type ClassificacaoCadencia, type RelogioServico } from '../../utils/cadenciaServico';
-import { isAtendidoMarco, isGratuidade, riscoIACor, riscoIALabel } from '../../utils/badges';
-import { Badge, Button, Card, Chip } from '../../ui';
+import { format } from 'date-fns';
+import { AlertTriangle, CalendarPlus, CircleCheck, MessageSquare, Plus } from 'lucide-react';
+import { aguardandoRetorno, rotuloDataCurto, sugestoes, type Item } from '../../utils/acoesHelpers';
+import type { ClassificacaoCadencia, RelogioServico } from '../../utils/cadenciaServico';
+import { isAtendidoMarco, isGratuidade, riscoIALabel } from '../../utils/badges';
+import { Button } from '../../ui';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../../types';
 import type { AlertaAlvos } from '../../api/client';
 
@@ -17,240 +17,156 @@ interface CardClienteProps {
   /** Últimos itens do histórico (já limitado e ordenado por proximidade de hoje). */
   historico: Item[];
   produtos: string[];
-  /** Relógios de cadência por serviço (fila de priorização). Quando presente,
-   *  substitui a linha "Último contato" pelos status por serviço. */
+  /** Relógios de cadência por serviço (fila de priorização). */
   relogios?: RelogioServico[];
-  /** Classificação pela pior cadência (mesma usada pra agrupar em Vencidos/
-   *  Vencendo/Em dia) — dá a borda esquerda de severidade do card. */
+  /** Pior cadência (a mesma que agrupa em Vencidos/Vencendo/Em dia). */
   severidade?: ClassificacaoCadencia;
-  /** Alerta de "retorno do combinado" (Dados Alvos) pra este cliente, se houver
-   *  — é o que puxa a recomendação de reunião pra dentro da fila de Ações,
-   *  em vez de só aparecer em /clientes. `null`/ausente = sem integração ou
-   *  sem nada a reportar; o card não muda em nada nesse caso. */
+  /** Alerta de "retorno do combinado" (Dados Alvos), se houver. */
   alertaAlvos?: AlertaAlvos | null;
-  /** Nível de risco do dossiê do monitorIA — só exibido quando presente (a
-   *  fila já usa isso como desempate de ordenação, ver `buildFilaCadencia`;
-   *  aqui é só o indicador visual pra a reordenação fazer sentido pra quem
-   *  olha a tela). */
+  /** Risco do dossiê do monitorIA — só na fila de cadência, onde desempata a ordem. */
   nivelRisco?: 'alto' | 'medio' | 'baixo';
-  /** Dias da janela de "contato recente" (Cadências → Aguardando retorno). Com
-   *  contato dentro dela depois do último toque, o card vencido fica num vermelho
-   *  mais fraco e ganha a indicação "Contato recente". */
+  /** Dias da janela de "contato recente" (Cadências → Aguardando retorno). */
   janelaContatoRecente?: number;
   onRegistrar: (clienteId: string, tipo?: AcaoTipo) => void;
   onAgendar: (clienteId: string) => void;
   onConversarAlvos?: (alerta: AlertaAlvos) => void;
 }
 
-const CLASSE_DOT: Record<CadStatus, string> = {
-  vencido: 'is-danger', nunca: 'is-danger', vencendo: 'is-warn', coberto: 'is-ok', em_dia: 'is-ok',
-};
-const COR_TEXTO: Record<CadStatus, string> = {
-  vencido: 'var(--danger)', nunca: 'var(--danger)', vencendo: 'var(--warning)', coberto: 'var(--text-secondary)', em_dia: 'var(--text-secondary)',
-};
-const COR_SEVERIDADE: Record<ClassificacaoCadencia, string | undefined> = {
-  vencido: 'var(--danger)', vencendo: 'var(--warning)', em_dia: undefined,
-};
-
-/** Vermelho de "vencido, mas já houve contato recente". */
-// Contraste de propósito: 45% ficava indistinguível do vencido normal (visto em uso).
-const VERMELHO_FRACO = 'color-mix(in srgb, var(--danger) 30%, transparent)';
-const TEXTO_VERMELHO_FRACO = 'color-mix(in srgb, var(--danger) 35%, var(--text-muted))';
+type Tom = 'atrasado' | 'vence' | 'ok' | 'aguardando';
 
 /** Relógio que cobra ação (vs. os que estão resolvidos/cobertos). */
 const pedeAcao = (r: RelogioServico) => r.status === 'vencido' || r.status === 'nunca' || r.status === 'vencendo';
 
-/** Card de cliente usado em todos os grupos de Acompanhamento (Recorrentes,
- * Sem contato, Marco, Sugestão da semana).
- *
- * Hierarquia "foco no problema": o que cobra ação aparece em destaque; o que
- * está em dia é rebaixado para uma linha discreta, e o histórico usa datas
- * relativas ("hoje", "há 12d", "em 5d") para deixar óbvio o que já aconteceu e
- * o que só está agendado. Antes tudo tinha o mesmo peso, dentro de duas caixas
- * cinza aninhadas — muita tinta para pouca informação. */
-export function CardCliente({ c, comHistorico, ultimoContato, totalReunioes, historico, produtos, relogios, severidade, alertaAlvos, nivelRisco, janelaContatoRecente, onRegistrar, onAgendar, onConversarAlvos }: CardClienteProps) {
-  // Capturado uma vez no mount, não a cada render — chamar Date.now() direto no
-  // corpo do componente é impuro (react-hooks/purity acusa em build).
+/** Nunca atendido: dias desde o cadastro (o motor guarda o atraso já descontada
+ *  a carência de um prazo). Sem data de cadastro (legado) dá 0 → "nunca". */
+const diasSemAtendimento = (r: RelogioServico) => Math.max(0, r.atrasoReal + r.cadencia);
+
+/** O número grande e a palavra ao lado, por prazo: "75d atrasada", "hoje vence", "21d faltam". */
+function leituraPrazo(r: RelogioServico, aguardando: boolean): { valor: string; palavra: string; tom: Tom } {
+  if (aguardando && pedeAcao(r)) {
+    const dias = r.status === 'nunca' ? diasSemAtendimento(r) : Math.max(0, r.atrasoReal);
+    return { valor: dias > 0 ? `${dias}d` : 'nunca', palavra: 'aguardando', tom: 'aguardando' };
+  }
+  switch (r.status) {
+    case 'nunca': {
+      const dias = diasSemAtendimento(r);
+      return dias > 0 ? { valor: `${dias}d`, palavra: 'sem atendimento', tom: 'atrasado' } : { valor: 'nunca', palavra: 'atendida', tom: 'atrasado' };
+    }
+    case 'vencido': return { valor: `${r.atrasoReal}d`, palavra: 'atrasada', tom: 'atrasado' };
+    case 'vencendo': {
+      const dias = Math.max(0, -r.atrasoReal);
+      return dias === 0 ? { valor: 'hoje', palavra: 'vence', tom: 'vence' } : { valor: `${dias}d`, palavra: 'faltam', tom: 'vence' };
+    }
+    case 'coberto': return { valor: r.proximo ? format(r.proximo, 'dd/MM') : '—', palavra: 'marcada', tom: 'ok' };
+    default: return { valor: `${Math.max(0, -r.atrasoReal)}d`, palavra: 'faltam', tom: 'ok' };
+  }
+}
+
+const RISCO_ICONE = { alto: AlertTriangle, medio: AlertTriangle, baixo: CircleCheck } as const;
+
+/**
+ * Card de um atendimento na fila de Ações. O número de dias de cada prazo é o
+ * elemento principal (com uma palavra: atrasada, vence, faltam, aguardando);
+ * o risco do monitorIA é um ícone colorido no canto; embaixo, só o último
+ * contato. O histórico completo fica na ficha do cliente.
+ */
+export function CardCliente({
+  c, comHistorico, ultimoContato, totalReunioes, historico, produtos, relogios,
+  alertaAlvos, nivelRisco, janelaContatoRecente, onRegistrar, onAgendar, onConversarAlvos,
+}: CardClienteProps) {
+  // Capturado uma vez no mount: Date.now() no corpo do componente é impuro.
   const [agora] = useState(() => new Date());
 
-  // Puramente visual aqui (não muda severidade) — mesma regra usada em
-  // buildFilaCadencia pra empurrar o cliente pro fim da própria seção.
-  const temContatoRecente = contatoRecenteNaoRefletido(relogios, ultimoContato);
+  const lista = relogios ?? [];
+  const problemas = lista.filter(pedeAcao);
+  const aguardando = aguardandoRetorno(relogios, ultimoContato, janelaContatoRecente, agora);
 
-  const diasContato = ultimoContato ? differenceInCalendarDays(agora, ultimoContato) : null;
-  // Já falamos com o cliente há pouco: continua vencido (contato não zera prazo),
-  // mas com menos urgência visual — o próximo passo é esperar o retorno.
-  const contatoNaJanela = temContatoRecente && diasContato !== null && janelaContatoRecente !== undefined && diasContato <= janelaContatoRecente;
-  const suavizar = contatoNaJanela && severidade === 'vencido';
-  const corSeveridade = suavizar ? VERMELHO_FRACO : severidade ? COR_SEVERIDADE[severidade] : undefined;
-  const gratuidade = isGratuidade(c.status);
-
-  const semRelogios = !relogios || relogios.length === 0;
-  const problemas = (relogios ?? []).filter(pedeAcao);
-  const resolvidos = (relogios ?? []).filter((r) => !pedeAcao(r));
-  // Sem nenhum problema, os relógios "ok" assumem o destaque — senão o card do
-  // grupo "Em dia" ficaria sem nenhuma informação legível.
-  const emDestaque = problemas.length > 0 ? problemas : resolvidos;
-  const rebaixados = problemas.length > 0 ? resolvidos : [];
-
-  const dias = diasContato;
-  const quando = dias === 0 ? 'hoje' : dias === 1 ? 'ontem' : `há ${dias}d`;
-  const textoContato = dias === null ? 'sem contato registrado' : `contato ${quando}`;
-  // Na janela, o contato vira a indicação própria abaixo — não repete aqui.
-  const linhaSecundaria = [...rebaixados.map(rotuloRelogio), ...(contatoNaJanela ? [] : [textoContato])].join(' · ');
+  const cancelamentos = comHistorico ? historico.filter((i) => /cancel|reagend/i.test(i.statusLabel)).length : 0;
+  const sugestao = comHistorico ? sugestoes(ultimoContato)[0] : undefined;
+  const marcadores = [isGratuidade(c.status) && 'Gratuidade', isAtendidoMarco(c.status) && 'Marco'].filter(Boolean) as string[];
+  const IconeRisco = nivelRisco ? RISCO_ICONE[nivelRisco] : null;
 
   return (
-    <Card
-      flat
-      className="acao-card"
-      style={{
-        ...(corSeveridade ? { borderLeftColor: corSeveridade, borderLeftWidth: 4 } : undefined),
-        ...(gratuidade ? { background: 'var(--gratuidade-pastel-bg)' } : undefined),
-      }}
-    >
-      <div className="acao-card-head">
-        <div style={{ minWidth: 0 }}>
-          <Link
-            className="link-button"
-            style={{ fontWeight: 600, fontSize: '1rem' }}
-            to={`/clientes/${c.id}`}
-            state={{ from: '/acoes', fromLabel: 'Ações' }}
-          >
+    <article className="acard">
+      <header className="acard-head">
+        <div className="acard-ident">
+          <Link className="acard-nome" to={`/clientes/${c.id}`} state={{ from: '/acoes', fromLabel: 'Ações' }}>
             {c.empresa}
           </Link>
-          {(gratuidade || isAtendidoMarco(c.status) || semRelogios) && (
-            <div className="acao-card-badges">
-              {gratuidade && <Badge variant="gratuidade">Gratuidade</Badge>}
-              {isAtendidoMarco(c.status) && <Badge variant="accent">Marco</Badge>}
-              {/* Só quando não há relógios: com eles, as linhas de situação já
-                  dizem "Monitoria ..."/"Price ...", e repetir viraria ruído. */}
-              {semRelogios && produtos.map((p) => <Badge key={p} variant="muted">{p}</Badge>)}
-            </div>
-          )}
+          <p className="acard-meta">{[c.monitor || 'sem monitor', ...marcadores].join(' · ')}</p>
         </div>
-        <div className="flex flex-col items-end gap-1" style={{ flexShrink: 0 }}>
-          {c.monitor
-            ? <Badge variant="muted">{c.monitor}</Badge>
-            : <span className="acao-tipo">sem monitor</span>}
-          {/* Só aparece na fila de cadência (onde a ordenação de fato usa
-              isso como desempate) — as outras listas de Ações (Recorrentes,
-              Sem contato, Marco) não passam `nivelRisco`. */}
-          {nivelRisco && (
-            <span className="flex items-center gap-1.5" title={`Dossiê do monitorIA: ${riscoIALabel(nivelRisco)}`}>
-              <span
-                style={{ width: 7, height: 7, borderRadius: '50%', background: riscoIACor(nivelRisco), flexShrink: 0 }}
-              />
-              <span className="text-[0.72rem] text-text-muted">{riscoIALabel(nivelRisco)}</span>
-            </span>
-          )}
-        </div>
-      </div>
+        {IconeRisco && nivelRisco && (
+          <span className="acard-risco" data-risco={nivelRisco} title={`${riscoIALabel(nivelRisco)} (dossiê do monitorIA)`}>
+            <IconeRisco size={18} strokeWidth={2.2} aria-hidden />
+            <span className="sr-only">{riscoIALabel(nivelRisco)}</span>
+          </span>
+        )}
+      </header>
 
-      {/* Situação: o que cobra ação em destaque, o resto rebaixado numa linha. */}
-      {relogios && relogios.length > 0 ? (
-        <div
-          className="flex flex-col gap-1.5"
-          style={temContatoRecente && !contatoNaJanela ? { borderLeft: '2px solid var(--accent)', paddingLeft: '0.6rem' } : undefined}
-          title={temContatoRecente ? `Já houve contato depois do último toque de cadência: ${rotuloDataCurto(ultimoContato!, agora)}` : undefined}
-        >
-          {emDestaque.map((r) => (
-            <span key={r.servico} className="flex items-center gap-2">
-              <span
-                className={`acao-dot ${CLASSE_DOT[r.status]}`}
-                style={suavizar && pedeAcao(r) ? { background: TEXTO_VERMELHO_FRACO, boxShadow: 'none' } : undefined}
-              />
-              <span
-                className="text-[0.88rem]"
-                style={{ color: suavizar && pedeAcao(r) ? TEXTO_VERMELHO_FRACO : COR_TEXTO[r.status], fontWeight: pedeAcao(r) ? 600 : 400 }}
-              >
-                {rotuloRelogio(r)}
-              </span>
-            </span>
-          ))}
-          {/* Relógio por serviço mostra o atraso da CADÊNCIA; esta linha traz o
-              que está resolvido + a última interação real (um Contato leve não
-              zera o relógio, mas já foi feito). */}
-          {contatoNaJanela && (
-            <span className="flex items-center gap-1.5 text-[0.8rem]" style={{ paddingLeft: 17, fontWeight: 600, color: 'var(--accent-fg)' }}>
-              <MessageSquare size={12} aria-hidden /> Contato recente · {quando}
-            </span>
-          )}
-          {linhaSecundaria && (
-            <span className="text-[0.76rem] text-text-muted" style={{ paddingLeft: 17 }}>
-              {linhaSecundaria}
-            </span>
-          )}
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 text-[0.82rem] text-text-secondary">
-          <span className="acao-dot is-ok" />
-          {ultimoContato
-            ? <>Último contato {rotuloDataCurto(ultimoContato, agora)}{totalReunioes ? ` · ${totalReunioes} reuniões` : ''}</>
-            : 'Sem registro de contato'}
-        </div>
-      )}
-
-      {/* Histórico — uma linha por item, data relativa, sem caixa nem rótulo. */}
-      {comHistorico && (
-        historico.length === 0 ? (
-          <span className="text-[0.78rem] text-text-muted">Nenhuma ação registrada.</span>
-        ) : (
-          <div className="flex flex-col">
-            {historico.map((i) => (
-              <div
-                key={i.key}
-                className="grid grid-cols-[1fr_auto_auto] items-center gap-2 py-1 text-[0.8rem] border-b border-border last:border-b-0"
-              >
-                <span className="text-text-secondary truncate" title={i.obs || i.tipoLabel}>{i.tipoLabel}</span>
-                <span className="text-text-muted tabular-nums">{rotuloDataCurto(i.date, agora)}</span>
-                <Badge variant={i.statusBadge}>{i.statusLabel}</Badge>
+      {lista.length > 0 ? (
+        <dl className="acard-prazos">
+          {lista.map((r) => {
+            const l = leituraPrazo(r, aguardando);
+            return (
+              <div key={r.servico} className="acard-prazo" data-tom={l.tom}>
+                <dt>{r.servico}</dt>
+                <dd>
+                  <strong>{l.valor}</strong>
+                  <span>{l.tom === 'aguardando' && <MessageSquare size={12} aria-hidden />}{l.palavra}</span>
+                </dd>
               </div>
-            ))}
-          </div>
-        )
+            );
+          })}
+        </dl>
+      ) : produtos.length > 0 && (
+        <p className="acard-servicos">{produtos.join(' · ')}</p>
       )}
 
-      {/* Retorno do combinado (Dados Alvos): o que foi pautado numa reunião e
-          não teve movimento depois — é sinal de "precisa de reunião" tão
-          real quanto cadência vencida, só que vem de outra fonte. Fica na
-          própria cor de severidade (warning), sem duplicar o texto: o
-          título já é a pergunta que abriria a conversa. */}
+      <p className="acard-contato">
+        {ultimoContato ? `Último contato ${rotuloDataCurto(ultimoContato, agora)}` : 'Sem contato registrado'}
+        {cancelamentos > 0 && <span className="acard-cancelado"> · {cancelamentos} {cancelamentos === 1 ? 'cancelamento' : 'cancelamentos'}</span>}
+        {lista.length === 0 && totalReunioes > 0 && ` · ${totalReunioes} reuniões`}
+      </p>
+
       {alertaAlvos && (
-        <div className="flex items-center gap-2 text-[0.8rem]" style={{ color: 'var(--warning-fg)' }}>
-          <span className="acao-dot is-warn" />
+        <div className="acard-alvos">
           <span className="truncate" title={alertaAlvos.detalhe}>{alertaAlvos.titulo}</span>
           {onConversarAlvos && (
-            <Button
-              variant="secondary"
-              style={{ padding: '0.15rem 0.5rem', fontSize: 11, flexShrink: 0, marginLeft: 'auto' }}
-              onClick={() => onConversarAlvos(alertaAlvos)}
-            >
-              <MessageSquare size={12} /> Conversar
-            </Button>
+            <button type="button" className="acard-link" onClick={() => onConversarAlvos(alertaAlvos)}>
+              <MessageSquare size={12} aria-hidden /> Conversar
+            </button>
           )}
         </div>
       )}
 
-      {/* Ações — sugestões junto dos botões, em vez de uma seção própria. */}
-      <div className="acao-card-actions">
-        <Button variant="primary" style={{ padding: '0.4rem 0.7rem', fontSize: 13 }} onClick={() => onRegistrar(c.id)}>
-          <Plus size={14} /> Registrar
-        </Button>
-        <Button variant="secondary" style={{ padding: '0.4rem 0.7rem', fontSize: 13 }} onClick={() => onAgendar(c.id)}>
-          <CalendarPlus size={14} /> Agendar
-        </Button>
-        {comHistorico && sugestoes(ultimoContato).map((t) => (
-          <Chip
-            variant="toggle"
-            key={t}
-            className="px-[0.6rem] py-[0.25rem] text-[0.75rem]"
-            style={{ flex: '0 0 auto' }}
-            onClick={() => onRegistrar(c.id, t)}
-          >
-            + {ACAO_TIPO_LABEL[t]}
-          </Chip>
-        ))}
-      </div>
-    </Card>
+      {/* Só o próximo passo leva o botão dourado: agendar quando há prazo a
+          cobrir, registrar o retorno quando já falamos e é esperar a resposta. */}
+      <footer className="acard-acoes">
+        {aguardando ? (
+          <>
+            <Button variant="primary" className="acard-btn" onClick={() => onRegistrar(c.id, 'contato')}>
+              <MessageSquare size={14} aria-hidden /> Registrar retorno
+            </Button>
+            <Button variant="secondary" className="acard-btn" onClick={() => onAgendar(c.id)}>
+              <CalendarPlus size={14} aria-hidden /> Agendar
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button variant={problemas.length > 0 ? 'primary' : 'secondary'} className="acard-btn" onClick={() => onAgendar(c.id)}>
+              <CalendarPlus size={14} aria-hidden /> Agendar
+            </Button>
+            <Button variant="secondary" className="acard-btn" onClick={() => onRegistrar(c.id)}>
+              <Plus size={14} aria-hidden /> Registrar
+            </Button>
+          </>
+        )}
+        {sugestao && (
+          <button type="button" className="acard-link acard-sugestao" onClick={() => onRegistrar(c.id, sugestao)}>
+            + {ACAO_TIPO_LABEL[sugestao]}
+          </button>
+        )}
+      </footer>
+    </article>
   );
 }
