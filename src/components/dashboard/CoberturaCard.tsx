@@ -25,8 +25,8 @@ export function CoberturaCard({ total, cobertos, janela, anterior, rotuloAnterio
     <Card className="kpi-card">
       <div className="section-header">
         <h3>Cobertura dos Atendimentos <InfoComoConta texto={REGRA} /></h3>
-        <span className="text-text-muted" style={{ fontSize: 12 }}>{janela}</span>
       </div>
+      <p className="kpi-controle text-text-muted">Entregas em {janela}</p>
       {total === 0 ? (
         <div className="empty-state">Nenhum atendimento ativo.</div>
       ) : (

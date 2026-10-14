@@ -8,6 +8,11 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.6.2
+
+- Relatório agendado volta a contar como "marcado"; só o evento Pendente (cliente ainda não confirmou) fica de fora.
+- Visão Geral: os três cards de Atendimentos agora ficam alinhados.
+
 ## 1.6.1
 
 - "Marcado" agora é só reunião ou precificação confirmada: evento Pendente e relatório futuro não tiram mais o cliente da cobrança.

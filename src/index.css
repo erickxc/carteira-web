@@ -565,6 +565,11 @@ textarea:focus-visible {
 .kpi-card { padding: 1rem 1.1rem; display: flex; flex-direction: column; }
 .kpi-card .section-header { margin-bottom: 0.55rem; }
 .kpi-card .section-header h3 { display: inline-flex; align-items: center; }
+.kpi-chip { padding: 0.22rem 0.65rem; font-size: 0.76rem; }
+/* Faixa logo abaixo do título, com a MESMA altura em todos os cards da fileira
+   (pílulas, período ou nome do serviço): o número grande começa na mesma linha. */
+.kpi-controle { display: flex; align-items: center; flex-wrap: wrap; gap: 0.3rem; min-height: 30px; margin: 0 0 0.45rem; font-size: 0.78rem; }
+.kpi-servico-nome { color: var(--text-secondary); font-weight: 600; }
 .kpi-info { display: inline-flex; margin-left: 6px; color: var(--text-muted); cursor: help; }
 .kpi-info:hover, .kpi-info:focus-visible { color: var(--text-primary); }
 .kpi-legenda { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.74rem; color: var(--text-secondary); margin-top: 0.35rem; }
@@ -575,7 +580,6 @@ textarea:focus-visible {
 .kpi-linha .kpi-comparacao { margin: 0; }
 /* Os dois serviços lado a lado: o card fica da altura dos vizinhos. */
 .kpi-servicos { display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 0.85rem 1rem; }
-.kpi-servico-nome { font-size: 0.74rem; color: var(--text-secondary); margin: 0 0 0.1rem; }
 /* margin-top auto: "Ver ..." fica no rodapé, alinhado entre os cards da mesma fileira. */
 .kpi-card .gauge-toggle { margin-top: auto; padding-top: 0.6rem; }
 /* Legenda clicável dos cards de prazo: abre o grupo no painel abaixo. */

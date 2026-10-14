@@ -37,9 +37,11 @@ export function AderenciaCard({
         <h3>Atendimentos no Ritmo <InfoComoConta texto={regra} /></h3>
         <span className="text-text-muted" style={{ fontSize: 12 }}>hoje</span>
       </div>
-      <div className="flex flex-wrap gap-[0.35rem] mb-2">
+      {/* Faixa de controle: mesma altura nos três cards da fileira (.kpi-controle),
+          pra número, barra e comparação ficarem alinhados entre eles. */}
+      <div className="kpi-controle">
         {SERVICOS.map((s) => (
-          <Chip key={s} active={filtroServico === s} onClick={() => onFiltroServico(s)}>{s === 'Todos' ? 'Geral' : s}</Chip>
+          <Chip key={s} active={filtroServico === s} onClick={() => onFiltroServico(s)} className="kpi-chip">{s === 'Todos' ? 'Geral' : s}</Chip>
         ))}
       </div>
       {total === 0 ? (

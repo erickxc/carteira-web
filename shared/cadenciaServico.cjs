@@ -159,13 +159,12 @@ function ehIndependente(c, re) {
 const naoCancelado = (a) => !/cancel|reagend/i.test(a.status || '');
 
 /**
- * "Marcado" = compromisso CONFIRMADO com o cliente: reunião ou precificação
- * futura, não cancelada e não Pendente (Pendente = o cliente ainda não
- * confirmou). Relatório futuro não conta: é entrega da 2D e só vale quando
- * concluído (decisão do usuário, 14/10/2026 — os relatórios da recorrência
- * tiravam da cobrança quem nunca teve nada confirmado).
+ * "Marcado" = entrega futura CONFIRMADA: reunião, relatório ou precificação não
+ * cancelada e não Pendente (Pendente = o cliente ainda não confirmou). Decisão
+ * do usuário (14/10/2026): o problema eram as reuniões Pendentes contando como
+ * marcadas; relatório agendado conta.
  */
-const ehMarcadoConfirmado = (a) => naoCancelado(a) && !/pendente/i.test(a.status || '') && !/relat/i.test(a.type || '');
+const ehMarcadoConfirmado = (a) => naoCancelado(a) && !/pendente/i.test(a.status || '');
 /** Evento que de fato aconteceu. "Agendado"/"Pendente" no passado não conta. */
 const ehConcluido = (a) => /conclu|realiz/i.test(a.status || '');
 

@@ -45,8 +45,8 @@ function clientesComEventoFuturo(agenda, agora) {
   const comFuturo = new Set();
   for (const ev of agenda) {
     if (!ev.date || String(ev.date).slice(0, 10) < hoje) continue;
-    // Mesma regra de "marcado" do motor: reunião/precificação confirmada.
-    // Pendente, cancelado e relatório futuro não contam como compromisso de pé.
+    // Mesma regra de "marcado" do motor: entrega confirmada. Pendente e
+    // cancelado não contam como compromisso de pé.
     if (!ehMarcadoConfirmado(ev)) continue;
     comFuturo.add(String(ev.clientId));
   }
