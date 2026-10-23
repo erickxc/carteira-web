@@ -8,6 +8,11 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.6.13
+
+- As vendas dos clientes (Dados Alvos) voltaram a aparecer na Carteira e no monitorIA: o Ecossistema mudou o formato dos arquivos e a Carteira passou a ler o novo.
+- Devolução de mercadoria ao fornecedor não conta mais como venda: produtos que estavam vendendo bem deixam de parecer em queda.
+
 ## 1.6.12
 
 - Na ficha do cliente, a análise do monitorIA vem antes do cadastro.
