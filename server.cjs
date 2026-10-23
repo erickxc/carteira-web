@@ -212,6 +212,7 @@ app.use('/api/atualizacao', require('./server/routes/atualizacao.cjs'));
 app.use('/api/sistema', require('./server/routes/sistemaLocal.cjs'));
 app.use('/api/extensao', require('./server/routes/extensao.cjs'));
 app.use('/api/reunioes', require('./server/routes/reunioes.cjs'));
+app.use('/api/reuniao', require('./server/routes/reuniao.cjs').criarRouterReuniao());
 app.use('/api/ceo-agenda', require('./server/routes/ceoAgenda.cjs'));
 app.use('/api/ia', require('./server/routes/analiseIA.cjs'));
 app.use('/api/alvos', require('./server/routes/alvos.cjs'));

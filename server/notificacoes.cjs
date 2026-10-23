@@ -33,4 +33,4 @@ function notificar({ titulo, mensagem }) {
   }
 }
 
-module.exports = { notificar };
+module.exports = { notificar, ICONE };

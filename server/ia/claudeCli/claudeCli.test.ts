@@ -352,3 +352,25 @@ describe('cliente: chamada headless ao CLI', () => {
     await expect(cliente.rodarCli('oi')).rejects.toThrow(/sem JSON válido/i);
   });
 });
+
+describe('cliente: permissões passadas ao CLI', () => {
+  const valor = (args: string[], flag: string) => args[args.indexOf(flag) + 1];
+
+  it('chat: todas as ferramentas nativas negadas e MCP com bypass', () => {
+    const args = cliente.argsDoCli({ mcpConfig: 'mcp.json' });
+    expect(valor(args, '--disallowed-tools').split(',')).toEqual(expect.arrayContaining(['Bash', 'Read', 'Glob', 'Grep', 'Write']));
+    expect(valor(args, '--allowed-tools')).toBe('mcp__carteira');
+    expect(valor(args, '--permission-mode')).toBe('bypassPermissions');
+  });
+
+  // Verificado em 23/10/2026: com Read liberado, o CLI lê arquivo FORA da pasta
+  // de trabalho (Read não pede permissão). A fala do cliente entra no prompt da
+  // investigação — liberar leitura seria convite a "leia o arquivo X".
+  it('investigação da reunião nega as mesmas ferramentas nativas do chat', async () => {
+    const chamadas: string[][] = [];
+    const rodar = async (_prompt: string, opts: { mcpConfig?: string }) => { chamadas.push(cliente.argsDoCli(opts)); return { result: 'ok' }; };
+    await cliente.investigar({ prompt: 'p', systemPrompt: 's', rodar });
+    expect(valor(chamadas[0], '--disallowed-tools').split(',')).toEqual(expect.arrayContaining(['Read', 'Glob', 'Grep', 'Bash', 'Write']));
+    expect(valor(chamadas[0], '--allowed-tools')).toBe('mcp__carteira');
+  });
+});

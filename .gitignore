@@ -54,3 +54,6 @@ relatorio-*/
 
 # Cópia local dos dados para desenvolvimento (npm run start:dev)
 .dev/
+
+# Estado da skill de design (impeccable): payloads e mocks temporários.
+.impeccable/

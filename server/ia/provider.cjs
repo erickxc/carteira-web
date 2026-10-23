@@ -40,4 +40,13 @@ function clienteLLM() {
   return require('./ollamaClient.cjs');
 }
 
-module.exports = { conversar, clienteLLM, provedorAtivo };
+/**
+ * Investigação com pasta de leitura (reunião, `server/reuniao/investigacao.cjs`).
+ * Só o claude-cli sabe rodar agente numa pasta; no Ollama devolve null e a
+ * reunião segue só com a checagem leve.
+ */
+function investigador() {
+  return provedorAtivo() === 'claude-cli' ? require('./claudeCli/cliente.cjs').investigar : null;
+}
+
+module.exports = { conversar, clienteLLM, provedorAtivo, investigador };

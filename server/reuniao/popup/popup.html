@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>monitorIA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0b0d; --hair: #26262b; --border: #3d3d44;
+    --texto: #f4f4f2; --texto-2: #a6a6ad; --texto-3: #81818c;
+    --ouro: #dabb6c; --ouro-fundo: rgba(218, 187, 108, .08); --sobre-ouro: #17140b; --perigo: #e0645c; --ok: #4cae7a;
+    --barra: #3a3a42; --barra-queda: #6b3a37;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f6f6f7; --hair: #d0d0d6; --border: #c1c1c8;
+      --texto: #1b1b1f; --texto-2: #47474e; --texto-3: #6a6a72;
+      --ouro: #6b5518; --ouro-fundo: rgba(107, 85, 24, .07); --sobre-ouro: #ffffff; --perigo: #b3362b; --ok: #1b5e3c;
+      --barra: #c9c9cf; --barra-queda: #e4b3ae;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--texto); font: 14px/1.45 Inter, 'Segoe UI', system-ui, sans-serif; font-feature-settings: 'tnum' 1; -webkit-font-smoothing: antialiased; overflow: hidden; user-select: none; }
+  ::selection { background: var(--ouro); color: var(--bg); }
+  :focus-visible { outline: 2px solid var(--ouro); outline-offset: 2px; border-radius: 6px; }
+  .popup { padding: 12px 18px 16px; display: grid; gap: 12px; border: 1px solid var(--hair); }
+  .cabeca { display: flex; align-items: center; gap: 8px; color: var(--texto-3); font-size: 11.5px; }
+  .cabeca > svg { width: 16px; height: 16px; color: var(--texto-2); flex: none; }
+  .cabeca .quando { margin-left: auto; }
+  .fechar { display: grid; place-items: center; width: 24px; height: 24px; margin-right: -6px; border: 0; border-radius: 6px; background: transparent; color: var(--texto-3); cursor: pointer; }
+  .fechar:hover { background: var(--hair); color: var(--texto); }
+  .fechar svg { width: 14px; height: 14px; }
+  .fala { margin: 0 0 -6px; color: var(--texto-2); font-size: 12.5px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  h1 { margin: 0; font-size: 19px; line-height: 1.25; font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
+  .numeros { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+  .numeros div { padding: 10px 0 9px; min-width: 0; }
+  .numeros div + div { padding-left: 14px; border-left: 1px solid var(--hair); }
+  .numeros strong { display: block; white-space: nowrap; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+  .numeros strong.neg { color: var(--perigo); }
+  .numeros span { color: var(--texto-3); font-size: 11.5px; }
+  .acao { display: flex; align-items: center; gap: 10px; background: var(--ouro-fundo); border: 1px solid color-mix(in srgb, var(--ouro) 45%, transparent); border-radius: 10px; padding: 10px 10px 10px 12px; }
+  .acao > svg { width: 18px; height: 18px; color: var(--ouro); flex: none; }
+  .acao div { flex: 1; min-width: 0; }
+  .acao b { display: block; font-size: 14px; font-weight: 600; }
+  .acao small { color: var(--texto-2); font-size: 12px; }
+  .acao button { flex: none; font: 600 12.5px Inter, 'Segoe UI', sans-serif; background: var(--ouro); color: var(--sobre-ouro); border: 0; border-radius: 7px; padding: 7px 12px; cursor: pointer; }
+  .acao.feita { background: transparent; border-color: var(--hair); }
+  .acao.feita b { color: var(--texto-3); text-decoration: line-through; }
+  .acao.feita button { background: transparent; color: var(--ok); border: 1px solid var(--ok); }
+  svg.g { width: 100%; height: auto; overflow: visible; display: block; }
+  svg.g text { font: 500 10.5px Inter, 'Segoe UI', sans-serif; fill: var(--texto-3); }
+  svg.g .forte { fill: var(--texto); font-weight: 600; }
+  svg.g .ouro { fill: var(--ouro); font-weight: 600; }
+  svg.g .neg { fill: var(--perigo); font-weight: 600; }
+  svg.g .b { fill: var(--barra); } svg.g .q { fill: var(--barra-queda); } svg.g .a { fill: var(--perigo); }
+  svg.g .linha { fill: none; stroke: var(--ouro); stroke-width: 2; stroke-linejoin: round; }
+  svg.g .marco { stroke: var(--ouro); stroke-dasharray: 2 3; opacity: .7; }
+  .popup { animation: entra .32s cubic-bezier(.16, 1, .3, 1) both; }
+  @keyframes entra { from { opacity: 0; transform: translateY(8px); } }
+  @media (prefers-reduced-motion: reduce) { .popup { animation: none; } }
+</style>
+</head>
+<body>
+<script src="/api/reuniao/popup-render.js"></script>
+<script>
+  const DADOS = '/api/reuniao/popup/__ID__/dados', FEITO = '/api/reuniao/popup/__ID__/feito';
+  const janela = window.chrome && window.chrome.webview;
+  const avisar = (m) => janela && janela.postMessage(m);
+  fetch(DADOS).then((r) => r.json()).then((p) => {
+    document.title = 'monitorIA · ' + (p.titulo || '');
+    document.body.innerHTML = renderPopup(p);
+    if (p.feito) document.querySelector('.acao').classList.add('feita');
+    document.querySelector('[data-fechar]').onclick = () => avisar({ fechar: true });
+    const botao = document.querySelector('[data-feito]');
+    botao.onclick = () => fetch(FEITO, { method: 'POST' }).then(() => {
+      document.querySelector('.acao').classList.add('feita'); botao.textContent = 'Feito ✓';
+      setTimeout(() => avisar({ fechar: true }), 1100); // fecha e chama o próximo da fila
+    });
+    document.fonts.ready.then(() => avisar({ altura: Math.ceil(document.documentElement.scrollHeight) }));
+  }).catch(() => avisar({ fechar: true }));
+</script>
+</body>
+</html>
