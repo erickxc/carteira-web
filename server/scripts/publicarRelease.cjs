@@ -56,7 +56,7 @@ function lerVersaoPackageJson(raiz = RAIZ) {
  */
 const DEPS_SERVIDOR = [
   'adm-zip', 'better-sqlite3', 'cors', 'csv-parse', 'date-fns', 'express',
-  'google-auth-library', 'jspdf', 'multer', 'node-cron', 'node-notifier', 'pg', 'xlsx', 'zod',
+  'google-auth-library', 'hyparquet', 'jspdf', 'multer', 'node-cron', 'node-notifier', 'pg', 'xlsx', 'zod',
 ];
 
 /**
@@ -73,7 +73,7 @@ function verificarDepsDoServidor(raiz = RAIZ) {
       const completo = path.join(dir, nome);
       if (fs.statSync(completo).isDirectory()) {
         if (!/^(node_modules|dist)$/.test(nome)) varrer(completo);
-      } else if (nome.endsWith('.cjs')) {
+      } else if (/\.(cjs|mjs)$/.test(nome)) {
         arquivos.push(completo);
       }
     }
@@ -85,7 +85,7 @@ function verificarDepsDoServidor(raiz = RAIZ) {
     for (const nome of fs.readdirSync(dir)) {
       const completo = path.join(dir, nome);
       if (fs.statSync(completo).isDirectory()) varrer(completo);
-      else if (nome.endsWith('.cjs')) arquivos.push(completo);
+      else if (/\.(cjs|mjs)$/.test(nome)) arquivos.push(completo);
     }
   })(path.join(raiz, 'shared'));
   arquivos.push(path.join(raiz, 'server.cjs'), path.join(raiz, 'inicio.cjs'));
@@ -95,7 +95,9 @@ function verificarDepsDoServidor(raiz = RAIZ) {
     const src = fs.readFileSync(arquivo, 'utf8');
     for (const dep of todasDeps) {
       if (DEPS_SERVIDOR.includes(dep)) continue;
-      if (src.includes(`require('${dep}')`) || src.includes(`require('${dep}/`)) faltando.add(dep);
+      // require/import, aspas simples ou duplas, e subcaminho (`'pacote/x'`): o leitor parquet é .mjs com import.
+      const usa = [`'${dep}'`, `"${dep}"`, `'${dep}/`, `"${dep}/`].some((q) => src.includes(`require(${q}`) || src.includes(`from ${q}`) || src.includes(`import(${q}`));
+      if (usa) faltando.add(dep);
     }
   }
   if (faltando.size) {

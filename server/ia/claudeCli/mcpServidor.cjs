@@ -61,7 +61,8 @@ async function chamarBackend(rota, body) {
 let ferramentasCache = null;
 async function listarFerramentas() {
   if (!ferramentasCache) {
-    const { ferramentas } = await chamarBackend('/api/ia/interno/ferramentas');
+    // A origem decide o que o agente enxerga: na reunião, só ferramentas de leitura (somenteLeitura.cjs).
+    const { ferramentas } = await chamarBackend(`/api/ia/interno/ferramentas?origem=${encodeURIComponent(ORIGEM)}`);
     ferramentasCache = ferramentas.map((f) => ({
       name: f.name,
       description: f.description,

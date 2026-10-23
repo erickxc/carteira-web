@@ -20,7 +20,7 @@ const { arquivosDaEmpresa, lerEAgregar } = require('./leitor.cjs');
  * nada à mão (o formato antigo em disco não bate mais com o que o app espera).
  */
 
-const VERSAO = 1;
+const VERSAO = 2; // 2 (23/10/2026): parquet + devolução ao fornecedor fora da venda
 const CACHE_DIR = process.env.ALVOS_CACHE_DIR || path.join(SQLITE_DIR, 'alvos-cache');
 
 const slug = (nome) => String(nome).normalize('NFD').replace(/[̀-ͯ]/g, '')

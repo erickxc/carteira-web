@@ -84,3 +84,27 @@ describe('limparReleasesAntigas', () => {
     expect(() => limparReleasesAntigas(path.join(tmpDir, 'inexistente'), 'carteira-v1.0.0.zip')).not.toThrow();
   });
 });
+
+describe('verificarDepsDoServidor', () => {
+  const { verificarDepsDoServidor } = require('./publicarRelease.cjs');
+  const montar = (arquivos: Record<string, string>) => {
+    const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'deps-'));
+    fs.writeFileSync(path.join(raiz, 'package.json'), JSON.stringify({ dependencies: { 'pacote-de-tela': '1.0.0', express: '1.0.0' } }));
+    for (const dir of ['server', 'shared']) fs.mkdirSync(path.join(raiz, dir));
+    fs.writeFileSync(path.join(raiz, 'server.cjs'), ''); fs.writeFileSync(path.join(raiz, 'inicio.cjs'), '');
+    for (const [nome, conteudo] of Object.entries(arquivos)) fs.writeFileSync(path.join(raiz, 'server', nome), conteudo);
+    return raiz;
+  };
+
+  // O leitor parquet dos Dados Alvos é .mjs e usa `import` (23/10/2026): fora da varredura,
+  // um pacote faltando só apareceria como "Cannot find module" na máquina de destino.
+  it('barra pacote usado por import num .mjs do servidor', () => {
+    const raiz = montar({ 'ler.mjs': "import { x } from 'pacote-de-tela';\n" });
+    expect(() => verificarDepsDoServidor(raiz)).toThrow(/pacote-de-tela/);
+  });
+
+  it('aceita pacote da lista usado por require ou import', () => {
+    const raiz = montar({ 'a.cjs': "const e = require('express');\n", 'b.mjs': "import express from 'express';\n" });
+    expect(() => verificarDepsDoServidor(raiz)).not.toThrow();
+  });
+});

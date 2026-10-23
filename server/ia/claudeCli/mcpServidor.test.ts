@@ -30,7 +30,8 @@ beforeEach(async () => {
         segredo: req.headers['x-carteira-ia-segredo'] as string,
       });
       res.setHeader('Content-Type', 'application/json');
-      if (req.url === '/api/ia/interno/ferramentas') {
+      // A listagem leva a origem na query (?origem=...): na reunião só vêm ferramentas de leitura.
+      if ((req.url ?? '').split('?')[0] === '/api/ia/interno/ferramentas') {
         res.end(JSON.stringify({
           ferramentas: [{
             name: 'buscar_clientes',
@@ -111,9 +112,10 @@ describe('servidor MCP das ferramentas da carteira', () => {
     expect(tools[0].name).toBe('buscar_clientes');
     expect(tools[0].inputSchema).toEqual({ type: 'object', properties: { grupo: { type: 'string' } } });
     expect(chamalistagem().segredo).toBe(SEGREDO);
+    expect(chamalistagem().rota).toBe('/api/ia/interno/ferramentas?origem=teste');
   });
 
-  const chamalistagem = () => chamadas.find((c) => c.rota === '/api/ia/interno/ferramentas')!;
+  const chamalistagem = () => chamadas.find((c) => c.rota.split('?')[0] === '/api/ia/interno/ferramentas')!;
 
   it('executa a ferramenta pelo backend e devolve o resultado como texto', async () => {
     const resp = await chamar({

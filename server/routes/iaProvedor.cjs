@@ -193,9 +193,11 @@ function apenasMcp(req, res, next) {
   next();
 }
 
-router.get('/interno/ferramentas', apenasMcp, (_req, res) => {
+router.get('/interno/ferramentas', apenasMcp, (req, res) => {
+  // Na reunião (origem somente leitura) o agente nem enxerga as ferramentas que escrevem.
+  const { ferramentasDaOrigem } = require('../ia/somenteLeitura.cjs');
   res.json({
-    ferramentas: FERRAMENTAS.map((f) => ({ name: f.name, description: f.description, parameters: f.parameters })),
+    ferramentas: ferramentasDaOrigem(FERRAMENTAS, req.query.origem).map((f) => ({ name: f.name, description: f.description, parameters: f.parameters })),
   });
 });
 
@@ -209,6 +211,12 @@ router.post('/interno/ferramenta', apenasMcp, async (req, res) => {
   const { nome, argumentos = {}, origem = 'claude-cli', turnId, monitor } = req.body ?? {};
   const ferramenta = FERRAMENTAS_POR_NOME.get(nome);
   if (!ferramenta) return res.status(404).json({ error: `Ferramenta "${nome}" não existe.` });
+  // Segunda trava, além da lista filtrada: escrita vinda da reunião é recusada e fica no log.
+  const bloqueio = require('../ia/somenteLeitura.cjs').bloqueioDaOrigem(ferramenta, origem);
+  if (bloqueio) {
+    registrarAcao(repo, { ferramenta: nome, clientId: argumentos.clientId, argumentos, resultado: { erro: bloqueio }, origem, turnId, monitor });
+    return res.status(403).json({ error: bloqueio });
+  }
 
   let resultado;
   try {

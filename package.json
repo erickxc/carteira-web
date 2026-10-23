@@ -1,7 +1,7 @@
 {
   "name": "carteira-web",
   "private": true,
-  "version": "1.6.2",
+  "version": "1.6.12",
   "type": "module",
   "scripts": {
     "start": "concurrently \"node server.cjs\" \"vite\"",
@@ -31,6 +31,7 @@
     "date-fns": "^4.3.0",
     "express": "^5.2.1",
     "google-auth-library": "^11.0.0",
+    "hyparquet": "1.31.3",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.16.0",
     "motion": "^13.4.2",
