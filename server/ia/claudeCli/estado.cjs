@@ -74,6 +74,15 @@ function modeloAtivo() {
 
 const modeloTravado = () => Boolean(CLAUDE_CLI_MODEL);
 
+/**
+ * Id que vai no `--model` do CLI. A tela guarda apelidos ("haiku"), e o CLI
+ * resolve o apelido para a versão que ELE conhece — numa máquina com CLI
+ * antigo, "haiku" ainda pode ser o 4.5. O Haiku vai com id explícito para
+ * todas as máquinas usarem o mesmo modelo (Haiku 5.5, pedido em 22/10/2026).
+ */
+const ID_EXPLICITO_NO_CLI = { haiku: 'claude-haiku-5-5' };
+const modeloParaCli = () => ID_EXPLICITO_NO_CLI[modeloAtivo()] || modeloAtivo();
+
 function definirModelo(modelo) {
   if (!CLAUDE_CLI_MODELOS.includes(modelo)) throw new Error(`Modelo inválido: "${modelo}".`);
   if (modeloTravado()) throw new Error(`Modelo está fixado em "${CLAUDE_CLI_MODEL}" pelo .env (CLAUDE_CLI_MODEL) — mude lá, não pela interface.`);
@@ -107,6 +116,6 @@ function ambienteCredencial(base = process.env) {
 
 module.exports = {
   ler, escrever, provedorAtivo, provedorTravado, definirProvedor,
-  modeloAtivo, modeloTravado, definirModelo,
+  modeloAtivo, modeloParaCli, modeloTravado, definirModelo,
   tokenSalvo, salvarToken, removerToken, ambienteCredencial,
 };

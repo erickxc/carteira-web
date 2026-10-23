@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agruparPorGrupo, ehLojaPrincipal, lojaPrincipal } from './gruposLojas';
+import { agruparPorGrupo, contarLojasFisicas, ehLojaPrincipal, lojaPrincipal } from './gruposLojas';
 import type { Cliente } from '../types';
 
 function cliente(over: Partial<Cliente> & { id: string; empresa: string }): Cliente {
@@ -66,5 +66,26 @@ describe('agruparPorGrupo', () => {
 
   it('lista vazia devolve lista vazia', () => {
     expect(agruparPorGrupo([], [])).toEqual([]);
+  });
+});
+
+describe('lojas físicas na tabela (1.6.9)', () => {
+  const c = (id: string, empresa: string, grupo?: string) => cliente({ id, empresa, ...(grupo ? { grupo } : {}) });
+  const loja = (nome: string) => ({ nome, cnpj: '', endereco: '' });
+
+  it('atendimento sem rede mas com várias lojas abre como grupo próprio', () => {
+    const widmen = { ...c('w', 'WIDMEN'), lojasCadastro: [loja('WD Barra'), loja('WD Tijuca'), loja('TW Recreio')] } as Cliente;
+    const [linha] = agruparPorGrupo([widmen], [widmen]);
+    expect(linha.tipo).toBe('grupo');
+    expect(contarLojasFisicas([widmen])).toBe(3);
+  });
+
+  it('atendimento com uma loja continua linha normal; rede conta as lojas físicas de todos os atendimentos', () => {
+    const unica = { ...c('u', 'Lupi'), lojasCadastro: [loja('Lupi')] } as Cliente;
+    expect(agruparPorGrupo([unica], [unica])[0].tipo).toBe('cliente');
+    const gm = { ...c('a1', 'Altese - GM, Ford', 'Altese'), lojasCadastro: [loja('GM'), loja('FORD')] } as Cliente;
+    const smart = { ...c('a2', 'Altese - Recreio + Barra', 'Altese'), lojasCadastro: [loja('Barra'), loja('Recreio')] } as Cliente;
+    const semCadastro = c('a3', 'Altese - SP', 'Altese');
+    expect(contarLojasFisicas([gm, smart, semCadastro])).toBe(5);
   });
 });

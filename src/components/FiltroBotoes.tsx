@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 interface FiltroBotoesProps {
   /** Rótulo do grupo (ex.: "Tipos", "Monitor"). */
   label: string;
@@ -5,7 +7,8 @@ interface FiltroBotoesProps {
   /** Selecionados. Vazio = todos (sem filtro). */
   valor: string[];
   onChange: (v: string[]) => void;
-  /** Quando informado, o botão ativo usa a cor da própria opção (tipos de evento). */
+  /** Cor própria de cada opção (tipos de evento: a mesma da barra do card no
+   *  calendário). O ativo usa essa cor no nome e no traço — sem ponto nem fundo. */
   corDe?: (opcao: string) => string;
 }
 
@@ -38,29 +41,15 @@ export function FiltroBotoes({ label, opcoes, valor, onChange, corDe }: FiltroBo
       </button>
       {opcoes.map((o) => {
         const ativo = valor.includes(o);
-        const cor = corDe?.(o);
+        const cor = ativo ? corDe?.(o) : undefined;
         return (
           <button
             key={o}
             className={`filtro-btn${ativo ? ' is-active' : ''}`}
             aria-pressed={ativo}
             onClick={() => alternar(o)}
-            // Cor por opção só quando ativo: assim o botão marcado repete a cor
-            // do chip no calendário, ligando filtro e conteúdo sem legenda.
-            style={ativo && cor
-              ? { borderColor: cor, color: cor, background: `color-mix(in srgb, ${cor} 16%, transparent)` }
-              : undefined}
+            style={cor ? ({ color: cor, '--filtro-cor': cor } as CSSProperties) : undefined}
           >
-            {cor && (
-              <i
-                aria-hidden
-                style={{
-                  width: 6, height: 6, borderRadius: '50%', background: cor,
-                  display: 'inline-block', marginRight: 5, verticalAlign: 'middle',
-                  opacity: ativo ? 1 : 0.65,
-                }}
-              />
-            )}
             {o}
           </button>
         );

@@ -8,7 +8,7 @@ const {
 const { extrairJSON } = require('../jsonTexto.cjs');
 const { registrarUso } = require('../uso.cjs');
 const { localizarClaudeCli, versaoClaudeCli } = require('./localizar.cjs');
-const { tokenSalvo, ambienteCredencial, modeloAtivo, modeloTravado } = require('./estado.cjs');
+const { tokenSalvo, ambienteCredencial, modeloAtivo, modeloParaCli, modeloTravado } = require('./estado.cjs');
 const { statusAuth, autenticado } = require('./auth.cjs');
 const { comandoSpawn, precisaShell } = require('./spawnCli.cjs');
 
@@ -128,6 +128,24 @@ function garantirCwd() {
  * fácil de alguns KB e o limite de linha de comando do Windows (~32k) já
  * estourou aqui em teste com cliente de histórico longo.
  */
+/**
+ * Flags de modelo e permissão — iguais para chat, ata e investigação da
+ * reunião. Nenhuma ferramenta nativa é liberada: testado em 23/10/2026, com
+ * `Read` liberado o CLI lê arquivo FORA da pasta de trabalho (leitura não pede
+ * permissão), e o processo roda como o dono do OneDrive corporativo.
+ */
+function argsDoCli({ mcpConfig } = {}) {
+  const args = ['-p', '--output-format', 'json', '--model', modeloParaCli(), '--disallowed-tools', FERRAMENTAS_NATIVAS_NEGADAS];
+  if (mcpConfig) {
+    args.push('--mcp-config', mcpConfig, '--strict-mcp-config', '--allowed-tools', `mcp__${CLAUDE_MCP_SERVER}`);
+    // Sem isso o CLI para e pede aprovação de cada ferramenta — em headless
+    // isso é um travamento, não uma pergunta. Seguro aqui porque as únicas
+    // ferramentas habilitadas são as do MCP da carteira, com as nativas negadas.
+    args.push('--permission-mode', 'bypassPermissions');
+  }
+  return args;
+}
+
 async function rodarCli(prompt, { systemPrompt, mcpConfig, timeoutMs = CLAUDE_CLI_TIMEOUT_MS } = {}) {
   const bin = localizarClaudeCli();
   if (!bin) throw new Error('Claude Code CLI não encontrado nesta máquina (instale ou aponte CLAUDE_CLI_PATH no .env).');
@@ -139,12 +157,7 @@ async function rodarCli(prompt, { systemPrompt, mcpConfig, timeoutMs = CLAUDE_CL
     throw new Error('Conta Claude não conectada. Vá em Configurações → monitorIA e conecte a conta (ou rode "claude auth login" nesta máquina).');
   }
 
-  const args = [
-    '-p',
-    '--output-format', 'json',
-    '--model', modeloAtivo(),
-    '--disallowed-tools', FERRAMENTAS_NATIVAS_NEGADAS,
-  ];
+  const args = argsDoCli({ mcpConfig });
 
   // Instalacao por npm entrega um shim `claude.cmd`, que so roda via shell — e
   // nesse modo o Node nao escapa argumentos (ver `spawnCli.cjs`). O system
@@ -161,14 +174,6 @@ ${systemPrompt}
 
 ${prompt}`;
     else args.push('--append-system-prompt', systemPrompt);
-  }
-  if (mcpConfig) {
-    args.push('--mcp-config', mcpConfig, '--strict-mcp-config');
-    // Sem isso o CLI para e pede aprovação de cada ferramenta — em headless
-    // isso é um travamento, não uma pergunta. Seguro aqui porque as únicas
-    // ferramentas habilitadas são as do MCP da carteira (`--allowed-tools`),
-    // com todas as nativas negadas acima.
-    args.push('--allowed-tools', `mcp__${CLAUDE_MCP_SERVER}`, '--permission-mode', 'bypassPermissions');
   }
 
   return new Promise((resolve, reject) => {
@@ -249,7 +254,7 @@ function rodarCliStream(prompt, { systemPrompt, onDelta, timeoutMs = CLAUDE_CLI_
     '--output-format', 'stream-json',
     '--include-partial-messages',
     '--verbose',
-    '--model', modeloAtivo(),
+    '--model', modeloParaCli(),
     '--disallowed-tools', FERRAMENTAS_NATIVAS_NEGADAS,
   ];
 
@@ -444,6 +449,29 @@ async function conversar({ mensagens, origem = 'chat', repo, monitor }) {
 }
 
 /**
+ * Investigação durante a reunião (`server/reuniao/investigacao.cjs`): o
+ * material da pasta da reunião chega no próprio prompt; o agente aprofunda só
+ * pelo MCP da carteira (sem ferramenta nativa — ver `argsDoCli`). Medida em
+ * `UsoIA` com a `origem` recebida, igual ao chat.
+ */
+async function investigar({ prompt, systemPrompt, origem = 'reuniao-investigacao', repo, monitor, rodar = rodarCli }) {
+  const turnId = crypto.randomUUID();
+  const t0 = Date.now();
+  let dados;
+  try {
+    dados = await rodar(prompt, { systemPrompt, mcpConfig: garantirConfigMcp(origem, turnId, monitor) });
+  } catch (err) {
+    if (repo) registrarUso(repo, { origem, provedor: 'claude-cli', turnId, duracaoMs: Date.now() - t0, erro: true, pergunta: prompt });
+    throw err;
+  }
+  if (repo) {
+    const numFerramentas = repo.get('AcoesIA').filter((a) => a.turnId === turnId).length;
+    registrarUso(repo, { origem, provedor: 'claude-cli', turnId, duracaoMs: Date.now() - t0, numFerramentas, ...extrairUsoCli(dados), pergunta: prompt, resposta: String(dados.result ?? '') });
+  }
+  return String(dados.result ?? '');
+}
+
+/**
  * Extração estruturada (análise de risco / dossiê). Roda SEM MCP: essa etapa
  * recebe o contexto pronto no prompt e não deve tocar em dado nenhum — dar
  * ferramenta de escrita pra um passo automático que roda em lote por cliente
@@ -513,6 +541,6 @@ async function diagnostico() {
 }
 
 module.exports = {
-  conversar, gerarJSON, gerarJSONStream, diagnostico, rodarCli, rodarCliStream, montarPromptConversa,
+  conversar, investigar, gerarJSON, gerarJSONStream, diagnostico, rodarCli, rodarCliStream, montarPromptConversa, argsDoCli,
   SEGREDO_INTERNO, CONFIG_MCP, CONFIG_MCP_EXTERNO,
 };

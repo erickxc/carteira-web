@@ -169,7 +169,7 @@ function ModelosCard() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
         {modelos.length === 0 && <div className="empty-state">Nenhum modelo cadastrado.</div>}
         {modelos.map((m) => (
-          <div key={m.id} className="flex-between" style={{ padding: '0.5rem 0.65rem', borderRadius: 6, background: 'var(--card-hover)', border: '1px solid var(--border)' }}>
+          <div key={m.id} className="flex-between" style={{ padding: '0.5rem 0.65rem', borderRadius: 'var(--radius-sm)', background: 'var(--card-hover)', border: '1px solid var(--border)' }}>
             <div style={{ minWidth: 0 }}>
               <div className="flex-row" style={{ gap: 8 }}>
                 <strong style={{ fontSize: 13 }}>{m.titulo}</strong>
@@ -305,7 +305,7 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
         {itens.length === 0 && <div className="empty-state">Nenhum item.</div>}
         {itens.map((cat) => (
-          <div key={cat.id} style={{ padding: '0.5rem 0.65rem', borderRadius: 6, background: 'var(--card-hover)', border: '1px solid var(--border)' }}>
+          <div key={cat.id} style={{ padding: '0.5rem 0.65rem', borderRadius: 'var(--radius-sm)', background: 'var(--card-hover)', border: '1px solid var(--border)' }}>
             {editandoId === cat.id ? (
               <div className="flex-between">
                 <Input
@@ -361,7 +361,7 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
                       onChange={(e) => definirCorInline(cat, e.target.value)}
                       title="Cor de referência deste serviço na tabela de Clientes"
                       aria-label={`Cor de referência de ${cat.valor}`}
-                      style={{ width: 28, height: 28, padding: 0, border: '1px solid var(--border-strong)', borderRadius: 6, cursor: 'pointer', background: 'none' }}
+                      style={{ width: 28, height: 28, padding: 0, border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', background: 'none' }}
                     />
                     {cat.cor && (
                       <Button variant="secondary" size="icon" onClick={() => definirCorInline(cat, '')} title="Voltar pra cor automática" aria-label={`Voltar ${cat.valor} pra cor automática`}>

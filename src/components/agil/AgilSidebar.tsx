@@ -77,7 +77,7 @@ export function AgilSidebar({
               <span className="flex-1 truncate">{w.nome}</span>
               <button
                 onClick={(e) => { e.stopPropagation(); onEditWorkspace(w); }}
-                className="shrink-0 flex items-center justify-center w-[18px] h-[18px] rounded-[4px] text-text-muted bg-transparent border-none cursor-pointer opacity-0 group-hover:opacity-100 hover:bg-card hover:text-text-primary"
+                className="shrink-0 flex items-center justify-center w-[18px] h-[18px] rounded-xs text-text-muted bg-transparent border-none cursor-pointer opacity-0 group-hover:opacity-100 hover:bg-card hover:text-text-primary"
                 title="Editar área de trabalho"
                 aria-label={`Editar área de trabalho ${w.nome}`}
               >

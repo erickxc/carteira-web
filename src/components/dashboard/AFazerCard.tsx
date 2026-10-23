@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { format, isToday, parseISO } from 'date-fns';
 import { Check, FileText } from 'lucide-react';
 import { eventoStatusBadge } from '../../utils/badges';
-import { corTipo, corTipoBg } from '../../utils/tipoCor';
 import { Badge, Card, Chip, type BadgeVariant } from '../../ui';
 import { Comparacao, InfoComoConta } from './Comparacao';
 import { AbasDeslizantes } from './AbasDeslizantes';
@@ -141,7 +140,7 @@ export function AFazerCard(p: AFazerCardProps) {
                       <span className="afazer-nome" title={ev.clientName}>{ev.clientName}</span>
                       <span className="afazer-sub">{ev.subject || ev.type}</span>
                     </span>
-                    <Badge variant="plain" style={{ color: corTipo(ev.type), background: corTipoBg(ev.type) }}>{ev.type}</Badge>
+                    <Badge variant="muted">{ev.type}</Badge>
                     <span className="afazer-acao"><Badge variant={eventoStatusBadge(ev.status)}>{ev.status}</Badge></span>
                   </li>
                 );

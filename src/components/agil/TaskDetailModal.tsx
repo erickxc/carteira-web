@@ -159,7 +159,7 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, in
               onClick={() => setFrenteMenuAberto((v) => !v)}
               title={frenteSelecionada ? `Frente: ${frenteSelecionada.nome}` : 'Escolher Frente'}
               aria-label={frenteSelecionada ? `Frente: ${frenteSelecionada.nome}` : 'Escolher Frente'}
-              className="flex items-center justify-center w-7 h-7 rounded-[6px] border-none cursor-pointer bg-transparent hover:bg-[rgba(0,0,0,0.1)]"
+              className="flex items-center justify-center w-7 h-7 rounded-sm border-none cursor-pointer bg-transparent hover:bg-[rgba(0,0,0,0.1)]"
               style={{ color: frenteSelecionada?.cor ?? 'inherit', opacity: frenteSelecionada ? 1 : 0.55 }}
             >
               <Flag size={16} fill={frenteSelecionada ? frenteSelecionada.cor : 'none'} />
@@ -173,7 +173,7 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, in
                 <button
                   type="button"
                   onClick={() => { setFrenteId(''); setFrenteMenuAberto(false); }}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-[4px] text-[0.8rem] text-text-secondary bg-transparent border-none cursor-pointer text-left hover:bg-card-hover"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-xs text-[0.8rem] text-text-secondary bg-transparent border-none cursor-pointer text-left hover:bg-card-hover"
                 >
                   Nenhuma
                 </button>
@@ -185,7 +185,7 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, in
                     key={f.id}
                     type="button"
                     onClick={() => { setFrenteId(f.id); setFrenteMenuAberto(false); }}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-[4px] text-[0.8rem] text-text-primary bg-transparent border-none cursor-pointer text-left hover:bg-card-hover"
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-xs text-[0.8rem] text-text-primary bg-transparent border-none cursor-pointer text-left hover:bg-card-hover"
                   >
                     <span className="w-3 h-3 rounded-full shrink-0 border border-border-strong" style={{ background: f.cor }} />
                     <span className="truncate">{f.nome}</span>
@@ -196,7 +196,7 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, in
           </div>
           {initial?.numero && (
             <span
-              className="shrink-0 px-2 py-0.5 rounded-[6px] text-[0.72rem] font-bold tabular-nums"
+              className="shrink-0 px-2 py-0.5 rounded-sm text-[0.72rem] font-bold tabular-nums"
               style={{ background: corCabecalho ? 'rgba(0,0,0,0.15)' : 'var(--bg)', color: 'inherit' }}
             >
               #{initial.numero}
@@ -220,7 +220,7 @@ export function TaskDetailModal({ boardId, colunas, initial, initialColunaId, in
           </span>
           {initial && <Button variant="danger" onClick={handleDelete}>Excluir</Button>}
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="primary" disabled={saving}>
+          <Button type="submit" variant="primary" carregando={saving}>
             {saving ? 'Salvando…' : 'Salvar'}
           </Button>
         </>

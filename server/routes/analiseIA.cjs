@@ -156,7 +156,11 @@ router.post('/atualizar-dossie/:clientId', async (req, res) => {
   const cliente = repo.get('Clientes').find((c) => String(c.id) === req.params.clientId);
   if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
   try {
-    const processados = await gerarAnalisesPendentes({ repo, apenasClientId: req.params.clientId });
+    // `?forcar=1`: reprocessa o histórico inteiro (mesmo modo do "reanalisar este
+    // cliente") — usado para refazer análises geradas com uma regra antiga
+    // (ex.: 22/10/2026, ata vazia deixou de ser assunto da análise).
+    const forcar = req.query.forcar === '1';
+    const processados = await gerarAnalisesPendentes({ repo, apenasClientId: req.params.clientId, forcar });
     res.json({ processados });
   } catch (err) {
     res.status(502).json({ error: err.message });

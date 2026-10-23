@@ -69,10 +69,9 @@ function MapaSvg({
 }
 
 function ListaEstados({
-  ranking, max, limite, onHover, onLeave,
+  ranking, limite, onHover, onLeave,
 }: {
   ranking: EstadoComNomes[];
-  max: number;
   limite?: number;
   onHover: (e: MouseEvent, nome: string, nomes: string[]) => void;
   onLeave: () => void;
@@ -85,9 +84,8 @@ function ListaEstados({
           key={e.sigla}
           onMouseMove={(ev) => onHover(ev, e.nome, e.nomes)}
           onMouseLeave={onLeave}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 4px', borderRadius: 5, cursor: 'pointer' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 4px', borderRadius: 'var(--radius-xs)', cursor: 'pointer' }}
         >
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: corPorIntensidade(e.nomes.length, max), flexShrink: 0 }} />
           <span style={{ fontWeight: 600 }}>{e.sigla}</span>
           <span className="text-text-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.nome}</span>
           <span className="text-text-muted">{e.nomes.length}</span>
@@ -156,7 +154,7 @@ export function AbrangenciaMapaCard({ clientes }: AbrangenciaMapaCardProps) {
       {ranking.length === 0 ? (
         <div className="empty-state" style={{ fontSize: 12 }}>Nenhum contato com DDD reconhecível ainda.</div>
       ) : (
-        <ListaEstados ranking={ranking} max={max} limite={5} onHover={mostrar} onLeave={esconder} />
+        <ListaEstados ranking={ranking} limite={5} onHover={mostrar} onLeave={esconder} />
       )}
 
       {semContato.length > 0 && (
@@ -181,7 +179,7 @@ export function AbrangenciaMapaCard({ clientes }: AbrangenciaMapaCardProps) {
             // preso atrás do modal, mesmo com z-index alto — ele estava preso
             // no stacking context local do card, não no do documento.
             position: 'fixed', left: tooltip.x + 16, top: tooltip.y + 10, zIndex: 2100,
-            background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 8,
+            background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius)',
             boxShadow: 'var(--shadow-lg)', padding: '8px 10px', fontSize: 12, maxWidth: 220,
             pointerEvents: 'none',
           }}
@@ -220,7 +218,7 @@ export function AbrangenciaMapaCard({ clientes }: AbrangenciaMapaCardProps) {
               {ranking.length === 0 ? (
                 <div className="empty-state">Nenhum contato com DDD reconhecível ainda.</div>
               ) : (
-                <ListaEstados ranking={ranking} max={max} onHover={mostrar} onLeave={esconder} />
+                <ListaEstados ranking={ranking} onHover={mostrar} onLeave={esconder} />
               )}
               {semContato.length > 0 && (
                 <p

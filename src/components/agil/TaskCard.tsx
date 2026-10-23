@@ -117,7 +117,7 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
 
       {/* Linha 1: número do card + prioridade */}
       <div className="flex items-center gap-1.5">
-        <span className="px-1.5 rounded-[4px] bg-bg border border-border text-[0.62rem] font-semibold text-text-secondary leading-[1.5] tabular-nums">
+        <span className="px-1.5 rounded-xs bg-bg border border-border text-[0.62rem] font-semibold text-text-secondary leading-[1.5] tabular-nums">
           {tarefa.numero ? `#${tarefa.numero}` : '—'}
         </span>
         {progresso !== null && (
@@ -129,7 +129,7 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
           </span>
         )}
         {tarefa.tamanho && (
-          <span className="ml-auto shrink-0 px-1.5 rounded-[4px] bg-bg border border-border text-[0.62rem] font-semibold text-text-secondary leading-[1.5]" title="Tamanho">
+          <span className="ml-auto shrink-0 px-1.5 rounded-xs bg-bg border border-border text-[0.62rem] font-semibold text-text-secondary leading-[1.5]" title="Tamanho">
             {tarefa.tamanho}
           </span>
         )}
@@ -258,7 +258,7 @@ export function TaskCard({ tarefa, onClick }: TaskCardProps) {
             onBlur={() => setNovaSub(null)}
             onKeyDown={(e) => { if (e.key === 'Escape') setNovaSub(null); }}
             placeholder="Título e Enter"
-            className="w-full px-1.5 py-[2px] rounded-[4px] bg-bg border border-border-strong text-[0.66rem] text-text-primary outline-none transition-[border-color,box-shadow] focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-soft)]"
+            className="w-full px-1.5 py-[2px] rounded-xs bg-bg border border-border-strong text-[0.66rem] text-text-primary outline-none transition-[border-color,box-shadow] focus:border-accent"
           />
         </form>
       )}

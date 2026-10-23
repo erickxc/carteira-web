@@ -2,7 +2,7 @@ import { Comparacao, InfoComoConta, Medidor } from './Comparacao';
 import { LegendaGrupos } from './LegendaGrupos';
 import type { GrupoPrazo } from '../../utils/gruposPrazo';
 import type { LinhaAtendimento } from '../../utils/indicadoresPrazo';
-import { Card } from '../../ui';
+import { Card, NumeroRolante } from '../../ui';
 
 interface ServicoDist {
   label: string;
@@ -34,7 +34,7 @@ export function ServicosCard({ servicosDist, rotuloAnterior, grupos, linhas, onA
       {servicosDist.map((s) => (
         <div key={s.label} className="kpi-servico">
           <p className="kpi-controle kpi-servico-nome">{s.label}</p>
-          <p className="kpi-valor-grande">{s.n} <span className="kpi-denominador">de {s.base}</span></p>
+          <p className="kpi-valor-grande"><NumeroRolante valor={s.n} /> <span className="kpi-denominador">de {s.base}</span></p>
           <Medidor n={s.n} total={s.base} rotulo={`com ${s.label} no prazo`} />
           <Comparacao atual={s.n} anterior={s.anterior.base > 0 ? s.anterior.n : null} subirEhBom rotulo={rotuloAnterior} />
         </div>

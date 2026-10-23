@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
  *  entre eles. */
 export function SecaoLabel({ children }: { children: ReactNode }) {
   return (
-    <div className="text-[0.66rem] font-bold uppercase tracking-[0.06em] text-text-muted mt-2 mb-2 pb-1 border-b border-border">
+    <div className="flex items-center gap-2.5 text-[0.66rem] font-semibold uppercase tracking-[0.07em] text-text-muted mt-2 mb-2 after:content-[''] after:flex-1 after:h-px after:bg-hair">
       {children}
     </div>
   );

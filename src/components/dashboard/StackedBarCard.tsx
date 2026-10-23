@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import { Bot } from 'lucide-react';
 import { Card } from '../../ui';
+import { corDeTexto } from '../../utils/corTexto';
 
 interface Segmento {
   label: string;
@@ -68,9 +69,8 @@ export function StackedBarCard({ titulo, subtitulo, segmentos, emptyMsg, insight
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
             {segmentos.map((s) => (
               <span key={s.label} className="inline-flex items-center gap-[6px]" style={{ fontSize: '0.76rem' }}>
-                <i style={{ width: 6, height: 6, borderRadius: '50%', background: s.color, display: 'inline-block', flexShrink: 0 }} />
                 <span className="text-text-secondary">{s.label}</span>
-                <strong>{s.n}</strong>
+                <strong style={{ color: corDeTexto(s.color) }}>{s.n}</strong>
                 <span className="text-text-muted">({s.pct}%)</span>
               </span>
             ))}

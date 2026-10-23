@@ -2,7 +2,7 @@ import { Comparacao, InfoComoConta, Medidor } from './Comparacao';
 import { LegendaGrupos } from './LegendaGrupos';
 import type { GrupoPrazo } from '../../utils/gruposPrazo';
 import type { LinhaAtendimento } from '../../utils/indicadoresPrazo';
-import { Card } from '../../ui';
+import { Card, NumeroRolante } from '../../ui';
 
 interface CoberturaCardProps {
   total: number;
@@ -31,7 +31,7 @@ export function CoberturaCard({ total, cobertos, janela, anterior, rotuloAnterio
         <div className="empty-state">Nenhum atendimento ativo.</div>
       ) : (
         <>
-          <p className="kpi-valor-grande">{cobertos} <span className="kpi-denominador">de {total} com entrega</span></p>
+          <p className="kpi-valor-grande"><NumeroRolante valor={cobertos} /> <span className="kpi-denominador">de {total} com entrega</span></p>
           <Medidor n={cobertos} total={total} rotulo="atendimentos com entrega" />
           <Comparacao atual={cobertos} anterior={anterior.total > 0 ? anterior.cobertos : null} subirEhBom rotulo={rotuloAnterior} />
           <LegendaGrupos grupos={grupos} linhas={linhas} onAbrirCliente={onAbrirCliente} />

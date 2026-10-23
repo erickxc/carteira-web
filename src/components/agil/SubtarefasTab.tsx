@@ -47,7 +47,7 @@ export function SubtarefasTab({ tarefaId }: SubtarefasTabProps) {
             <button
               type="button"
               onClick={() => removerAgilSubtarefa(s.id)}
-              className="flex items-center justify-center w-6 h-6 rounded-[4px] text-text-muted bg-transparent border-none cursor-pointer opacity-0 group-hover:opacity-100 transition-[opacity,background-color,color] hover:bg-danger hover:text-white"
+              className="flex items-center justify-center w-6 h-6 rounded-xs text-text-muted bg-transparent border-none cursor-pointer opacity-0 group-hover:opacity-100 transition-[opacity,background-color,color] hover:bg-danger hover:text-white"
               title="Remover"
               aria-label="Remover subtarefa"
             >

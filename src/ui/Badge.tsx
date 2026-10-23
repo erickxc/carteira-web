@@ -3,27 +3,28 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
 
 /**
- * Pílula de status (equivale a .badge/.badge-* do index.css). Sem `scale` no
+ * Status curto em texto colorido (antiga pílula .badge). Sem `scale` no
  * hover de propósito: crescer a própria caixa que recebe o hover é
  * auto-referente — perto da borda, o crescimento tira o cursor de cima do
  * badge, o hover cai, ele volta ao tamanho normal, o cursor cai dentro de
  * novo, e por aí vai (tremor visível, reportado pelo usuário).
  */
+// Revisão 1.6: sem pílula e sem fundo. O usuário rejeitou tanto o fundo
+// pastel quanto o "marcador colorido + palavra" — a cor mora no próprio texto
+// (token *-fg, que escurece no tema claro para passar AA). As variantes e a
+// API ficaram as mesmas para não mexer nos ~50 chamadores.
 const badge = cva(
-  'inline-flex items-center gap-1 px-[9px] py-[2px] rounded-full text-[0.72rem] font-medium leading-[1.5] transition-[filter] duration-100 hover:brightness-[1.3]',
+  'inline-flex items-center gap-1 text-[0.75rem] font-medium leading-[1.5] tabular-nums whitespace-nowrap [&:is(button,a)]:hover:underline [&:is(button,a)]:underline-offset-2',
   {
     variants: {
       variant: {
-        accent: 'bg-accent-soft text-[color:var(--accent-fg)]',
-        // Texto usa o token *-fg (não a cor viva): no tema claro a cor viva
-        // sobre o próprio fundo do badge dava contraste de 1.3 a 2.5:1.
-        success: 'bg-[var(--success-bg)] text-[color:var(--success-fg)]',
-        danger: 'bg-[var(--danger-bg)] text-[color:var(--danger-fg)]',
-        warning: 'bg-[var(--warning-bg)] text-[color:var(--warning-fg)]',
-        gratuidade: 'bg-[var(--gratuidade-bg)] text-[color:var(--gratuidade-fg)]',
-        muted: 'bg-bg text-text-secondary border border-border',
-        // sem fundo/cor própria (herda a cor do contexto) — equivale ao `.badge`
-        // "puro" sem modificador de cor.
+        accent: 'text-[color:var(--accent-fg)] font-semibold',
+        success: 'text-[color:var(--success-fg)] font-semibold',
+        danger: 'text-[color:var(--danger-fg)] font-semibold',
+        warning: 'text-[color:var(--warning-fg)] font-semibold',
+        gratuidade: 'text-[color:var(--gratuidade-fg)] font-semibold',
+        muted: 'text-text-secondary',
+        // herda a cor do contexto
         plain: '',
       },
     },
@@ -44,5 +45,5 @@ export type BadgeProps<T extends ElementType = 'span'> = VariantProps<typeof bad
 
 export function Badge<T extends ElementType = 'span'>({ className, variant, as, ...props }: BadgeProps<T>) {
   const Tag = (as ?? 'span') as ElementType;
-  return <Tag className={clsx(badge({ variant }), as === 'button' && 'border-0 cursor-pointer font-[inherit]', className)} {...props} />;
+  return <Tag className={clsx(badge({ variant }), as === 'button' && 'border-0 bg-transparent p-0 cursor-pointer', className)} {...props} />;
 }

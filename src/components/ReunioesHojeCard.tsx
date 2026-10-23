@@ -15,7 +15,7 @@ import { calcularPosicaoPopover } from '../utils/popoverPosicao';
  * aqui igual a qualquer outra.
  */
 export function ReunioesHojeCard() {
-  const { agenda, clientes } = useCarteira();
+  const { agenda, clientes, filtroMonitor } = useCarteira();
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -48,10 +48,25 @@ export function ReunioesHojeCard() {
   }, [open]);
 
   const clientePorId = new Map(clientes.map((c) => [c.id, c]));
+  // Segue o filtro global de monitor ("quem sou eu nesta máquina"), como o
+  // resto do app: sem isso, com o filtro em um monitor, o topo contava as
+  // reuniões de todo mundo e contradizia "Próximas agendas" (bug real, 21/10).
+  // Vale o monitor do evento OU o dono do cliente.
+  const doMonitor = (ev: (typeof agenda)[number]) =>
+    filtroMonitor === 'Todos'
+    || (ev.monitores ?? []).includes(filtroMonitor)
+    || clientePorId.get(ev.clientId)?.monitor === filtroMonitor;
   const hoje = agenda
     .filter((ev) => /reuni/i.test(ev.type || ''))
     .filter((ev) => { const d = parseISO(ev.date); return !isNaN(d.getTime()) && isToday(d); })
+    .filter(doMonitor)
     .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+  // O número conta só o que ainda vai acontecer; concluída/cancelada/remarcada
+  // continua na lista (com o status escrito), mas não é "reunião marcada".
+  const pendentes = hoje.filter((ev) => !/conclu|realiz|cancel|reagend/i.test(ev.status || '')).length;
+  const rotulo = pendentes > 0
+    ? `${pendentes} ${pendentes > 1 ? 'reuniões' : 'reunião'} hoje`
+    : hoje.length > 0 ? 'Reuniões de hoje encerradas' : 'Nenhuma reunião hoje';
 
   /** Mesma classificação de sempre (ver `eventoStatusBadge`/`naoCancelado`):
    * concluída/realizada, cancelada, reagendada, ou agendada (neutro) — cor
@@ -74,7 +89,7 @@ export function ReunioesHojeCard() {
       <button ref={triggerRef} className="base-sync" onClick={toggle} title="Reuniões de hoje" aria-expanded={open}>
         <CalendarClock size={17} className="shrink-0 text-accent" />
         <span className="base-sync-txt">
-          {hoje.length === 0 ? 'Nenhuma reunião hoje' : `${hoje.length} ${hoje.length > 1 ? 'reuniões' : 'reunião'} hoje`}
+          {rotulo}
         </span>
       </button>
       {open && rect && createPortal(
@@ -99,6 +114,7 @@ export function ReunioesHojeCard() {
                       {ev.monitores.length > 0 && <span className="chip-monitor"> · <User size={10} /> {ev.monitores.join(', ')}</span>}
                     </span>
                   </span>
+                  {classeStatus(ev.status || '') && <span className="reuniao-hoje-status">{ev.status}</span>}
                   {marco && <span className="reuniao-hoje-marco">Marco</span>}
                 </div>
               );

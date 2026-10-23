@@ -70,7 +70,7 @@ export function ColumnFormModal({ boardId, initial, parentIdInicial, colunasTopo
         <>
           {initial && <Button variant="danger" onClick={handleDelete} style={{ marginRight: 'auto' }}>Excluir</Button>}
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="primary" disabled={saving}>
+          <Button type="submit" variant="primary" carregando={saving}>
             {saving ? 'Salvando...' : 'Salvar'}
           </Button>
         </>
@@ -109,7 +109,7 @@ export function ColumnFormModal({ boardId, initial, parentIdInicial, colunasTopo
             type="color"
             value={cor || '#8a8a92'}
             onChange={(e) => setCor(e.target.value)}
-            className="w-8 h-8 shrink-0 rounded-[6px] border border-border-strong cursor-pointer bg-transparent p-0"
+            className="w-8 h-8 shrink-0 rounded-sm border border-border-strong cursor-pointer bg-transparent p-0"
           />
           {cor && (
             <button type="button" onClick={() => setCor('')} className="text-[0.74rem] text-text-muted bg-transparent border-none cursor-pointer hover:text-accent">

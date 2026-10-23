@@ -63,7 +63,7 @@ export function BoardFormModal({ initial, workspaceIdInicial, onClose, onCreated
         <>
           {initial && !ehBoardFixo && <Button variant="danger" onClick={handleDelete} style={{ marginRight: 'auto' }}>Excluir</Button>}
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="primary" disabled={saving}>
+          <Button type="submit" variant="primary" carregando={saving}>
             {saving ? 'Salvando...' : 'Salvar'}
           </Button>
         </>

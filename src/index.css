@@ -80,7 +80,7 @@
   --tipo-reuniao: var(--accent);          /* Soft Fawn (dourado da marca) */
   --tipo-precificacao: #6f8cc4;           /* French Blue clareado */
   --tipo-contato: #8aa3ad;                /* Slate Grey clareado */
-  --tipo-relatorio: #e0975a;              /* Burnt Caramel clareado */
+  --tipo-relatorio: #b08ae0;              /* Violeta (1.6.5): o caramelo anterior se confundia com o dourado de Reunião */
   --tipo-ligacao: #7cc3b4;                /* Teal — telefonema */
   /* Reserva: tipos novos/desconhecidos caem aqui via hash determinístico.
      Paleta da 2D (dourado, laranja, azul claro, tinta neutra) — SEM vermelho:
@@ -124,14 +124,23 @@
      e para os campos migrados ao Tailwind (bg-[image:var(--select-chevron)])
      usarem o mesmo SVG, sem reescrever a data URI em cada lugar. */
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236d6d76' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  --radius: 8px;
-  --radius-sm: 6px;
+  /* Escala de raio (design system): xs = marcas mínimas (checkbox, barras finas),
+     sm = controles (botão, campo, chip de calendário), padrão = cards e painéis,
+     lg = modais. Cards entre 12–16px: 8px lia "reto demais" (pedido do usuário). */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
   /* Fundo dos modais/popups — token para adaptar ao tema (antes #1e1e24
      hardcoded, que ficava escuro no tema claro). Pedido do usuário: no
      escuro precisa ler como CINZA (não quase-preto, perto demais de --bg/
      --card); no claro precisa ficar mais ESCURO que a página ao redor
      (antes era mais claro que --bg, o oposto do esperado de um popup). */
   --modal-bg: #2c2c33;
+  /* Superfície um degrau acima do card (botão secundário) e divisória fina
+     (linhas de tabela/lista) — vocabulário da revisão de componentes 1.6. */
+  --raise: #202025;
+  --hair: #26262b;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 14px 34px rgba(0, 0, 0, 0.6);
@@ -180,7 +189,7 @@
   --tipo-reuniao: var(--accent);
   --tipo-precificacao: #3f5c9e;
   --tipo-contato: #4f6b76;
-  --tipo-relatorio: #b16a2e;
+  --tipo-relatorio: #623f9e;
   --tipo-ligacao: #2f8f7e;
   /* No tema claro os tons vivos escurecem pra manter contraste sobre fundo
      claro (mesmo critério dos outros `--tipo-*` acima). */
@@ -191,6 +200,8 @@
      o oposto, mais claro que --bg), pra destacar sobre o scrim por contraste
      de sombra em vez de brilho. */
   --modal-bg: #c4c4ca;
+  --raise: #f6f6f7;
+  --hair: #d0d0d6;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.12);
   --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.14);
@@ -349,8 +360,8 @@ a { color: inherit; }
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
-/* Campos de texto/select já sinalizam foco com borda dourada + halo próprios
-   (ui/Field.tsx); o anel por cima ficaria duplicado. Checkbox/radio ficam de
+/* Campos de texto/select já sinalizam foco com a própria borda dourada,
+   engrossada por dentro (ui/Field.tsx, 1.6: sem halo); o anel por cima ficaria duplicado. Checkbox/radio ficam de
    FORA da exceção: são `appearance: none` (sem borda de foco própria), então
    precisam do anel para serem navegáveis por teclado. */
 .field-input:focus-visible,
@@ -487,7 +498,7 @@ textarea:focus-visible {
 .glass-card:hover {
   border-color: var(--border-strong);
   box-shadow: var(--shadow-lg);
-  transform: translateY(-3px);
+  /* Sem translate: a caixa saindo de baixo do cursor faz o hover tremer (mesma regra do ui/Card). */
 }
 
 .stat-grid {
@@ -560,7 +571,8 @@ textarea:focus-visible {
 .kpi-medidor.is-boa > span { background: var(--success); }
 .kpi-medidor.is-atencao > span { background: var(--warning); }
 .kpi-medidor.is-ruim > span { background: var(--danger); }
-.dash-bloco-titulo { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 0.25rem 0 0.6rem; }
+.dash-bloco-titulo { display: flex; align-items: center; gap: 10px; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); margin: 0.25rem 0 0.6rem; }
+.dash-bloco-titulo::after { content: ""; flex: 1; height: 1px; background: var(--hair); }
 /* Card de indicador (blocos 2 e 3): altura do conteúdo, sem min-height nem espaçador. */
 .kpi-card { padding: 1rem 1.1rem; display: flex; flex-direction: column; }
 .kpi-card .section-header { margin-bottom: 0.55rem; }
@@ -574,7 +586,6 @@ textarea:focus-visible {
 .kpi-info:hover, .kpi-info:focus-visible { color: var(--text-primary); }
 .kpi-legenda { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.74rem; color: var(--text-secondary); margin-top: 0.35rem; }
 .kpi-legenda span { display: inline-flex; align-items: center; gap: 5px; }
-.kpi-legenda i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .kpi-legenda strong { color: var(--text-primary); }
 .kpi-linha { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
 .kpi-linha .kpi-comparacao { margin: 0; }
@@ -589,9 +600,8 @@ textarea:focus-visible {
 .kpi-legenda-botao.is-ativo { color: var(--text-primary); border-bottom: 1px solid var(--text-primary); }
 /* Popup da legenda (hover/foco): o que o grupo significa + os atendimentos,
    com só as colunas que explicam o grupo. Fica no <body> (portal). */
-.legenda-pop { position: fixed; z-index: 1000; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35); padding: 0.75rem 0 0.35rem; }
+.legenda-pop { position: fixed; z-index: 1000; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35); padding: 0.75rem 0 0.35rem; }
 .legenda-pop-titulo { display: flex; align-items: center; gap: 6px; margin: 0; padding: 0 0.9rem; font-size: 0.86rem; font-weight: 600; color: var(--text-primary); }
-.legenda-pop-titulo i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
 .legenda-pop-desc { margin: 0.2rem 0 0.55rem; padding: 0 0.9rem; font-size: 0.74rem; line-height: 1.35; color: var(--text-secondary); }
 .legenda-pop-vazio { margin: 0; padding: 0.3rem 0.9rem 0.5rem; font-size: 0.8rem; color: var(--text-muted); }
 .legenda-pop-lista { overflow: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
@@ -809,7 +819,7 @@ textarea:focus-visible {
 /* Reuniões por dia: grade seg–sex */
 .dia-grade { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin-top: 0.7rem; }
 .dia-grade-semana { font-size: 0.68rem; color: var(--text-muted); text-align: center; }
-.dia-grade-celula { position: relative; height: 34px; border-radius: 6px; background: var(--card-hover); display: flex; align-items: center; justify-content: center; font-size: 0.82rem; color: var(--text-primary); }
+.dia-grade-celula { position: relative; height: 34px; border-radius: var(--radius-sm); background: var(--card-hover); display: flex; align-items: center; justify-content: center; font-size: 0.82rem; color: var(--text-primary); }
 .dia-grade-celula strong { font-variant-numeric: tabular-nums; }
 .dia-grade-num { position: absolute; top: 2px; left: 4px; font-size: 0.6rem; color: var(--text-muted); }
 .dia-grade-cancel { position: absolute; top: 2px; right: 4px; font-size: 0.62rem; font-weight: 700; color: var(--danger); }
@@ -850,7 +860,7 @@ textarea:focus-visible {
   width: 46px;
   height: 46px;
   border-radius: var(--radius-sm);
-  background: var(--accent-soft);
+  background: var(--card-hover);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -945,7 +955,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   width: 1rem;
   height: 1rem;
   border: 1px solid var(--border-strong);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--card);
   cursor: pointer;
   flex-shrink: 0;
@@ -989,7 +999,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   flex-direction: column;
   background: var(--modal-bg);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
   overflow: hidden;
   animation: modal-in 0.18s cubic-bezier(0.2, 0.9, 0.3, 1) both;
@@ -1294,7 +1304,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   justify-content: center;
   width: 22px;
   height: 22px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--card-hover);
   color: var(--text-secondary);
@@ -1302,7 +1312,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
 }
 .calendar-day-big:hover .calendar-add { opacity: 1; }
-.calendar-add:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+.calendar-add:hover { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
 
 .calendar-events-big {
   display: flex;
@@ -1323,7 +1333,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   padding: 4px 7px;
   border: 1px solid var(--border);
   border-left: 3px solid var(--text-muted);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--card-hover);
   color: var(--text-primary);
   cursor: grab;
@@ -1359,8 +1369,8 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 }
 .calendar-day-big.is-today .calendar-day-number {
   background: var(--accent);
-  color: #000;
-  border-radius: 6px;
+  color: var(--accent-contrast);
+  border-radius: var(--radius-sm);
   min-width: 22px;
   height: 22px;
   display: inline-flex;
@@ -1395,7 +1405,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   padding: 6px 22px 8px 12px;
   border: 1px solid var(--border);
   border-left: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--card);
   cursor: grab;
   overflow: hidden;
@@ -1411,12 +1421,12 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
      sempre — status (concluído/cancelado) é o fundo do card, não a barra. */
   background: var(--chip-color, var(--text-muted));
 }
-/* Fundo pastel sólido cobrindo o card inteiro (verde concluído / vermelho
-   cancelado) — antes era um gradiente lateral fraco, ficava feio/confuso. */
-.calendar-chip.is-done { opacity: 0.62; background: var(--success-pastel-bg); }
-.calendar-chip.is-done .calendar-chip-title { text-decoration: line-through; }
-.calendar-chip.is-cancel { opacity: 0.5; background: var(--danger-pastel-bg); }
-.calendar-chip.is-cancel .calendar-chip-title { text-decoration: line-through; }
+/* Concluído/cancelado: sem fundo colorido (revisão 1.6) — o título riscado leva a
+   cor do status; o card fica no fundo neutro, um pouco apagado. */
+.calendar-chip.is-done { opacity: 0.7; }
+.calendar-chip.is-done .calendar-chip-title { text-decoration: line-through; color: var(--success-fg); }
+.calendar-chip.is-cancel { opacity: 0.6; }
+.calendar-chip.is-cancel .calendar-chip-title { text-decoration: line-through; color: var(--danger-fg); }
 /* "Pendente": mesmo tratamento neutro do kanban-card (visão Semana) — cinza
    com borda pontilhada, sem cor de tipo na barra lateral. */
 .calendar-chip.is-pendente {
@@ -1490,7 +1500,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   cursor: pointer;
   padding: 3px 8px 3px 8px;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: var(--card);
 }
 .switch-toggle-row:hover { border-color: var(--border-strong); background: var(--card-hover); }
@@ -1582,22 +1592,22 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   top: 5px;
   right: 5px;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0;
+  width: 16px; height: 16px; border-radius: var(--radius-xs); flex-shrink: 0;
   background: var(--card);
   color: var(--text-muted); cursor: pointer;
 }
 .calendar-chip-reagendar:hover { background: var(--accent-soft); color: var(--accent); }
 
 /* --- Módulo Ação: tabs, tabela de chamados, cards --- */
-.tabs { position: relative; display: inline-flex; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+.tabs { position: relative; display: inline-flex; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); }
 /* Fundo da aba ativa: um elemento só que desliza (ui/Tabs.tsx). */
-.tabs-indicador { position: absolute; left: 0; top: 0; border-radius: 7px; background: var(--accent); transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), width 0.25s cubic-bezier(0.2, 0, 0, 1), height 0.25s cubic-bezier(0.2, 0, 0, 1); }
-.tabs-compacto { padding: 2px; gap: 2px; border-radius: 8px; }
-.tabs-compacto .tabs-indicador { border-radius: 6px; }
+.tabs-indicador { position: absolute; left: 0; top: 0; border-radius: 0; background: none; box-shadow: inset 0 -2px 0 var(--accent); /* revisão 1.6: traço, não preenchimento */ transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), width 0.25s cubic-bezier(0.2, 0, 0, 1), height 0.25s cubic-bezier(0.2, 0, 0, 1); }
+.tabs-compacto { padding: 2px; gap: 2px; border-radius: var(--radius-sm); }
+.tabs-compacto .tabs-indicador { border-radius: 0; }
 .tab {
   padding: 0.5rem 1.1rem;
   border: none;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   font-size: 0.9rem;
@@ -1608,7 +1618,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   transition: color 0.2s ease, border-color 0.2s ease;
 }
 .tab:hover { color: var(--text-primary); }
-.tab.is-active { color: #000; }
+.tab.is-active { color: var(--text-primary); }
 
 /* --- Sub-abas (ex.: Monitoria/Price dentro de Acompanhamento) --- */
 .tabs-sub { background: transparent; border: none; padding-top: 0.75rem; border-top: 1px solid var(--border); gap: 10px; }
@@ -1618,14 +1628,14 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   background: transparent;
   font-size: 0.82rem;
 }
-.tabs-sub .tab.is-active { border-color: var(--accent); color: #000; }
+.tabs-sub .tab.is-active { border-color: var(--accent); color: var(--text-primary); }
 
 /* Card da fila de Ações (CardCliente): o número de dias de cada prazo é o
    elemento principal; a cor vai só no número e no ícone de risco. */
 .acard {
   display: flex; flex-direction: column; gap: 0.75rem;
   padding: 0.95rem 1.05rem 0.9rem;
-  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
   min-width: 0;
 }
 .acard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
@@ -1671,7 +1681,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   display: inline-flex; align-items: center; gap: 0.3rem;
   background: none; border: 0; padding: 0.3rem 0.2rem; cursor: pointer;
   font: inherit; font-size: 0.78rem; font-weight: 500; color: var(--accent-fg);
-  border-radius: 4px; white-space: nowrap;
+  border-radius: var(--radius-xs); white-space: nowrap;
 }
 .acard-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .acard-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -1694,9 +1704,9 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .secao-acao[data-tom="ok"] { --tom-fg: var(--success-fg); --tom-bg: var(--success-bg); }
 .secao-acao-titulo { margin: 0; font-size: 1.1rem; font-weight: 650; letter-spacing: -0.01em; color: var(--text-primary); }
 .secao-acao-qtd {
-  align-self: center; min-width: 1.6rem; padding: 0.05rem 0.5rem; border-radius: 999px; text-align: center;
-  font-size: 0.78rem; font-weight: 650; font-variant-numeric: tabular-nums;
-  color: var(--tom-fg); background: var(--tom-bg);
+  align-self: center; text-align: center;
+  font-size: 0.9rem; font-weight: 650; font-variant-numeric: tabular-nums;
+  color: var(--tom-fg); /* cor no número, sem pílula (revisão 1.6) */
 }
 .secao-acao-sub { font-size: 0.8rem; color: var(--text-muted); }
 .secao-acao-n2 { border-bottom: 0; padding-bottom: 0; margin-bottom: 0.6rem; }
@@ -1705,7 +1715,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 /* Toggle aumento/queda do "Registro da Monitoria" (ProdutosSituacaoField). */
 .direcao-toggle-btn {
   display: flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px; border-radius: 8px;
+  width: 34px; height: 34px; border-radius: var(--radius-sm);
   background: transparent; border: 1px solid var(--border-strong);
   color: var(--text-muted); cursor: pointer;
 }
@@ -1732,12 +1742,12 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 }
 .filter-ctl:hover { border-color: var(--text-muted); color: var(--text-primary); }
 .filter-ctl.is-open { border-color: var(--accent); }
-.filter-ctl.is-active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.filter-ctl.is-active { border-color: var(--accent); color: var(--text-primary); }
 
 .filter-ctl-count {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 18px; height: 18px; margin-left: 7px; padding: 0 5px;
-  border-radius: 999px; background: var(--accent); color: #000;
+  border-radius: 999px; background: var(--accent); color: var(--accent-contrast);
   font-size: 0.66rem; font-weight: 700;
 }
 .filter-ctl-chevron { color: var(--text-muted); }
@@ -1753,7 +1763,7 @@ select.filter-ctl {
   background-repeat: no-repeat;
   background-position: right 0.65rem center;
 }
-select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent); background-color: var(--accent-soft); }
+select.filter-ctl.is-active { border-color: var(--accent); color: var(--text-primary); }
 
 .filter-search { cursor: text; }
 .filter-search input {
@@ -1781,14 +1791,14 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 }
 .filter-pop-item {
   display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
-  padding: 0.45rem 0.5rem; border-radius: 6px; font-size: 0.85rem;
+  padding: 0.45rem 0.5rem; border-radius: var(--radius-sm); font-size: 0.85rem;
   color: var(--text-secondary); background: none; border: none; cursor: pointer;
   transition: background 0.1s ease, color 0.1s ease;
 }
 .filter-pop-item:hover, .filter-pop-item.is-active { background: var(--card-hover); color: var(--text-primary); }
 .filter-check {
-  width: 17px; height: 17px; border-radius: 5px; border: 1px solid var(--border-strong);
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #000;
+  width: 17px; height: 17px; border-radius: var(--radius-xs); border: 1px solid var(--border-strong);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--accent-contrast);
   transition: background 0.1s ease, border-color 0.1s ease;
 }
 .filter-check.is-on { background: var(--accent); border-color: var(--accent); }
@@ -1806,44 +1816,6 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
   .filter-grid .filter-search { grid-column: span 2; }
 }
 
-/* --- Agenda: faixa de próximas reuniões --- */
-/* Faixa "Próximas reuniões" = ticker (estilo bolsa de valores): pílulas
-   rolando continuamente da direita p/ esquerda, pausam no hover, fade nas
-   bordas. Sem transform vertical no hover (não corta como o scroller antigo). */
-.agenda-ticker {
-  position: relative;
-  overflow: hidden;
-  padding: 6px 0;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
-}
-.agenda-ticker-track {
-  display: inline-flex;
-  gap: 10px;
-  width: max-content;
-  animation: ticker-scroll linear infinite;
-  will-change: transform;
-}
-.agenda-ticker:hover .agenda-ticker-track,
-.agenda-ticker:focus-within .agenda-ticker-track { animation-play-state: paused; }
-@keyframes ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-/* Sem respeitar `prefers-reduced-motion` de propósito, só aqui — pedido
-   explícito do usuário: em máquinas com "Mostrar animações" desligado no
-   Windows, o ticker caía numa lista estática com scrollbar fixa (parecia
-   quebrado, sem indicação nenhuma de que dava pra rolar manualmente) e isso
-   já gerou confusão real (relatado como "não funciona"). Preferiu manter a
-   animação rodando sempre a lidar com esse fallback. */
-.agenda-ticker-item {
-  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px;
-  padding: 0.5rem 0.9rem; border: 1px solid var(--border); border-radius: 999px;
-  background: var(--card); color: var(--text-primary); font-family: inherit; cursor: pointer;
-  white-space: nowrap; transition: border-color 0.14s ease, background 0.14s ease;
-}
-.agenda-ticker-item:hover { border-color: var(--accent); background: var(--card-hover); }
-.agenda-ticker-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.agenda-ticker-date { font-size: 0.72rem; font-weight: 700; color: var(--accent); }
-.agenda-ticker-name { font-size: 0.83rem; font-weight: 600; }
-.agenda-ticker-meta { font-size: 0.75rem; color: var(--text-muted); }
 /* `nowrap` para o nome do monitor não quebrar no meio ("Erick / Cardoso" em duas
    linhas dentro do chip); se faltar espaço, o bloco todo desce pela quebra da
    linha de meta. */
@@ -1895,7 +1867,7 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .kanban-card {
   display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
   padding: 7px 9px 7px 11px; border: 1px solid var(--border-strong); border-left: 4px solid var(--text-muted);
-  border-radius: 7px; background: var(--card-hover); cursor: grab;
+  border-radius: var(--radius-sm); background: var(--card-hover); cursor: grab;
   transition: box-shadow 0.12s ease, border-color 0.12s ease;
 }
 /* Sem translate no hover de propósito: deslocar a própria caixa que recebe o
@@ -1904,11 +1876,11 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .kanban-card.is-dragging { opacity: 0.4; }
 .kanban-card-top { display: flex; align-items: center; gap: 6px; }
 .kanban-card-time { font-size: 0.72rem; font-weight: 700; color: var(--accent); flex: 1; }
-.kanban-card-done { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--border-strong); background: var(--card); color: var(--text-secondary); cursor: pointer; }
+.kanban-card-done { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: var(--radius-xs); border: 1px solid var(--border-strong); background: var(--card); color: var(--text-secondary); cursor: pointer; }
 .kanban-card-done:hover { background: var(--success); border-color: var(--success); color: #fff; }
 .kanban-card-title { font-size: 0.8rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kanban-card-sub { font-size: 0.68rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kanban-add { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; color: var(--text-muted); background: none; border: 1px dashed var(--border); border-radius: 6px; padding: 4px 6px; cursor: pointer; transition: all 0.12s ease; }
+.kanban-add { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; color: var(--text-muted); background: none; border: 1px dashed var(--border); border-radius: var(--radius-sm); padding: 4px 6px; cursor: pointer; transition: all 0.12s ease; }
 .kanban-add:hover { color: var(--accent); border-color: var(--accent); }
 
 @media (max-width: 1000px) { .kanban { grid-template-columns: 1fr 1fr; } }
@@ -1920,9 +1892,9 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 
 
 .kanban-card.is-done { opacity: 0.6; }
-.kanban-card.is-done .kanban-card-title { text-decoration: line-through; }
+.kanban-card.is-done .kanban-card-title { text-decoration: line-through; color: var(--success-fg); }
 .kanban-card.is-cancel { opacity: 0.55; }
-.kanban-card.is-cancel .kanban-card-title { text-decoration: line-through; }
+.kanban-card.is-cancel .kanban-card-title { text-decoration: line-through; color: var(--danger-fg); }
 /* "Pendente": cinza neutro com borda pontilhada — nem bom (concluído) nem mau
    (cancelado) sinal, só "ainda não confirmado". */
 .kanban-card.is-pendente {
@@ -1960,7 +1932,7 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 }
 
 /* --- Ações: histórico + sugestões no card --- */
-.acao-hist { display: flex; flex-direction: column; gap: 7px; padding: 0.7rem 0.8rem; background: var(--card-hover); border: 1px solid var(--border); border-radius: 10px; }
+.acao-hist { display: flex; flex-direction: column; gap: 7px; padding: 0.7rem 0.8rem; background: var(--card-hover); border: 1px solid var(--border); border-radius: var(--radius); }
 .acao-hist-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 700; }
 .acao-hist-item { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-secondary); padding: 2px 0; }
 .acao-hist-item + .acao-hist-item { border-top: 1px dashed var(--border); padding-top: 6px; }
@@ -1969,28 +1941,27 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 /* ---------------------------------------------------------------------------
    Card "Qualidade do atendimento" (dashboard)
    --------------------------------------------------------------------------- */
-
-/* Botão de filtro em pílula — alternativa ao Dropdown quando as opções são
-   poucas e a troca é frequente (um clique em vez de abrir/escolher/fechar). */
+/* Filtro em botões (Agenda, linha do tempo do cliente). Mesma linguagem do Chip
+   "filter" aprovada na 1.6: sem caixa; inativo apagado, ativo claro com traço
+   dourado embaixo. A diferença vem do contraste, nunca de fundo ou ponto. */
 .filtro-btn {
-  padding: 0.32rem 0.7rem;
-  border-radius: 999px;
-  border: 1px solid var(--border-strong);
-  background: var(--card);
-  color: var(--text-secondary);
+  position: relative;
+  padding: 0.32rem 0.55rem;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
   font-family: inherit;
-  font-size: 0.76rem;
-  font-weight: 600;
+  font-size: 0.8rem;
+  font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  transition: color 0.12s ease;
 }
-.filtro-btn:hover { background: var(--card-hover); color: var(--text-primary); border-color: var(--text-muted); }
-.filtro-btn.is-active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
-}
+.filtro-btn::after { content: ''; position: absolute; left: 0.55rem; right: 0.55rem; bottom: 0; height: 2px; border-radius: 1px; background: var(--filtro-cor, var(--accent)); transform: scaleX(0); transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+.filtro-btn:hover { color: var(--text-primary); }
+.filtro-btn.is-active { color: var(--text-primary); font-weight: 600; }
+.filtro-btn.is-active::after { transform: scaleX(1); }
+@media (prefers-reduced-motion: reduce) { .filtro-btn::after { transition: none; } }
 
 .atend-barra {
   display: flex;
@@ -2011,7 +1982,7 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
   margin-bottom: 14px;
   padding: 10px 12px 12px;
   border-bottom: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--card-hover) 42%, transparent);
 }
 .agenda-filtro-linha {
@@ -2040,18 +2011,12 @@ select.filter-ctl.is-active { border-color: var(--accent); color: var(--accent);
 .agenda-filtro-opcoes .check-row {
   padding: 3px 8px 3px 4px;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: var(--card);
 }
 .agenda-filtro-opcoes .check-row:hover {
   border-color: var(--border-strong);
   background: var(--card-hover);
-}
-/* A legenda de cores é redundante na tela (os botões de tipo já são coloridos),
-   mas necessária no papel, onde os filtros não são impressos. */
-.agenda-legenda-print { display: none; }
-@media print {
-  .agenda-legenda-print { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; }
 }
 
 .atend-subtitulo {
@@ -2113,15 +2078,17 @@ button.base-sync:hover { border-color: var(--border-strong); }
 .reunioes-hoje-pop { padding: 6px; max-height: 340px; }
 .reuniao-hoje-item {
   display: flex; align-items: flex-start; gap: 10px;
-  padding: 0.5rem 0.4rem; border-radius: 6px;
+  padding: 0.5rem 0.4rem; border-radius: var(--radius-sm);
 }
 .reuniao-hoje-item:hover { background: var(--card-hover); }
 /* Cor por status — mesma classificação usada no resto da Agenda (badges.ts):
    concluída/realizada verde, cancelada vermelho, reagendada amarelo. Hover
    continua sobrepondo (mistura visualmente, é só destaque de interação). */
-.reuniao-hoje-item.is-concluida { background: var(--success-pastel-bg); }
-.reuniao-hoje-item.is-cancelada { background: var(--danger-pastel-bg); }
-.reuniao-hoje-item.is-reagendada { background: var(--warning-pastel-bg); }
+/* Estado da reunião de hoje: sem fundo pastel (1.6) — o status vem escrito, na cor dele. */
+.reuniao-hoje-status { font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+.reuniao-hoje-item.is-concluida .reuniao-hoje-status { color: var(--success-fg); }
+.reuniao-hoje-item.is-cancelada .reuniao-hoje-status { color: var(--danger-fg); }
+.reuniao-hoje-item.is-reagendada .reuniao-hoje-status { color: var(--warning-fg); }
 .reuniao-hoje-hora {
   flex-shrink: 0; width: 40px; font-size: 0.78rem; font-weight: 700;
   color: var(--accent); font-variant-numeric: tabular-nums; margin-top: 1px;
@@ -2244,3 +2211,31 @@ button.base-sync:hover { border-color: var(--border-strong); }
 
   .stackedbar-destaque { animation: none; box-shadow: 0 0 0 1px var(--accent); }
 }
+
+/* ---------------------------------------------------------------------------
+   Movimento da 1.6: barras enchem, números rolam, botão mostra que está salvando
+   --------------------------------------------------------------------------- */
+/* Barra "X de Y" enche da esquerda ao montar (transform, não width). */
+.kpi-medidor > span { transform-origin: left center; animation: medidor-encher 700ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes medidor-encher { from { transform: scaleX(0); } }
+
+/* Número que rola dígito a dígito, como cotação (src/ui/NumeroRolante.tsx).
+   O texto invisível no fluxo dá largura e linha de base; as colunas ficam por cima. */
+.num-rolante { position: relative; display: inline-block; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.num-rolante-faixa { position: absolute; left: 0; top: 0; display: flex; white-space: pre; }
+.num-rolante-dig { display: inline-block; height: 1.1em; overflow: hidden; }
+.num-rolante-dig > span { display: flex; flex-direction: column; transition: transform 560ms cubic-bezier(0.16, 1, 0.3, 1); }
+.num-rolante-dig > span > i { font-style: normal; height: 1.1em; line-height: 1.1em; }
+
+/* Botão: girador enquanto salva (Button `carregando`). */
+.btn-giro { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid currentColor; border-right-color: transparent; animation: btn-giro 0.7s linear infinite; flex-shrink: 0; }
+@keyframes btn-giro { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi-medidor > span { animation: none; }
+  .num-rolante-dig > span { transition: none; }
+  .btn-giro { animation-duration: 1.6s; }
+}
+
+/* Item da fila de Ações (wrapper animado do card): ocupa a célula inteira, como o card ocupava. */
+.fila-item { display: grid; min-width: 0; }

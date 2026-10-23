@@ -163,15 +163,16 @@ function gerarAlertas(repo, { agora = new Date(), max = 8 } = {}) {
   }
 
   // 6. Pauta recomendada que não virou ação: a última análise sugeriu uma
-  // próxima pauta e não há reunião futura marcada nem reunião mais nova com
-  // ata desde então. Mede se a recomendação da IA é só relatório sem leitor.
+  // próxima pauta e não há reunião futura marcada nem reunião CONCLUÍDA desde
+  // então. Mede se a recomendação da IA é só relatório sem leitor. (Até 22/10/2026
+  // exigia reunião "com ata"; ata ausente deixou de ser critério do monitorIA.)
   for (const c of ativos) {
     const analise = analisePorCliente.get(String(c.id));
     const pauta = String(analise?.sugestaoProximaPauta ?? '').trim();
     if (!pauta || comFuturo.has(String(c.id))) continue;
     const eventosDepois = agenda.filter((e) => String(e.clientId) === String(c.id)
       && e.date && analise.geradoEm && String(e.date) > String(analise.geradoEm).slice(0, 10)
-      && String(e.ata ?? '').trim());
+      && /conclu|realiz/i.test(String(e.status ?? '')));
     if (eventosDepois.length > 0) continue;
     alertas.push({
       id: `pauta-parada:${c.id}`,
@@ -208,7 +209,6 @@ function gerarAlertas(repo, { agora = new Date(), max = 8 } = {}) {
  * os dois na mesma função ia acoplar duas formas de alerta bem diferentes.
  */
 const TEMAS_PROCESSO = [
-  { chave: 'sem_ata', regex: /sem ata/i, rotulo: 'reunião sem ata de pauta' },
   { chave: 'cancelamento', regex: /cancel/i, rotulo: 'cancelamento de reunião' },
   { chave: 'reagendamento', regex: /reagend/i, rotulo: 'reagendamento' },
 ];

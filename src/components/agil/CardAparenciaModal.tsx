@@ -42,7 +42,7 @@ export function CardAparenciaModal({ board, onClose }: CardAparenciaModalProps) 
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="primary" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          <Button type="submit" variant="primary" carregando={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
         </>
       }
     >

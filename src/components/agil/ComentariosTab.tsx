@@ -71,7 +71,7 @@ export function ComentariosTab({ tarefaId }: ComentariosTabProps) {
                   <button
                     type="button"
                     onClick={() => removerAgilComentario(c.id)}
-                    className="ml-auto flex items-center justify-center w-5 h-5 rounded-[4px] text-text-muted bg-transparent border-none cursor-pointer opacity-0 group-hover:opacity-100 transition-[opacity,background-color,color] hover:bg-danger hover:text-white"
+                    className="ml-auto flex items-center justify-center w-5 h-5 rounded-xs text-text-muted bg-transparent border-none cursor-pointer opacity-0 group-hover:opacity-100 transition-[opacity,background-color,color] hover:bg-danger hover:text-white"
                     title="Remover"
                     aria-label="Remover comentário"
                   >

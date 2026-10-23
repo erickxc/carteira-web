@@ -81,7 +81,7 @@ export function FrentesManagerModal({ onClose }: FrentesManagerModalProps) {
                   type="color"
                   value={editCor}
                   onChange={(e) => setEditCor(e.target.value)}
-                  className="w-8 h-8 shrink-0 rounded-[6px] border border-border-strong cursor-pointer bg-transparent p-0"
+                  className="w-8 h-8 shrink-0 rounded-sm border border-border-strong cursor-pointer bg-transparent p-0"
                   title="Cor da Frente"
                   aria-label="Cor da Frente"
                 />
@@ -113,7 +113,7 @@ export function FrentesManagerModal({ onClose }: FrentesManagerModalProps) {
           type="color"
           value={novaCor}
           onChange={(e) => setNovaCor(e.target.value)}
-          className="w-8 h-8 shrink-0 rounded-[6px] border border-border-strong cursor-pointer bg-transparent p-0"
+          className="w-8 h-8 shrink-0 rounded-sm border border-border-strong cursor-pointer bg-transparent p-0"
           title="Cor da nova Frente"
           aria-label="Cor da nova Frente"
         />

@@ -1,4 +1,4 @@
-import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilCampoPersonalizado, AgilColuna, AgilComentario, AgilConexao, AgilFrente, AgilHistoricoItem, AgilSwimlane, AgilSubtarefa, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilConexao, NovaAgilFrente, NovaAgilSubtarefa, NovaAgilSwimlane, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilCampoPersonalizado, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao, StatusHistoricoItem } from '../types';
+import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilCampoPersonalizado, AgilColuna, AgilComentario, AgilConexao, AgilFrente, AgilHistoricoItem, AgilSwimlane, AgilSubtarefa, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, LojaCadastro, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilConexao, NovaAgilFrente, NovaAgilSubtarefa, NovaAgilSwimlane, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilCampoPersonalizado, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao, StatusHistoricoItem } from '../types';
 
 const PRE_ANALISE_VAZIA: PreAnalise = { orientacoes: [], clientesGeral: '', produtosGeral: '' };
 function parsePreAnalise(raw: unknown): PreAnalise {
@@ -205,6 +205,7 @@ function deserializeCliente(raw: Record<string, unknown>): Cliente {
     servicos: parseListaJSON<string>(raw.servicos),
     servicosIndependentes: parseListaJSON<string>(raw.servicosIndependentes),
     contatos: parseListaJSON<Contato>(raw.contatos),
+    lojasCadastro: parseListaJSON<LojaCadastro>(raw.lojasCadastro),
     observacao: (raw.observacao as string) ?? '',
     // Compatibilidade com a base anterior, que usava status para estado.
     estado: (raw.estado as string) ?? (/^(ativ|gratuidade)/i.test(String(raw.status ?? '')) ? 'Ativo' : 'Inativo'),
@@ -856,3 +857,25 @@ export interface LimiteContaClaude {
 }
 
 export const buscarLimiteContaClaude = () => request<LimiteContaClaude>('/ia/claude/limite');
+
+/** monitorIA nas reuniões (entrega 1: reunião simulada a partir de um arquivo). */
+export interface EstadoReuniao {
+  ativa: boolean;
+  fase: 'ouvindo' | 'finalizando' | 'concluida' | 'erro' | null;
+  eventId?: string;
+  erro?: string | null;
+  minutos?: number;
+  insights?: number;
+}
+
+export function estadoReuniao(): Promise<EstadoReuniao> {
+  return request<EstadoReuniao>('/reuniao/estado');
+}
+
+export function iniciarReuniao(dados: { eventId: string; simularArquivo: string; velocidade: number }): Promise<EstadoReuniao> {
+  return request<EstadoReuniao>('/reuniao/iniciar', { method: 'POST', body: JSON.stringify(dados) });
+}
+
+export function encerrarReuniao(): Promise<EstadoReuniao> {
+  return request<EstadoReuniao>('/reuniao/encerrar', { method: 'POST' });
+}

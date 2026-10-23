@@ -311,7 +311,7 @@ export function KanbanBoard({ board, filtros = AGIL_FILTROS_VAZIOS }: KanbanBoar
                   {linha.titulo !== null && (
                     <div className="group flex items-center gap-1.5 px-2.5 py-1 bg-card-hover border-b border-t border-border">
                       {linha.id && (
-                        <button onClick={() => alternarColapsoSwimlane(linha.id)} className="flex items-center justify-center w-[18px] h-[18px] rounded-[4px] text-text-muted bg-transparent border-none cursor-pointer hover:bg-card hover:text-text-primary" title={colapsada ? 'Expandir raia' : 'Recolher raia'} aria-label={`${colapsada ? 'Expandir' : 'Recolher'} raia ${linha.titulo}`}>
+                        <button onClick={() => alternarColapsoSwimlane(linha.id)} className="flex items-center justify-center w-[18px] h-[18px] rounded-xs text-text-muted bg-transparent border-none cursor-pointer hover:bg-card hover:text-text-primary" title={colapsada ? 'Expandir raia' : 'Recolher raia'} aria-label={`${colapsada ? 'Expandir' : 'Recolher'} raia ${linha.titulo}`}>
                           {colapsada ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
                         </button>
                       )}
@@ -319,7 +319,7 @@ export function KanbanBoard({ board, filtros = AGIL_FILTROS_VAZIOS }: KanbanBoar
                       {linha.id && (
                         <button
                           onClick={() => setSwimlaneModal(swimlanesDoBoard.find((s) => s.id === linha.id) ?? null)}
-                          className="ml-1 flex items-center justify-center w-[16px] h-[16px] rounded-[4px] text-text-muted bg-transparent border-none cursor-pointer opacity-0 group-hover:opacity-100 hover:bg-card hover:text-text-primary"
+                          className="ml-1 flex items-center justify-center w-[16px] h-[16px] rounded-xs text-text-muted bg-transparent border-none cursor-pointer opacity-0 group-hover:opacity-100 hover:bg-card hover:text-text-primary"
                           title="Editar raia"
                           aria-label={`Editar raia ${linha.titulo}`}
                         >

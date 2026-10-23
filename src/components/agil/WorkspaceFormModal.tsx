@@ -65,7 +65,7 @@ export function WorkspaceFormModal({ initial, onClose, onCreated, onDeleted }: W
         <>
           {initial && <Button variant="danger" onClick={handleDelete} style={{ marginRight: 'auto' }}>Excluir</Button>}
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="primary" disabled={saving}>
+          <Button type="submit" variant="primary" carregando={saving}>
             {saving ? 'Salvando...' : 'Salvar'}
           </Button>
         </>

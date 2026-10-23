@@ -1,23 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  addDays, addMonths, addWeeks, differenceInCalendarDays, eachDayOfInterval, endOfMonth, endOfWeek,
+  addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek,
   format, isSameMonth, parse, parseISO, startOfMonth, startOfWeek, subDays, subMonths, subWeeks,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Bot, CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, Plus, Printer } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { EventFormModal } from '../components/EventFormModal';
+import { corTipo } from '../utils/tipoCor';
 import { FiltroBotoes } from '../components/FiltroBotoes';
 import { CeoEventoPopover } from '../components/agenda/CeoEventoPopover';
-import { ProximasReunioesTicker } from '../components/agenda/ProximasReunioesTicker';
 import { MonthGrid } from '../components/agenda/MonthGrid';
 import { WeekKanban } from '../components/agenda/WeekKanban';
 import { turnoDe } from '../utils/turnos';
 import { ghostsByDay, registrarRemarcacao } from '../utils/reagendamento';
 import { sugerirAgenda, type SugestaoSlot } from '../utils/sugestaoAgenda';
 import { gerarAta } from '../utils/ata';
-import { corTipo } from '../utils/tipoCor';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { Button, Card, Tabs } from '../ui';
 import type { EventoAgenda, EventoCeo } from '../types';
@@ -120,6 +119,20 @@ export default function AgendaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.key]);
 
+  // `/agenda?evento=<id>`: link das notificações do monitorIA nas reuniões
+  // ("Ver na Carteira") — abre o evento e limpa o parâmetro. Espera a agenda
+  // carregar: o clique na notificação pode abrir a Carteira do zero.
+  const eventoDoLink = new URLSearchParams(location.search).get('evento');
+  useEffect(() => {
+    if (!eventoDoLink) return;
+    const ev = agenda.find((a) => a.id === eventoDoLink);
+    if (!ev) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setModalState({ editing: ev });
+    navigate(location.pathname, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventoDoLink, agenda]);
+
   const eventsByDay = useMemo(() => {
     const map = new Map<string, EventoAgenda[]>();
     agendaFiltrada.forEach((item) => {
@@ -205,21 +218,6 @@ export default function AgendaPage() {
     return s;
   }, [agendaFiltrada]);
 
-  // "Próximas reuniões" = só eventos do tipo Reunião. Contato/Relatório são
-  // eventos de agenda (aparecem no calendário) mas não são reunião, então não
-  // entram nesta lista. Match por palavra-chave (tipos são editáveis). Exclui
-  // Cancelado/Concluído (a pedido do usuário, literalmente só esses 2 — não
-  // Realizado/Reagendado, que continuam aparecendo).
-  const proximos = useMemo(
-    () => agendaFiltrada
-      .filter((a) => /reuni/i.test(a.type))
-      .filter((a) => !/cancel|conclu/i.test(a.status || ''))
-      .filter((a) => differenceInCalendarDays(parseISO(a.date), hoje) >= 0)
-      .sort((a, b) => (parseISO(a.date).getTime() - parseISO(b.date).getTime()) || ordenaPorHora(a, b))
-      .slice(0, 10),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agendaFiltrada]
-  );
 
   const monthDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentMonth));
@@ -278,12 +276,6 @@ export default function AgendaPage() {
         <Button variant="primary" onClick={() => setModalState({ defaultDate: new Date() })}><Plus size={16} /> Novo evento</Button>
       </div>
 
-      <ProximasReunioesTicker
-        proximos={proximos}
-        conflitos={conflitos}
-        onSelecionar={(ev) => setModalState({ editing: ev })}
-      />
-
       <Card flat className="agenda-board">
         <div className="flex-between" style={{ marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
           <strong style={{ textTransform: 'capitalize', fontSize: '1.3rem' }}>{tituloPeriodo()}</strong>
@@ -308,9 +300,9 @@ export default function AgendaPage() {
           <FiltroBotoes
             label="Tipos"
             opcoes={tiposUnicos}
+            corDe={corTipo}
             valor={fTipos}
             onChange={setFTipos}
-            corDe={corTipo}
           />
           {monitorOpcoes.length > 0 && (
             <FiltroBotoes
@@ -355,14 +347,6 @@ export default function AgendaPage() {
           </div>
         </div>
 
-        {/* Legenda de cores — só na impressão, onde não há botão colorido. */}
-        <div className="agenda-legenda-print">
-          {tiposUnicos.map((t) => (
-            <span key={t} className="inline-flex items-center gap-[6px] text-[0.74rem] text-text-secondary">
-              <i className="w-[10px] h-[10px] rounded-[3px] inline-block" style={{ background: corTipo(t) }} /> {t}
-            </span>
-          ))}
-        </div>
 
         {view === 'mes' ? (
           <MonthGrid

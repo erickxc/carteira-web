@@ -1,5 +1,5 @@
 import { AlertTriangle, CalendarSync, Check, User } from 'lucide-react';
-import { corTipo, corTipoBg } from '../../utils/tipoCor';
+import { corTipo } from '../../utils/tipoCor';
 import { ReagendarButton } from './ReagendarButton';
 import type { EventoAgenda } from '../../types';
 
@@ -21,24 +21,12 @@ export function CardEvento({ ev, isDragging, hasConflito, onDragStart, onDragEnd
   const isDone = /conclu|realiz/i.test(ev.status);
   const isCancel = /cancel|reagend/i.test(ev.status);
   const isPendente = /pendente/i.test(ev.status);
-  // Fundo pastel sólido cobrindo o card inteiro (verde concluído / vermelho
-  // cancelado) vence a cor de fundo do tipo. A barra lateral (borderLeftColor)
-  // continua sempre com a cor do TIPO (Reunião/Contato/Ligação/Relatório) —
-  // status é o fundo, tipo é a barra, nunca os dois disputando a mesma cor.
-  // "Pendente" é neutro (cinza, borda pontilhada) em vez de pastel — não é bom
-  // nem mau sinal como concluído/cancelado, só "ainda não confirmado". A cor
-  // vem toda do CSS (.is-pendente), não daqui.
-  const background = isDone
-    ? 'var(--success-pastel-bg)'
-    : isCancel
-      ? 'var(--danger-pastel-bg)'
-      : isPendente
-        ? undefined
-        : corTipoBg(ev.type);
+  // Sem fundo colorido (revisão 1.6: pastel rejeitado). Tipo = barra lateral;
+  // concluído/cancelado = título riscado na cor do status (CSS .is-done/.is-cancel).
   return (
     <button
       className={`kanban-card${isDragging ? ' is-dragging' : ''}${isDone ? ' is-done' : ''}${isCancel ? ' is-cancel' : ''}${isPendente ? ' is-pendente' : ''}`}
-      style={{ borderLeftColor: isPendente ? undefined : corTipo(ev.type), borderLeftWidth: 5, background }}
+      style={{ borderLeftColor: isPendente ? undefined : corTipo(ev.type), borderLeftWidth: 5 }}
       draggable
       onDragStart={(e) => { e.dataTransfer.setData('text/plain', ev.id); onDragStart(); }}
       onDragEnd={onDragEnd}

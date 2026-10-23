@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { LinhaAtendimento } from '../../utils/indicadoresPrazo';
 import type { GrupoPrazo } from '../../utils/gruposPrazo';
+import { corDeTexto } from '../../utils/corTexto';
 
 interface LegendaGruposProps {
   grupos: GrupoPrazo[];
@@ -69,7 +70,7 @@ export function LegendaGrupos({ grupos, linhas, onAbrirCliente }: LegendaGruposP
           onBlur={fecharDepois}
           onClick={(e) => (aberto?.key === g.key ? setAberto(null) : abrir(g.key, e.currentTarget))}
         >
-          <i style={{ background: g.cor }} />{g.label} <strong>{g.itens.length}</strong>
+          {g.label} <strong style={{ color: corDeTexto(g.cor) }}>{g.itens.length}</strong>
         </button>
       ))}
       {aberto && grupo && createPortal(
@@ -81,7 +82,7 @@ export function LegendaGrupos({ grupos, linhas, onAbrirCliente }: LegendaGruposP
           onMouseEnter={cancelarFechar}
           onMouseLeave={fecharDepois}
         >
-          <p className="legenda-pop-titulo"><i style={{ background: grupo.cor }} />{grupo.label} <strong>{grupo.itens.length}</strong></p>
+          <p className="legenda-pop-titulo">{grupo.label} <strong style={{ color: corDeTexto(grupo.cor) }}>{grupo.itens.length}</strong></p>
           <p className="legenda-pop-desc">{grupo.descricao}</p>
           {linhasDoGrupo.length === 0 ? (
             <p className="legenda-pop-vazio">Nenhum atendimento.</p>

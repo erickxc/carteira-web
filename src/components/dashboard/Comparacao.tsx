@@ -1,4 +1,5 @@
 import { Info } from 'lucide-react';
+import { corDeTexto } from '../../utils/corTexto';
 
 /** Ícone ⓘ ao lado do título com a regra do card no hover/foco — tira o texto
  * explicativo do corpo do card sem esconder a regra de quem quer saber. */
@@ -10,12 +11,12 @@ export function InfoComoConta({ texto }: { texto: string }) {
   );
 }
 
-/** Legenda compacta numa linha: ponto colorido + rótulo + número (nunca só a cor). */
+/** Legenda compacta numa linha: rótulo + número, com a cor da série NO número (sem bolinha ao lado — rejeitada na 1.6). */
 export function LegendaCompacta({ itens }: { itens: { cor: string; label: string; n: number }[] }) {
   return (
     <div className="kpi-legenda">
       {itens.map((i) => (
-        <span key={i.label}><i style={{ background: i.cor }} />{i.label} <strong>{i.n}</strong></span>
+        <span key={i.label}>{i.label} <strong style={{ color: corDeTexto(i.cor) }}>{i.n}</strong></span>
       ))}
     </div>
   );

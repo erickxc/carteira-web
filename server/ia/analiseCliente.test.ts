@@ -376,14 +376,15 @@ describe('analiseCliente: tipo do evento e registro vazio', () => {
     expect(textoEvento({ date: '2026-09-17', type: 'Relatório', status: 'Concluído' })).toContain('normal para Relatório');
   });
 
-  it('reunião vazia antes de agosto/2026 não é sinal; depois é pendência do monitor', () => {
+  it('reunião vazia nunca é sinal nem pendência (antes de agosto/2026 a equipe não registrava; depois, ata ausente deixou de ser critério)', () => {
     expect(textoEvento({ date: '2026-07-20', type: 'Reunião', status: 'Concluído' })).toContain('ainda não registrava');
-    expect(textoEvento({ date: '2026-09-17', type: 'Reunião', status: 'Concluído' })).toContain('não preenchida pelo monitor da 2D');
+    expect(textoEvento({ date: '2026-09-17', type: 'Reunião', status: 'Concluído' })).toContain('não é sinal nem pendência');
   });
 
-  it('o prompt proíbe subir o risco do cliente por ata vazia', () => {
+  it('o prompt tira ata vazia de todos os campos e manda focar no conteúdo das reuniões', () => {
     const prompt = montarPrompt({ cliente, eventosNovos: [], dossieAnterior: '' });
-    expect(prompt).toMatch(/NUNCA sobe o "nivelRisco"/);
+    expect(prompt).toMatch(/NÃO entra em nenhum campo/);
+    expect(prompt).toMatch(/foco da análise é o CONTEÚDO das reuniões/);
   });
 });
 

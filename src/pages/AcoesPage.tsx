@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -20,6 +21,7 @@ import { aguardandoRetorno, ordenarPorProximidade, type Item } from '../utils/ac
 import { buscarAlertasAlvos, type AlertaAlvos } from '../api/client';
 import { Badge, Button, Card, Chip, Tabs, Td, Th, type BadgeVariant } from '../ui';
 import { ACAO_TIPO_LABEL, type AcaoTipo, type Cliente } from '../types';
+import { curva } from '../motion/tokens';
 
 const ACAO_STATUS_BADGE: Record<string, BadgeVariant> = { programado: 'accent', concluido: 'success', sem_sucesso: 'warning', dispensado: 'muted' };
 const ACAO_STATUS_LABEL: Record<string, string> = { programado: 'Programada', concluido: 'Concluída', sem_sucesso: 'Sem sucesso', dispensado: 'Dispensada' };
@@ -161,6 +163,7 @@ export default function AcoesPage() {
     else { setSortBy(col); setSortDir(col === 'data' ? 'desc' : 'asc'); }
   }
   const seta = (col: typeof sortBy) => (sortBy === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
+  const ariaSort = (col: typeof sortBy) => (sortBy === col ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none') as 'ascending' | 'descending' | 'none';
   const preset = sortBy === 'data' ? (sortDir === 'desc' ? 'recente' : 'antiga') : sortBy === 'cliente' ? 'cliente' : sortBy === 'status' ? 'status' : '';
   function aplicarPreset(v: string) {
     if (v === 'recente') { setSortBy('data'); setSortDir('desc'); }
@@ -251,24 +254,30 @@ export default function AcoesPage() {
   }
 
   // Card de um item da fila (com os relógios de cadência).
+  // Cada card guarda a mesma identidade de layout entre as seções: quando um
+  // registro tira o cliente de "Vencidos" e ele cai em outra seção (ou outra
+  // posição), o card desliza até o lugar novo em vez de sumir e reaparecer.
+  // Movimento reduzido: o MotionConfig do app (reducedMotion="user") desliga.
+  // Enquanto há texto na busca, sem layout: nada desliza (nem é medido) a cada tecla.
   const cardDeFila = (f: FilaCadItem) => (
-    <CardCliente
-      key={f.cliente.id}
-      c={f.cliente}
-      comHistorico
-      relogios={f.relogios}
-      severidade={classificarCadencia(f)}
-      nivelRisco={f.nivelRisco}
-      janelaContatoRecente={cadencias.recontato_dias}
-      ultimoContato={info.ult.get(f.cliente.id) ?? null}
-      totalReunioes={info.nReun.get(f.cliente.id) ?? 0}
-      historico={(itensPorCliente.get(f.cliente.id) ?? []).slice(0, 3)}
-      produtos={produtos(f.cliente)}
-      alertaAlvos={alertaAlvosPorCliente.get(f.cliente.id) ?? null}
-      onRegistrar={(clienteId, tipo) => setModal({ modo: 'nova', clienteId, tipo })}
-      onAgendar={(clienteId) => setModal({ modo: 'agendar', clienteId })}
-      onConversarAlvos={(a) => navigate('/assistente', { state: { clientId: a.clientId, pergunta: a.pergunta } })}
-    />
+    <motion.div key={f.cliente.id} className="fila-item" layout={acCliente ? false : 'position'} layoutId={acCliente ? undefined : `fila-${f.cliente.id}`} transition={{ duration: 0.32, ease: curva.saida }}>
+      <CardCliente
+        c={f.cliente}
+        comHistorico
+        relogios={f.relogios}
+        severidade={classificarCadencia(f)}
+        nivelRisco={f.nivelRisco}
+        janelaContatoRecente={cadencias.recontato_dias}
+        ultimoContato={info.ult.get(f.cliente.id) ?? null}
+        totalReunioes={info.nReun.get(f.cliente.id) ?? 0}
+        historico={(itensPorCliente.get(f.cliente.id) ?? []).slice(0, 3)}
+        produtos={produtos(f.cliente)}
+        alertaAlvos={alertaAlvosPorCliente.get(f.cliente.id) ?? null}
+        onRegistrar={(clienteId, tipo) => setModal({ modo: 'nova', clienteId, tipo })}
+        onAgendar={(clienteId) => setModal({ modo: 'agendar', clienteId })}
+        onConversarAlvos={(a) => navigate('/assistente', { state: { clientId: a.clientId, pergunta: a.pergunta } })}
+      />
+    </motion.div>
   );
 
   function renderCard(comHistorico: boolean) {
@@ -307,10 +316,10 @@ export default function AcoesPage() {
             <div className="acoes-visao">
               {/* Duas visões, mutuamente exclusivas, cobrindo toda a fila visível.
                   Sem contador aqui: as seções abaixo já contam cada grupo. */}
-              <Chip active={visaoAcompanhamento !== 'emdia'} onClick={() => setVisaoAcompanhamento('precisa')} style={{ padding: '0.45rem 0.85rem', fontSize: '0.85rem' }}>
+              <Chip active={visaoAcompanhamento !== 'emdia'} onClick={() => setVisaoAcompanhamento('precisa')}>
                 Precisam de ação
               </Chip>
-              <Chip active={visaoAcompanhamento === 'emdia'} onClick={() => setVisaoAcompanhamento('emdia')} style={{ padding: '0.45rem 0.85rem', fontSize: '0.85rem' }}>
+              <Chip active={visaoAcompanhamento === 'emdia'} onClick={() => setVisaoAcompanhamento('emdia')}>
                 Em dia
               </Chip>
               <InfoComoConta texto={visaoAcompanhamento === 'emdia'
@@ -437,11 +446,11 @@ export default function AcoesPage() {
             {itensFiltrados.length === 0 ? <div className="empty-state" style={{ padding: '2rem' }}>Nenhuma ação encontrada.</div> : (
               <table className="w-full border-collapse text-[0.9rem]">
                 <thead><tr>
-                  <Th sortable onClick={() => ordenarPor('data')}>Data{seta('data')}</Th>
-                  <Th sortable onClick={() => ordenarPor('cliente')}>Cliente{seta('cliente')}</Th>
-                  <Th sortable onClick={() => ordenarPor('tipo')}>Tipo{seta('tipo')}</Th>
-                  <Th sortable onClick={() => ordenarPor('origem')}>Origem{seta('origem')}</Th>
-                  <Th sortable onClick={() => ordenarPor('status')}>Status{seta('status')}</Th>
+                  <Th sortable aria-sort={ariaSort('data')} onClick={() => ordenarPor('data')}>Data{seta('data')}</Th>
+                  <Th sortable aria-sort={ariaSort('cliente')} onClick={() => ordenarPor('cliente')}>Cliente{seta('cliente')}</Th>
+                  <Th sortable aria-sort={ariaSort('tipo')} onClick={() => ordenarPor('tipo')}>Tipo{seta('tipo')}</Th>
+                  <Th sortable aria-sort={ariaSort('origem')} onClick={() => ordenarPor('origem')}>Origem{seta('origem')}</Th>
+                  <Th sortable aria-sort={ariaSort('status')} onClick={() => ordenarPor('status')}>Status{seta('status')}</Th>
                   <Th>Observação</Th><Th></Th>
                 </tr></thead>
                 <tbody>

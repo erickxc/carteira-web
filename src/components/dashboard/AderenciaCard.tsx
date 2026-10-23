@@ -2,7 +2,7 @@ import { Comparacao, InfoComoConta, Medidor } from './Comparacao';
 import { LegendaGrupos } from './LegendaGrupos';
 import type { GrupoPrazo } from '../../utils/gruposPrazo';
 import type { LinhaAtendimento } from '../../utils/indicadoresPrazo';
-import { Card, Chip } from '../../ui';
+import { Card, Chip, NumeroRolante } from '../../ui';
 import type { ServicoCad } from '../../utils/cadenciaServico';
 
 type FiltroServico = ServicoCad | 'Todos';
@@ -48,7 +48,7 @@ export function AderenciaCard({
         <div className="empty-state">Nenhum atendimento com prazo.</div>
       ) : (
         <>
-          <p className="kpi-valor-grande">{emDia} <span className="kpi-denominador">de {total} em dia</span></p>
+          <p className="kpi-valor-grande"><NumeroRolante valor={emDia} /> <span className="kpi-denominador">de {total} em dia</span></p>
           <Medidor n={emDia} total={total} rotulo="atendimentos em dia" />
           <div className="kpi-linha">
             <Comparacao atual={emDia} anterior={anterior.total > 0 ? anterior.emDia : null} subirEhBom rotulo={rotuloAnterior} />

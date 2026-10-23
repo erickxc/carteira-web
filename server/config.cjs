@@ -130,6 +130,17 @@ const ALVOS_DIR = process.env.ALVOS_DIR
   || path.join(ONEDRIVE_ROOT, '..', 'Dados Alvos');
 
 /**
+ * Fontes SOMENTE LEITURA do monitorIA nas reuniões (`server/reuniao/`), irmãs do
+ * Dados Alvos. `DW_DIR`: parquet do DW por empresa (`<DW_DIR>\<EMPRESA>\BI`), única
+ * fonte com COMPRA/TRANSFER (o Dados Alvos só tem venda e devolução). Fica na raiz do
+ * OneDrive (`...\DB\DW`), três níveis acima do Ecossistema. `ANALISADOR_DIR`: cartões já
+ * calculados pelo analisador do Ecossistema (`<ANALISADOR_DIR>\<empresa>\_cache_telas`).
+ * Opcionais como o Alvos: ausentes, a investigação segue sem compras / sem cartões.
+ */
+const DW_DIR = process.env.DW_DIR || path.join(ONEDRIVE_ROOT, '..', '..', '..', 'DB', 'DW');
+const ANALISADOR_DIR = process.env.ANALISADOR_DIR || path.join(ONEDRIVE_ROOT, '..', 'analisador');
+
+/**
  * Tags de CLIENTE FINAL (Alerta, Inadimplente, Cliente Balcão, Encerrou
  * operação...) — arquivo COMPARTILHADO do Ecossistema-Monitoria, mantido fora
  * deste app (outras ferramentas da 2D leem o mesmo arquivo). Por isso a lista
@@ -386,7 +397,7 @@ const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, 'carteira-snapshot.sqlite');
 // sempre o resultado de `cifrar()`. Nenhuma rota devolve isso pronto pra
 // exibir; só `POST /api/clients/:id/price-credenciais/revelar` descriptografa,
 // sob demanda, pro helper local (Selenium) preencher o login no Price.
-const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'servicosIndependentes', 'contatos', 'observacao', 'estado', 'status', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'lastPricing', 'userId', 'lojas', 'relatorioCadencia', 'local', 'linksServicos', 'endereco', 'linha', 'loginPrice', 'senhaPriceCifrada', 'pausadoAte', 'motivoPausa'];
+const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'servicosIndependentes', 'contatos', 'observacao', 'estado', 'status', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'lastPricing', 'userId', 'lojas', 'relatorioCadencia', 'local', 'linksServicos', 'endereco', 'linha', 'loginPrice', 'senhaPriceCifrada', 'pausadoAte', 'motivoPausa', 'lojasCadastro'];
 // `origem` = de quem partiu a interação ('nos' | 'cliente'). Vazio nos eventos
 // antigos (tratado como não informado, nunca como 'nos') — é o que permite
 // separar contato que NÓS fizemos de contato que o CLIENTE fez.
@@ -594,7 +605,7 @@ const CATEGORIAS_SEED = [
 module.exports = {
   HOST, PORT, CEO_AGENDA_CALENDAR_ID, CEO_AGENDA_OAUTH_CLIENT_PATH, CEO_AGENDA_OAUTH_TOKEN_PATH,
   ONEDRIVE_ROOT, DATA_DIR, REUNIOES_DIR, DB_FILE, UPLOADS_DIR, SQLITE_DIR, SQLITE_FILE, BACKUP_ONEDRIVE_DIR, EXTENSAO_DIR,
-  ALVOS_DIR, TAGS_CLIENTE_FINAL_PATH,
+  ALVOS_DIR, DW_DIR, ANALISADOR_DIR, TAGS_CLIENTE_FINAL_PATH,
   SNAPSHOT_DIR, SNAPSHOT_FILE, DOSSIES_DIR, OLLAMA_URL, OLLAMA_MODEL, OLLAMA_MODELS, OLLAMA_API_KEY,
   CONFIG_IA_COMPARTILHADO,
   DW_PLATAFORMA_HOST, DW_PLATAFORMA_PORT, DW_PLATAFORMA_DATABASE, DW_PLATAFORMA_USER, DW_PLATAFORMA_PASSWORD,

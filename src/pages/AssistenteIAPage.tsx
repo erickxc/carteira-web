@@ -460,7 +460,7 @@ export default function AssistenteIAPage() {
               um elemento que muda de tamanho. */}
           <form
             onSubmit={handleEnviar}
-            className="flex items-end gap-1.5 w-full border border-border-strong rounded-sm bg-bg transition-[border-color,box-shadow] duration-100 focus-within:border-accent focus-within:shadow-[0_0_0_3px_var(--accent-soft)]"
+            className="flex items-end gap-1.5 w-full border border-border-strong rounded-sm bg-bg transition-[border-color,box-shadow] duration-100 focus-within:border-accent"
           >
             <Textarea
               placeholder="Escreva sua pergunta…"

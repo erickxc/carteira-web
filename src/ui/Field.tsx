@@ -48,7 +48,7 @@ export function Field({
  * `.modal .field-input`); `default` usa var(--card) para campos fora de modal.
  */
 const control = cva(
-  'w-full border border-border-strong rounded-sm text-[0.875rem] text-text-primary outline-none transition-[border-color,box-shadow] duration-100 hover:border-text-muted focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-soft)] group-hover:border-accent group-hover:shadow-[0_0_0_3px_var(--accent-soft)]',
+  'w-full border border-border-strong rounded-sm font-[inherit] text-[0.875rem] text-text-primary outline-none transition-[border-color,box-shadow] duration-100 hover:border-text-muted group-hover:border-text-muted focus:border-accent focus:shadow-[inset_0_0_0_1px_var(--accent)]',
   {
     variants: {
       tone: { default: 'bg-card', modal: 'bg-bg' },

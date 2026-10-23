@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { Card } from '../../ui';
+import { Card, NumeroRolante } from '../../ui';
 import { InfoComoConta, Medidor } from './Comparacao';
 import { rotuloModo, type Cancelamentos, type ModoContagem } from '../../utils/analises';
 
@@ -18,7 +18,7 @@ export function CancelamentosCard({ dados, modo, onAbrirCliente }: { dados: Canc
         <h3>Cancelamentos <InfoComoConta texto={`${nome.Plural} canceladas nos últimos 90 dias, sobre as ${nome.plural} com desfecho (realizadas + canceladas). Remarcada não é cancelada.`} /></h3>
         <span className="text-text-muted" style={{ fontSize: 12 }}>90 dias</span>
       </div>
-      <p className="kpi-valor-grande">{canceladas} <span className="kpi-denominador">de {comDesfecho} {nome.plural} canceladas ({pct}%)</span></p>
+      <p className="kpi-valor-grande"><NumeroRolante valor={canceladas} /> <span className="kpi-denominador">de {comDesfecho} {nome.plural} canceladas ({pct}%)</span></p>
       {/* Medidor de realização (o complemento): verde quando quase nada é cancelado. */}
       <Medidor n={comDesfecho - canceladas} total={comDesfecho} rotulo={`${nome.plural} realizadas`} />
       <p className="kpi-comparacao is-neutra">{itens.length} atendimentos cancelaram{reincidentes > 0 ? ` · ${reincidentes} com 2 ou mais` : ''}</p>

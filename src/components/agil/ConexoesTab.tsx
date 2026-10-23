@@ -83,7 +83,7 @@ export function ConexoesTab({ tarefaId }: ConexoesTabProps) {
                 <button
                   type="button"
                   onClick={() => removerAgilConexao(c.id)}
-                  className="shrink-0 flex items-center justify-center w-5 h-5 rounded-[4px] text-text-muted bg-transparent border-none cursor-pointer opacity-0 group-hover:opacity-100 transition-[opacity,background-color,color] hover:bg-danger hover:text-white"
+                  className="shrink-0 flex items-center justify-center w-5 h-5 rounded-xs text-text-muted bg-transparent border-none cursor-pointer opacity-0 group-hover:opacity-100 transition-[opacity,background-color,color] hover:bg-danger hover:text-white"
                   title="Remover conexão"
                   aria-label="Remover conexão"
                 >

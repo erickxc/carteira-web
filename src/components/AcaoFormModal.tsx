@@ -99,7 +99,7 @@ export function AcaoFormModal({ modo, clienteId, tipoInicial, onClose }: AcaoFor
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="primary" disabled={saving || clientes.length === 0}>
+          <Button type="submit" variant="primary" carregando={saving} disabled={clientes.length === 0}>
             {saving ? 'Salvando...' : modo === 'nova' ? 'Registrar' : 'Agendar'}
           </Button>
         </>

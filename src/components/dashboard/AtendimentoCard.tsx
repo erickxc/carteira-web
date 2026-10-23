@@ -11,6 +11,7 @@ import { dentroDaJanela, type Janela } from '../../utils/periodo';
 import { Card, Chip } from '../../ui';
 import { rotuloModo, type ModoContagem } from '../../utils/analises';
 import type { Acao, EventoAgenda } from '../../types';
+import { corDeTexto } from '../../utils/corTexto';
 
 interface AtendimentoCardProps {
   /** Já filtrados pelo monitor do filtro global (`agendaPorMonitor`/`acoesPorMonitor`). */
@@ -125,9 +126,8 @@ export function AtendimentoCard({ agenda: agendaToda, acoes: acoesTodas, janela,
           <div className="flex-row" style={{ gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
             {barras.map((b) => (
               <span key={b.key} className="inline-flex items-center gap-[6px]" style={{ fontSize: '0.76rem' }}>
-                <i style={{ width: 6, height: 6, borderRadius: '50%', background: CORES[b.key], display: 'inline-block' }} />
                 <span className="text-text-secondary">{b.label}</span>
-                <strong>{b.valor}</strong>
+                <strong style={{ color: corDeTexto(CORES[b.key]) }}>{b.valor}</strong>
               </span>
             ))}
             <span style={{ fontSize: '0.76rem', marginLeft: 'auto' }} className="text-text-secondary">

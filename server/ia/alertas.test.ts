@@ -192,13 +192,19 @@ describe('alertas que dependem do dossiê (contradição, pauta parada, padrões
 
   it('padrão de carteira só acende com massa mínima de clientes', () => {
     const repo = repoMemoria({ Clientes: Array.from({ length: 6 }, (_, i) => cliente(`c${i}`, `Loja ${i}`)) });
-    // 5 clientes com "sem ata" (o mínimo), 1 sem nada.
-    for (let i = 0; i < 5; i++) gravarDossie(`c${i}`, `Loja ${i}`, ['[10/08] reunião sem ata de pauta']);
+    // 5 clientes com cancelamento (o mínimo), 1 sem nada.
+    for (let i = 0; i < 5; i++) gravarDossie(`c${i}`, `Loja ${i}`, ['[10/08] reunião cancelada pelo cliente']);
     gravarDossie('c5', 'Loja 5', ['[10/08] tudo certo']);
 
     const padroes = alertasComDossie.gerarPadroesCarteira(repo);
-    const semAta = padroes.find((p: { id: string }) => p.id === 'padrao:sem_ata');
-    expect(semAta?.titulo).toContain('5 clientes');
+    const cancel = padroes.find((p: { id: string }) => p.id === 'padrao:cancelamento');
+    expect(cancel?.titulo).toContain('5 clientes');
+  });
+
+  it('ata não preenchida não é padrão da carteira (desde 22/10/2026)', () => {
+    const repo = repoMemoria({ Clientes: Array.from({ length: 6 }, (_, i) => cliente(`c${i}`, `Loja ${i}`)) });
+    for (let i = 0; i < 6; i++) gravarDossie(`c${i}`, `Loja ${i}`, ['[10/08] reunião sem ata de pauta']);
+    expect(alertasComDossie.gerarPadroesCarteira(repo)).toEqual([]);
   });
 
   it('padrão abaixo do mínimo não gera card — silêncio é melhor que ruído', () => {

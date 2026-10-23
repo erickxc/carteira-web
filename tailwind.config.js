@@ -17,6 +17,8 @@ export default {
         sidebar: 'var(--sidebar)',
         border: 'var(--border)',
         'border-strong': 'var(--border-strong)',
+        raise: 'var(--raise)',
+        hair: 'var(--hair)',
         accent: 'var(--accent)',
         'accent-soft': 'var(--accent-soft)',
         'accent-hover': 'var(--accent-hover)',
@@ -35,7 +37,9 @@ export default {
       },
       borderRadius: {
         DEFAULT: 'var(--radius)',
+        xs: 'var(--radius-xs)',
         sm: 'var(--radius-sm)',
+        lg: 'var(--radius-lg)',
       },
       // Sobrescreve o `animate-spin` nativo do Tailwind (1s) pelo timing do app
       // (0.8s), que antes vivia como `.animate-spin` + `@keyframes app-spin` no

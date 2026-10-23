@@ -106,7 +106,14 @@ function identidadeCliente(cliente) {
   // "sala" de reunião. Passado a toda ferramenta que devolve identidade do
   // cliente, pra o agente ter contexto do tipo de negócio na conversa sem
   // precisar de uma ferramenta separada só pra isso.
-  return { empresa: cliente.empresa, grupo, loja, local: cliente.local || null };
+  // Lojas físicas do atendimento (1.6.8): o agente responde CNPJ/endereço de
+  // cada loja ("qual o CNPJ da Altese Ford?") sem ferramenta à parte.
+  const lojas = (Array.isArray(cliente.lojasCadastro) ? cliente.lojasCadastro : []).map((l) => ({
+    nome: l.nome,
+    cnpj: String(l.cnpj || '').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || null,
+    endereco: l.endereco || null,
+  }));
+  return { empresa: cliente.empresa, grupo, loja, local: cliente.local || null, ...(lojas.length ? { lojas } : {}) };
 }
 
 /**
@@ -271,7 +278,15 @@ function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo
       nivelRisco: analise?.nivelRisco ?? null,
     }));
 
-  const exato = filtrar((cliente) => !nomeBusca || normalizar(cliente.empresa).includes(nomeBusca));
+  // "nome" também acha o atendimento por uma das LOJAS dele (1.6.8): pelo nome
+  // da loja ("Altese Ford" -> atendimento "Altese - GM, Ford, Fiat, VW") ou pelo
+  // CNPJ, com ou sem pontuação (8+ dígitos: a raiz já basta).
+  const digitosBusca = String(nome || '').replace(/\D/g, '');
+  const lojasDe = (cliente) => (Array.isArray(cliente.lojasCadastro) ? cliente.lojasCadastro : []);
+  const casaLoja = (cliente) => lojasDe(cliente).some((l) =>
+    (nomeBusca && normalizar(l.nome).includes(nomeBusca))
+    || (digitosBusca.length >= 8 && String(l.cnpj || '').includes(digitosBusca)));
+  const exato = filtrar((cliente) => !nomeBusca || normalizar(cliente.empresa).includes(nomeBusca) || casaLoja(cliente));
   if (exato.length > 0 || !nomeBusca) return exato;
 
   // Segunda tentativa: núcleo do nome, nas duas direções — "Peças.com" acha
@@ -547,7 +562,10 @@ function eventoParaAta(evento) {
  * "deixa mais curto") — entra no prompt junto da transcrição, a fonte mais
  * livre que o modelo já lê.
  */
-async function redigirAtaReuniao(repo, { eventId, instrucaoPersonalizada, salvar }) {
+// `transcricao` (opcional) substitui a do evento: a reunião ao vivo (server/reuniao/finalizar.cjs)
+// passa a transcrição direto, porque em APP_MODE=client a gravação no evento vai pela fila
+// e o repo local ainda não a enxerga.
+async function redigirAtaReuniao(repo, { eventId, instrucaoPersonalizada, salvar, transcricao }) {
   if (!eventId) throw new Error('redigir_ata_reuniao: "eventId" é obrigatório.');
   const evento = repo.get('Agenda').find((a) => String(a.id) === String(eventId));
   if (!evento) throw new Error(`redigir_ata_reuniao: evento "${eventId}" não encontrado.`);
@@ -557,7 +575,7 @@ async function redigirAtaReuniao(repo, { eventId, instrucaoPersonalizada, salvar
   const { produtosCatalogo, clientesCatalogo } = catalogoParaAta(evento.clientId);
 
   const transcricaoComInstrucao = [
-    ev.transcricao,
+    transcricao ?? ev.transcricao,
     instrucaoPersonalizada ? `INSTRUÇÃO DO MONITOR PARA ESTA REDAÇÃO: ${instrucaoPersonalizada}` : null,
   ].filter(Boolean).join('\n\n') || undefined;
 
@@ -1724,7 +1742,7 @@ const FERRAMENTAS = [
     parameters: {
       type: 'object',
       properties: {
-        nome: { type: 'string', description: 'Trecho do nome do cliente/loja (ex.: "27 de setembro", "recreio"). Busca parcial, sem diferenciar acento/maiúscula.' },
+        nome: { type: 'string', description: 'Trecho do nome do cliente/loja (ex.: "27 de setembro", "recreio", "altese ford") ou um CNPJ (com ou sem pontuação). Busca parcial, sem diferenciar acento/maiúscula; também procura nas lojas cadastradas de cada atendimento.' },
         estado: { type: 'string', enum: ['Ativo', 'Inativo'], description: 'Filtra pelo campo bruto do cadastro (Ativo/Inativo). NÃO é o mesmo que "cliente ativo de verdade" — pra isso, olhe o campo "ativo" de cada resultado, não este filtro.' },
         nivelRisco: { type: 'string', enum: ['baixo', 'medio', 'alto'] },
         status: { type: 'string' },
@@ -1960,7 +1978,8 @@ const FERRAMENTAS = [
       },
       required: ['eventId'],
     },
-    executar: redigirAtaReuniao,
+    // Repassa só o que o schema declara: `transcricao` é de uso interno (reunião ao vivo).
+    executar: (repo, { eventId, instrucaoPersonalizada, salvar }) => redigirAtaReuniao(repo, { eventId, instrucaoPersonalizada, salvar }),
   },
   {
     name: 'gerar_ata_pdf',
@@ -2201,4 +2220,4 @@ function resolverClientIdPorNome(repo, argumentos) {
 }
 
 module.exports = {
-  resolverClientIdPorNome, FERRAMENTAS, lerCadencias, opcoesDe, resolverOpcao };
+  redigirAtaReuniao, resolverClientIdPorNome, FERRAMENTAS, lerCadencias, opcoesDe, resolverOpcao };

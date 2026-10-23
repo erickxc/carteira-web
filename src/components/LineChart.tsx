@@ -1,3 +1,5 @@
+import { useLayoutEffect, useRef, useState } from 'react';
+
 interface LinePoint {
   label: string;
   value: number;
@@ -28,8 +30,10 @@ interface LineChartProps {
 const W = 760;
 
 /**
- * Gráfico de linha (tendência de reuniões por mês). SVG com viewBox escalável
- * e traços non-scaling. Cor da marca (dourado). Ponto do mês selecionado é
+ * Gráfico de linha (tendência de reuniões por mês). Desenha na largura REAL
+ * do card (ResizeObserver): com viewBox fixo o SVG esticava e, num card
+ * largo, texto e pontos cresciam ~3x ("grande demais", 1.6.3). `largura` só
+ * vale até a primeira medida. Traços non-scaling. Cor da marca (dourado). Ponto do mês selecionado é
  * destacado; cada ponto tem <title> para hover.
  */
 export function LineChart({
@@ -44,11 +48,23 @@ export function LineChart({
   teto,
 }: LineChartProps) {
   const H = height;
+  const caixa = useRef<HTMLDivElement>(null);
+  const [medida, setMedida] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = caixa.current;
+    if (!el) return;
+    const medir = () => { const w = Math.round(el.getBoundingClientRect().width); if (w > 0) setMedida(w); };
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const L = medida ?? largura;
   const padL = 34;
   const padR = 14;
   const padT = 18;
   const padB = 30;
-  const plotW = largura - padL - padR;
+  const plotW = L - padL - padR;
   const plotH = H - padT - padB;
 
   const max = teto ?? Math.max(1, ...points.map((p) => Math.max(p.value, p.projecao ?? 0)));
@@ -65,7 +81,8 @@ export function LineChart({
   const ticks = [0, max / 2, max];
 
   return (
-    <svg width="100%" viewBox={`0 0 ${largura} ${H}`} role="img" aria-label={titulo} style={{ display: 'block' }}>
+    <div ref={caixa}>
+    <svg width="100%" viewBox={`0 0 ${L} ${H}`} role="img" aria-label={titulo} style={{ display: 'block' }}>
       <defs>
         <linearGradient id="lc-area" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.22" />
@@ -136,5 +153,6 @@ export function LineChart({
         );
       })}
     </svg>
+    </div>
   );
 }

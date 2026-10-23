@@ -8,7 +8,6 @@ import { useCarteira } from '../context/CarteiraContext';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { truthy } from '../utils/formatters';
-import { clienteStatusCor, isGratuidade } from '../utils/badges';
 import { toastError, toastSuccess } from '../utils/toast';
 import { comPrecificacaoDoGrupo } from '../utils/cadenciaServico';
 import { confirmDialog } from '../utils/confirmDialog';
@@ -18,11 +17,11 @@ import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
 import { AcessosExternosButton } from '../components/cliente/AcessosExternosButton';
 import { buscarAnalisesIA } from '../api/client';
 import { calcularPosicaoPopover } from '../utils/popoverPosicao';
-import { corDoServico } from '../utils/corServico';
-import { agruparPorGrupo, type LinhaTabela } from '../utils/gruposLojas';
+import { agruparPorGrupo, contarLojasFisicas, type LinhaTabela } from '../utils/gruposLojas';
 import { Dropdown } from '../components/Dropdown';
 import { Badge, Button, Card, Td, Th } from '../ui';
-import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type AnaliseIA, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
+import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type AnaliseIA, type Cliente, type EventoAgenda, type LojaCadastro, type NovoCliente } from '../types';
+import { formatarCNPJ } from '../utils/cnpj';
 
 type SortCol = 'empresa' | 'monitor' | 'servicos' | 'analise' | 'risco' | 'estado' | 'status' | 'ultimaReuniao' | 'proximo' | 'ultimoContato' | 'diasSemContato';
 
@@ -41,19 +40,11 @@ const PERIODOS = [
  * precisar clicar. Evita que um cliente com 5-6 serviços contratados alargue
  * a linha inteira da tabela.
  */
-/** Serviço com cor própria (configurável em Configurações → Categorias →
- *  Serviço; sem configuração, cai na mesma paleta dessaturada de
- *  `--tipo-reserva-*` já usada pros tipos de evento). Indicador é um PONTO
- *  colorido ao lado de texto neutro — nunca um badge com fundo pastel (lê
- *  como "gerado por IA"; pedido explícito do usuário). */
-function BadgeServico({ servico, corConfigurada }: { servico: string; corConfigurada?: string }) {
-  const cor = corDoServico(servico, corConfigurada);
-  return (
-    <span className="inline-flex items-center gap-2" style={{ fontSize: '0.8rem' }}>
-      <i style={{ width: 9, height: 9, borderRadius: '50%', background: cor, display: 'inline-block', flexShrink: 0, boxShadow: `0 0 0 1px color-mix(in srgb, ${cor} 55%, transparent)` }} />
-      <span className="text-text-primary" style={{ fontWeight: 500 }}>{servico}</span>
-    </span>
-  );
+/** Serviço em texto puro: nem pílula com fundo pastel nem ponto colorido ao
+ *  lado (os dois rejeitados pelo usuário). `corConfigurada` segue aceita
+ *  pelos chamadores, mas a tabela não pinta mais o serviço. */
+function BadgeServico({ servico }: { servico: string; corConfigurada?: string }) {
+  return <span className="text-text-primary" style={{ fontSize: '0.8rem', fontWeight: 500 }}>{servico}</span>;
 }
 
 function ServicosCell({ servicos, corPorServico }: { servicos: string[]; corPorServico: Map<string, string> }) {
@@ -67,27 +58,33 @@ function ServicosCell({ servicos, corPorServico }: { servicos: string[]; corPorS
   const resto = servicos.slice(2);
 
   return (
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-      {visiveis.map((s) => <BadgeServico key={s} servico={s} corConfigurada={corPorServico.get(s)} />)}
-      {resto.length > 0 && (
-        <span
-          ref={ref}
-          onMouseEnter={() => { setRect(ref.current?.getBoundingClientRect() ?? null); setOpen(true); }}
-          onMouseLeave={() => setOpen(false)}
-          style={{ display: 'inline-block' }}
-        >
-          <Badge variant="muted" style={{ cursor: 'default' }}>+{resto.length}</Badge>
-          {open && rect && createPortal(
-            <div
-              className="filter-pop"
-              style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { alturaEstimativa: 150 }), display: 'flex', flexDirection: 'column', gap: 5, padding: '8px 10px', overflowY: 'auto' }}
+    // Um serviço por linha (sem ponto nem pílula desde a 1.6, a separação vem
+    // da quebra de linha); o "+N" fica junto do último visível.
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
+      {visiveis.map((s, i) => (
+        <span key={s} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
+          <BadgeServico servico={s} corConfigurada={corPorServico.get(s)} />
+          {i === visiveis.length - 1 && resto.length > 0 && (
+            <span
+              ref={ref}
+              onMouseEnter={() => { setRect(ref.current?.getBoundingClientRect() ?? null); setOpen(true); }}
+              onMouseLeave={() => setOpen(false)}
+              style={{ display: 'inline-block' }}
             >
-              {resto.map((s) => <BadgeServico key={s} servico={s} corConfigurada={corPorServico.get(s)} />)}
-            </div>,
-            document.body
+              <Badge variant="muted" style={{ cursor: 'default' }}>+{resto.length}</Badge>
+              {open && rect && createPortal(
+                <div
+                  className="filter-pop"
+                  style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { alturaEstimativa: 150 }), display: 'flex', flexDirection: 'column', gap: 5, padding: '8px 10px', overflowY: 'auto' }}
+                >
+                  {resto.map((s) => <BadgeServico key={s} servico={s} corConfigurada={corPorServico.get(s)} />)}
+                </div>,
+                document.body
+              )}
+            </span>
           )}
         </span>
-      )}
+      ))}
     </div>
   );
 }
@@ -315,7 +312,10 @@ export default function ClientesPage() {
     return clientes
       .filter((c) => fEstado === 'Todos' || (c.estado || (c.status === 'Suspenso' ? 'Inativo' : 'Ativo')) === fEstado)
       .filter((c) => fStatus === 'Todos' || c.status === fStatus)
-      .filter((c) => !termo || c.empresa?.toLowerCase().includes(termo) || (c.monitor ?? '').toLowerCase().includes(termo))
+      // Também acha pelo nome de uma LOJA do atendimento ou pelo CNPJ dela (1.6.9).
+      .filter((c) => !termo || c.empresa?.toLowerCase().includes(termo) || (c.monitor ?? '').toLowerCase().includes(termo)
+        || (c.lojasCadastro ?? []).some((l) => l.nome.toLowerCase().includes(termo)
+          || (termo.replace(/\D/g, '').length >= 8 && l.cnpj.includes(termo.replace(/\D/g, '')))))
       // Dois filtros de monitor coexistem de propósito (mesmo caso já corrigido
       // na Agenda): o GLOBAL do header (filtroMonitor) e o LOCAL desta tela
       // (fMonitores, multi-seleção) — os dois precisam valer ao mesmo tempo.
@@ -429,6 +429,11 @@ export default function ClientesPage() {
      *  com o grupo fechado), só com o chevron + nome do grupo antes do nome
      *  da empresa. */
     grupoPrefixo?: { grupo: string; qtdLojas: number; aberto: boolean; onToggle: () => void };
+    /** Linha de UMA loja física de um atendimento com várias (1.6.9): nome e
+     *  CNPJ são da loja; o resto das colunas é do atendimento, e o clique leva
+     *  ao cadastro dele, onde as lojas aparecem juntas. */
+    lojaFisica?: LojaCadastro;
+    chave?: string;
   }) {
     const ult = ultimaReuniao.get(cliente.id);
     const prox = proximoAgendamento.get(cliente.id);
@@ -439,10 +444,9 @@ export default function ClientesPage() {
     const acessos = opts?.acessosDe ?? cliente;
     return (
       <tr
-        key={cliente.id}
+        key={opts?.chave ?? cliente.id}
         className="group [&:last-child>td]:border-b-0"
         style={{
-          ...(isGratuidade(cliente.status) ? { background: 'var(--gratuidade-pastel-bg)' } : undefined),
           ...(opts?.grupoPrefixo ? { background: 'var(--card-hover)' } : undefined),
         }}
       >
@@ -467,13 +471,28 @@ export default function ClientesPage() {
               <span className="text-text-muted" style={{ fontWeight: 400, fontSize: '0.8rem' }}>({opts.grupoPrefixo.qtdLojas})</span>
             </button>
           ) : (
-            <Link
-              className="link-button"
-              style={{ fontWeight: 600, ...(opts?.indent ? { paddingLeft: '1.4rem' } : undefined) }}
-              to={`/clientes/${cliente.id}`}
-            >
-              {cliente.empresa}
-            </Link>
+            <>
+              <Link
+                className="link-button"
+                style={{ fontWeight: 600, ...(opts?.indent ? { paddingLeft: '1.4rem' } : undefined) }}
+                to={`/clientes/${cliente.id}`}
+              >
+                {opts?.lojaFisica ? (opts.lojaFisica.nome || cliente.empresa) : cliente.empresa}
+              </Link>
+              {/* Embaixo do nome, sem coluna nova (1.6.8): uma loja = o CNPJ dela;
+                  grupo de lojas = quantas são (o detalhe fica na ficha). */}
+              {opts?.lojaFisica ? (
+                <div className="text-text-muted tabular-nums" style={{ fontSize: '0.72rem', marginTop: 2, whiteSpace: 'nowrap', ...(opts?.indent ? { paddingLeft: '1.4rem' } : undefined) }}>
+                  {opts.lojaFisica.cnpj ? formatarCNPJ(opts.lojaFisica.cnpj) : 'sem CNPJ'}
+                </div>
+              ) : cliente.lojasCadastro && cliente.lojasCadastro.length > 0 && (
+                <div className="text-text-muted tabular-nums" style={{ fontSize: '0.72rem', marginTop: 2, whiteSpace: 'nowrap', ...(opts?.indent ? { paddingLeft: '1.4rem' } : undefined) }}>
+                  {cliente.lojasCadastro.length === 1
+                    ? (cliente.lojasCadastro[0].cnpj ? formatarCNPJ(cliente.lojasCadastro[0].cnpj) : '1 loja')
+                    : `${cliente.lojasCadastro.length} lojas`}
+                </div>
+              )}
+            </>
           )}
         </Td>
         <Td className="text-text-muted">{cliente.monitor || '—'}</Td>
@@ -488,20 +507,9 @@ export default function ClientesPage() {
         </Td>
         <Td>
           <div className="flex-row" style={{ gap: 12, flexWrap: 'wrap' }}>
-            <span className="inline-flex items-center gap-2" style={{ fontSize: '0.8rem' }}>
-              <i style={{
-                width: 9, height: 9, borderRadius: '50%', display: 'inline-block', flexShrink: 0,
-                background: clienteStatusCor(cliente.status),
-                boxShadow: `0 0 0 1px color-mix(in srgb, ${clienteStatusCor(cliente.status)} 55%, transparent)`,
-              }}
-              />
-              <span className="text-text-primary" style={{ fontWeight: 500 }}>{cliente.status || '—'}</span>
-            </span>
+            <span className="text-text-primary" style={{ fontSize: '0.8rem', fontWeight: 500 }}>{cliente.status || '—'}</span>
             {inativo && (
-              <span className="inline-flex items-center gap-2" style={{ fontSize: '0.8rem' }}>
-                <i style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--danger)', display: 'inline-block', flexShrink: 0, boxShadow: '0 0 0 1px color-mix(in srgb, var(--danger) 55%, transparent)' }} />
-                <span style={{ color: 'var(--danger)', fontWeight: 600 }}>Inativo</span>
-              </span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--danger-fg)', fontWeight: 600 }}>Inativo</span>
             )}
           </div>
         </Td>
@@ -525,12 +533,17 @@ export default function ClientesPage() {
         </Td>
         <Td>
           <div className="flex-row" style={{ justifyContent: 'flex-end' }}>
-            <Button variant="secondary" size="icon" onClick={() => setModalState({ editing: cliente })} aria-label="Editar">
+            <Button variant="secondary" size="icon" onClick={() => navigate(`/clientes/${cliente.id}`)} aria-label={`Abrir o cadastro de ${cliente.empresa}`} title="Abrir a ficha para editar o cadastro">
               <Pencil size={15} />
             </Button>
-            <Button variant="danger" size="icon" onClick={() => handleDelete(cliente)} aria-label="Excluir">
-              <Trash2 size={15} />
-            </Button>
+            {/* Linha de loja física: excluir apagaria o ATENDIMENTO inteiro (todas
+                as lojas e o histórico), não só a loja — fica só na ficha e nas
+                linhas de atendimento. */}
+            {!opts?.lojaFisica && (
+              <Button variant="danger" size="icon" onClick={() => handleDelete(cliente)} aria-label="Excluir">
+                <Trash2 size={15} />
+              </Button>
+            )}
           </div>
         </Td>
       </tr>
@@ -563,7 +576,7 @@ export default function ClientesPage() {
       const [ancora] = linha.lojas;
       return renderLinhaCliente(ancora, {
         acessosDe: linha.principal,
-        grupoPrefixo: { grupo: linha.grupo, qtdLojas: linha.lojas.length, aberto, onToggle },
+        grupoPrefixo: { grupo: linha.grupo, qtdLojas: contarLojasFisicas(linha.lojas), aberto, onToggle },
       });
     }
 
@@ -574,11 +587,20 @@ export default function ClientesPage() {
             <button type="button" className="link-button" style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={onToggle} aria-expanded={aberto}>
               <ChevronDown size={15} />
               {linha.grupo}
-              <span className="text-text-muted" style={{ fontWeight: 400, fontSize: '0.8rem' }}>({linha.lojas.length})</span>
+              <span className="text-text-muted" style={{ fontWeight: 400, fontSize: '0.8rem' }}>({contarLojasFisicas(linha.lojas)})</span>
             </button>
           </Td>
         </tr>
-        {linha.lojas.map((loja) => renderLinhaCliente(loja, { indent: true, semLinks: loja.id !== linha.principal.id }))}
+        {/* Uma linha por loja física (1.6.9): atendimento com várias lojas vira
+            várias linhas, todas levando ao mesmo cadastro. */}
+        {linha.lojas.flatMap((atendimento) => {
+          const fisicas = atendimento.lojasCadastro ?? [];
+          const semLinksAtendimento = atendimento.id !== linha.principal.id;
+          if (fisicas.length <= 1) return [renderLinhaCliente(atendimento, { indent: true, semLinks: semLinksAtendimento })];
+          return fisicas.map((loja, i) => renderLinhaCliente(atendimento, {
+            indent: true, semLinks: semLinksAtendimento || i > 0, lojaFisica: loja, chave: `${atendimento.id}-loja-${i}`,
+          }));
+        })}
       </Fragment>
     );
   }

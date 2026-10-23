@@ -94,6 +94,14 @@ export interface RelatorioCadencia {
   diasSemana?: number[];
 }
 
+/** Uma loja física dentro de um atendimento (ver `Cliente.lojasCadastro`).
+ *  `cnpj` só dígitos (14) ou vazio. */
+export interface LojaCadastro {
+  nome: string;
+  cnpj: string;
+  endereco: string;
+}
+
 export interface Cliente {
   id: string;
   empresa: string;
@@ -145,6 +153,13 @@ export interface Cliente {
   linksServicos?: Record<string, string>;
   /** Endereço do cliente, texto livre (rua, número, bairro, cidade/UF). */
   endereco?: string;
+  /** Lojas físicas deste atendimento (1.6.8). O atendimento é a unidade de
+   *  ANÁLISE (cadência, agenda, risco); as lojas são CADASTRO — um atendimento
+   *  pode ser um grupo de lojas ("Altese - GM, Ford, Fiat, VW" = 7 lojas),
+   *  cada uma com o próprio CNPJ e endereço. Fonte inicial: DW da plataforma
+   *  (`parametro_bi` + `empresas`). Diferente de `loginPrice`, que é o login do
+   *  grupo e se repete entre lojas irmãs. */
+  lojasCadastro?: LojaCadastro[];
   /** Login do cliente no Price (site externo de precificação) — vai junto
    *  dos outros links de acesso (`AcessosExternosButton`). A senha NUNCA
    *  chega aqui em texto puro: o backend nunca devolve `senhaPriceCifrada`

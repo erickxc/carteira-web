@@ -117,7 +117,7 @@ export function RegistroContatoModal({ clienteId, onClose }: RegistroContatoModa
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="primary" disabled={salvando}>
+          <Button type="submit" variant="primary" carregando={salvando}>
             {salvando ? 'Registrando...' : 'Registrar'}
           </Button>
         </>

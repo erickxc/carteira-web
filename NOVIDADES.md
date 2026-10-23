@@ -8,6 +8,58 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.6.12
+
+- Na ficha do cliente, a análise do monitorIA vem antes do cadastro.
+- "Pausado até" só aparece quando você pede (botão "Pausar temporariamente") ou quando já existe uma pausa marcada.
+
+## 1.6.11
+
+- A ficha do cliente agora é o cadastro: edite nome, endereço, monitor, status, serviços, lojas e login do Price direto nela, sem o lápis. Salva sozinho ao sair de cada campo.
+- O lápis da Carteira leva direto pra ficha.
+- Na Carteira, os serviços voltaram a aparecer um por linha.
+
+## 1.6.10
+
+- Na Carteira, cada loja aparece na sua própria linha (com CNPJ) dentro do grupo; no cadastro do atendimento elas ficam juntas.
+- A busca da Carteira acha o cliente pelo nome da loja ou pelo CNPJ.
+
+## 1.6.9
+
+- Análises do monitorIA refeitas com a regra nova: sem cobrança de ata, foco no conteúdo das reuniões.
+
+## 1.6.8
+
+- Cada atendimento passa a ter o cadastro das suas lojas: nome, CNPJ e endereço de cada uma, vindos do DW (ex.: Altese GM, Ford, Fiat e VW no mesmo atendimento).
+- monitorIA conhece as lojas: responde CNPJ e endereço e acha o cliente pelo CNPJ.
+- monitorIA mais amigável, agora no Haiku 5.5.
+- monitorIA deixa de cobrar ata não preenchida e foca no que foi conversado nas reuniões.
+
+## 1.6.7
+
+- CNPJ de cada loja na ficha do cliente (com botão de copiar) e na tabela da Carteira, vindo do DW da plataforma.
+- Endereço das lojas preenchido a partir do DW, onde estava vazio.
+
+## 1.6.6
+
+- O botão "reuniões hoje" segue o filtro de monitor e conta só as reuniões que ainda vão acontecer.
+
+## 1.6.5
+
+- Relatório ganhou cor própria (violeta) e não se confunde mais com Reunião na Agenda.
+
+## 1.6.4
+
+- Ao abrir o 2D_Carteira, se uma versão antiga da Carteira ainda estiver rodando, ela é fechada e a nova abre no lugar.
+
+## 1.6.3
+
+- Visual novo e mais limpo: cantos arredondados, botões padronizados e filtros que marcam a opção com um traço dourado.
+- Status sem "pílula": a cor agora fica no próprio número (ex.: "12d atrasado").
+- Os números dos indicadores rolam até o valor, as barras enchem e, em Ações, o cliente desliza para a nova seção.
+- Agenda sem a faixa "Próximas reuniões" e gráficos de linha com o texto no tamanho certo.
+- "Próximas agendas" mostra todas as reuniões marcadas do monitor, inclusive de clientes fora da cobrança.
+
 ## 1.6.2
 
 - Relatório agendado volta a contar como "marcado"; só o evento Pendente (cliente ainda não confirmou) fica de fora.

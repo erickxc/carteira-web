@@ -67,13 +67,19 @@ export function agruparPorGrupo(filtrados: Cliente[], todosOsClientes: Cliente[]
   const gruposVistos = new Set<string>();
   for (const cliente of filtrados) {
     if (!cliente.grupo) {
+      // Atendimento sem rede, mas com várias lojas físicas (WIDMEN, Quality...):
+      // abre como grupo próprio, uma linha por loja (1.6.9).
+      if ((cliente.lojasCadastro?.length ?? 0) > 1) {
+        linhas.push({ tipo: 'grupo', grupo: cliente.empresa, lojas: [cliente], principal: cliente });
+        continue;
+      }
       linhas.push({ tipo: 'cliente', cliente });
       continue;
     }
     if (gruposVistos.has(cliente.grupo)) continue; // já emitido no primeiro encontro
     gruposVistos.add(cliente.grupo);
     const lojas = filtrados.filter((c) => c.grupo === cliente.grupo);
-    if (lojas.length === 1) {
+    if (lojas.length === 1 && (lojas[0].lojasCadastro?.length ?? 0) <= 1) {
       linhas.push({ tipo: 'cliente', cliente: lojas[0] });
       continue;
     }
@@ -82,3 +88,8 @@ export function agruparPorGrupo(filtrados: Cliente[], todosOsClientes: Cliente[]
   }
   return linhas;
 }
+
+/** Lojas FÍSICAS de um grupo da tabela (1.6.9): cada atendimento conta as
+ *  lojas cadastradas nele, ou 1 se não tiver cadastro de lojas. */
+export const contarLojasFisicas = (atendimentos: Cliente[]): number =>
+  atendimentos.reduce((n, c) => n + Math.max(1, c.lojasCadastro?.length ?? 0), 0);

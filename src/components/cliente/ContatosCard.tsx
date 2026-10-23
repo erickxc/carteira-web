@@ -64,7 +64,7 @@ export function ContatosCard({
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
           {contatos.map((c) => (
-            <div key={c.id} className="flex-between" style={{ gap: 12, flexWrap: 'wrap', padding: '10px 12px', background: 'var(--card-hover)', borderRadius: 6 }}>
+            <div key={c.id} className="flex-between" style={{ gap: 12, flexWrap: 'wrap', padding: '10px 12px', background: 'var(--card-hover)', borderRadius: 'var(--radius-sm)' }}>
               <div style={{ minWidth: 0 }}>
                 <strong style={{ fontSize: 14 }}>{c.nome}</strong>
                 {c.cargo && <span className="text-text-muted" style={{ fontSize: 13 }}> · {c.cargo}</span>}

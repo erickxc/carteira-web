@@ -1,7 +1,7 @@
 import { InfoComoConta } from './dashboard/Comparacao';
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Card } from '../ui';
+import { Card, NumeroRolante } from '../ui';
 
 interface StatCardProps {
   title: string;
@@ -39,7 +39,7 @@ export function StatCard({ title, value, icon: Icon, denominador, comparacao, co
         </p>
         {/* Algarismos proporcionais: tabular-nums deixa número grande "frouxo"; fica só em tabelas. */}
         <h3 className="text-[1.9rem] font-bold leading-[1.1] tracking-[-0.02em] text-[color:var(--text-primary)]">
-          {value}
+          <NumeroRolante valor={value} />
           {denominador && <span className="kpi-denominador"> {denominador}</span>}
         </h3>
         {comparacao}

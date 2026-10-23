@@ -6,6 +6,8 @@ import { ModalShell } from './ModalShell';
 import { SelectField } from './SelectField';
 import { Dropdown } from './Dropdown';
 import { DIAS_SEMANA } from '../utils/diasSemana';
+import { EditorLojas } from './cliente/EditorLojas';
+import { lojasParaEdicao, lojasParaSalvar } from '../utils/lojas';
 import { ehLojaPrincipal, lojaPrincipal } from '../utils/gruposLojas';
 import { Badge, Button, Chip, Field, Input, SecaoLabel, Textarea } from '../ui';
 import {
@@ -52,6 +54,8 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
   const [local, setLocal] = useState(initial?.local ?? '');
   const [linha, setLinha] = useState(initial?.linha ?? '');
   const [endereco, setEndereco] = useState(initial?.endereco ?? '');
+  const [lojasEdicao, setLojasEdicao] = useState(() => lojasParaEdicao(initial?.lojasCadastro));
+  const lojasCadastro = lojasParaSalvar(lojasEdicao);
   const [linksServicos, setLinksServicos] = useState<Record<string, string>>(initial?.linksServicos ?? {});
   const [loginPrice, setLoginPrice] = useState(initial?.loginPrice ?? '');
   // Nunca vem preenchido do servidor (a senha não trafega em texto puro numa
@@ -122,7 +126,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
         const grupo = initial.grupo || base;
         const [primeira, ...resto] = lojasFinais;
         await atualizarCliente(initial.id, {
-          empresa: `${grupo} - ${primeira}`, grupo, tipoAnalise: 'segmentado',
+          empresa: `${grupo} - ${primeira}`, grupo, tipoAnalise: 'segmentado', lojasCadastro,
           monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, relatorioCadencia, pausadoAte: pausadoAte || undefined, motivoPausa: pausadoAte ? motivoPausa : undefined,
         });
         if (resto.length > 0) {
@@ -136,7 +140,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
         }
       } else if (editando) {
         await atualizarCliente(initial.id, {
-          empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, tipoAnalise, relatorioCadencia, pausadoAte: pausadoAte || undefined, motivoPausa: pausadoAte ? motivoPausa : undefined,
+          empresa: base, lojasCadastro, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, tipoAnalise, relatorioCadencia, pausadoAte: pausadoAte || undefined, motivoPausa: pausadoAte ? motivoPausa : undefined,
           loginPrice: removerCredencialPrice ? '' : loginPrice,
           senhaPrice: removerCredencialPrice ? null : (senhaPrice.trim() || undefined),
         });
@@ -151,7 +155,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
         await criarClientesEmLote(novos);
       } else {
         await criarCliente({
-          empresa: base, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, tipoAnalise: 'unitaria', relatorioCadencia, pausadoAte: pausadoAte || undefined, motivoPausa: pausadoAte ? motivoPausa : undefined,
+          empresa: base, lojasCadastro, monitor, servicos, servicosIndependentes, estado, status, observacao, local, linha, endereco, linksServicos, tipoAnalise: 'unitaria', relatorioCadencia, pausadoAte: pausadoAte || undefined, motivoPausa: pausadoAte ? motivoPausa : undefined,
           loginPrice, senhaPrice: senhaPrice.trim() || undefined,
         });
       }
@@ -171,7 +175,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="primary" disabled={saving}>
+          <Button type="submit" variant="primary" carregando={saving}>
             {saving
               ? 'Salvando...'
               : editando
@@ -196,6 +200,14 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
             <Field label="Endereço">
               <Input tone="modal" value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Rua, número, bairro, cidade/UF" />
             </Field>
+
+            {/* Lojas físicas do atendimento (1.6.8). Só some na CRIAÇÃO de vários
+                atendimentos de uma vez: cada um ganha as próprias lojas depois. */}
+            {(editando || !segmentadoNovo) && (
+              <Field as="div" label="Lojas (CNPJ e endereço de cada uma)">
+                <EditorLojas lojas={lojasEdicao} onChange={setLojasEdicao} />
+              </Field>
+            )}
 
             <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
               <SelectField

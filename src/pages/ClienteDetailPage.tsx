@@ -2,13 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { addDays, parseISO, subDays } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
-import { ArrowLeft, Bell as BellIcon, CalendarPlus, FileSpreadsheet, NotebookPen, Pencil, PhoneIncoming, Save, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Bell as BellIcon, CalendarPlus, FileSpreadsheet, NotebookPen, PhoneIncoming, Save, Trash2, Users } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
-import { isGratuidade } from '../utils/badges';
 import { confirmDialog } from '../utils/confirmDialog';
 import { contatosVisiveis, servicosSemResponsavel } from '../utils/contatos';
-import { Dropdown } from '../components/Dropdown';
-import { ClientFormModal } from '../components/ClientFormModal';
+import { CadastroCliente } from '../components/cliente/CadastroCliente';
 import { EventFormModal } from '../components/EventFormModal';
 import { ReminderFormModal } from '../components/ReminderFormModal';
 import { RegistroContatoModal } from '../components/RegistroContatoModal';
@@ -23,7 +21,7 @@ import type { TimelineFiltro, TimelineItem } from '../utils/timelineCliente';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { ModalShell } from '../components/ModalShell';
 import { Badge, Button, Card, Textarea } from '../ui';
-import { CLIENTE_ESTADO_OPCOES, type Contato, type EventoAgenda } from '../types';
+import type { Contato, EventoAgenda } from '../types';
 import { buscarCatalogoAlvos } from '../api/client';
 import { comPrecificacaoDoGrupo } from '../utils/cadenciaServico';
 
@@ -35,8 +33,6 @@ export default function ClienteDetailPage() {
   const backTo = voltar?.from ?? '/clientes';
   const backLabel = voltar?.fromLabel ?? 'Carteira';
   const { clientes, agenda, lembretes, removerCliente, atualizarCliente, opcoesPorTipo } = useCarteira();
-  const statusOpcoes = opcoesPorTipo('status_cliente');
-  const [editModalOpen, setEditModalOpen] = useState(false);
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [eventoEditando, setEventoEditando] = useState<EventoAgenda | null>(null);
   const [eventoKey, setEventoKey] = useState(0); // muda p/ remontar a modal limpa (fechar o loop)
@@ -227,71 +223,14 @@ export default function ClienteDetailPage() {
         <ArrowLeft size={15} /> Voltar para {backLabel}
       </Button>
 
-      <Card style={{ marginBottom: 24, background: isGratuidade(cliente.status) ? 'var(--gratuidade-pastel-bg)' : undefined }}>
-        <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+      <Card style={{ marginBottom: 16 }}>
+        <div className="flex-between" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <h1 className="page-title" style={{ marginBottom: 4 }}>{cliente.empresa}</h1>
-            {cliente.endereco && (
-              <p className="text-text-muted" style={{ fontSize: 13, margin: '0 0 10px' }}>{cliente.endereco}</p>
-            )}
-
-            {/* Seletores (mudam o dado ao trocar) primeiro, juntos — depois as
-                etiquetas só informativas. Antes o Status aparecia duas vezes
-                (dropdown + badge repetindo o mesmo valor), misturado com
-                Monitor/Grupo/Segmento sem nenhuma ordem. */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{ minWidth: 150 }}>
-                <Dropdown
-                  label="Status"
-                  options={(statusOpcoes.includes(cliente.status) || !cliente.status ? statusOpcoes : [...statusOpcoes, cliente.status]).map((s) => ({ value: s, label: s }))}
-                  value={cliente.status}
-                  onChange={(v) => atualizarCliente(cliente.id, { status: v as string })}
-                />
-              </div>
-              <div style={{ minWidth: 130 }}>
-                <Dropdown
-                  label="Estado"
-                  options={CLIENTE_ESTADO_OPCOES.map((e) => ({ value: e, label: e }))}
-                  value={cliente.estado || 'Ativo'}
-                  onChange={(v) => atualizarCliente(cliente.id, { estado: v as string })}
-                />
-              </div>
-              {/* Suspenso em vez de um badge por serviço — com os serviços novos
-                  (Controladoria, OptiMarco, Raptor...) um cliente com vários
-                  contratados enchia o cabeçalho de badges soltos. */}
-              {servicoOpcoes.length > 0 && (
-                <div style={{ minWidth: 140 }}>
-                  <Dropdown
-                    label="Serviços"
-                    multiple
-                    options={servicoOpcoes.map((s) => ({ value: s, label: s }))}
-                    value={cliente.servicos}
-                    onChange={(v) => {
-                      const novos = v as string[];
-                      atualizarCliente(cliente.id, {
-                        servicos: novos,
-                        // Desmarcar aqui também limpa a independência (mesma
-                        // regra do ClientFormModal) — não faz sentido "Precificação
-                        // independente" sobrar depois de remover Precificação.
-                        servicosIndependentes: (cliente.servicosIndependentes ?? []).filter((s) => novos.includes(s)),
-                      });
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              {cliente.monitor && <Badge variant="muted">Monitor: {cliente.monitor}</Badge>}
-              {cliente.grupo && <Badge variant="warning">Grupo: {cliente.grupo}</Badge>}
-              {cliente.local && <Badge variant="muted">{cliente.local}</Badge>}
-            </div>
+            {cliente.grupo && <span className="text-text-muted" style={{ fontSize: 13 }}>Rede {cliente.grupo}</span>}
           </div>
           <div className="flex-row">
             <AcessosExternosButton cliente={cliente} />
-            <Button variant="secondary" onClick={() => setEditModalOpen(true)}>
-              <Pencil size={15} /> Editar
-            </Button>
             <Button variant="danger" onClick={handleExcluir}>
               <Trash2 size={15} /> Excluir
             </Button>
@@ -303,6 +242,9 @@ export default function ClienteDetailPage() {
         <AnaliseIACard clienteId={cliente.id} />
         <AgilTarefasCard cliente={cliente} />
       </div>
+
+      {/* Cadastro editável na própria ficha (1.6.11) — sem lápis nem modal. */}
+      <CadastroCliente key={cliente.id} cliente={cliente} />
 
       <div className="flex-row" style={{ marginBottom: 24 }}>
         <Button variant="primary" onClick={() => setEventModalOpen(true)}>
@@ -413,7 +355,6 @@ export default function ClienteDetailPage() {
         </ModalShell>
       )}
 
-      {editModalOpen && <ClientFormModal initial={cliente} onClose={() => setEditModalOpen(false)} />}
       {eventoEditando && <EventFormModal initial={eventoEditando} onClose={() => setEventoEditando(null)} />}
       {eventModalOpen && (
         <EventFormModal

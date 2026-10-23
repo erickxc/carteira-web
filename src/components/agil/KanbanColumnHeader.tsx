@@ -27,7 +27,7 @@ interface KanbanColumnHeaderProps {
 }
 
 const BOTAO_ICONE =
-  'shrink-0 flex items-center justify-center w-[18px] h-[18px] rounded-[4px] text-text-muted bg-transparent border-none cursor-pointer transition-colors hover:bg-card hover:text-text-primary';
+  'shrink-0 flex items-center justify-center w-[18px] h-[18px] rounded-xs text-text-muted bg-transparent border-none cursor-pointer transition-colors hover:bg-card hover:text-text-primary';
 
 export function KanbanColumnHeader({
   coluna, totalTarefas, colapsada, ocupaDuasLinhas, ultimaColuna, arrastavel, corPadrao, style, onToggleColapso, onEdit, onAddSub,

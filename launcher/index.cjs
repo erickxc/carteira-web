@@ -5,7 +5,8 @@ const http = require('http');
 const { spawn, execFileSync } = require('child_process');
 const { RELEASES_DIR, PORTA, PONTEIRO_INSTALL, caminhosDe } = require('./config.cjs');
 const { obterPastaInstalacao } = require('./primeiraExecucao.cjs');
-const { lerVersaoInstalada, precisaAtualizar, aplicarAtualizacao } = require('./atualizar.cjs');
+const { lerVersaoInstalada, precisaAtualizar, aplicarAtualizacao, versaoMaiorQue } = require('./atualizar.cjs');
+const { encerrarCarteiraNaPorta, esperarPortaLivre } = require('./instanciaAnterior.cjs');
 const telaCarregandoEmbutida = require('../server/telaCarregando.cjs');
 
 /**
@@ -295,6 +296,35 @@ function servidorJaNoAr(timeoutMs = 400) {
   });
 }
 
+/** Versão que o servidor no ar diz estar rodando (`/api/atualizacao/status`,
+ * que existe também nas versões antigas). `null` se não responder. */
+function versaoNoAr(timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    const req = http.get(`http://127.0.0.1:${PORTA}/api/atualizacao/status`, { timeout: timeoutMs }, (res) => {
+      let corpo = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => { corpo += c; });
+      res.on('end', () => { try { resolve(JSON.parse(corpo).instalada || null); } catch { resolve(null); } });
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+  });
+}
+
+/** A maior entre a versão instalada nesta máquina e a publicada no OneDrive:
+ * é ela que vai rodar depois de `atualizarSeNecessario`. */
+function versaoQueDeveRodar() {
+  try {
+    const { VERSAO_ARQUIVO } = caminhosDe(obterPastaInstalacao());
+    const instalada = lerVersaoInstalada(VERSAO_ARQUIVO);
+    const publicada = lerReleaseDisponivel()?.versao || null;
+    if (instalada && publicada) return versaoMaiorQue(publicada, instalada) ? publicada : instalada;
+    return publicada || instalada || null;
+  } catch {
+    return null;
+  }
+}
+
 function esperarServidor(tentativas = 40) {
   return new Promise((resolve, reject) => {
     const tentar = (restantes) => {
@@ -330,9 +360,23 @@ async function main() {
   registrarLog(`Launcher: iniciado (v${process.env.npm_package_version || '?'}, ${os.hostname()}, log em ${LOG_FILE}).`);
 
   if (await servidorJaNoAr()) {
-    registrarLog('Launcher: já há uma Carteira aberta nesta porta — abrindo o navegador nela, sem subir outra.');
-    spawn('cmd', ['/c', 'start', '', `http://127.0.0.1:${PORTA}/`], { shell: false, stdio: 'ignore', windowsHide: true });
-    return;
+    // Só reaproveita a Carteira no ar se ela for a versão que deveria rodar.
+    // De outra versão (ou muda, de antes deste endpoint responder), encerra e
+    // segue o fluxo normal — ver `launcher/instanciaAnterior.cjs`.
+    const noAr = await versaoNoAr();
+    const esperada = versaoQueDeveRodar();
+    if (noAr && esperada && noAr === esperada) {
+      registrarLog(`Launcher: a Carteira ${noAr} já está aberta nesta porta — abrindo o navegador nela, sem subir outra.`);
+      spawn('cmd', ['/c', 'start', '', `http://127.0.0.1:${PORTA}/`], { shell: false, stdio: 'ignore', windowsHide: true });
+      return;
+    }
+    registrarLog(`Launcher: há outra Carteira rodando (versão ${noAr || 'desconhecida'}; esperada ${esperada || 'desconhecida'}) — encerrando antes de subir esta.`);
+    const encerrou = encerrarCarteiraNaPorta(PORTA, { registrarLog });
+    if (!encerrou || !(await esperarPortaLivre(PORTA))) {
+      registrarLog('Launcher: não foi possível liberar a porta — abrindo o navegador na instância que já está no ar.');
+      spawn('cmd', ['/c', 'start', '', `http://127.0.0.1:${PORTA}/`], { shell: false, stdio: 'ignore', windowsHide: true });
+      return;
+    }
   }
   if (!obterTravaUnica()) {
     registrarLog('Launcher: outra instância já está abrindo o sistema neste exato momento — encerrando esta.');

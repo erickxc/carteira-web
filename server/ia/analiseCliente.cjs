@@ -67,7 +67,8 @@ const INICIO_REGISTRO = '2026-08-01';
 function semRegistro(ev) {
   if (!/reuni/i.test(ev.type || '')) return `(sem registro — normal para ${ev.type || 'este tipo de evento'}, que não tem ata)`;
   if ((ev.date || '') < INICIO_REGISTRO) return '(sem registro — antes de agosto/2026 a equipe ainda não registrava ata; não é sinal)';
-  return '(sem registro — ata não preenchida pelo monitor da 2D)';
+  // Desde 22/10/2026: ata ausente não é assunto da análise (nem pendência) — foco no que as reuniões registradas dizem.
+  return '(sem registro escrito — não é sinal nem pendência; ignore e analise as reuniões que têm conteúdo)';
 }
 
 function textoEvento(ev) {
@@ -155,7 +156,7 @@ Critério de "nivelRisco" (aplique com critério, não some sinais mecanicamente
 - "baixo": sem sinal negativo relevante, ou sinal isolado/pontual sem repetição.
 - "medio": sinal negativo real mas ainda de UMA ÚNICA rodada de análise (primeira vez que aparece) — mesmo que afete vários clientes finais da loja — OU um sinal já confirmado em rodadas anteriores mas contido/estável, sem sinal de piora.
 - "alto": reservado para quando o MESMO sinal negativo já apareceu confirmado em pelo menos 2 rodadas de análise (ver "DOSSIÊ ATUAL" — ele já tinha esse "Ponto de Atenção" antes?), OU quando o sinal ameaça a relação da loja com a 2D em si (loja evitando reunião, insatisfação explícita com a monitoria, queda agregada e generalizada de faturamento sem qualquer ação em curso) — não apenas queda de compra de alguns clientes finais específicos, por mais numerosos que sejam.
-- Registro vazio NÃO é risco do cliente: cada evento traz o TIPO no cabeçalho, e só Reunião tem ata — Contato, Ligação, Relatório e Precificação sem registro são normais e não contam como "reunião sem ata/sem conteúdo". Reunião sem ata ANTES de agosto/2026 é de quando a equipe ainda não registrava, não é sinal. Reunião sem ata a partir de agosto/2026 é registro que o monitor da 2D não fez: pode entrar em "Pendências" como tarefa interna, mas NUNCA sobe o "nivelRisco" nem vira "desengajamento" ou "não conformidade" do cliente — quem escreve a ata é a 2D, não a loja.
+- Registro vazio NÃO é risco do cliente: cada evento traz o TIPO no cabeçalho, e só Reunião tem ata — Contato, Ligação, Relatório e Precificação sem registro são normais e não contam como "reunião sem ata/sem conteúdo". Reunião sem ata ANTES de agosto/2026 é de quando a equipe ainda não registrava, não é sinal. Reunião sem ata a partir de agosto/2026 também NÃO entra em nenhum campo: não vira Pendência, Ponto de Atenção, fator de risco nem sugestão de pauta, e não deve ser mencionada — quem escreve a ata é a 2D, não a loja. O foco da análise é o CONTEÚDO das reuniões registradas: o que foi discutido, decisões, problemas e oportunidades do negócio da loja e dos clientes finais.
 - Quantos clientes finais têm problema NÃO decide o nível sozinho: 4 clientes finais em queda na primeira reunião que isso aparece é "medio", não "alto" — vira "alto" se persistir/piorar na próxima rodada. Pondere também contra "Oportunidades" registradas: clientes finais crescendo ao mesmo tempo que outros caem costuma ser rotatividade normal de carteira da loja, não crise.
 
 Responda em JSON com exatamente estes campos:

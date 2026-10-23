@@ -24,6 +24,7 @@ import { RecorrenciaFields } from './eventForm/RecorrenciaFields';
 import { AnexosField } from './eventForm/AnexosField';
 import { ProdutosSituacaoField } from './eventForm/ProdutosSituacaoField';
 import { Badge, Button, Chip, Field, Input, SecaoLabel, Textarea } from '../ui';
+import { ReuniaoMonitorIA } from './agenda/ReuniaoMonitorIA';
 import { SelectField } from './SelectField';
 import { ORIGEM_LABEL, type EventoAgenda, type OrigemEvento, type ProdutoSituacaoItem } from '../types';
 
@@ -247,9 +248,15 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     : undefined;
   // Conflito de SALA: a mesma sala não pode ter 2 reuniões no mesmo dia/horário
   // (recurso físico único), independente do monitor.
-  const conflitoSala = ehReuniao && Boolean(sala) && agenda.some((a) =>
-    a.id !== initial?.id && a.sala === sala && !naoOcupaHorario(a) && mesmoDiaHora(a)
-  );
+  const salaConflitante = ehReuniao && sala
+    ? agenda.find((a) =>
+        a.id !== initial?.id && /reuni/i.test(a.type) && a.sala === sala && !naoOcupaHorario(a) && mesmoDiaHora(a)
+      )
+    : undefined;
+  const conflitoSala = Boolean(salaConflitante);
+  const clienteSalaConflitante = salaConflitante
+    ? clientes.find((c) => c.id === salaConflitante.clientId)?.empresa ?? 'outro cliente'
+    : '';
 
   /**
    * Contador informativo (não bloqueia nada, ao contrário de `conflitoMonitor`
@@ -548,7 +555,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
           <Button variant="success" onClick={handleConcluir} disabled={saving || clientes.length === 0} title="Salvar marcando a reunião como concluída">
             <Check size={15} /> Concluir
           </Button>
-          <Button type="submit" variant="primary" disabled={saving || clientes.length === 0}>
+          <Button type="submit" variant="primary" carregando={saving} disabled={clientes.length === 0}>
             {saving ? 'Salvando...' : rec.recorrente && !editando ? 'Salvar recorrência' : 'Salvar'}
           </Button>
         </>
@@ -687,7 +694,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
             )}
             {conflitoSala && (
               <Badge variant="danger" style={{ marginBottom: 12 }}>
-                <AlertTriangle size={12} /> Sala "{sala}" já ocupada nesse dia e horário — não vai dar pra salvar.
+                <AlertTriangle size={12} /> Sala "{sala}" já ocupada nesse dia e horário por {clienteSalaConflitante} — não vai dar pra salvar.
               </Badge>
             )}
 
@@ -739,6 +746,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                 gruposReferencia={opcoesPorTipo('grupo_referencia')}
               />
             )}
+
+            {/* Teste do monitorIA nas reuniões (entrega 1): só em dev, só com o evento já salvo. */}
+            {import.meta.env.DEV && initial?.id && <ReuniaoMonitorIA eventId={initial.id} />}
 
             <SecaoLabel>Registro da reunião</SecaoLabel>
 

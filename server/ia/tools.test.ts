@@ -209,6 +209,25 @@ describe('catálogo de ferramentas', () => {
 // 9-20: buscar_clientes
 // ---------------------------------------------------------------------------
 describe('buscar_clientes', () => {
+  it('lojas do atendimento (1.6.8): acha pelo nome da loja e pelo CNPJ, e devolve as lojas', () => {
+    const repo = repoBase({ Clientes: [clienteBase({
+      empresa: 'Altese - GM, Ford, Fiat, VW',
+      lojasCadastro: [
+        { nome: 'Altese FORD', cnpj: '07503705000170', endereco: 'AV LOBO JUNIOR 874' },
+        { nome: 'Altese GM', cnpj: '31263577000209', endereco: 'AV LOBO JUNIOR 980' },
+      ],
+    })] });
+    expect(exec('buscar_clientes', repo, { nome: 'altese ford' })).toHaveLength(1);
+    expect(exec('buscar_clientes', repo, { nome: '07.503.705/0001-70' })).toHaveLength(1);
+    expect(exec('buscar_clientes', repo, { nome: '31263577' })).toHaveLength(1);
+    expect(exec('buscar_clientes', repo, { nome: '99.999.999/0001-99' })).toHaveLength(0);
+    const [r] = exec('buscar_clientes', repo, { nome: 'ford' });
+    expect(r.lojas).toEqual([
+      { nome: 'Altese FORD', cnpj: '07.503.705/0001-70', endereco: 'AV LOBO JUNIOR 874' },
+      { nome: 'Altese GM', cnpj: '31.263.577/0002-09', endereco: 'AV LOBO JUNIOR 980' },
+    ]);
+  });
+
   it('9. lista todos sem filtro', () => {
     expect(exec('buscar_clientes', repoBase())).toHaveLength(1);
   });

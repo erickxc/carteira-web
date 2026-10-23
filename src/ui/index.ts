@@ -10,3 +10,4 @@ export type { ChipProps } from './Chip';
 export { Th, Td } from './Table';
 export { Tabs } from './Tabs';
 export { SecaoLabel } from './SecaoLabel';
+export { NumeroRolante } from './NumeroRolante';

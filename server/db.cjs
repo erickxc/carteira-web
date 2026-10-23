@@ -147,6 +147,21 @@ function deleteSheetRow(sheetName, id) {
  * Assim, quando o app virar para o banco real, o app antigo continua enxergando
  * dados consistentes nessas colunas. Recebe/devolve o objeto do cliente.
  */
+/** Lojas físicas do atendimento (1.6.8): nome e endereço aparados, CNPJ só
+ * dígitos (14 ou vazio); descarta linha sem nome e sem CNPJ. */
+function normalizarLojas(valor) {
+  let lista = valor;
+  if (typeof lista === 'string') { try { lista = JSON.parse(lista); } catch { lista = []; } }
+  if (!Array.isArray(lista)) return [];
+  return lista
+    .filter((l) => l && typeof l === 'object')
+    .map((l) => {
+      const cnpj = String(l.cnpj ?? '').replace(/\D/g, '');
+      return { nome: String(l.nome ?? '').trim(), cnpj: cnpj.length === 14 ? cnpj : '', endereco: String(l.endereco ?? '').trim() };
+    })
+    .filter((l) => l.nome || l.cnpj);
+}
+
 function syncClienteColumns(cliente) {
   let servicos = [];
   try {
@@ -156,8 +171,12 @@ function syncClienteColumns(cliente) {
     servicos = [];
   }
   const has = (nome) => servicos.some((s) => String(s).toLowerCase() === nome);
+  // Lojas do atendimento (1.6.8): normalizadas seja qual for a origem (tela,
+  // fila remota, script de preenchimento a partir do DW).
+  const normalizado = 'lojasCadastro' in cliente ? { lojasCadastro: normalizarLojas(cliente.lojasCadastro) } : {};
   return {
     ...cliente,
+    ...normalizado,
     monitoria: has('monitoria'),
     price: has('precificação') || has('precificacao') || has('price'),
     controladoria: has('controladoria'),

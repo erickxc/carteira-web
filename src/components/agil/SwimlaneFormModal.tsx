@@ -51,7 +51,7 @@ export function SwimlaneFormModal({ boardId, initial, onClose }: SwimlaneFormMod
         <>
           {initial && <Button variant="danger" onClick={handleDelete} style={{ marginRight: 'auto' }}>Excluir</Button>}
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="primary" disabled={saving}>
+          <Button type="submit" variant="primary" carregando={saving}>
             {saving ? 'Salvando...' : 'Salvar'}
           </Button>
         </>

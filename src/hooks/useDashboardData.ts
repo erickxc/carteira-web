@@ -498,7 +498,14 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   }, [ativos, agenda, acoes, cadencias, filtroServicoVencendo, dataReferencia]);
 
   // --- Próximas agendas (forward-looking) ---
-  const tiposDisponiveis = useMemo(() => ['Todos', ...new Set(agendaPorMonitor.map((a) => a.type).filter((t) => t && !/relat/i.test(t)))], [agendaPorMonitor]);
+  // Compromisso marcado aparece seja qual for a situação do cliente (ex.: reunião
+  // de apresentação com cliente "Atendido pelo Marco"): só o filtro de monitor.
+  const agendaDoMonitor = useMemo(() => {
+    if (filtroMonitor === 'Todos') return agenda;
+    const ids = new Set(clientes.filter((c) => c.monitor === filtroMonitor).map((c) => c.id));
+    return agenda.filter((a) => ids.has(a.clientId));
+  }, [agenda, clientes, filtroMonitor]);
+  const tiposDisponiveis = useMemo(() => ['Todos', ...new Set(agendaDoMonitor.map((a) => a.type).filter((t) => t && !/relat/i.test(t)))], [agendaDoMonitor]);
   // Chave de ordenação "yyyy-MM-dd HH:MM" (dia + hora), não `date.getTime()`
   // direto: o campo `time` (HH:MM) é separado de `date` e NÃO entra no
   // timestamp — dois eventos do mesmo dia empatavam em `date.getTime()` e
@@ -513,19 +520,19 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   // com o cliente, e os automáticos (dezenas por mês) tomavam as 5 posições.
   const aindaVai = (a: EventoAgenda) => !/conclu|realiz|cancel|reagend/i.test(a.status || '') && differenceInCalendarDays(parseISO(a.date), hoje) >= 0;
   const proximos = useMemo(() =>
-    agendaPorMonitor
+    agendaDoMonitor
       .filter((a) => aindaVai(a) && !/relat/i.test(a.type || ''))
       .filter((a) => filtroTipo === 'Todos' || a.type === filtroTipo)
       .sort((a, b) => chaveOrdem(a).localeCompare(chaveOrdem(b)))
       .slice(0, 5),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agendaPorMonitor, filtroTipo]);
+    [agendaDoMonitor, filtroTipo]);
   const relatoriosSemana = useMemo(() =>
-    agendaPorMonitor
+    agendaDoMonitor
       .filter((a) => aindaVai(a) && /relat/i.test(a.type || '') && differenceInCalendarDays(parseISO(a.date), hoje) < 7)
       .sort((a, b) => chaveOrdem(a).localeCompare(chaveOrdem(b))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agendaPorMonitor]);
+    [agendaDoMonitor]);
   // Próximo compromisso (não relatório) de cada atendimento — cruza "sem
   // acompanhamento" com o que já está marcado, pra não cobrar quem já tem reunião.
   const proximaPorCliente = useMemo(() => {
