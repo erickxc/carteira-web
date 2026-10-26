@@ -16,7 +16,7 @@ import {
 } from '../utils/cadenciaServico';
 import { mesesComDados } from '../utils/periodo';
 import { calcularIndicadoresPrazo, LIMIAR_SEM_ACOMPANHAMENTO_DIAS, recortarAte } from '../utils/indicadoresPrazo';
-import { cancelamentosPorAtendimento, cargaPorMonitor, contaNoModo, esforcoPorAtendimento, finsDeMes, reunioesPorDia, type ModoContagem } from '../utils/analises';
+import { cancelamentosPorAtendimento, cargaPorMonitor, contaNoModo, dificeisDeMarcar, finsDeMes, reunioesPorDia, type ModoContagem } from '../utils/analises';
 import type { AnaliseIA, Cliente, EventoAgenda } from '../types';
 
 const FOLLOW_UP_THRESHOLD_DAYS = LIMIAR_SEM_ACOMPANHAMENTO_DIAS;
@@ -57,6 +57,8 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   const hoje = new Date();
   // Entregas (reunião + relatório + precificação) ou só reuniões: vale para todo card que conta volume.
   const [modoContagem, setModoContagem] = usePersistedState<ModoContagem>('filtro:dash:modoContagem', 'entregas');
+  /** Janela do card Difíceis de marcar, em meses terminando no mês escolhido (1, 3, 6 ou 12). */
+  const [mesesDificeis, setMesesDificeis] = usePersistedState<number>('filtro:dash:mesesDificeis', 1);
   const [mes, setMes] = useState(hoje.getMonth());
   const [ano, setAno] = useState(hoje.getFullYear());
   const periodo = useMemo(() => new Date(ano, mes, 1), [ano, mes]);
@@ -551,11 +553,8 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   const alertasAnterior = prazoAnterior.semAcompanhamento.length;
 
   // --- Análises ---
-  // Onde vai o esforço (dimensionamento) e quem cancela: últimos 90 dias até a data de referência.
-  const esforco = useMemo(() => {
-    const todos = esforcoPorAtendimento(ativosNoPeriodo, agenda, acoes, dataReferencia);
-    return { itens: todos.slice(0, 10), total: todos.reduce((s, x) => s + x.total, 0), atendimentos: todos.length };
-  }, [ativosNoPeriodo, agenda, acoes, dataReferencia]);
+  // Difíceis de marcar (janela própria, terminando no mês escolhido) e quem cancela (mês de referência).
+  const dificeis = useMemo(() => dificeisDeMarcar(ativosNoPeriodo, agenda, acoes, dataReferencia, mesesDificeis), [ativosNoPeriodo, agenda, acoes, dataReferencia, mesesDificeis]);
   const cancelamentos = useMemo(() => cancelamentosPorAtendimento(ativosNoPeriodo, agenda, dataReferencia, modoContagem), [ativosNoPeriodo, agenda, dataReferencia, modoContagem]);
   const agendaDiaria = useMemo(() => reunioesPorDia(agendaPorMonitor, periodo, new Date(), modoContagem), [agendaPorMonitor, periodo, modoContagem]);
 
@@ -620,7 +619,7 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
     clientesPorMonitor, clientesPorSegmento, clientesPorLinha, crescimentoCarteira,
     saudeCarteira, profundidadeServicos, distribuicaoRisco, mediaServicosPorCliente, mediaServicosAnterior, novosClientesMes, novosClientesMesAnterior,
     foraDaMonitoria, semLinha, semSegmento, inicioHistorico,
-    esforco, cancelamentos, agendaDiaria, ritmoPorMes, cargaPorMonitor: cargaMonitores, reuniaoNasEntregas,
+    dificeis, mesesDificeis, setMesesDificeis, cancelamentos, agendaDiaria, ritmoPorMes, cargaPorMonitor: cargaMonitores, reuniaoNasEntregas,
     modoContagem, setModoContagem,
     vencendo, filtroServicoVencendo, setFiltroServicoVencendo,
     tiposDisponiveis, proximos, relatoriosSemana, proximaPorCliente,

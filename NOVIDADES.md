@@ -8,6 +8,11 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.6.16
+
+- O card **Onde vai o esforço** virou **Difíceis de marcar**: mostra quem mais exigiu tentativa de contato para cada reunião ou precificação feita.
+- Filtros no card: Mês, Trimestre, Semestre e Ano, sempre terminando no mês escolhido no topo.
+
 ## 1.6.15
 
 - Ao cancelar um evento, agora você escolhe **quem cancelou**: o cliente, o cliente que não apareceu ou não respondeu, nós, ou um lançamento errado (duplicado, errata).

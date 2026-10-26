@@ -1,11 +1,8 @@
-import { differenceInCalendarDays, eachDayOfInterval, endOfMonth, parseISO, startOfMonth, subDays } from 'date-fns';
-import { categoriaCancelamento, contatoRecenteNaoRefletido, ehConcluido, type CategoriaCancelamento } from './cadenciaServico';
+import { differenceInCalendarDays, eachDayOfInterval, endOfMonth, parseISO, startOfMonth, subMonths } from 'date-fns';
+import { categoriaCancelamento, contatoRecenteNaoRefletido, ehAvisoDeCancelamento, ehConcluido, type CategoriaCancelamento } from './cadenciaServico';
 import type { LinhaAtendimento } from './indicadoresPrazo';
 import { isBusinessDay } from './holidays';
 import type { Acao, Cliente, EventoAgenda } from '../types';
-
-/** Janela do ranking de esforço. */
-export const DIAS_ANALISE = 90;
 
 const ehReuniao = (e: EventoAgenda) => /reuni/i.test(e.type || '');
 
@@ -29,39 +26,51 @@ const dataDe = (iso: string | undefined) => {
 const naJanela = (d: Date | null, inicio: Date, fim: Date) => !!d && d >= inicio && d <= fim;
 
 // ---------------------------------------------------------------------------
-// Esforço por atendimento (dimensionamento)
+// Difíceis de marcar
 // ---------------------------------------------------------------------------
 
-export interface EsforcoAtendimento { id: string; nome: string; reuniao: number; contato: number; precificacao: number; total: number }
+export interface DificilDeMarcar { id: string; nome: string; tentativas: number; entregas: number }
 
 /**
- * Onde vai o trabalho: reuniões, contatos e precificações CONCLUÍDOS por
- * atendimento nos últimos 90 dias — eventos da agenda + ações registradas.
- * Relatório de Monitoria fica fora: é recorrente (semanal, automático) e
- * dominaria o ranking de quem só recebe relatório. Relatório com Precificação é
- * entrega de Price feita pelo monitor e conta como precificação.
+ * Quem mais exigiu tentativa de contato por entrega feita nos últimos `meses`
+ * meses que terminam em `agora` (1 = só o mês de referência, do dia 1 até `agora`). Substitui o antigo "Onde vai o esforço":
+ * dos contatos concluídos, 2/3 eram tentativa de marcar reunião, então o
+ * ranking de "quem mais pediu trabalho" era, na prática, quem mais demos
+ * trabalho para marcar — este card assume isso.
+ *
+ * Tentativa = contato/ligação concluído que partiu de nós (origem 'cliente'
+ * não é tentativa; aviso de cancelamento também não) + ação de contato
+ * concluída. Ações do mesmo atendimento no mesmo dia contam uma vez, e não
+ * contam se o dia já tem contato na agenda (o mesmo contato registrado duas vezes).
+ * Entrega = reunião ou precificação concluída (relatório com Precificação conta).
  */
-export function esforcoPorAtendimento(ativos: Cliente[], agenda: EventoAgenda[], acoes: Acao[], agora: Date): EsforcoAtendimento[] {
-  const inicio = subDays(agora, DIAS_ANALISE);
-  const por = new Map<string, EsforcoAtendimento>(ativos.map((c) => [c.id, { id: c.id, nome: c.empresa, reuniao: 0, contato: 0, precificacao: 0, total: 0 }]));
+export function dificeisDeMarcar(ativos: Cliente[], agenda: EventoAgenda[], acoes: Acao[], agora: Date, meses = 1): DificilDeMarcar[] {
+  const inicio = startOfMonth(subMonths(agora, meses - 1));
+  const por = new Map<string, DificilDeMarcar>(ativos.map((c) => [c.id, { id: c.id, nome: c.empresa, tentativas: 0, entregas: 0 }]));
+  const diasComContato = new Set<string>();
   for (const e of agenda) {
     const x = por.get(e.clientId);
+    const d = dataDe(e.date);
+    if (!x || !ehConcluido(e) || !naJanela(d, inicio, agora)) continue;
     const relatorioDePreco = /relat/i.test(e.type) && (e.servicos ?? []).some((s) => /prec|price/i.test(s));
-    if (!x || !ehConcluido(e) || (/relat/i.test(e.type) && !relatorioDePreco) || !naJanela(dataDe(e.date), inicio, agora)) continue;
-    if (ehReuniao(e)) x.reuniao++;
-    else if (/precific/i.test(e.type) || relatorioDePreco) x.precificacao++;
-    else x.contato++;
+    if (ehReuniao(e) || /precific/i.test(e.type) || relatorioDePreco) x.entregas++;
+    else if (/contato|liga/i.test(e.type) && e.origem !== 'cliente' && !ehAvisoDeCancelamento(e)) {
+      x.tentativas++;
+      diasComContato.add(`${e.clientId}|${d!.toDateString()}`);
+    }
   }
   for (const a of acoes) {
     const x = por.get(a.clientId);
-    if (!x || a.status !== 'concluido' || a.tipo === 'relatorio' || !naJanela(dataDe(a.dueAt || a.createdAt), inicio, agora)) continue;
-    if (a.tipo === 'price') x.precificacao++;
-    else x.contato++;
+    const d = dataDe(a.dueAt || a.createdAt);
+    if (!x || a.status !== 'concluido' || a.tipo !== 'contato' || !naJanela(d, inicio, agora)) continue;
+    const dia = `${a.clientId}|${d!.toDateString()}`;
+    if (diasComContato.has(dia)) continue;
+    diasComContato.add(dia);
+    x.tentativas++;
   }
   return [...por.values()]
-    .map((x) => ({ ...x, total: x.reuniao + x.contato + x.precificacao }))
-    .filter((x) => x.total > 0)
-    .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome));
+    .filter((x) => x.tentativas > 0)
+    .sort((a, b) => b.tentativas - a.tentativas || a.entregas - b.entregas || a.nome.localeCompare(b.nome));
 }
 
 // ---------------------------------------------------------------------------

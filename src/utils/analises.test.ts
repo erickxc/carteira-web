@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cancelamentosPorAtendimento, cargaPorMonitor, esforcoPorAtendimento, finsDeMes, reunioesPorDia } from './analises';
+import { cancelamentosPorAtendimento, cargaPorMonitor, dificeisDeMarcar, finsDeMes, reunioesPorDia } from './analises';
 import type { Acao, Cliente, EventoAgenda } from '../types';
 import type { LinhaAtendimento } from './indicadoresPrazo';
 import type { RelogioServico } from './cadenciaServico';
@@ -11,18 +11,41 @@ const ev = (clientId: string, type: string, status: string, date: string, extra:
   ({ id: `${clientId}${type}${date}`, clientId, type, status, date, subject: 'x', ...extra }) as EventoAgenda;
 
 describe('analises', () => {
-  it('esforço: conta concluídos de agenda + ações, sem relatório', () => {
-    const r = esforcoPorAtendimento([cli('a'), cli('b')], [
-      ev('a', 'Reunião', 'Concluído', dia(10)),
-      ev('a', 'Contato', 'Concluído', dia(11)),
-      ev('a', 'Relatório', 'Concluído', dia(12)), // relatório não é esforço de atendimento
-      ev('a', 'Reunião', 'Cancelado', dia(13)),
-      ev('b', 'Reunião', 'Concluído', dia(1, 2)), // fora dos 90 dias
-    ], [{ clientId: 'a', tipo: 'price', status: 'concluido', createdAt: dia(14) } as Acao], AGORA);
-    expect(r).toEqual([{ id: 'a', nome: 'A', reuniao: 1, contato: 1, precificacao: 1, total: 3 }]);
-    // Relatório com Precificação (ex.: Viannax) é entrega de Price: conta como precificação.
-    const preco = esforcoPorAtendimento([cli('a')], [ev('a', 'Relatório', 'Concluído', dia(20), { servicos: ['Precificação'] })], [], AGORA);
-    expect(preco[0]).toMatchObject({ precificacao: 1, total: 1 });
+  it('difíceis de marcar: tentativas por entrega no mês; ação repetida e contato do cliente não contam', () => {
+    const r = dificeisDeMarcar([cli('a'), cli('b'), cli('c')], [
+      ev('a', 'Contato', 'Concluído', dia(2), { origem: 'nos' }),
+      ev('a', 'Ligação', 'Concluído', dia(9)),
+      ev('a', 'Contato', 'Concluído', dia(10), { origem: 'cliente' }), // o cliente procurou: não é tentativa
+      ev('a', 'Contato', 'Concluído', dia(11), { motivoContato: 'cancelamento' }), // aviso de cancelamento
+      ev('a', 'Contato', 'Agendado', dia(12)), // não concluído
+      ev('a', 'Reunião', 'Concluído', dia(20)),
+      ev('a', 'Contato', 'Concluído', dia(28, 7)), // mês anterior
+      ev('b', 'Contato', 'Concluído', dia(3)),
+      ev('b', 'Relatório', 'Concluído', dia(4), { servicos: ['Precificação'] }), // relatório de preço é entrega
+      ev('b', 'Precificação', 'Concluído', dia(5)),
+      ev('c', 'Reunião', 'Concluído', dia(6)), // sem tentativa: fora da lista
+    ], [
+      { clientId: 'a', tipo: 'contato', status: 'concluido', dueAt: dia(15) },
+      { clientId: 'a', tipo: 'contato', status: 'concluido', dueAt: dia(15) }, // repetida no mesmo dia
+      { clientId: 'a', tipo: 'contato', status: 'concluido', dueAt: dia(2) }, // mesmo dia de contato na agenda
+      { clientId: 'a', tipo: 'price', status: 'concluido', dueAt: dia(16) }, // não é tentativa
+    ] as Acao[], AGORA);
+    expect(r).toEqual([
+      { id: 'a', nome: 'A', tentativas: 3, entregas: 1 },
+      { id: 'b', nome: 'B', tentativas: 1, entregas: 2 },
+    ]);
+  });
+
+  it('difíceis de marcar: janela de N meses termina no mês de referência', () => {
+    const agenda = [
+      ev('a', 'Contato', 'Concluído', dia(20)),
+      ev('a', 'Contato', 'Concluído', dia(5, 7)), // agosto
+      ev('a', 'Contato', 'Concluído', dia(5, 6)), // julho
+      ev('a', 'Contato', 'Concluído', dia(30, 5)), // junho: fora do trimestre
+    ];
+    expect(dificeisDeMarcar([cli('a')], agenda, [], AGORA, 1)[0].tentativas).toBe(1);
+    expect(dificeisDeMarcar([cli('a')], agenda, [], AGORA, 3)[0].tentativas).toBe(3);
+    expect(dificeisDeMarcar([cli('a')], agenda, [], AGORA, 6)[0].tentativas).toBe(4);
   });
 
   it('cancelamentos: só o mês de referência, por quem cancelou; errata fora da conta', () => {

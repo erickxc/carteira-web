@@ -14,7 +14,7 @@ import { VencendoCard } from '../components/dashboard/VencendoCard';
 import { ServicosCard } from '../components/dashboard/ServicosCard';
 import { AFazerCard } from '../components/dashboard/AFazerCard';
 import { TendenciaMensalCard } from '../components/dashboard/TendenciaMensalCard';
-import { Top10AtendimentosCard } from '../components/dashboard/Top10AtendimentosCard';
+import { DificeisDeMarcarCard } from '../components/dashboard/DificeisDeMarcarCard';
 import { AtendimentoCard } from '../components/dashboard/AtendimentoCard';
 import { RecuperadosCard } from '../components/dashboard/RecuperadosCard';
 import { CancelamentosCard } from '../components/dashboard/CancelamentosCard';
@@ -250,7 +250,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="dash-two-col">
-        <Top10AtendimentosCard itens={d.esforco.itens} total={d.esforco.total} atendimentos={d.esforco.atendimentos} onAbrirCliente={abrirCliente} />
+        <DificeisDeMarcarCard itens={d.dificeis} meses={d.mesesDificeis} onMeses={d.setMesesDificeis} onAbrirCliente={abrirCliente} />
         <RecuperadosCard clientes={d.ativos} agenda={d.agendaPorMonitor} janela={janelaAtendimento} agora={d.dataReferencia} mes={mesCurto} onAbrirCliente={abrirCliente} />
       </div>
 
