@@ -8,6 +8,10 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.6.14
+
+- Novo status de cadastro **Férias**: use quando o contato do cliente está de férias e não há atendimento. Clientes em Férias ficam fora das métricas, da fila de cadência e dos alertas, como Suspenso.
+
 ## 1.6.13
 
 - As vendas dos clientes (Dados Alvos) voltaram a aparecer na Carteira e no monitorIA: o Ecossistema mudou o formato dos arquivos e a Carteira passou a ler o novo.

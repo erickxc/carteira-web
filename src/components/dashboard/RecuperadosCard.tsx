@@ -32,7 +32,7 @@ export function RecuperadosCard({ clientes, agenda, janela, agora, mes, onAbrirC
   return (
     <Card className="kpi-card">
       <div className="section-header">
-        <h3>Atendimentos recuperados <InfoComoConta texto={`Recuperado = estava ${LIMIAR_RECUPERACAO_DIAS}+ dias sem reunião, relatório ou precificação CONCLUÍDA e voltou a ter uma no mês. Ainda parados = ativos sem entrega concluída há ${LIMIAR_RECUPERACAO_DIAS}+ dias hoje (Marco, suspensos e problemas externos não entram).`} /></h3>
+        <h3>Atendimentos recuperados <InfoComoConta texto={`Recuperado = estava ${LIMIAR_RECUPERACAO_DIAS}+ dias sem reunião, relatório ou precificação CONCLUÍDA e voltou a ter uma no mês. Ainda parados = ativos sem entrega concluída há ${LIMIAR_RECUPERACAO_DIAS}+ dias hoje (Marco, suspensos, problemas externos e férias não entram).`} /></h3>
         <span className="text-text-muted" style={{ fontSize: 12 }}>{mes}</span>
       </div>
       <div className="vencendo-topo">

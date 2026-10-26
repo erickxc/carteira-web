@@ -32,6 +32,10 @@ describe('isClienteAtivo', () => {
     expect(cadencia.isClienteAtivo({ estado: 'Ativo', status: 'Atendido pelo Marco' })).toBe(false);
   });
 
+  it('Férias com estado Ativo NÃO é ativo (fica fora das métricas)', () => {
+    expect(cadencia.isClienteAtivo({ estado: 'Ativo', status: 'Férias' })).toBe(false);
+  });
+
   it('estado Inativo nunca é ativo, mesmo com status Regular', () => {
     expect(cadencia.isClienteAtivo({ estado: 'Inativo', status: 'Regular' })).toBe(false);
   });

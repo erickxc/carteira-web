@@ -163,8 +163,8 @@ export interface AindaSemAtendimento {
  * concluída nos últimos `limiarDias`. É o contraponto do número de recuperados
  * — sem ele, "5 recuperados" não diz se sobraram 2 ou 30 para recuperar.
  *
- * Elegível = status ativo (ou gratuidade). Suspenso, Problemas Externos e
- * Atendido pelo Marco ficam fora: em nenhum dos três a falta de reunião é um
+ * Elegível = status ativo (ou gratuidade). Suspenso, Problemas Externos, Férias e
+ * Atendido pelo Marco ficam fora: em nenhum deles a falta de reunião é um
  * problema a cobrar da equipe. `isStatusAtivo` já implementa esse corte (casa
  * apenas com "ativo"/"gratuidade"), então a regra não é duplicada aqui.
  */
