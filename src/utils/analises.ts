@@ -1,10 +1,10 @@
 import { differenceInCalendarDays, eachDayOfInterval, endOfMonth, parseISO, startOfMonth, subDays } from 'date-fns';
-import { contatoRecenteNaoRefletido, ehConcluido } from './cadenciaServico';
+import { categoriaCancelamento, contatoRecenteNaoRefletido, ehConcluido, type CategoriaCancelamento } from './cadenciaServico';
 import type { LinhaAtendimento } from './indicadoresPrazo';
 import { isBusinessDay } from './holidays';
 import type { Acao, Cliente, EventoAgenda } from '../types';
 
-/** Janela dos rankings de análise (esforço, cancelamentos). */
+/** Janela do ranking de esforço. */
 export const DIAS_ANALISE = 90;
 
 const ehReuniao = (e: EventoAgenda) => /reuni/i.test(e.type || '');
@@ -19,6 +19,8 @@ export const rotuloModo = (modo: ModoContagem) =>
     ? { plural: 'reuniões', Plural: 'Reuniões', singular: 'reunião' }
     : { plural: 'entregas', Plural: 'Entregas', singular: 'entrega' };
 const ehCancelado = (e: EventoAgenda) => /cancel/i.test(e.status || '');
+/** Errata/duplicado: o evento nunca deveria ter existido — fora de toda conta. */
+export const ehLancamentoErrado = (e: EventoAgenda) => categoriaCancelamento(e) === 'lancamento_errado';
 const dataDe = (iso: string | undefined) => {
   if (!iso) return null;
   const d = parseISO(iso);
@@ -66,34 +68,51 @@ export function esforcoPorAtendimento(ativos: Cliente[], agenda: EventoAgenda[],
 // Cancelamentos por atendimento
 // ---------------------------------------------------------------------------
 
-export interface CancelamentoAtendimento { id: string; nome: string; canceladas: number; comDesfecho: number; ultima: Date | null }
-export interface Cancelamentos { itens: CancelamentoAtendimento[]; canceladas: number; comDesfecho: number }
+export interface CancelamentoAtendimento { id: string; nome: string; canceladas: number; ultima: Date | null }
+export type CategoriaContada = Exclude<CategoriaCancelamento, 'lancamento_errado'> | 'sem_categoria';
+export interface Cancelamentos {
+  /** Atendimentos com cancelamento do lado do cliente (cancelou ou não apareceu). */
+  itens: CancelamentoAtendimento[];
+  /** Cancelou + não apareceu/não respondeu: o número do card. */
+  doCliente: number;
+  porCategoria: Record<CategoriaContada, number>;
+  /** Realizadas + canceladas (sem lançamento errado). */
+  comDesfecho: number;
+  /** Lançamentos errados no mês — fora da conta, só informados. */
+  lancamentosErrados: number;
+}
 
-/** Canceladas nos últimos 90 dias, por atendimento, sobre as com desfecho (realizada ou cancelada), no modo escolhido. */
+const DO_CLIENTE = new Set<string>(['cliente_cancelou', 'cliente_ausente']);
+
+/**
+ * Cancelamentos no mês de referência (do dia 1 até `agora`), por quem
+ * cancelou. Só o lado do cliente vira ranking; o que nós cancelamos e o
+ * legado sem motivo aparecem na quebra, e lançamento errado sai da conta.
+ */
 export function cancelamentosPorAtendimento(ativos: Cliente[], agenda: EventoAgenda[], agora: Date, modo: ModoContagem = 'reunioes'): Cancelamentos {
-  const inicio = subDays(agora, DIAS_ANALISE);
+  const inicio = startOfMonth(agora);
   const nomes = new Map(ativos.map((c) => [c.id, c.empresa]));
   const por = new Map<string, CancelamentoAtendimento>();
-  let canceladas = 0;
-  let comDesfecho = 0;
+  const porCategoria: Record<CategoriaContada, number> = { cliente_cancelou: 0, cliente_ausente: 0, nos_cancelamos: 0, sem_categoria: 0 };
+  let doCliente = 0, comDesfecho = 0, lancamentosErrados = 0;
   for (const e of agenda) {
     const d = dataDe(e.date);
     if (!nomes.has(e.clientId) || !contaNoModo(e, modo) || !naJanela(d, inicio, agora)) continue;
-    const cancelada = ehCancelado(e);
-    if (!cancelada && !ehConcluido(e)) continue;
+    const categoria = categoriaCancelamento(e);
+    if (categoria === 'lancamento_errado') { lancamentosErrados++; continue; }
+    if (!categoria && !ehConcluido(e)) continue;
     comDesfecho++;
-    const x = por.get(e.clientId) ?? { id: e.clientId, nome: nomes.get(e.clientId)!, canceladas: 0, comDesfecho: 0, ultima: null };
-    x.comDesfecho++;
-    if (cancelada) {
-      canceladas++;
-      x.canceladas++;
-      if (!x.ultima || d! > x.ultima) x.ultima = d;
-    }
+    if (!categoria) continue;
+    porCategoria[categoria]++;
+    if (!DO_CLIENTE.has(categoria)) continue;
+    doCliente++;
+    const x = por.get(e.clientId) ?? { id: e.clientId, nome: nomes.get(e.clientId)!, canceladas: 0, ultima: null };
+    x.canceladas++;
+    if (!x.ultima || d! > x.ultima) x.ultima = d;
     por.set(e.clientId, x);
   }
-  const itens = [...por.values()].filter((x) => x.canceladas > 0)
-    .sort((a, b) => b.canceladas - a.canceladas || +b.ultima! - +a.ultima!);
-  return { itens, canceladas, comDesfecho };
+  const itens = [...por.values()].sort((a, b) => b.canceladas - a.canceladas || +b.ultima! - +a.ultima!);
+  return { itens, doCliente, porCategoria, comDesfecho, lancamentosErrados };
 }
 
 // ---------------------------------------------------------------------------
@@ -122,7 +141,7 @@ export function reunioesPorDia(agenda: EventoAgenda[], mes: Date, agora: Date, m
   const contagem = new Map<string, number>();
   const cancel = new Map<string, number>();
   for (const e of agenda) {
-    if (!contaNoModo(e, modo) || /reagend/i.test(e.status || '')) continue;
+    if (!contaNoModo(e, modo) || /reagend/i.test(e.status || '') || ehLancamentoErrado(e)) continue;
     const d = dataDe(e.date);
     if (!d) continue;
     const alvo = ehCancelado(e) ? cancel : contagem;
@@ -232,6 +251,7 @@ export function cargaPorMonitor(
       const x = de(m);
       if (ehConcluido(e) && /relat/i.test(e.type || '')) x.relatorios++;
       if (!contaNoModo(e, modo)) continue;
+      if (ehLancamentoErrado(e)) continue;
       if (ehCancelado(e)) { x.canceladas++; continue; }
       if (!ehConcluido(e)) continue;
       x.reunioes++;

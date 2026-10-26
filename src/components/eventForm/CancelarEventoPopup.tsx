@@ -1,14 +1,17 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button, Field, Textarea } from '../../ui';
+import { CATEGORIA_CANCELAMENTO_LABEL, type EventoAgenda } from '../../types';
+
+type Categoria = Exclude<EventoAgenda['motivoCategoria'], '' | undefined>;
 
 interface CancelarEventoPopupProps {
   onFechar: () => void;
   /** Só marca o formulário como Cancelado + motivo — quem chamou decide
    *  quando salvar (usuário revisa e aperta Salvar depois). */
-  onConfirmar: (motivo: string, registrarContato: boolean) => void;
+  onConfirmar: (motivo: string, registrarContato: boolean, categoria: Categoria | undefined) => void;
   /** Marca Cancelado + motivo E salva na hora, fechando o Editar Evento. */
-  onConfirmarESalvar: (motivo: string, registrarContato: boolean) => void;
+  onConfirmarESalvar: (motivo: string, registrarContato: boolean, categoria: Categoria | undefined) => void;
   /** Reunião ainda "Pendente" (nunca confirmada) — nesse caso o motivo é
    *  opcional (não tem o que explicar de uma reunião que nunca foi combinada
    *  de verdade) e aparece a opção de registrar contato, ver `permitirRegistrarContato`. */
@@ -32,7 +35,10 @@ export function CancelarEventoPopup({
 }: CancelarEventoPopupProps) {
   const [motivo, setMotivo] = useState('');
   const [registrarContato, setRegistrarContato] = useState(false);
-  const valido = !motivoObrigatorio || motivo.trim().length > 0;
+  // De quem foi o cancelamento: é o que o card de Cancelamentos e o dossiê
+  // usam para não contar errata ou decisão nossa como "o cliente cancelou".
+  const [categoria, setCategoria] = useState<Categoria | undefined>();
+  const valido = !motivoObrigatorio || (motivo.trim().length > 0 && !!categoria);
   const modalRef = useRef<HTMLDivElement>(null);
   const tituloId = useId();
 
@@ -67,6 +73,16 @@ export function CancelarEventoPopup({
           <p id={tituloId} style={{ margin: '0 0 0.75rem', fontSize: '0.95rem' }}>
             Cancelar este evento? Ele fica no histórico marcado como Cancelado (não é apagado).
           </p>
+          <Field as="div" label={`Quem cancelou${motivoObrigatorio ? ' *' : ' (opcional)'}`}>
+            <div className="flex flex-col gap-1" style={{ fontSize: '0.85rem' }}>
+              {(Object.keys(CATEGORIA_CANCELAMENTO_LABEL) as Categoria[]).map((c) => (
+                <label key={c} className="flex items-center gap-2" style={{ cursor: 'pointer' }}>
+                  <input type="radio" name="categoria-cancelamento" checked={categoria === c} onChange={() => setCategoria(c)} />
+                  {CATEGORIA_CANCELAMENTO_LABEL[c]}
+                </label>
+              ))}
+            </div>
+          </Field>
           <Field label={`Motivo do cancelamento${motivoObrigatorio ? ' *' : ' (opcional)'}`}>
             <Textarea
               tone="modal"
@@ -88,10 +104,10 @@ export function CancelarEventoPopup({
         </div>
         <div className="modal-footer">
           <Button variant="secondary" onClick={onFechar}>Cancelar</Button>
-          <Button variant="secondary" disabled={!valido} onClick={() => onConfirmar(motivo.trim(), registrarContato)}>
+          <Button variant="secondary" disabled={!valido} onClick={() => onConfirmar(motivo.trim(), registrarContato, categoria)}>
             Confirmar
           </Button>
-          <Button variant="danger" disabled={!valido} onClick={() => onConfirmarESalvar(motivo.trim(), registrarContato)}>
+          <Button variant="danger" disabled={!valido} onClick={() => onConfirmarESalvar(motivo.trim(), registrarContato, categoria)}>
             Confirmar e Salvar
           </Button>
         </div>

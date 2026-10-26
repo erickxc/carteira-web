@@ -660,16 +660,20 @@ describe('buscar_cancelamentos', () => {
   const reuniao = (id: string, status: string, n: number, over: Record<string, unknown> = {}) =>
     ({ id, clientId: 'c1', clientName: 'Loja Teste', type: 'Reunião', status, date: dias(n), ...over });
 
-  it('conta canceladas sobre reuniões com desfecho, com reincidente e motivo', () => {
+  it('separa por quem cancelou; errata fora da conta; taxa e reincidência só do cliente', () => {
     const r = exec('buscar_cancelamentos', repoBase({ Agenda: [
-      reuniao('a', 'Cancelado', 10, { motivo: 'Cliente viajou' }),
-      reuniao('b', 'Cancelado', 5),
+      reuniao('a', 'Cancelado', 10, { motivo: 'Cliente viajou', motivoCategoria: 'cliente_cancelou' }),
+      reuniao('b', 'Cancelado', 5, { motivo: 'Cliente não apareceu' }), // legado: deduzido do texto
+      reuniao('f', 'Cancelado', 4, { motivo: 'Foi feito um relatório para o cliente.' }), // nós cancelamos
+      reuniao('g', 'Cancelado', 4, { motivo: 'duplicada' }), // lançamento errado
+      reuniao('h', 'Cancelado', 4), // sem motivo
       reuniao('c', 'Concluído', 3),
       reuniao('d', 'Agendado', 1), // sem desfecho
       reuniao('e', 'Cancelado', 200), // fora da janela
-    ] }), {}) as { canceladas: number; reunioesComDesfecho: number; taxaCancelamento: number; reincidentes: number; atendimentos: { canceladas: number; motivos: string[] }[] };
-    expect([r.canceladas, r.reunioesComDesfecho, r.taxaCancelamento, r.reincidentes]).toEqual([2, 3, 67, 1]);
-    expect(r.atendimentos[0]).toMatchObject({ canceladas: 2, motivos: ['Cliente viajou'] });
+    ] }), {}) as { canceladasPeloCliente: number; reunioesComDesfecho: number; taxaCancelamentoCliente: number; reincidentes: number; lancamentosErradosIgnorados: number; porCategoria: Record<string, number>; atendimentos: { canceladasPeloCliente: number; outrasCanceladas: number }[] };
+    expect([r.canceladasPeloCliente, r.reunioesComDesfecho, r.taxaCancelamentoCliente, r.reincidentes, r.lancamentosErradosIgnorados]).toEqual([2, 5, 40, 1, 1]);
+    expect(r.porCategoria).toEqual({ cliente_cancelou: 1, cliente_ausente: 1, nos_cancelamos: 1, sem_categoria: 1 });
+    expect(r.atendimentos[0]).toMatchObject({ canceladasPeloCliente: 2, outrasCanceladas: 2 });
   });
 });
 

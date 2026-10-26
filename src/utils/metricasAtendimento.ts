@@ -1,6 +1,6 @@
 import { addMonths, differenceInCalendarDays, endOfMonth, parseISO, startOfMonth } from 'date-fns';
 import { ehConcluido } from './cadenciaServico';
-import { contaNoModo, type ModoContagem } from './analises';
+import { contaNoModo, ehLancamentoErrado, type ModoContagem } from './analises';
 import type { Acao, EventoAgenda } from '../types';
 
 /**
@@ -70,7 +70,7 @@ export function calcularConfiabilidade(eventos: EventoAgenda[], agora: Date = ne
   let realizadas = 0, reagendadas = 0, canceladas = 0;
   let reunioesRemarcadas = 0, remarcacoes = 0;
   for (const e of eventos) {
-    if (!contaNoModo(e, modo)) continue;
+    if (!contaNoModo(e, modo) || ehLancamentoErrado(e)) continue;
     const d = dataDe(e);
     if (!d || d > agora) continue; // ainda vai acontecer: não é desfecho
     if (foiCancelado(e)) canceladas++;

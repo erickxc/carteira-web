@@ -16,7 +16,7 @@ const {
 /** Agenda vista por atendimento: inclui a precificação do grupo salva numa
  *  loja-irmã (cópia com `doGrupo`; o `id` real é `doGrupo.origemId`). */
 const agendaPorAtendimento = (repo) => comPrecificacaoDoGrupo(repo.get('Agenda'), repo.get('Clientes'));
-const { servicoPadraoDoEvento } = require('../../shared/cadenciaServico.cjs');
+const { servicoPadraoDoEvento, categoriaCancelamento } = require('../../shared/cadenciaServico.cjs');
 const { sugerirAgenda } = require('../dominio/sugestaoAgenda.cjs');
 const { getCache: getCacheCeoAgenda } = require('../ceoAgenda.cjs');
 const { CADENCIAS_SEED, UPLOADS_DIR } = require('../config.cjs');
@@ -1480,10 +1480,12 @@ function buscarProximasReunioes(repo, { dias } = {}, ctx = {}) {
 }
 
 /**
- * Reuniões canceladas por atendimento — a mesma regra do card "Cancelamentos"
- * da Visão Geral (src/utils/analises.ts): reuniões com desfecho = realizadas +
- * canceladas na janela; remarcada (status Reagendado) não é cancelada. Só
- * atendimentos ativos do escopo do monitor.
+ * Reuniões canceladas por atendimento, separadas por quem cancelou — mesma
+ * classificação do card "Cancelamentos" da Visão Geral (`categoriaCancelamento`,
+ * shared/). Lançamento errado (duplicado/errata) não conta; a taxa e os
+ * reincidentes são só do lado do cliente (cancelou ou não apareceu); o que nós
+ * cancelamos e o legado sem motivo vêm à parte. Remarcada (Reagendado) não é
+ * cancelada. Só atendimentos ativos do escopo do monitor.
  */
 function buscarCancelamentos(repo, { dias } = {}, ctx = {}) {
   const janela = Math.min(Math.max(Number(dias) || 90, 1), 365);
@@ -1491,35 +1493,42 @@ function buscarCancelamentos(repo, { dias } = {}, ctx = {}) {
   const inicio = new Date(agora.getTime() - janela * 86400e3);
   const ativos = new Map(clientesDoMonitor(repo, ctx).filter((c) => isClienteAtivo(c, agora)).map((c) => [String(c.id), c]));
   const por = new Map();
-  let canceladas = 0;
+  const porCategoria = { cliente_cancelou: 0, cliente_ausente: 0, nos_cancelamos: 0, sem_categoria: 0 };
+  let peloCliente = 0;
   let comDesfecho = 0;
+  let lancamentosErrados = 0;
   for (const e of repo.get('Agenda')) {
     const c = ativos.get(String(e.clientId));
     const d = new Date(e.date);
     if (!c || !/reuni/i.test(e.type || '') || isNaN(d.getTime()) || d < inicio || d > agora) continue;
-    const cancelada = /cancel/i.test(e.status || '');
-    if (!cancelada && !/conclu|realiz/i.test(e.status || '')) continue;
+    const categoria = categoriaCancelamento(e);
+    if (categoria === 'lancamento_errado') { lancamentosErrados++; continue; }
+    if (!categoria && !/conclu|realiz/i.test(e.status || '')) continue;
     comDesfecho++;
-    const x = por.get(c.id) ?? { clientId: c.id, empresa: c.empresa, monitor: c.monitor || null, canceladas: 0, comDesfecho: 0, ultimaCancelada: null, motivos: [] };
+    const x = por.get(c.id) ?? { clientId: c.id, empresa: c.empresa, monitor: c.monitor || null, canceladasPeloCliente: 0, outrasCanceladas: 0, comDesfecho: 0, ultimaCancelada: null, motivos: [] };
     x.comDesfecho++;
-    if (cancelada) {
-      canceladas++;
-      x.canceladas++;
+    if (categoria) {
+      porCategoria[categoria]++;
+      const doCliente = categoria === 'cliente_cancelou' || categoria === 'cliente_ausente';
+      if (doCliente) { peloCliente++; x.canceladasPeloCliente++; } else x.outrasCanceladas++;
       const dia = dataCivilEvento(e.date);
       if (!x.ultimaCancelada || dia > x.ultimaCancelada) x.ultimaCancelada = dia;
-      if (e.motivo) x.motivos.push(String(e.motivo).slice(0, 160));
+      if (e.motivo) x.motivos.push({ categoria, texto: String(e.motivo).slice(0, 160) });
     }
     por.set(c.id, x);
   }
-  const atendimentos = [...por.values()].filter((x) => x.canceladas > 0)
-    .sort((a, b) => b.canceladas - a.canceladas || String(b.ultimaCancelada).localeCompare(String(a.ultimaCancelada)))
+  const atendimentos = [...por.values()].filter((x) => x.canceladasPeloCliente + x.outrasCanceladas > 0)
+    .sort((a, b) => b.canceladasPeloCliente - a.canceladasPeloCliente || b.outrasCanceladas - a.outrasCanceladas
+      || String(b.ultimaCancelada).localeCompare(String(a.ultimaCancelada)))
     .slice(0, 30);
   return {
     janelaDias: janela,
-    canceladas,
+    canceladasPeloCliente: peloCliente,
+    porCategoria,
+    lancamentosErradosIgnorados: lancamentosErrados,
     reunioesComDesfecho: comDesfecho,
-    taxaCancelamento: comDesfecho > 0 ? Math.round((canceladas / comDesfecho) * 100) : 0,
-    reincidentes: atendimentos.filter((x) => x.canceladas >= 2).length,
+    taxaCancelamentoCliente: comDesfecho > 0 ? Math.round((peloCliente / comDesfecho) * 100) : 0,
+    reincidentes: atendimentos.filter((x) => x.canceladasPeloCliente >= 2).length,
     atendimentos,
   };
 }
@@ -1888,7 +1897,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_cancelamentos',
-    description: 'Reuniões CANCELADAS por atendimento numa janela (padrão 90 dias): total, taxa de cancelamento sobre as reuniões com desfecho (realizadas + canceladas), quem cancelou 2+ vezes (reincidentes), data da última cancelada e os motivos registrados. Mesma regra do card "Cancelamentos" da Visão Geral. Use pra "quem mais cancela", "quantas reuniões foram canceladas", "taxa de cancelamento", "o cliente X costuma cancelar?".',
+    description: 'Reuniões CANCELADAS por atendimento numa janela (padrão 90 dias), separadas por QUEM cancelou: porCategoria = cliente_cancelou (cancelou/pediu pra remarcar), cliente_ausente (não apareceu/não respondeu), nos_cancelamos (decisão da equipe) e sem_categoria (registro antigo sem motivo claro — NÃO atribua ao cliente). Lançamento errado (duplicado/errata) já vem fora da conta. taxaCancelamentoCliente e reincidentes (2+) contam só o lado do cliente. Mesma classificação do card "Cancelamentos" da Visão Geral (que mostra o mês de referência). Use pra "quem mais cancela", "quantas reuniões foram canceladas", "taxa de cancelamento", "o cliente X costuma cancelar?".',
     parameters: { type: 'object', properties: { dias: { type: 'number', description: 'Janela de dias para trás (padrão 90, máx 365).' } } },
     executar: buscarCancelamentos,
   },

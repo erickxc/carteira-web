@@ -326,3 +326,21 @@ describe('regras de prazo (spec 2026-09-25)', () => {
     expect(price).toMatchObject({ contrataram: 1, atendidos: 1 });
   });
 });
+
+describe('categoriaCancelamento', () => {
+  const shared = require('../../shared/cadenciaServico.cjs');
+  const cat = (motivo?: string, motivoCategoria?: string, status = 'Cancelado') => shared.categoriaCancelamento({ status, motivo, motivoCategoria });
+
+  it('não cancelado → null; categoria gravada vence o texto', () => {
+    expect(cat('errata', undefined, 'Concluído')).toBeNull();
+    expect(cat('errata', 'cliente_cancelou')).toBe('cliente_cancelou');
+  });
+
+  it('legado: deduz pelo texto dos motivos reais da base', () => {
+    expect(['errata', 'duplicada', 'Duplicado', 'Reunião não marcada'].map((m) => cat(m))).toEqual(Array(4).fill('lancamento_errado'));
+    expect(['Cliente não apareceu', 'Não obtivemos retorno.', 'Cliente não responde.'].map((m) => cat(m))).toEqual(Array(3).fill('cliente_ausente'));
+    expect(['Cliente quis remarcar a reunião.', 'Cliente teve um problema e solicitou o cancelamento', 'Sistema do cliente caiu e precisou sair da reunião'].map((m) => cat(m))).toEqual(Array(3).fill('cliente_cancelou'));
+    expect(['Foi feito um relatório para o cliente.', 'Cliente fez precificação recente.', 'domingo'].map((m) => cat(m))).toEqual(Array(3).fill('nos_cancelamos'));
+    expect([undefined, 'cancelado'].map((m) => cat(m))).toEqual(['sem_categoria', 'sem_categoria']);
+  });
+});

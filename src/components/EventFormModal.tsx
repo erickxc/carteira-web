@@ -26,7 +26,7 @@ import { ProdutosSituacaoField } from './eventForm/ProdutosSituacaoField';
 import { Badge, Button, Chip, Field, Input, SecaoLabel, Textarea } from '../ui';
 import { ReuniaoMonitorIA } from './agenda/ReuniaoMonitorIA';
 import { SelectField } from './SelectField';
-import { ORIGEM_LABEL, type EventoAgenda, type OrigemEvento, type ProdutoSituacaoItem } from '../types';
+import { CATEGORIA_CANCELAMENTO_LABEL, ORIGEM_LABEL, type EventoAgenda, type OrigemEvento, type ProdutoSituacaoItem } from '../types';
 
 /**
  * Precificação passou a usar o Registro da Monitoria unificado (modo
@@ -77,6 +77,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const [description, setDescription] = useState(initial?.description ?? '');
   const [status, setStatus] = useState(initial?.status ?? statusOpcoes[0] ?? 'Agendado');
   const [motivo, setMotivo] = useState(initial?.motivo ?? '');
+  const [motivoCategoria, setMotivoCategoria] = useState<EventoAgenda['motivoCategoria']>(initial?.motivoCategoria ?? '');
   // Default = monitor do cliente (o mais provável), editável. Múltipla
   // escolha: mais de um monitor pode estar presente na mesma reunião.
   const [monitores, setMonitores] = useState<string[]>(() => {
@@ -348,7 +349,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
    * override, "Confirmar e Salvar" salvaria o motivo ANTERIOR (vazio, na
    * primeira vez), não o que acabou de ser digitado no popup.
    */
-  async function salvar(statusOverride?: string, motivoOverride?: string) {
+  async function salvar(statusOverride?: string, motivoOverride?: string, categoriaOverride?: EventoAgenda['motivoCategoria']) {
     const cliente = clientes.find((c) => c.id === clientId);
     if (!cliente) { toastError('Selecione um cliente.'); return; }
     if (!dataValida) { toastError('Data inválida — confira o dia informado.'); return; }
@@ -359,10 +360,12 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     if (servicos.length === 0) { toastError('Marque ao menos um serviço (Monitoria ou Precificação).'); return; }
     const statusFinalPre = statusOverride ?? status;
     const motivoFinal = motivoOverride ?? motivo;
+    const categoriaFinal = categoriaOverride || motivoCategoria || undefined;
     if (/reagend/i.test(statusFinalPre) && !motivoFinal.trim()) { toastError('Informe o motivo do reagendamento.'); return; }
     // Cancelar uma reunião que ainda estava "Pendente" (nunca confirmada) não
     // exige motivo — ver `statusOriginalPendente`.
     if (/cancel/i.test(statusFinalPre) && !motivoFinal.trim() && !statusOriginalPendente) { toastError('Informe o motivo do cancelamento.'); return; }
+    if (/cancel/i.test(statusFinalPre) && !categoriaFinal && !statusOriginalPendente) { toastError('Informe quem cancelou.'); return; }
     // Bloqueia de verdade (não só avisa): mesmo monitor ou mesma sala não podem
     // ocupar o mesmo dia/horário duas vezes.
     if (conflitoMonitor) { toastError(`${nomeMonitorConflitante} já tem outro evento marcado nesse dia e horário.`); return; }
@@ -389,6 +392,8 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         // Cancelamento de reunião Pendente pode ir sem motivo — não força mais
         // string vazia no campo.
         motivo: /reagend|cancel/i.test(statusFinal) && motivoFinal.trim() ? motivoFinal : undefined,
+        // '' (e não undefined) pra limpar a categoria ao tirar o Cancelado.
+        motivoCategoria: /cancel/i.test(statusFinal) ? (categoriaFinal ?? '' as const) : '' as const,
         // Só faz sentido em interação pontual (Contato/Ligação): reunião e
         // relatório não são "quem procurou quem".
         origem: ehInteracao ? (origem || undefined) : undefined,
@@ -509,9 +514,10 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
 
   /** Só marca o formulário como Cancelado + motivo — quem clicou pode
    *  revisar o resto do form antes de apertar Salvar. */
-  function confirmarCancelamento(motivoTexto: string, registrarContato: boolean) {
+  function confirmarCancelamento(motivoTexto: string, registrarContato: boolean, categoria: EventoAgenda['motivoCategoria']) {
     setStatus(statusCancelado);
     setMotivo(motivoTexto);
+    setMotivoCategoria(categoria ?? '');
     setMostrarPopupCancelamento(false);
     if (registrarContato) void registrarContatoDoCancelamento();
     toastInfo('Cancelamento marcado — revise o evento e clique em Salvar.');
@@ -519,12 +525,13 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
 
   /** Marca E salva na hora — fecha o popup e, ao terminar, o próprio
    *  `salvar()` fecha o Editar Evento (mesmo caminho do Salvar normal). */
-  function confirmarCancelamentoESalvar(motivoTexto: string, registrarContato: boolean) {
+  function confirmarCancelamentoESalvar(motivoTexto: string, registrarContato: boolean, categoria: EventoAgenda['motivoCategoria']) {
     setStatus(statusCancelado);
     setMotivo(motivoTexto);
+    setMotivoCategoria(categoria ?? '');
     if (registrarContato) void registrarContatoDoCancelamento();
     setMostrarPopupCancelamento(false);
-    void salvar(statusCancelado, motivoTexto);
+    void salvar(statusCancelado, motivoTexto, categoria);
   }
 
   async function handleFilesSelected(files: FileList | null) {
@@ -696,6 +703,18 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
               <Badge variant="danger" style={{ marginBottom: 12 }}>
                 <AlertTriangle size={12} /> Sala "{sala}" já ocupada nesse dia e horário por {clienteSalaConflitante} — não vai dar pra salvar.
               </Badge>
+            )}
+
+            {ehCancelamento && (
+              <SelectField
+                label={`Quem cancelou${statusOriginalPendente ? '' : ' *'}`}
+                value={motivoCategoria ?? ''}
+                onChange={(v) => setMotivoCategoria(v as EventoAgenda['motivoCategoria'])}
+                options={[
+                  { value: '', label: '— escolha —' },
+                  ...Object.entries(CATEGORIA_CANCELAMENTO_LABEL).map(([value, label]) => ({ value, label })),
+                ]}
+              />
             )}
 
             {precisaMotivo && (

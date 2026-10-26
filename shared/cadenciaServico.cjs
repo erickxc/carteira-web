@@ -168,6 +168,25 @@ const ehMarcadoConfirmado = (a) => naoCancelado(a) && !/pendente/i.test(a.status
 /** Evento que de fato aconteceu. "Agendado"/"Pendente" no passado não conta. */
 const ehConcluido = (a) => /conclu|realiz/i.test(a.status || '');
 
+/**
+ * De quem foi o cancelamento. `motivoCategoria` é escolhido ao cancelar (desde
+ * a 1.6.15); antes o motivo era só texto, e um terço dos "cancelamentos" eram
+ * errata/duplicado ou decisão nossa (ex.: relatório no lugar da reunião) —
+ * contavam como "o cliente cancelou". O legado é classificado pelo texto do
+ * motivo; o que não der pra deduzir fica 'sem_categoria', nunca culpa do cliente.
+ */
+const CATEGORIAS_CANCELAMENTO = ['cliente_cancelou', 'cliente_ausente', 'nos_cancelamos', 'lancamento_errado'];
+function categoriaCancelamento(e) {
+  if (!/cancel/i.test(e.status || '')) return null;
+  if (CATEGORIAS_CANCELAMENTO.includes(e.motivoCategoria)) return e.motivoCategoria;
+  const m = String(e.motivo || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  if (/errat|duplic|nao marcad|por engano|lancad[oa] errad/.test(m)) return 'lancamento_errado';
+  if (/nao apareceu|nao compareceu|nao (obtivemos|deu|teve|tivemos) retorno|sem retorno|nao respond/.test(m)) return 'cliente_ausente';
+  if (/cliente (cancel|solicit|pediu|quis|teve)|remarc|sistema do cliente/.test(m)) return 'cliente_cancelou';
+  if (/foi feito|fez precifica|domingo|feriado/.test(m)) return 'nos_cancelamos';
+  return 'sem_categoria';
+}
+
 // Zera o relógio de MONITORIA: reunião ou relatório com Monitoria marcado.
 // Evento sem serviço não conta: o serviço é obrigatório e o legado foi
 // preenchido; presumir Monitoria escondia qual prazo o evento cumpria.
@@ -550,6 +569,8 @@ exports.ehIndependente = ehIndependente;
 exports.naoCancelado = naoCancelado;
 exports.ehMarcadoConfirmado = ehMarcadoConfirmado;
 exports.ehConcluido = ehConcluido;
+exports.CATEGORIAS_CANCELAMENTO = CATEGORIAS_CANCELAMENTO;
+exports.categoriaCancelamento = categoriaCancelamento;
 exports.ehEntrega = ehEntrega;
 exports.relogioNoPrazo = relogioNoPrazo;
 exports.atendimentoEmDia = atendimentoEmDia;

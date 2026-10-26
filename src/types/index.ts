@@ -196,6 +196,13 @@ export interface Cliente {
   userId?: string;
 }
 
+export const CATEGORIA_CANCELAMENTO_LABEL: Record<Exclude<EventoAgenda['motivoCategoria'], '' | undefined>, string> = {
+  cliente_cancelou: 'Cliente cancelou ou pediu para remarcar',
+  cliente_ausente: 'Cliente não apareceu / não respondeu',
+  nos_cancelamos: 'Nós cancelamos',
+  lancamento_errado: 'Lançamento errado (duplicado, errata)',
+};
+
 export const CLIENTE_ESTADO_OPCOES = ['Ativo', 'Inativo'] as const;
 export const CLIENTE_STATUS_OPCOES = ['Regular', 'Suspenso', 'Atendido pelo Marco', 'Gratuidade', 'Problemas Externos', 'Férias'] as const;
 
@@ -376,6 +383,8 @@ export interface EventoAgenda {
   monitores: string[];
   /** Motivo do reagendamento — obrigatório quando status = Reagendado. */
   motivo?: string;
+  /** De quem foi o cancelamento (status = Cancelado); ver `categoriaCancelamento`. */
+  motivoCategoria?: 'cliente_cancelou' | 'cliente_ausente' | 'nos_cancelamos' | 'lancamento_errado' | '';
   /** Sala da reunião (Nova Iorque/Paris/...) — só relevante quando type = Reunião.
    * Duas reuniões não podem ocupar a mesma sala no mesmo dia/horário. */
   sala?: string;

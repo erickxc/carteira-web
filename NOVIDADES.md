@@ -8,6 +8,11 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.6.15
+
+- Ao cancelar um evento, agora você escolhe **quem cancelou**: o cliente, o cliente que não apareceu ou não respondeu, nós, ou um lançamento errado (duplicado, errata).
+- O card **Cancelamentos** da Visão Geral mostra o mês escolhido e conta só o que o cliente cancelou. O que nós cancelamos aparece separado, e lançamento errado não entra em nenhuma conta.
+
 ## 1.6.14
 
 - Novo status de cadastro **Férias**: use quando o contato do cliente está de férias e não há atendimento. Clientes em Férias ficam fora das métricas, da fila de cadência e dos alertas, como Suspenso.

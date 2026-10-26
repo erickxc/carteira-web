@@ -25,18 +25,24 @@ describe('analises', () => {
     expect(preco[0]).toMatchObject({ precificacao: 1, total: 1 });
   });
 
-  it('cancelamentos: por atendimento, sobre reuniões com desfecho', () => {
+  it('cancelamentos: só o mês de referência, por quem cancelou; errata fora da conta', () => {
     const r = cancelamentosPorAtendimento([cli('a'), cli('b')], [
-      ev('a', 'Reunião', 'Cancelado', dia(5)),
-      ev('a', 'Reunião', 'Cancelado', dia(20)),
+      ev('a', 'Reunião', 'Cancelado', dia(5), { motivoCategoria: 'cliente_cancelou' }),
+      ev('a', 'Reunião', 'Cancelado', dia(20), { motivo: 'Cliente não apareceu' }),
       ev('a', 'Reunião', 'Concluído', dia(22)),
+      ev('b', 'Reunião', 'Cancelado', dia(10), { motivoCategoria: 'nos_cancelamos' }),
+      ev('b', 'Reunião', 'Cancelado', dia(11), { motivo: 'errata' }),
+      ev('b', 'Reunião', 'Cancelado', dia(12)),
       ev('b', 'Reunião', 'Concluído', dia(22)),
       ev('b', 'Reunião', 'Agendado', dia(24)), // sem desfecho
+      ev('a', 'Reunião', 'Cancelado', dia(28, 7), { motivoCategoria: 'cliente_cancelou' }), // mês anterior
     ], AGORA);
-    expect(r.canceladas).toBe(2);
-    expect(r.comDesfecho).toBe(4);
+    expect(r.doCliente).toBe(2);
+    expect(r.comDesfecho).toBe(6);
+    expect(r.lancamentosErrados).toBe(1);
+    expect(r.porCategoria).toEqual({ cliente_cancelou: 1, cliente_ausente: 1, nos_cancelamos: 1, sem_categoria: 1 });
     expect(r.itens).toHaveLength(1);
-    expect(r.itens[0]).toMatchObject({ id: 'a', canceladas: 2, comDesfecho: 3 });
+    expect(r.itens[0]).toMatchObject({ id: 'a', canceladas: 2 });
     expect(r.itens[0].ultima?.getDate()).toBe(20);
   });
 

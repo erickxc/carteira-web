@@ -104,6 +104,10 @@ export function temServico(c: ClienteCadencia, re: RegExp, flag: string): boolea
 export function ehIndependente(c: ClienteCadencia, re: RegExp): boolean;
 export function naoCancelado(a: EventoCadencia): boolean;
 export function ehConcluido(a: { status?: string }): boolean;
+export type CategoriaCancelamento = 'cliente_cancelou' | 'cliente_ausente' | 'nos_cancelamos' | 'lancamento_errado';
+export const CATEGORIAS_CANCELAMENTO: CategoriaCancelamento[];
+/** null = não cancelado; 'sem_categoria' = legado cujo motivo não diz de quem foi. */
+export function categoriaCancelamento(e: { status?: string; motivo?: string; motivoCategoria?: string }): CategoriaCancelamento | 'sem_categoria' | null;
 export function ehEntrega(a: EventoCadencia): boolean;
 export function relogioNoPrazo(r: RelogioServico): boolean;
 export function atendimentoEmDia(f: { relogios: RelogioServico[] }): boolean;
