@@ -1,20 +1,21 @@
 import { useEffect, useState } from 'react';
-import { encerrarReuniao, estadoReuniao, iniciarReuniao, type EstadoReuniao } from '../../api/client';
+import { AppWindow, Mic } from 'lucide-react';
+import { abrirPainelReuniao, encerrarReuniao, estadoReuniao, iniciarReuniao, pausarReuniao, type EstadoReuniao } from '../../api/client';
 import { useCarteira } from '../../context/CarteiraContext';
-import { Button, Field, Input, SecaoLabel } from '../../ui';
-import { SelectField } from '../SelectField';
+import { Button } from '../../ui';
 
 /**
- * Painel de TESTE do monitorIA nas reuniões (entrega 1, só em dev): toca uma
- * gravação como se fosse a reunião ao vivo. A captura real e o botão do Zoom
- * entram numa entrega seguinte.
+ * monitorIA na reunião, no cabeçalho do evento (só em dev por enquanto): ouve
+ * ao vivo (microfone = monitor, som do computador = cliente). A janela por cima
+ * do Zoom só abre quando pedida ("Janela"). Em dev, "Simular" toca uma gravação
+ * como se fosse a reunião.
  */
 export function ReuniaoMonitorIA({ eventId }: { eventId: string }) {
   const { revalidarSilencioso } = useCarteira();
-  const [arquivo, setArquivo] = useState('');
-  const [velocidade, setVelocidade] = useState(1);
   const [estado, setEstado] = useState<EstadoReuniao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [iniciando, setIniciando] = useState(false); // preparar o material do cliente leva ~40 s
+  const [confirmarAte, setConfirmarAte] = useState(0);
 
   const daqui = estado?.eventId === eventId;
   const ativa = daqui && estado?.ativa;
@@ -35,6 +36,13 @@ export function ReuniaoMonitorIA({ eventId }: { eventId: string }) {
     if (concluiu) revalidarSilencioso();
   }, [concluiu, revalidarSilencioso]);
 
+  // "Confirmar" volta a "Encerrar" se o segundo clique não vier.
+  useEffect(() => {
+    if (!confirmarAte) return;
+    const t = setTimeout(() => setConfirmarAte(0), confirmarAte - Date.now());
+    return () => clearTimeout(t);
+  }, [confirmarAte]);
+
   async function agir(fn: () => Promise<EstadoReuniao>) {
     setErro(null);
     try {
@@ -44,36 +52,62 @@ export function ReuniaoMonitorIA({ eventId }: { eventId: string }) {
     }
   }
 
+  function iniciar(simularArquivo?: string) {
+    setIniciando(true);
+    agir(() => iniciarReuniao({ eventId, simularArquivo })).finally(() => setIniciando(false));
+  }
+
+  function simular() {
+    const arquivo = window.prompt('Caminho do arquivo de áudio ou vídeo da reunião:')?.trim().replace(/^"|"$/g, '');
+    if (arquivo) iniciar(arquivo);
+  }
+
+  function encerrar() {
+    if (Date.now() < confirmarAte) { setConfirmarAte(0); agir(encerrarReuniao); }
+    else setConfirmarAte(Date.now() + 4000); // encerrar gera a ata e não tem volta
+  }
+
+  const status = (texto: string, cor = 'var(--text-secondary)') => (
+    <span style={{ fontSize: 13, color: cor, whiteSpace: 'nowrap' }} aria-live="polite">{texto}</span>
+  );
+
+  let conteudo;
+  if (ativa && estado?.fase === 'finalizando') {
+    conteudo = status('Gerando a ata…');
+  } else if (ativa) {
+    conteudo = (
+      <>
+        {status(`${estado?.pausada ? 'Pausado' : 'Ouvindo'} · ${estado?.minutos ?? 0} min`, estado?.pausada ? 'var(--accent-fg)' : 'var(--text-secondary)')}
+        <Button variant="secondary" size="sm" onClick={() => agir(() => pausarReuniao(!estado?.pausada))}>
+          {estado?.pausada ? 'Retomar' : 'Pausar'}
+        </Button>
+        <Button variant={confirmarAte ? 'danger' : 'secondary'} size="sm" onClick={encerrar}>
+          {confirmarAte ? 'Confirmar' : 'Encerrar'}
+        </Button>
+        <Button variant="ghost" size="sm" title="Abrir a janela da reunião (por cima do Zoom)" onClick={() => { abrirPainelReuniao().catch(() => {}); }}>
+          <AppWindow size={15} /> Janela
+        </Button>
+      </>
+    );
+  } else {
+    conteudo = (
+      <>
+        {daqui && estado?.fase === 'concluida' && status('Ata gerada')}
+        {daqui && estado?.fase === 'erro' && status('A ata falhou', 'var(--danger-fg)')}
+        {import.meta.env.DEV && !iniciando && (
+          <Button variant="ghost" size="sm" title="Tocar uma gravação como se fosse a reunião" onClick={simular}>Simular</Button>
+        )}
+        <Button variant="secondary" size="sm" carregando={iniciando} title="Microfone = você · som do computador = cliente" onClick={() => iniciar()}>
+          <Mic size={15} /> {iniciando ? 'Preparando…' : 'Ouvir reunião'}
+        </Button>
+      </>
+    );
+  }
+
   return (
-    <div style={{ marginTop: 16 }}>
-      <SecaoLabel>monitorIA na reunião (teste)</SecaoLabel>
-      {ativa ? (
-        <div className="flex items-center gap-3">
-          <span className="text-text-secondary" style={{ fontSize: 13 }} aria-live="polite">
-            {estado?.fase === 'finalizando'
-              ? 'Gerando a ata…'
-              : `monitorIA ouvindo · ${estado?.minutos ?? 0} min · ${estado?.insights ?? 0} insight(s)`}
-          </span>
-          {estado?.fase === 'ouvindo' && (
-            <Button variant="secondary" size="sm" type="button" onClick={() => agir(encerrarReuniao)}>Encerrar</Button>
-          )}
-        </div>
-      ) : (
-        <div className="flex items-end gap-2 flex-wrap">
-          <Field label="Arquivo de áudio ou vídeo (caminho)" className="flex-1 basis-[260px]">
-            <Input value={arquivo} onChange={(e) => setArquivo(e.target.value)} placeholder="C:\Users\...\gravacao.mp4" />
-          </Field>
-          <SelectField label="Velocidade" value={String(velocidade)} onChange={(v) => setVelocidade(Number(v))}
-            options={[{ value: '1', label: '1×' }, { value: '4', label: '4×' }]} />
-          <Button variant="secondary" size="sm" type="button" disabled={!arquivo.trim()}
-            onClick={() => agir(() => iniciarReuniao({ eventId, simularArquivo: arquivo.trim().replace(/^"|"$/g, ''), velocidade }))}>
-            Simular reunião
-          </Button>
-        </div>
-      )}
-      {daqui && estado?.fase === 'concluida' && <p className="text-text-secondary" style={{ fontSize: 13, marginTop: 6 }}>Ata gerada e gravada neste evento, com a transcrição anexada.</p>}
-      {daqui && estado?.fase === 'erro' && <p style={{ fontSize: 13, marginTop: 6, color: 'var(--danger-fg)' }}>A ata falhou: {estado.erro}. A transcrição ficou salva no evento.</p>}
-      {erro && <p role="alert" style={{ fontSize: 13, marginTop: 6, color: 'var(--danger-fg)' }}>{erro}</p>}
+    <div className="flex items-center gap-2" title={daqui && estado?.fase === 'erro' ? `${estado.erro}. A transcrição ficou salva no evento.` : undefined}>
+      {erro && status(erro, 'var(--danger-fg)')}
+      {conteudo}
     </div>
   );
 }

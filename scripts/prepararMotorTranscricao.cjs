@@ -20,5 +20,5 @@ if (!fs.existsSync(pythonDoMotor())) {
   console.log(`Criando venv em ${dir}...`);
   execFileSync('python', ['-m', 'venv', `${dir}/venv`], { stdio: 'inherit' });
 }
-execFileSync(pythonDoMotor(), ['-m', 'pip', 'install', '-q', 'faster-whisper==1.2.1', 'numpy', 'duckdb'], { stdio: 'inherit' });
+execFileSync(pythonDoMotor(), ['-m', 'pip', 'install', '-q', 'faster-whisper==1.2.1', 'numpy', 'duckdb', 'soundcard', 'sounddevice'], { stdio: 'inherit' });
 console.log(pythonDoMotor());

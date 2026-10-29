@@ -1,4 +1,5 @@
-// Uma reunião por máquina: liga fonte de áudio → transcritor (Python) →
+// Uma reunião por máquina: liga fonte de áudio (captura ao vivo, ou um
+// arquivo tocado como reunião quando `simularArquivo` vem) → transcritor (Python) →
 // checagem de insights (3 min) → investigação → ata no fim. Estado em memória:
 // a sessão vive enquanto o backend desta máquina vive (queda = pasta órfã,
 // limpa no boot; o áudio fica para não perder a reunião).
@@ -31,11 +32,13 @@ function depsReais() {
     agora: () => Date.now(),
     spawnTranscritor: ({ pasta, vocabArquivo, threads }) => spawn(pythonDoMotor(),
       [path.join(__dirname, 'transcritor.py'), '--pasta', pasta, '--vocab', vocabArquivo, '--threads', String(threads)],
-      { env: { ...process.env, HF_HOME: path.join(dirMotor(), 'hf'), PYTHONIOENCODING: 'utf-8' }, windowsHide: true, stdio: 'ignore' }),
+      { env: { ...process.env, HF_HOME: path.join(dirMotor(), 'hf'), PYTHONIOENCODING: 'utf-8' }, windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] }),
     iniciarFonte: require('./fonteSimulada.cjs').iniciarFonteSimulada,
+    iniciarCaptura: ({ pasta }) => require('./fonteCaptura.cjs').iniciarCaptura({ pasta, spawnCaptura: require('./fonteCaptura.cjs').spawnCapturaReal }),
     finalizar: require('./finalizar.cjs').finalizarReuniao,
     criarCicloInsights: require('./insights.cjs').criarCicloInsights,
     criarPastaReuniao: require('./pastaReuniao.cjs').criarPastaReuniao,
+    completarAlvos: require('./pastaReuniao.cjs').completarAlvos,
     vocabulario: require('./vocabulario.cjs').vocabularioDoEvento,
     notificar: require('./notificacaoReuniao.cjs').notificarReuniao,
     llm: provider.clienteLLM(),
@@ -61,6 +64,9 @@ function iniciarSessao({ repo, eventId, simularArquivo, velocidade = 1, deps: in
   const vocabArquivo = path.join(pasta, 'vocabulario.txt');
   fs.writeFileSync(vocabArquivo, deps.vocabulario(repo, evento), 'utf8');
   const pastaCliente = deps.criarPastaReuniao({ repo, evento, pastaSessao: pasta });
+  // Números de vendas com cache frio chegam depois, sem segurar o início da reunião.
+  deps.completarAlvos?.({ repo, evento, pastaSessao: pasta })
+    .catch((err) => console.warn(`reunião: dados de vendas não carregados: ${err.message}`));
 
   const notificar = (n) => deps.notificar({ titulo: n.titulo, texto: n.mensagem ?? n.texto, acao: n.acao, fontes: n.fontes, link });
   let investigador = null;
@@ -80,9 +86,19 @@ function iniciarSessao({ repo, eventId, simularArquivo, velocidade = 1, deps: in
     inicio: deps.agora(), ultimaChecagem: deps.agora(), ultimoSegmentoEm: null,
     segmentosVistos: 0, segmentosChecados: 0,
     transcritor: deps.spawnTranscritor({ pasta, vocabArquivo, threads: Math.max(2, Math.floor(os.cpus().length / 2)) }),
-    fonte: deps.iniciarFonte({ arquivo: simularArquivo, pasta, velocidade: Number(velocidade) || 1 }),
+    fonte: simularArquivo
+      ? deps.iniciarFonte({ arquivo: simularArquivo, pasta, velocidade: Number(velocidade) || 1 })
+      : deps.iniciarCaptura({ pasta }),
     timer: null, finalizacao: null,
   };
+  // Transcritor que cai não escreve `transcritor.fim`: sem isto a sessão esperava 10 min em "Gerando a ata…".
+  const s = atual;
+  let erroTranscritor = '';
+  s.transcritor?.stderr?.on('data', (d) => { erroTranscritor = (erroTranscritor + String(d)).slice(-2000); });
+  s.transcritor?.on?.('exit', (codigo) => {
+    s.transcritorSaiu = true;
+    if (codigo) console.warn(`reunião: transcritor saiu com ${codigo}: ${erroTranscritor.trim().split('\n').slice(-3).join(' | ')}`);
+  });
   if (deps.intervaloMs) atual.timer = setInterval(() => { passo().catch((err) => console.warn(`reunião: ${err.message}`)); }, deps.intervaloMs);
   return estadoSessao();
 }
@@ -96,6 +112,8 @@ async function passo() {
     s.segmentosVistos = segs.length;
     s.ultimoSegmentoEm = agora;
   }
+  // Pausa não é silêncio: sem isso, 5 min pausado encerrava a reunião sozinho.
+  if (s.pausada && s.ultimoSegmentoEm !== null) s.ultimoSegmentoEm = agora;
 
   if (agora - s.ultimaChecagem >= CHECAGEM_MS) {
     s.ultimaChecagem = agora;
@@ -112,11 +130,11 @@ async function passo() {
   if (silencio || agora - s.inicio >= MAXIMO_MS) encerrarSessao();
 }
 
-function esperarTranscritor(pasta) {
+function esperarTranscritor(s) {
   const limite = Date.now() + ESPERA_TRANSCRITOR_MS;
   return new Promise((ok) => {
     const t = setInterval(() => {
-      if (fs.existsSync(path.join(pasta, 'transcritor.fim')) || Date.now() > limite) { clearInterval(t); ok(); }
+      if (s.transcritorSaiu || fs.existsSync(path.join(s.pasta, 'transcritor.fim')) || Date.now() > limite) { clearInterval(t); ok(); }
     }, 500);
   });
 }
@@ -130,7 +148,7 @@ function encerrarSessao() {
   fs.writeFileSync(path.join(s.pasta, 'PARAR'), '');
 
   s.finalizacao = (async () => {
-    await esperarTranscritor(s.pasta);
+    await esperarTranscritor(s);
     try { s.transcritor?.kill?.(); } catch { /* já saiu */ }
     const r = await s.deps.finalizar({ repo: s.repo, eventId: s.eventId, pasta: s.pasta, insights: s.ciclo.enviados(), nomeMonitor: s.nomeMonitor });
     try { require('./pastaReuniao.cjs').apagarPastaReuniao(s.pasta); } catch { /* limpa no próximo boot */ }
@@ -146,6 +164,17 @@ function encerrarSessao() {
   return estadoSessao();
 }
 
+/** Pausa a captura: o áudio vira silêncio (`PAUSAR`, lido por captura.py) até retomar. */
+function pausarSessao(pausar = true) {
+  const s = atual;
+  if (!s || s.fase !== 'ouvindo') throw erroStatus(409, 'Não há reunião sendo ouvida nesta máquina.');
+  const marcador = path.join(s.pasta, 'PAUSAR');
+  if (pausar) fs.writeFileSync(marcador, '');
+  else fs.rmSync(marcador, { force: true });
+  s.pausada = pausar;
+  return estadoSessao();
+}
+
 function estadoSessao() {
   const s = atual;
   if (!s) return { ativa: false, fase: null };
@@ -155,11 +184,13 @@ function estadoSessao() {
     fase: s.fase, eventId: s.eventId, erro: s.erro,
     minutos: Math.floor((agora - s.inicio) / 60_000),
     insights: s.ciclo.enviados().length,
+    pausada: !!s.pausada, cliente: s.nome,
+    sugestoes: s.ciclo.enviados().map(({ tipo, texto, acao, fontes, em }) => ({ tipo, texto, acao, fontes, em })),
   };
 }
 
 module.exports = {
-  iniciarSessao, encerrarSessao, estadoSessao, passo,
+  iniciarSessao, encerrarSessao, pausarSessao, estadoSessao, passo,
   // para testes
   _pastaAtual: () => atual?.pasta,
   _finalizacao: () => atual?.finalizacao,

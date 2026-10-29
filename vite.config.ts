@@ -22,6 +22,9 @@ export default defineConfig({
     host: HOST,
     port: 5173,
     strictPort: true,
+    // `.dev/` é a cópia de dados do `start:dev` (SQLite, perfil do WebView2 da
+    // janela da reunião): arquivos travados ali derrubavam o Vite com EBUSY.
+    watch: { ignored: ['**/.dev/**'] },
   },
   optimizeDeps: {
     // `carteira-shared` (`shared/cadenciaServico.cjs`, motor de cadência

@@ -26,6 +26,7 @@ function montar() {
       return { kill: vi.fn() };
     }),
     iniciarFonte: vi.fn(() => ({ parar: vi.fn(), concluida: Promise.resolve() })),
+    iniciarCaptura: vi.fn(() => ({ parar: vi.fn(), concluida: Promise.resolve() })),
     finalizar: vi.fn(async () => ({ ok: true })),
     criarCicloInsights: vi.fn(() => ciclo),
     criarPastaReuniao: vi.fn(({ pastaSessao }) => { const p = path.join(pastaSessao, 'pasta-cliente'); fs.mkdirSync(p, { recursive: true }); return p; }),
@@ -50,6 +51,12 @@ describe('sessão de reunião', () => {
     expect(m.deps.spawnTranscritor).toHaveBeenCalledTimes(1);
     expect(m.deps.iniciarFonte).toHaveBeenCalledWith(expect.objectContaining({ arquivo: 'a.mp4' }));
     expect(m.deps.criarPastaReuniao).toHaveBeenCalledTimes(1);
+  });
+
+  it('sem arquivo, ouve ao vivo pela captura', () => {
+    m.sessao.iniciarSessao({ repo: m.repo, eventId: 'e1', deps: m.deps });
+    expect(m.deps.iniciarCaptura).toHaveBeenCalledTimes(1);
+    expect(m.deps.iniciarFonte).not.toHaveBeenCalled();
   });
 
   it('409 ao iniciar com sessão ativa', () => {
@@ -82,6 +89,35 @@ describe('sessão de reunião', () => {
     await m.sessao._finalizacao();
     expect(m.deps.finalizar).toHaveBeenCalledWith(expect.objectContaining({ eventId: 'e1', nomeMonitor: 'Erick Cardoso', insights: [{ texto: 'X' }] }));
     expect(m.sessao.estadoSessao().fase).toBe('concluida');
+  });
+
+  it('transcritor que cai não deixa a sessão presa em "finalizando"', async () => {
+    const { EventEmitter } = require('events');
+    const proc = Object.assign(new EventEmitter(), { kill: vi.fn() });
+    m.deps.spawnTranscritor = vi.fn(() => proc); // nunca escreve transcritor.fim
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    m.sessao.iniciarSessao({ repo: m.repo, eventId: 'e1', deps: m.deps });
+    m.sessao.encerrarSessao();
+    proc.emit('exit', 1);
+    await m.sessao._finalizacao();
+    expect(m.deps.finalizar).toHaveBeenCalledTimes(1);
+  });
+
+  it('pausar cria PAUSAR (captura grava silêncio), retomar apaga; pausa não conta como silêncio', async () => {
+    m.sessao.iniciarSessao({ repo: m.repo, eventId: 'e1', deps: m.deps });
+    const pasta = m.sessao._pastaAtual();
+    m.escreverSegmento(pasta, 5, 'oi');
+    m.avancar(10); await m.sessao.passo();
+    expect(m.sessao.pausarSessao(true)).toMatchObject({ pausada: true, fase: 'ouvindo' });
+    expect(fs.existsSync(path.join(pasta, 'PAUSAR'))).toBe(true);
+    m.avancar(400); await m.sessao.passo(); // 6+ min pausado
+    expect(m.sessao.estadoSessao().fase).toBe('ouvindo');
+    expect(m.sessao.pausarSessao(false).pausada).toBe(false);
+    expect(fs.existsSync(path.join(pasta, 'PAUSAR'))).toBe(false);
+    m.avancar(310); await m.sessao.passo(); // depois de retomar, o silêncio volta a contar
+    await m.sessao._finalizacao();
+    expect(m.sessao.estadoSessao().fase).toBe('concluida');
+    expect(() => m.sessao.pausarSessao(true)).toThrow(expect.objectContaining({ status: 409 }));
   });
 
   it('encerrar duas vezes: a segunda é 409 e finalizar roda uma vez; pasta do cliente apagada', async () => {

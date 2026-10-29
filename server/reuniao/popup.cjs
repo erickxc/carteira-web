@@ -37,10 +37,15 @@ function abrir(id, { indice = 0, urlBase, notificarReserva, spawnar, temWebView2
     notificarReserva?.({ titulo: p.titulo, texto: p.numeros?.map((n) => `${n.valor} ${n.rotulo}`).join(' · ') ?? '', acao: p.acao?.titulo });
     return null;
   }
-  const { PORT, SQLITE_DIR } = require('../config.cjs');
-  const url = `${urlBase || `http://127.0.0.1:${PORT}`}/api/reuniao/popup/${id}`;
+  const { PORT } = require('../config.cjs');
+  return abrirJanela(`${urlBase || `http://127.0.0.1:${PORT}`}/api/reuniao/popup/${id}`, ['-Indice', String(indice)], { spawnar });
+}
+
+/** Janela própria (popup-host.ps1 + WebView2) com `url`; `extras` são argumentos do host. */
+function abrirJanela(url, extras, { spawnar } = {}) {
+  const { SQLITE_DIR } = require('../config.cjs');
   const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', path.join(__dirname, 'popup', 'popup-host.ps1'),
-    '-Url', url, '-Indice', String(indice), '-DirWebView2', dir, '-DadosWebView2', path.join(SQLITE_DIR, 'popup-webview')];
+    '-Url', url, ...extras, '-DirWebView2', dirWebView2(), '-DadosWebView2', path.join(SQLITE_DIR, 'popup-webview')];
   if (spawnar) return spawnar('powershell', args);
   // Erro da janela vai para um log: sem isso, um popup que não abre some sem rastro.
   // Sem `detached`: no Windows ele inicia o PowerShell sem console e o PowerShell sai em
@@ -54,6 +59,20 @@ function abrir(id, { indice = 0, urlBase, notificarReserva, spawnar, temWebView2
 }
 
 /**
+ * Painel da reunião (tempo, pausar, encerrar, sugestões já enviadas): uma janela só.
+ * Abrir de novo com ele aberto não duplica; sem WebView2, não abre (o painel do
+ * evento na Carteira faz o mesmo papel).
+ */
+let painel = null;
+function abrirPainel({ urlBase, spawnar } = {}) {
+  if (painel && painel.exitCode === null) return painel;
+  if (!fs.existsSync(path.join(dirWebView2(), 'Microsoft.Web.WebView2.WinForms.dll'))) return null;
+  const { PORT } = require('../config.cjs');
+  painel = abrirJanela(`${urlBase || `http://127.0.0.1:${PORT}`}/api/reuniao/painel`, ['-Painel'], { spawnar });
+  return painel;
+}
+
+/**
  * Um popup por vez: o próximo abre quando o anterior fecha (X ou Feito e fechar). Três
  * popups juntos se sobrepunham e nem cabem na tela (visto em 23/10/2026).
  */
@@ -64,4 +83,4 @@ function abrirFila(ids, opcoes = {}) {
   else abrirFila(ids.slice(1), opcoes); // sem janela (reserva já notificou): segue a fila
 }
 
-module.exports = { registrar, obter, marcarFeito, abrir, abrirFila, dirWebView2 };
+module.exports = { registrar, obter, marcarFeito, abrir, abrirFila, abrirPainel, dirWebView2 };

@@ -23,6 +23,24 @@ function fecharSerie(serie, periodoParcial) {
   return serie.filter((p) => p.periodo !== periodoParcial);
 }
 
+// Cruzamento agrupado por produto/cliente, uma vez por agregado. Sem isso cada
+// série varria o cruzamento inteiro: produtos × clientes × linhas levava 41 s
+// na Renocar, síncrono, travando o servidor (início da reunião, ficha, agente).
+const indices = new WeakMap();
+function serieDe(agregado, campo, valor, lojas) {
+  const cruzamento = agregado.cruzamento || [];
+  let porCampo = indices.get(cruzamento);
+  if (!porCampo) indices.set(cruzamento, (porCampo = {}));
+  if (!porCampo[campo]) {
+    porCampo[campo] = new Map();
+    for (const linha of cruzamento) {
+      const grupo = porCampo[campo].get(linha[campo]);
+      if (grupo) grupo.push(linha); else porCampo[campo].set(linha[campo], [linha]);
+    }
+  }
+  return serieMensal(porCampo[campo].get(valor) || [], { lojas });
+}
+
 function nomesDistintos(lista, campo, lojas) {
   return [...new Set(lista.filter((x) => lojas.includes(x.loja)).map((x) => x[campo]))];
 }
@@ -39,7 +57,7 @@ function quedaPersistente(agregado, lojas, opts = {}) {
 
   const out = [];
   for (const produto of nomesDistintos(agregado.produtos || [], 'produto', lojas)) {
-    const serie = fecharSerie(serieMensal(agregado.cruzamento, { lojas, produto }), periodoParcial);
+    const serie = fecharSerie(serieDe(agregado, 'produto', produto, lojas), periodoParcial);
     if (serie.length < minPeriodos + 1) continue; // precisa de 1 ponto de referência ANTES do streak
 
     // Streak = Nº de QUEDAS mês-a-mês consecutivas terminando no ÚLTIMO ponto
@@ -87,7 +105,7 @@ function erosaoClientes(agregado, lojas, opts = {}) {
 
   const out = [];
   for (const cliente of nomesDistintos(agregado.clientes || [], 'cliente', lojas)) {
-    const serie = fecharSerie(serieMensal(agregado.cruzamento, { lojas, cliente }), periodoParcial);
+    const serie = fecharSerie(serieDe(agregado, 'cliente', cliente, lojas), periodoParcial);
     if (!serie.length) continue;
     const pico = serie.reduce((m, p) => (p.receita > m.receita ? p : m), serie[0]);
     const atual = serie[serie.length - 1];
@@ -123,7 +141,7 @@ function semVenda(agregado, lojas, opts = {}) {
 
   const out = [];
   for (const cliente of nomesDistintos(agregado.clientes || [], 'cliente', lojas)) {
-    const serie = fecharSerie(serieMensal(agregado.cruzamento, { lojas, cliente }), periodoParcial);
+    const serie = fecharSerie(serieDe(agregado, 'cliente', cliente, lojas), periodoParcial);
     if (!serie.length) continue;
     const pico = serie.reduce((m, p) => (p.receita > m.receita ? p : m), serie[0]);
     if (pico.receita <= 0) continue; // nunca comprou nada — não é alguém que "parou"
@@ -158,7 +176,7 @@ function poderDeCompra(agregado, lojas, opts = {}) {
 
   const out = [];
   for (const cliente of nomesDistintos(agregado.clientes || [], 'cliente', lojas)) {
-    const serie = fecharSerie(serieMensal(agregado.cruzamento, { lojas, cliente }), periodoParcial);
+    const serie = fecharSerie(serieDe(agregado, 'cliente', cliente, lojas), periodoParcial);
     if (serie.length < janelaTop) continue; // sem histórico suficiente pra falar de "3 melhores meses"
 
     const top = [...serie].sort((a, b) => b.receita - a.receita).slice(0, janelaTop);

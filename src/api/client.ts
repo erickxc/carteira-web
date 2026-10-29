@@ -866,14 +866,25 @@ export interface EstadoReuniao {
   erro?: string | null;
   minutos?: number;
   insights?: number;
+  pausada?: boolean;
 }
 
 export function estadoReuniao(): Promise<EstadoReuniao> {
   return request<EstadoReuniao>('/reuniao/estado');
 }
 
-export function iniciarReuniao(dados: { eventId: string; simularArquivo: string; velocidade: number }): Promise<EstadoReuniao> {
+/** Sem `simularArquivo`, ouve ao vivo (microfone + som do computador). */
+export function iniciarReuniao(dados: { eventId: string; simularArquivo?: string; velocidade?: number }): Promise<EstadoReuniao> {
   return request<EstadoReuniao>('/reuniao/iniciar', { method: 'POST', body: JSON.stringify(dados) });
+}
+
+export function pausarReuniao(pausar: boolean): Promise<EstadoReuniao> {
+  return request<EstadoReuniao>(pausar ? '/reuniao/pausar' : '/reuniao/retomar', { method: 'POST' });
+}
+
+/** Reabre a janela do painel da reunião (tempo, pausar, encerrar, sugestões). */
+export function abrirPainelReuniao(): Promise<{ aberto: boolean }> {
+  return request<{ aberto: boolean }>('/reuniao/painel/abrir', { method: 'POST' });
 }
 
 export function encerrarReuniao(): Promise<EstadoReuniao> {

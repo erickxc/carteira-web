@@ -7,11 +7,14 @@ const path = require('path');
 const NOME = 'pasta-cliente';
 const MAX_ATAS = 5;
 
+// Só cache válido: ler o parquet frio leva ~40 s e, síncrono, travava o servidor
+// inteiro no início da reunião. O cache frio é aquecido por `completarAlvos`.
 function alvosReais() {
   const consulta = require('../alvos/consulta.cjs');
   return {
-    analise: (c) => consulta.analiseEstrategicaDoCliente(c, { aquecer: true }),
-    resumo: (c) => consulta.resumoGeralDoCliente(c, { aquecer: true }),
+    analise: (c) => consulta.analiseEstrategicaDoCliente(c),
+    resumo: (c) => consulta.resumoGeralDoCliente(c),
+    aquecer: (c) => consulta.aquecerClienteAsync(c.id),
   };
 }
 
@@ -47,17 +50,30 @@ function criarPastaReuniao({ repo, evento, pastaSessao, alvos = alvosReais(), le
     ? atas.map((e) => `## ${dataBr(e.date)} — ${e.subject ?? ''}\n\n${e.ata}`).join('\n\n')
     : '(nenhuma ata anterior)');
 
-  // Alvos lê arquivo grande do OneDrive: falha ou estado diferente de "ok"
-  // simplesmente não gera o arquivo — o agente não deve achar número que não existe.
+  escreverAlvos(pasta, cliente, alvos);
+  return pasta;
+}
+
+// Alvos lê arquivo grande do OneDrive: falha ou estado diferente de "ok"
+// simplesmente não gera o arquivo — o agente não deve achar número que não existe.
+function escreverAlvos(pasta, cliente, alvos) {
   try {
     const c = { id: cliente.id, empresa: cliente.empresa };
     const analiseEstrategica = alvos.analise(c);
     const resumoVendas = alvos.resumo(c);
     if (analiseEstrategica?.estado === 'ok' || resumoVendas?.estado === 'ok') {
-      escrever('alvos.json', JSON.stringify({ analiseEstrategica, resumoVendas }, null, 2));
+      fs.writeFileSync(path.join(pasta, 'alvos.json'), JSON.stringify({ analiseEstrategica, resumoVendas }, null, 2), 'utf8');
     }
   } catch { /* sem Alvos nesta reunião */ }
-  return pasta;
+}
+
+/** Aquece o cache do cliente em segundo plano e regrava `alvos.json` com os números. */
+async function completarAlvos({ repo, evento, pastaSessao, alvos = alvosReais() }) {
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(evento?.clientId));
+  const pasta = path.join(pastaSessao, NOME);
+  if (!cliente || !alvos.aquecer || fs.existsSync(path.join(pasta, 'alvos.json'))) return;
+  await alvos.aquecer({ id: cliente.id, empresa: cliente.empresa });
+  if (fs.existsSync(pasta)) escreverAlvos(pasta, cliente, alvos); // reunião pode ter acabado
 }
 
 function atualizarTranscricaoNaPasta(pasta, texto) {
@@ -75,4 +91,4 @@ function limparPastasOrfas(raizReunioes, sessaoAtivaId) {
   }
 }
 
-module.exports = { criarPastaReuniao, atualizarTranscricaoNaPasta, apagarPastaReuniao, limparPastasOrfas };
+module.exports = { criarPastaReuniao, completarAlvos, atualizarTranscricaoNaPasta, apagarPastaReuniao, limparPastasOrfas };

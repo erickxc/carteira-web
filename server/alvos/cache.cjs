@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { SQLITE_DIR, ALVOS_DIR } = require('../config.cjs');
-const { arquivosDaEmpresa, lerEAgregar } = require('./leitor.cjs');
+const { arquivosDaEmpresa, lerEAgregar, lerEAgregarAsync } = require('./leitor.cjs');
 
 /**
  * Cache do agregado por empresa.
@@ -59,11 +59,28 @@ function agregadoDaEmpresa(empresa, opts = {}) {
   }
 
   const dados = lerEAgregar(empresa, raiz);
+  gravar(destino, atual, dados);
+  return { ...dados, deCache: false };
+}
+
+function gravar(destino, assinaturaOrigem, dados) {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
   // `geradoEm` fica FORA de `dados` a propósito: dentro, mudaria o conteúdo a
   // cada geração e faria qualquer comparação de agregado parecer diferente.
-  fs.writeFileSync(destino, JSON.stringify({ assinatura: atual, geradoEm: new Date().toISOString(), dados }), 'utf8');
-  return { ...dados, deCache: false };
+  fs.writeFileSync(destino, JSON.stringify({ assinatura: assinaturaOrigem, geradoEm: new Date().toISOString(), dados }), 'utf8');
+}
+
+/**
+ * Aquece o cache sem travar o processo (parquet lido por filho assíncrono).
+ * Para quem não pode esperar: o início da reunião monta a pasta com o cache
+ * que houver e completa os números quando isto termina.
+ */
+async function aquecerAsync(empresa, raiz = ALVOS_DIR) {
+  if (estadoDoCache(empresa, raiz).valido) return;
+  const origem = arquivosDaEmpresa(empresa, raiz).movimento;
+  if (!origem) return;
+  const atual = assinatura(origem);
+  gravar(arquivoCache(empresa), atual, await lerEAgregarAsync(empresa, raiz));
 }
 
 /** Só o estado do cache, sem ler o xlsx — para a tela dizer se está frio. */
@@ -79,4 +96,4 @@ function estadoDoCache(empresa, raiz = ALVOS_DIR) {
   }
 }
 
-module.exports = { VERSAO, CACHE_DIR, arquivoCache, agregadoDaEmpresa, estadoDoCache };
+module.exports = { VERSAO, CACHE_DIR, arquivoCache, agregadoDaEmpresa, estadoDoCache, aquecerAsync };

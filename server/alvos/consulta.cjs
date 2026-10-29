@@ -214,7 +214,16 @@ function analiseEstrategicaDoCliente(cliente, opts = {}) {
   };
 }
 
+/** Aquece, em segundo plano e sem travar o servidor, o cache das pastas deste cliente. */
+async function aquecerClienteAsync(clientId, opts = {}) {
+  const cache = opts.cache || cacheReal;
+  for (const empresa of empresasDoCliente(clientId, opts.vinculos || carregar(opts.caminho))) {
+    await cache.aquecerAsync(empresa);
+  }
+}
+
 module.exports = {
+  aquecerClienteAsync,
   empresasDoCliente,
   contextoDoCliente,
   agregadoUnificado,

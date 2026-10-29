@@ -73,14 +73,14 @@
     document.title = 'monitorIA · ' + (p.titulo || '');
     document.body.innerHTML = renderPopup(p);
     if (p.feito) document.querySelector('.acao').classList.add('feita');
-    document.querySelector('[data-fechar]').onclick = () => avisar({ fechar: true });
+    document.querySelector('[data-fechar]').onclick = () => avisar('fechar');
     const botao = document.querySelector('[data-feito]');
     botao.onclick = () => fetch(FEITO, { method: 'POST' }).then(() => {
       document.querySelector('.acao').classList.add('feita'); botao.textContent = 'Feito ✓';
-      setTimeout(() => avisar({ fechar: true }), 1100); // fecha e chama o próximo da fila
+      setTimeout(() => avisar('fechar'), 1100); // fecha e chama o próximo da fila
     });
-    document.fonts.ready.then(() => avisar({ altura: Math.ceil(document.documentElement.scrollHeight) }));
-  }).catch(() => avisar({ fechar: true }));
+    document.fonts.ready.then(() => avisar('altura:' + Math.ceil(document.documentElement.scrollHeight)));
+  }).catch(() => avisar('fechar'));
 </script>
 </body>
 </html>

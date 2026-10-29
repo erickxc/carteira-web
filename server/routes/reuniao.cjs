@@ -68,13 +68,29 @@ function criarRouterReuniao({ repo, limparAoIniciar = true } = {}) {
 
   router.post('/iniciar', (req, res) => {
     const { eventId, simularArquivo, velocidade } = req.body ?? {};
-    if (!eventId || !simularArquivo) return res.status(400).json({ error: 'Informe "eventId" e "simularArquivo".' });
+    // Sem `simularArquivo`, ouve ao vivo (microfone + som do computador).
+    if (!eventId) return res.status(400).json({ error: 'Informe "eventId".' });
     try {
+      // A janela da reunião só abre quando pedida (POST /painel/abrir), nunca sozinha.
       res.json(sessao.iniciarSessao({ repo: repoDe(), eventId, simularArquivo, velocidade }));
     } catch (err) {
       responderErro(res, err);
     }
   });
+
+  // Painel da reunião (janela própria que fica aberta durante a reunião).
+  router.get('/painel', (_req, res) => res.sendFile(path.join(dirPopup, 'painel.html')));
+  router.post('/painel/abrir', (_req, res) => res.json({ aberto: !!popups.abrirPainel() }));
+
+  for (const [rota, pausar] of [['/pausar', true], ['/retomar', false]]) {
+    router.post(rota, (_req, res) => {
+      try {
+        res.json(sessao.pausarSessao(pausar));
+      } catch (err) {
+        responderErro(res, err);
+      }
+    });
+  }
 
   router.post('/encerrar', (_req, res) => {
     try {

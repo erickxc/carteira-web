@@ -4,6 +4,8 @@ Lê os pedaços WAV que a fonte solta na pasta da sessão (`mic-0001.wav`,
 `sistema-0001.wav`…, 30 s, 16 kHz mono) e anexa um segmento por linha em
 `transcricao.jsonl`. Comunicação com o Node só por arquivos: `transcritor.pronto`
 (modelo carregado), `PARAR` (pedido do Node), `transcritor.fim` (terminou).
+Com captura ao vivo, `captura.viva` existe até o último pedaço ser gravado:
+o transcritor só termina depois que ele some, para não perder o fim da reunião.
 
 Lê o WAV com `wave` + numpy de propósito: o `decode_audio` do faster-whisper
 quebra com PyAV 19 (`open() got an unexpected keyword argument 'metadata_errors'`).
@@ -51,14 +53,16 @@ def main():
     while True:
         fila = pendentes(a.pasta, feitos)
         if not fila:
-            if os.path.exists(os.path.join(a.pasta, 'PARAR')):
+            if os.path.exists(os.path.join(a.pasta, 'PARAR')) and not os.path.exists(os.path.join(a.pasta, 'captura.viva')):
                 break
             time.sleep(1)
             continue
         pedaco, faixa, nome = fila[0]
         segs, _ = modelo.transcribe(
             ler_wav(os.path.join(a.pasta, nome)), language='pt', vad_filter=True, beam_size=1,
-            initial_prompt=vocab, hotwords=vocab,
+            # Vocabulário só como initial_prompt: com hotwords também, o prompt ia duas vezes
+            # e um vocabulário grande estourava as 448 posições do Whisper (RuntimeError).
+            initial_prompt=vocab,
         )
         base = (pedaco - 1) * PEDACO_SEG
         for s in segs:

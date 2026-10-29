@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>monitorIA · reunião</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Painel da reunião: fica aberto enquanto o monitorIA ouve. Mesmos tokens do popup.html.
+     Fala com a janela (popup-host.ps1 -Painel) por texto: 'altura:<px>', 'arrastar', 'fechar'. -->
+<style>
+  :root {
+    --bg: #0b0b0d; --hair: #26262b; --border: #3d3d44;
+    --texto: #f4f4f2; --texto-2: #a6a6ad; --texto-3: #81818c;
+    --ouro: #dabb6c; --sobre-ouro: #17140b; --perigo: #e0645c; --ok: #4cae7a;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f6f6f7; --hair: #d0d0d6; --border: #c1c1c8;
+      --texto: #1b1b1f; --texto-2: #47474e; --texto-3: #6a6a72;
+      --ouro: #6b5518; --sobre-ouro: #ffffff; --perigo: #b3362b; --ok: #1b5e3c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--texto); font: 13.5px/1.45 Inter, 'Segoe UI', system-ui, sans-serif; font-feature-settings: 'tnum' 1; -webkit-font-smoothing: antialiased; overflow: hidden; user-select: none; }
+  :focus-visible { outline: 2px solid var(--ouro); outline-offset: 2px; border-radius: 6px; }
+  .painel { border: 1px solid var(--hair); }
+  .cabeca { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 14px; cursor: move; }
+  .cabeca .nome { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cabeca .estado { color: var(--texto-3); font-size: 12px; white-space: nowrap; }
+  .cabeca .estado.ouvindo { color: var(--ok); }
+  .cabeca .estado.pausada { color: var(--ouro); }
+  .cabeca .espaco { flex: 1; }
+  .icone { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: var(--texto-3); cursor: pointer; flex: none; }
+  .icone:hover { background: var(--hair); color: var(--texto); }
+  .icone svg { width: 14px; height: 14px; }
+  .corpo { border-top: 1px solid var(--hair); }
+  .recolhido .corpo { display: none; }
+  .botoes { display: flex; gap: 8px; padding: 10px 14px; }
+  .botoes button { flex: 1; font: 600 12.5px Inter, 'Segoe UI', sans-serif; border-radius: 7px; padding: 7px 10px; cursor: pointer; background: transparent; color: var(--texto); border: 1px solid var(--border); }
+  .botoes button:hover { border-color: var(--texto-3); }
+  .botoes .principal { background: var(--ouro); color: var(--sobre-ouro); border-color: var(--ouro); }
+  .botoes .perigo { color: var(--perigo); border-color: color-mix(in srgb, var(--perigo) 55%, transparent); }
+  .botoes .perigo.confirmar { background: var(--perigo); color: #fff; border-color: var(--perigo); }
+  .titulo-lista { padding: 8px 14px 4px; color: var(--texto-3); font-size: 11.5px; border-top: 1px solid var(--hair); }
+  .lista { list-style: none; margin: 0; padding: 0 0 6px; max-height: 380px; overflow-y: auto; }
+  .lista li { padding: 8px 14px; border-top: 1px solid var(--hair); cursor: pointer; }
+  .lista li:first-child { border-top: 0; }
+  .lista li:hover { background: color-mix(in srgb, var(--hair) 45%, transparent); }
+  .lista .meta { display: flex; gap: 8px; color: var(--texto-3); font-size: 11.5px; }
+  .lista .meta b { color: var(--ouro); font-weight: 600; }
+  .lista .meta b.risco { color: var(--perigo); }
+  .lista .texto { margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .lista li.aberta .texto { display: block; -webkit-line-clamp: unset; }
+  .lista .extra { display: none; margin-top: 6px; color: var(--texto-2); font-size: 12.5px; }
+  .lista li.aberta .extra { display: block; }
+  .lista .extra small { display: block; margin-top: 4px; color: var(--texto-3); font-size: 11.5px; }
+  .vazio { padding: 10px 14px 14px; color: var(--texto-3); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="painel" id="painel">
+  <div class="cabeca" id="cabeca">
+    <span class="nome" id="nome">monitorIA</span>
+    <span class="estado" id="estado"></span>
+    <span class="espaco"></span>
+    <button class="icone" id="recolher" type="button" aria-label="Recolher" title="Recolher">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 8h10"/></svg>
+    </button>
+    <button class="icone" id="fechar" type="button" aria-label="Fechar o painel" title="Fechar o painel (a reunião continua; reabra pelo evento na Carteira)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+    </button>
+  </div>
+  <div class="corpo">
+    <div class="botoes" id="botoes"></div>
+    <div class="titulo-lista" id="tituloLista">Sugestões</div>
+    <ul class="lista" id="lista"></ul>
+  </div>
+</div>
+<script>
+  const API = '/api/reuniao';
+  const ROTULOS = { historico: 'Histórico', compromisso: 'Compromisso', pauta: 'Pauta', risco: 'Risco', analise: 'Análise' };
+  const janela = window.chrome && window.chrome.webview;
+  const avisar = (m) => janela && janela.postMessage(m);
+  const $ = (id) => document.getElementById(id);
+  const abertas = new Set(); // sugestões expandidas sobrevivem ao refresh do estado
+  let ultimo = '', confirmarAte = 0, estado = {};
+
+  // Altura do PAINEL, não do documento: scrollHeight nunca fica menor que a janela, e ela não encolheria.
+  const ajustar = () => requestAnimationFrame(() => avisar('altura:' + Math.ceil($('painel').getBoundingClientRect().height)));
+  const hora = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); };
+  const el = (tag, props = {}, filhos = []) => {
+    const n = Object.assign(document.createElement(tag), props);
+    for (const f of [].concat(filhos)) if (f != null) n.append(f);
+    return n;
+  };
+  const postar = (rota) => fetch(API + rota, { method: 'POST' }).then(atualizar);
+
+  function botoes(e) {
+    if (e.fase !== 'ouvindo') return [];
+    const encerrar = el('button', { type: 'button', className: 'perigo' + (Date.now() < confirmarAte ? ' confirmar' : ''), textContent: Date.now() < confirmarAte ? 'Confirmar encerrar' : 'Encerrar' });
+    // Dois cliques: encerrar gera a ata e não tem volta.
+    encerrar.onclick = () => {
+      if (Date.now() < confirmarAte) { confirmarAte = 0; postar('/encerrar'); }
+      // Redesenha com o estado MAIS RECENTE: com o `e` capturado, a volta do "Encerrar"
+      // repintava "Ouvindo" depois de a reunião já ter sido encerrada.
+      else { confirmarAte = Date.now() + 4000; render(estado); setTimeout(() => render(estado), 4100); }
+    };
+    const pausa = e.pausada
+      ? el('button', { type: 'button', className: 'principal', textContent: 'Retomar', onclick: () => postar('/retomar') })
+      : el('button', { type: 'button', textContent: 'Pausar', onclick: () => postar('/pausar') });
+    return [pausa, encerrar];
+  }
+
+  function textoEstado(e) {
+    if (!e.fase) return ['Nenhuma reunião em andamento', ''];
+    if (e.fase === 'finalizando') return ['Gerando a ata…', ''];
+    if (e.fase === 'concluida') return ['Ata pronta no evento', 'ouvindo'];
+    if (e.fase === 'erro') return ['A ata falhou: ' + (e.erro || ''), ''];
+    return [(e.pausada ? 'Pausada' : 'Ouvindo') + ' · ' + (e.minutos || 0) + ' min', e.pausada ? 'pausada' : 'ouvindo'];
+  }
+
+  function render(e) {
+    $('nome').textContent = 'monitorIA' + (e.cliente ? ' · ' + e.cliente : '');
+    const [txt, classe] = textoEstado(e);
+    $('estado').textContent = txt;
+    $('estado').className = 'estado ' + classe;
+    $('botoes').replaceChildren(...botoes(e));
+    $('botoes').style.display = e.fase === 'ouvindo' ? '' : 'none';
+
+    const sugestoes = (e.sugestoes || []).slice().reverse(); // mais recente primeiro
+    $('tituloLista').textContent = sugestoes.length ? `Sugestões (${sugestoes.length})` : 'Sugestões';
+    $('lista').replaceChildren(...sugestoes.map((s) => {
+      const chave = s.em + s.tipo;
+      const li = el('li', { className: abertas.has(chave) ? 'aberta' : '', title: 'Clique para ver inteira' }, [
+        el('div', { className: 'meta' }, [el('b', { className: s.tipo === 'risco' ? 'risco' : '', textContent: ROTULOS[s.tipo] || s.tipo }), el('span', { textContent: hora(s.em) })]),
+        el('div', { className: 'texto', textContent: s.texto }),
+        el('div', { className: 'extra' }, [
+          s.acao ? el('div', { textContent: 'O que fazer: ' + s.acao }) : null,
+          s.fontes ? el('small', { textContent: 'Fontes: ' + s.fontes }) : null,
+        ]),
+      ]);
+      li.onclick = () => { abertas.has(chave) ? abertas.delete(chave) : abertas.add(chave); li.classList.toggle('aberta'); ajustar(); };
+      return li;
+    }));
+    if (!sugestoes.length) $('lista').replaceChildren(el('li', { className: 'vazio', textContent: e.fase === 'ouvindo' ? 'As sugestões do monitorIA aparecem aqui conforme a conversa.' : 'Nenhuma sugestão nesta reunião.' }));
+    ajustar();
+  }
+
+  function atualizar() {
+    return fetch(API + '/estado').then((r) => r.json()).then((e) => {
+      const chave = JSON.stringify(e);
+      estado = e;
+      if (chave !== ultimo) { ultimo = chave; render(e); }
+    }).catch(() => {});
+  }
+
+  $('cabeca').addEventListener('mousedown', (ev) => { if (!ev.target.closest('button')) avisar('arrastar'); });
+  $('fechar').onclick = () => avisar('fechar');
+  $('recolher').onclick = () => { $('painel').classList.toggle('recolhido'); ajustar(); };
+  document.fonts.ready.then(atualizar);
+  setInterval(atualizar, 2000);
+</script>
+</body>
+</html>

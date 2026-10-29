@@ -551,6 +551,13 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
       onClose={onClose}
       onSubmit={handleSubmit}
       size="lg"
+      // monitorIA na reunião ao lado do título: só em dev, só com o evento já salvo.
+      titleNode={import.meta.env.DEV && initial?.id ? (
+        <>
+          <h2>{`${editando ? 'Editar' : 'Novo'} ${modoSimples ? type : 'Evento'}`}</h2>
+          <ReuniaoMonitorIA eventId={initial.id} />
+        </>
+      ) : undefined}
       footer={
         <>
           {editando && (
@@ -766,8 +773,6 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
               />
             )}
 
-            {/* Teste do monitorIA nas reuniões (entrega 1): só em dev, só com o evento já salvo. */}
-            {import.meta.env.DEV && initial?.id && <ReuniaoMonitorIA eventId={initial.id} />}
 
             <SecaoLabel>Registro da reunião</SecaoLabel>
 

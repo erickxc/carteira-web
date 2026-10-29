@@ -31,8 +31,8 @@ describe('rotas da reunião', () => {
     expect(await (await fetch(`${base}/estado`)).json()).toEqual({ ativa: false, fase: null });
   });
 
-  it('iniciar sem eventId ou sem arquivo de simulação é 400', async () => {
-    const r = await fetch(`${base}/iniciar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ eventId: 'e1' }) });
+  it('iniciar sem eventId é 400 (sem arquivo de simulação é captura ao vivo, não erro)', async () => {
+    const r = await fetch(`${base}/iniciar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
     expect(r.status).toBe(400);
   });
 

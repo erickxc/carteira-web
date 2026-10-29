@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { apagarPastaReuniao, atualizarTranscricaoNaPasta, criarPastaReuniao, limparPastasOrfas } from './pastaReuniao.cjs';
+import { apagarPastaReuniao, atualizarTranscricaoNaPasta, completarAlvos, criarPastaReuniao, limparPastasOrfas } from './pastaReuniao.cjs';
 import { repoMemoria } from '../dominio/repo.cjs';
 
 // A pasta é o "mundo" que o agente de investigação enxerga durante a reunião.
@@ -31,6 +31,21 @@ describe('pasta da reunião', () => {
     expect(atas).not.toContain('Sem ata');
     atualizarTranscricaoNaPasta(pasta, '[00:10] Cliente: oi');
     expect(fs.readFileSync(path.join(pasta, 'transcricao.txt'), 'utf8')).toBe('[00:10] Cliente: oi');
+  });
+
+  it('cache frio: a pasta nasce sem alvos.json e completarAlvos grava depois de aquecer', async () => {
+    const r = repo();
+    let quente = false;
+    const alvos = {
+      analise: () => (quente ? { estado: 'ok' } : { estado: 'cache_frio' }),
+      resumo: () => (quente ? { estado: 'ok', serie: [] } : { estado: 'cache_frio' }),
+      aquecer: async () => { quente = true; },
+    };
+    const pastaSessao = tmp();
+    const pasta = criarPastaReuniao({ repo: r, evento: r.get('Agenda')[2], pastaSessao, alvos, lerDossie: () => null });
+    expect(fs.existsSync(path.join(pasta, 'alvos.json'))).toBe(false);
+    await completarAlvos({ repo: r, evento: r.get('Agenda')[2], pastaSessao, alvos });
+    expect(fs.existsSync(path.join(pasta, 'alvos.json'))).toBe(true);
   });
 
   it('alvos indisponível → sem alvos.json; reunião sem cliente não lança', () => {
