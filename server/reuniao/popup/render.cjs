@@ -73,10 +73,10 @@
         <button type="button" class="fechar" data-fechar aria-label="Fechar">${icone('fechar')}</button></header>
       ${p.fala ? `<p class="fala">“${esc(p.fala)}”</p>` : ''}
       <h1>${esc(p.titulo)}</h1>
-      <div class="numeros">${(p.numeros || []).map((n) => `<div><strong${n.neg ? ' class="neg"' : ''}>${esc(n.valor)}</strong><span>${esc(n.rotulo)}</span></div>`).join('')}</div>
+      ${(p.numeros || []).length ? `<div class="numeros">${p.numeros.map((n) => `<div><strong${n.neg ? ' class="neg"' : ''}>${esc(n.valor)}</strong><span>${esc(n.rotulo)}</span></div>`).join('')}</div>` : ''}
       ${GRAFICOS[g.tipo] ? GRAFICOS[g.tipo](g) : ''}
       <div class="acao">${icone(p.acao?.icone || 'perguntar')}
-        <div><b>${esc(p.acao?.titulo)}</b><small>${esc(p.acao?.sub)}</small></div>
+        <div><b>${esc(p.acao?.titulo)}</b>${p.acao?.sub ? `<small>${esc(p.acao.sub)}</small>` : ''}</div>
         <button type="button" data-feito>Feito</button></div>
     </article>`;
   }

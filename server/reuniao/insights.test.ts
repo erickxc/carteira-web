@@ -48,10 +48,10 @@ describe('ciclo de insights da reunião', () => {
     const m = montar({ respostas: [{ resumo: 'r', insights: [ins('risco', 'a', 'A'), ins('compromisso', 'b', 'B')] }] });
     await m.ciclo.rodar('x');
     expect(m.notificar).toHaveBeenCalledTimes(1);
-    expect(m.notificar).toHaveBeenCalledWith({ titulo: 'Risco · Pecita', mensagem: 'A' });
+    expect(m.notificar).toHaveBeenCalledWith(expect.objectContaining({ titulo: 'Risco · Pecita', mensagem: 'A', rotulo: 'Risco', cliente: 'Pecita' }));
     m.avancar(2);
     m.ciclo.despachar();
-    expect(m.notificar).toHaveBeenLastCalledWith({ titulo: 'Compromisso · Pecita', mensagem: 'B' });
+    expect(m.notificar).toHaveBeenLastCalledWith(expect.objectContaining({ titulo: 'Compromisso · Pecita', mensagem: 'B' }));
   });
 
   it('dentro de 2 min fica guardado e sai no despacho seguinte', async () => {
@@ -69,7 +69,7 @@ describe('ciclo de insights da reunião', () => {
   it('repassa ação e fontes para a notificação', () => {
     const m = montar();
     m.ciclo.adicionar({ tipo: 'analise', chave: 'kit', texto: 'Queda de 18%', acao: 'Pergunte do preço', fontes: 'alvos.json' });
-    expect(m.notificar).toHaveBeenCalledWith({ titulo: 'Análise · Pecita', mensagem: 'Queda de 18%', acao: 'Pergunte do preço', fontes: 'alvos.json' });
+    expect(m.notificar).toHaveBeenCalledWith(expect.objectContaining({ titulo: 'Análise · Pecita', mensagem: 'Queda de 18%', acao: 'Pergunte do preço', fontes: 'alvos.json' }));
   });
 
   it('item crítico é repassado para investigação', async () => {

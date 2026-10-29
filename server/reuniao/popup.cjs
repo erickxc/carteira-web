@@ -83,4 +83,32 @@ function abrirFila(ids, opcoes = {}) {
   else abrirFila(ids.slice(1), opcoes); // sem janela (reserva já notificou): segue a fila
 }
 
-module.exports = { registrar, obter, marcarFeito, abrir, abrirFila, abrirPainel, dirWebView2 };
+// Sugestão de texto da reunião no formato aprovado: título-conclusão + uma ação, sem texto
+// corrido (o texto inteiro fica na janela da reunião e na ata).
+function popupDeInsight(n) {
+  const texto = String(n.mensagem ?? n.texto ?? '').trim();
+  const titulo = String(n.manchete ?? '').trim() || (texto.length <= 60 ? texto : `${texto.slice(0, 59).trimEnd()}…`);
+  return {
+    tipo: 'insight', titulo, numeros: [],
+    cliente: [n.rotulo, n.cliente].filter(Boolean).join(' · '),
+    acao: { icone: 'perguntar', titulo: String(n.acao ?? '').trim() || 'Detalhe na janela da reunião', sub: '' },
+  };
+}
+
+// Fila da sessão: um popup por vez, inclusive entre checagens diferentes.
+const fila = [];
+let aberto = null;
+function proximo(opcoes) {
+  if ((aberto && aberto.exitCode === null) || !fila.length) return;
+  const { id, notificarReserva } = fila.shift();
+  aberto = abrir(id, { ...opcoes, notificarReserva });
+  if (aberto) aberto.on('exit', () => { aberto = null; proximo(opcoes); });
+  else proximo(opcoes);
+}
+
+function mostrarInsight(n, { notificarReserva, ...opcoes } = {}) {
+  fila.push({ id: registrar(popupDeInsight(n)), notificarReserva });
+  proximo(opcoes);
+}
+
+module.exports = { registrar, obter, marcarFeito, abrir, abrirFila, abrirPainel, dirWebView2, popupDeInsight, mostrarInsight };

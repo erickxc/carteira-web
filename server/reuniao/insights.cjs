@@ -32,6 +32,7 @@ Tipos de aviso:
 
 Regras:
 - Na dúvida, não avise. Zero avisos é a resposta normal da maioria das checagens.
+- "titulo" com até 60 caracteres: a conclusão, como manchete (é o que aparece no popup; sem texto corrido). Ex.: "Edivan caiu de R$ 15,5 mil para R$ 12,2 mil".
 - "texto" com até 220 caracteres, em português simples: o que foi dito (cite o cliente quando couber) e por que importa (com número do histórico/dossiê quando houver).
 - "acao" com até 120 caracteres: o que fazer agora na conversa (pergunta a fazer, ponto a firmar). Pode ser vazio.
 - "chave": 1 a 3 palavras que identificam o ASSUNTO (o mesmo assunto sempre gera a mesma chave).
@@ -39,7 +40,7 @@ Regras:
 - "investigar": SÓ para o que é crítico e vale cruzar com os dados de venda/histórico (cancelamento, redução de serviço, queixa de resultado, número contestado pelo cliente). "oQueDisse" = a fala do cliente, curta.
 
 Responda SÓ com JSON:
-{"resumo": "resumo cumulativo da reunião até agora, até 600 caracteres", "insights": [{"tipo": "...", "texto": "...", "acao": "...", "chave": "..."}], "investigar": [{"chave": "...", "oQueDisse": "...", "porque": "..."}]}`;
+{"resumo": "resumo cumulativo da reunião até agora, até 600 caracteres", "insights": [{"tipo": "...", "titulo": "...", "texto": "...", "acao": "...", "chave": "..."}], "investigar": [{"chave": "...", "oQueDisse": "...", "porque": "..."}]}`;
 }
 
 function criarCicloInsights({ repo, evento, llm, notificar, aoInvestigar, agora = () => Date.now(), lerDossie }) {
@@ -67,7 +68,10 @@ function criarCicloInsights({ repo, evento, llm, notificar, aoInvestigar, agora 
     // Um aviso por notificação: com texto detalhado, juntar dois fica ilegível.
     const item = pendentes.shift();
     ultimaNotificacao = agora();
-    try { notificar({ titulo: `${ROTULOS[item.tipo]} · ${nome}`, mensagem: item.texto, acao: item.acao, fontes: item.fontes }); } catch (err) { console.warn(`reunião: notificação falhou — ${err.message}`); }
+    try {
+      notificar({ titulo: `${ROTULOS[item.tipo]} · ${nome}`, mensagem: item.texto, acao: item.acao, fontes: item.fontes,
+        manchete: item.titulo, rotulo: ROTULOS[item.tipo], cliente: nome });
+    } catch (err) { console.warn(`reunião: notificação falhou — ${err.message}`); }
   }
 
   function aceitar(insight) {

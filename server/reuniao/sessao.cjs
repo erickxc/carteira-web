@@ -41,6 +41,7 @@ function depsReais() {
     completarAlvos: require('./pastaReuniao.cjs').completarAlvos,
     vocabulario: require('./vocabulario.cjs').vocabularioDoEvento,
     notificar: require('./notificacaoReuniao.cjs').notificarReuniao,
+    mostrarPopup: require('./popup.cjs').mostrarInsight,
     llm: provider.clienteLLM(),
     investigar: provider.investigador(),
     urlBase: process.env.CARTEIRA_URL_LOCAL || `http://carteira-2d.localhost:${PORT}`,
@@ -68,7 +69,9 @@ function iniciarSessao({ repo, eventId, simularArquivo, velocidade = 1, deps: in
   deps.completarAlvos?.({ repo, evento, pastaSessao: pasta })
     .catch((err) => console.warn(`reunião: dados de vendas não carregados: ${err.message}`));
 
-  const notificar = (n) => deps.notificar({ titulo: n.titulo, texto: n.mensagem ?? n.texto, acao: n.acao, fontes: n.fontes, link });
+  const toast = (n) => deps.notificar({ titulo: n.titulo, texto: n.mensagem ?? n.texto, acao: n.acao, fontes: n.fontes, link });
+  // Sugestão vai para a janela própria (formato aprovado); o balão do Windows é só reserva sem WebView2.
+  const notificar = (n) => (deps.mostrarPopup ? deps.mostrarPopup(n, { notificarReserva: () => toast(n) }) : toast(n));
   let investigador = null;
   const ciclo = deps.criarCicloInsights({
     repo, evento, llm: deps.llm, notificar, agora: deps.agora,
@@ -185,7 +188,7 @@ function estadoSessao() {
     minutos: Math.floor((agora - s.inicio) / 60_000),
     insights: s.ciclo.enviados().length,
     pausada: !!s.pausada, cliente: s.nome,
-    sugestoes: s.ciclo.enviados().map(({ tipo, texto, acao, fontes, em }) => ({ tipo, texto, acao, fontes, em })),
+    sugestoes: s.ciclo.enviados().map(({ tipo, titulo, texto, acao, fontes, em }) => ({ tipo, titulo, texto, acao, fontes, em })),
   };
 }
 
