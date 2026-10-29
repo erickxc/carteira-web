@@ -1,5 +1,5 @@
 // Fim da reunião: transcrição no evento, ata pelo mesmo motor do "Gerar ata com
-// IA" (`redigirAtaReuniao`), transcrição anexada e áudio apagado. A ordem é a
+// IA" (`redigirAtaReuniao`), transcrição e PDF da ata anexados e áudio apagado. A ordem é a
 // garantia: o texto é salvo antes da IA (se ela falhar, nada se perde) e o
 // áudio só some depois que a ata foi gravada.
 const crypto = require('crypto');
@@ -25,6 +25,7 @@ async function finalizarReuniao({
   redigir = require('../ia/tools.cjs').redigirAtaReuniao,
   mutar = require('../fila/mutacao.cjs').executarMutacao,
   uploadsDir = require('../config.cjs').UPLOADS_DIR,
+  anexarPdf = require('./ataPdfAnexo.cjs').anexarAtaPdf,
 }) {
   const transcricao = formatarTranscricao(rotular(descartarEco(lerSegmentos(pasta)), nomeMonitor));
   mutar('agenda', 'update', { id: eventId, patch: { transcricao } });
@@ -37,7 +38,14 @@ async function finalizarReuniao({
     const filename = `${crypto.randomUUID()}-${originalName}`;
     fs.writeFileSync(path.join(uploadsDir, filename), transcricao, 'utf8');
     const attachments = [...listaJSON(evento?.attachments), { id: filename, filename, originalName, uploadedAt: new Date().toISOString() }];
-    mutar('agenda', 'update', { id: eventId, patch: { ata: `${MARCA}\n\n${ataCompleta}\n\n${secaoInsights(insights)}`, attachments } });
+    const ata = `${MARCA}\n\n${ataCompleta}\n\n${secaoInsights(insights)}`;
+    mutar('agenda', 'update', { id: eventId, patch: { ata, attachments } });
+    // PDF da ata nos anexos. Falha aqui não perde a ata, que já foi gravada.
+    try {
+      anexarPdf({ repo, evento: { ...evento, transcricao, ata, attachments }, gravar: (patch) => mutar('agenda', 'update', { id: eventId, patch }), uploadsDir });
+    } catch (err) {
+      console.warn(`reunião: PDF da ata não gerado: ${err.message}`);
+    }
   } catch (err) {
     return { ok: false, erro: err.message };
   }

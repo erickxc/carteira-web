@@ -2229,4 +2229,4 @@ function resolverClientIdPorNome(repo, argumentos) {
 }
 
 module.exports = {
-  redigirAtaReuniao, resolverClientIdPorNome, FERRAMENTAS, lerCadencias, opcoesDe, resolverOpcao };
+  redigirAtaReuniao, resolverClientIdPorNome, FERRAMENTAS, lerCadencias, opcoesDe, resolverOpcao, eventoParaAta };

@@ -227,6 +227,8 @@ export interface Anexo {
   filename: string;
   originalName: string;
   uploadedAt: string;
+  /** PDF da ata gerado pelo servidor: refeito quando a ata é editada (`server/reuniao/ataPdfAnexo.cjs`). */
+  ataPdf?: boolean;
 }
 
 export interface ChecklistItem {

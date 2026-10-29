@@ -14,8 +14,20 @@ function criar(repo, payload, opts = {}) {
 
 function atualizar(repo, id, patch, opts = {}) {
   const efeitosExternos = opts.efeitosExternos !== false;
-  const updated = repo.update('Agenda', id, patch);
-  if (updated && efeitosExternos) gravarReuniaoJson(updated);
+  const ataAntes = 'ata' in (patch ?? {}) ? repo.get('Agenda').find((e) => String(e.id) === String(id))?.ata : undefined;
+  let updated = repo.update('Agenda', id, patch);
+  if (updated && efeitosExternos) {
+    // Ata editada num evento com PDF da ata anexado: o PDF é refeito (sempre o da ata atual).
+    const { anexarAtaPdf, temAtaPdf } = require('../reuniao/ataPdfAnexo.cjs');
+    if ('ata' in patch && patch.ata !== ataAntes && temAtaPdf(updated)) {
+      try {
+        anexarAtaPdf({ repo, evento: updated, uploadsDir: opts.uploadsDir, gravar: (p) => { updated = repo.update('Agenda', id, p) ?? updated; } });
+      } catch (err) {
+        console.warn(`agenda: PDF da ata não refeito (${id}): ${err.message}`);
+      }
+    }
+    gravarReuniaoJson(updated);
+  }
   return updated;
 }
 

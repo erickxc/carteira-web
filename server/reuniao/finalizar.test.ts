@@ -37,6 +37,12 @@ describe('finalizar reunião', () => {
     const anexo = patch.attachments[1];
     expect(fs.readFileSync(path.join(m.uploadsDir, anexo.filename), 'utf8')).toBe(transcricao);
     expect(fs.readdirSync(m.pasta).filter((f) => f.endsWith('.wav'))).toEqual([]);
+
+    // PDF da ata anexado depois da ata: transcrição + PDF, marcado `ataPdf`.
+    const comPdf = m.mutar.mock.calls[2][2].patch.attachments;
+    expect(comPdf).toHaveLength(3);
+    expect(comPdf[2]).toMatchObject({ ataPdf: true });
+    expect(fs.readFileSync(path.join(m.uploadsDir, comPdf[2].filename)).subarray(0, 4).toString()).toBe('%PDF');
   });
 
   it('sem insights a seção diz "Nenhum."', async () => {
