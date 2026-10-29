@@ -7,8 +7,8 @@ import { Button } from '../../ui';
 /**
  * monitorIA na reunião, no cabeçalho do evento (só em dev por enquanto): ouve
  * ao vivo (microfone = monitor, som do computador = cliente). A janela por cima
- * do Zoom só abre quando pedida ("Janela"). Em dev, "Simular" toca uma gravação
- * como se fosse a reunião.
+ * do Zoom só abre quando pedida ("Janela"). Reunião simulada (arquivo tocado como
+ * reunião) segue na API (`simularArquivo` em POST /api/reuniao/iniciar), sem botão.
  */
 export function ReuniaoMonitorIA({ eventId }: { eventId: string }) {
   const { revalidarSilencioso } = useCarteira();
@@ -52,14 +52,9 @@ export function ReuniaoMonitorIA({ eventId }: { eventId: string }) {
     }
   }
 
-  function iniciar(simularArquivo?: string) {
+  function iniciar() {
     setIniciando(true);
-    agir(() => iniciarReuniao({ eventId, simularArquivo })).finally(() => setIniciando(false));
-  }
-
-  function simular() {
-    const arquivo = window.prompt('Caminho do arquivo de áudio ou vídeo da reunião:')?.trim().replace(/^"|"$/g, '');
-    if (arquivo) iniciar(arquivo);
+    agir(() => iniciarReuniao({ eventId })).finally(() => setIniciando(false));
   }
 
   function encerrar() {
@@ -94,10 +89,7 @@ export function ReuniaoMonitorIA({ eventId }: { eventId: string }) {
       <>
         {daqui && estado?.fase === 'concluida' && status('Ata gerada')}
         {daqui && estado?.fase === 'erro' && status('A ata falhou', 'var(--danger-fg)')}
-        {import.meta.env.DEV && !iniciando && (
-          <Button variant="ghost" size="sm" title="Tocar uma gravação como se fosse a reunião" onClick={simular}>Simular</Button>
-        )}
-        <Button variant="secondary" size="sm" carregando={iniciando} title="Microfone = você · som do computador = cliente" onClick={() => iniciar()}>
+        <Button variant="secondary" size="sm" carregando={iniciando} title="Microfone = você · som do computador = cliente" onClick={iniciar}>
           <Mic size={15} /> {iniciando ? 'Preparando…' : 'Ouvir reunião'}
         </Button>
       </>
