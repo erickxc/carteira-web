@@ -1,4 +1,5 @@
 import { createRequire } from 'module';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -335,5 +336,388 @@ describe('migrarProdutos: SQLite de verdade (pasta temporária)', () => {
     const segunda = await copiarBanco(new Date(AGORA));
     expect(segunda).not.toBe(r.copia);
     expect(fs.readdirSync(pasta).filter((f) => f.endsWith('.sqlite'))).toHaveLength(2);
+  });
+});
+
+// ---- Bordas (testador): cada caso cobre uma promessa do plano/spec que os
+// testes acima não exercitam com dado real.
+
+const AGORA_D = new Date(AGORA);
+const diasAntes = (n: number) => new Date(AGORA_D.getTime() - n * 86400000).toISOString();
+const diasDepois = (n: number) => new Date(AGORA_D.getTime() + n * 86400000).toISOString();
+
+describe('migrarProdutos: critério de sucesso (relógios idênticos)', () => {
+  /** Calculado à parte do `compararRelogios` do script: é ele que está sob teste. */
+  function fila(repo: { get: (s: string) => unknown[] }) {
+    const { buildFilaCadencia } = require('../../shared/cadenciaServico.cjs');
+    const cad = Object.fromEntries((repo.get('Cadencias') as { chave: string; valor: unknown }[]).map((r) => [r.chave, Number(r.valor)]));
+    return buildFilaCadencia(repo.get('Clientes'), repo.get('Agenda'), repo.get('Acoes'), cad, AGORA_D)
+      .map((f: { cliente: { id: string }; relogios: unknown }) => ({ id: f.cliente.id, relogios: f.relogios }));
+  }
+
+  it('carteira variada: fila inteira igual antes e depois, sem nenhuma exceção', async () => {
+    const reuniao = (id: string, clientId: string, servicos: unknown, status: string, date: string) => ({ id, clientId, type: 'Reunião', servicos, status, date });
+    const repo = montar({
+      Cadencias: [{ chave: 'monitoria_dias', valor: 30 }, { chave: 'price_dias', valor: 15 }],
+      Clientes: [
+        cli('vencido', { servicos: '["Monitoria","Precificação"]' }),
+        cli('emdia', { servicos: ['Monitoria', 'Precificação'] }),
+        cli('misto', { servicos: ['Monitoria', 'Plataforma 2D', 'Price'] }),
+        cli('indep', { servicos: ['Monitoria', 'Precificação'], servicosIndependentes: '["Monitoria"]' }),
+        cli('nunca', { servicos: ['Monitoria', 'Precificação', '2D Nexus', '2D Alcance', 'Apura'] }),
+        cli('g1', { grupo: 'Rede', servicos: ['Precificação'] }),
+        cli('g2', { grupo: 'Rede', servicos: ['Precificação'] }),
+        cli('acao', { servicos: ['Monitoria', 'Precificação'] }),
+        cli('suspenso', { status: 'Suspenso', servicos: ['Monitoria'] }),
+      ],
+      Agenda: [
+        reuniao('e1', 'vencido', '["Monitoria","Precificação"]', 'Concluído', diasAntes(60)),
+        reuniao('e2', 'emdia', ['Monitoria'], 'Concluído', diasAntes(5)),
+        reuniao('e3', 'emdia', ['Precificação'], 'Agendado', diasDepois(3)),
+        reuniao('e4', 'misto', ['Monitoria', 'Plataforma 2D'], 'Concluído', diasAntes(10)),
+        reuniao('e5', 'indep', ['Precificação'], 'Cancelado', diasAntes(2)),
+        { id: 'e6', clientId: 'g1', type: 'Precificação', status: 'Concluído', date: diasAntes(4) },
+      ],
+      Acoes: [
+        { id: 'a1', clientId: 'acao', tipo: 'price', status: 'concluido', servico: 'Precificação', dueAt: diasAntes(3) },
+        { id: 'a2', clientId: 'acao', tipo: 'relatorio', status: 'concluido', servico: 'Monitoria', dueAt: diasAntes(7) },
+      ],
+    });
+    const antes = fila(repo);
+    expect(antes.length).toBeGreaterThanOrEqual(8); // o caso não pode passar por fila vazia
+    const r = await migrar(repo);
+    expect(r.gravado).toBe(true);
+    expect(fila(repo)).toEqual(antes);
+    expect(r.relogios.divergencias).toEqual([]);
+    expect(r.relogios.permitidas).toEqual([]);
+    expect(r.relogios.comparados).toBeGreaterThan(antes.length); // inclui o suspenso
+  });
+
+  it('só o relógio do produto do registro DW sai de vencido; o resto do mesmo cliente não muda', async () => {
+    const repo = montar({ Clientes: [cli('a', { servicos: ['Monitoria', 'Precificação'] })] });
+    const [antes] = fila(repo);
+    const r = await migrar(repo, { registroDw: { clientes: [{ id: 'a', entra: ['Precificação'] }] } });
+    const [depois] = fila(repo);
+    const de = (f: { relogios: { servico: string; status: string; atraso: number }[] }, s: string) => f.relogios.find((x) => x.servico === s);
+    expect(de(depois, 'Plataforma 2D')).toEqual(de(antes, 'Plataforma 2D'));
+    expect(de(antes, '2D Price')!.atraso).toBeGreaterThan(100);
+    expect(de(depois, '2D Price')!.atraso).toBeLessThanOrEqual(0);
+    expect(r.relogios.permitidas.map((p: { servico: string }) => p.servico)).toEqual(['2D Price']);
+  });
+});
+
+describe('migrarProdutos: trava de versão, bordas', () => {
+  const clientes = [cli('a', { servicos: ['Monitoria'] })];
+
+  it('recusa por máquina não faz a cópia do banco', async () => {
+    logMaquina('Bruno2D', '1.6.17');
+    let copiou = false;
+    await migrar(montar({ Clientes: clientes }), { backup: async () => { copiou = true; } });
+    expect(copiou).toBe(false);
+  });
+
+  it('nomear só uma de duas atrasadas não libera, e a recusa cita só a que falta', async () => {
+    logMaquina('Bruno2D', '1.6.17');
+    logMaquina('JENIFFER-2D', '1.5.9');
+    const repo = montar({ Clientes: clientes });
+    const antes = JSON.stringify(repo._dump());
+    const r = await migrar(repo, { ignorarMaquinas: ['Bruno2D'] });
+    expect(r.gravado).toBe(false);
+    expect(r.recusa).toMatch(/JENIFFER-2D \(1\.5\.9\)/);
+    expect(r.recusa).not.toMatch(/Bruno2D/);
+    expect(JSON.stringify(repo._dump())).toBe(antes);
+  });
+
+  it('simulação lista a máquina atrasada mas não recusa', async () => {
+    logMaquina('Bruno2D', '1.6.17');
+    const r = await migrar(montar({ Clientes: clientes }), { aplicar: false });
+    expect(r.recusa).toBeNull();
+    expect(r.maquinasAtrasadas).toEqual([{ maquina: 'Bruno2D', versao: '1.6.17' }]);
+  });
+
+  it('entende o log gravado pelo registroVersao de verdade', async () => {
+    const { registrarVersao } = require('../registroVersao.cjs');
+    registrarVersao({ dir: maquinasDir, versao: '1.7.0' });
+    registrarVersao({ dir: maquinasDir, versao: '1.6.17' });
+    const r = await migrar(montar({ Clientes: clientes }), { aplicar: false });
+    expect(r.maquinasAtrasadas).toEqual([{ maquina: os.hostname(), versao: '1.6.17' }]);
+  });
+
+  it.each([
+    ['vazio', ''],
+    ['sem versão', 'lixo sem tabulação\n'],
+    ['versão ilegível', '2026-10-01\tv1.7.0\tclient\n'],
+  ])('log %s conta como atrasada (não saber não libera)', async (_nome, conteudo) => {
+    fs.writeFileSync(path.join(maquinasDir, 'X.log'), conteudo);
+    const r = await migrar(montar({ Clientes: clientes }));
+    expect(r.gravado).toBe(false);
+    expect(r.recusa).toMatch(/X \(/);
+  });
+
+  it('final de linha CRLF e linhas em branco no fim: vale a última versão', async () => {
+    fs.writeFileSync(path.join(maquinasDir, 'X.log'), '2026\t1.6.17\tclient\r\n2026\t1.7.0\tclient\r\n\r\n');
+    const r = await migrar(montar({ Clientes: clientes }));
+    expect(r.maquinasAtrasadas).toEqual([]);
+    expect(r.gravado).toBe(true);
+  });
+
+  it('ignora arquivo que não é .log', async () => {
+    fs.writeFileSync(path.join(maquinasDir, 'Bruno2D-conflito.txt'), '2026\t1.6.17\tclient\n');
+    const r = await migrar(montar({ Clientes: clientes }));
+    expect(r.gravado).toBe(true);
+  });
+
+  it('sem a pasta de máquinas lança e não grava', async () => {
+    const repo = montar({ Clientes: clientes });
+    const antes = JSON.stringify(repo._dump());
+    await expect(migrar(repo, { maquinasDir: path.join(oneDriveDir, 'nao-existe') })).rejects.toThrow();
+    expect(JSON.stringify(repo._dump())).toBe(antes);
+  });
+});
+
+describe('migrarProdutos: registro DW, bordas', () => {
+  it.each([
+    ['Precificação'], ['Precificacao'], ['Price'], ['2D Price'],
+  ])('entra com o nome "%s" casa com o 2D Price', async (nome) => {
+    const repo = montar({ Clientes: [cli('a', { servicos: ['Precificação'] })] });
+    await migrar(repo, { registroDw: { clientes: [{ id: 'a', entra: [nome] }] } });
+    expect(repo.get('Clientes')[0].produtos[0].faseDesde).toBe('2026-10-30');
+  });
+
+  it('id que não é da carteira e produto que o cliente não tem não criam nada', async () => {
+    const repo = montar({ Clientes: [cli('a', { servicos: ['Monitoria'] })] });
+    const r = await migrar(repo, { registroDw: { clientes: [{ id: 'fantasma', entra: ['Monitoria'] }, { id: 'a', entra: ['Precificação'] }] } });
+    expect(r.gravado).toBe(true);
+    const [c] = repo.get('Clientes');
+    expect(c.produtos.map((p: { produto: string }) => p.produto)).toEqual(['Plataforma 2D']);
+    expect(c.produtos[0].faseDesde).toBe(CRIADO);
+    expect(r.relogios.permitidas).toEqual([]);
+  });
+
+  it('decisão real de alguém não é remarcada pelo registro DW', async () => {
+    const repo = montar({
+      Clientes: [cli('a', {
+        servicos: ['Precificação'],
+        produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-08-01', motivoFase: 'contratou em agosto' }],
+      })],
+    });
+    await migrar(repo, { registroDw: { clientes: [{ id: 'a', entra: ['Precificação'] }] } });
+    expect(repo.get('Clientes')[0].produtos[0]).toMatchObject({ faseDesde: '2026-08-01', motivoFase: 'contratou em agosto' });
+  });
+
+  it('simulação também recusa registro em formato inesperado', async () => {
+    const repo = montar({ Clientes: [cli('a', { servicos: ['Monitoria'] })] });
+    const r = await migrar(repo, { aplicar: false, registroDw: null });
+    expect(r.recusa).toMatch(/registro/i);
+  });
+});
+
+describe('migrarProdutos: nada do que existia se perde', () => {
+  it('senha, login e link do Price vão pro item; independência fica em produto Em breve', async () => {
+    const repo = montar({
+      Clientes: [cli('a', {
+        servicos: ['Precificação', '2D Alcance'],
+        servicosIndependentes: ['2D Alcance'],
+        loginPrice: 'x',
+        senhaPriceCifrada: 'cifra',
+        linksServicos: { Price: 'http://p', '2D Alcance': 'http://a' },
+      })],
+    });
+    await migrar(repo);
+    const [c] = repo.get('Clientes');
+    expect(c.produtos[0]).toMatchObject({ produto: '2D Price', login: 'x', senhaCifrada: 'cifra', link: 'http://p' });
+    expect(c.produtos[1]).toMatchObject({ produto: '2D Alcance', fase: 'Em breve', independente: true, link: 'http://a' });
+    expect(c.loginPrice).toBe('x');
+    expect(c.senhaPriceCifrada).toBe('cifra');
+    expect(c.servicosIndependentes).toEqual([]); // só Ativo no derivado
+  });
+
+  it('loja de grupo sem Price marcado mantém login, senha e link legados', async () => {
+    const repo = montar({
+      Clientes: [cli('a', {
+        servicos: ['Monitoria'],
+        loginPrice: 'grupo',
+        senhaPriceCifrada: 'cifra',
+        linksServicos: { Precificação: 'http://p' },
+      })],
+    });
+    await migrar(repo);
+    const [c] = repo.get('Clientes');
+    expect(c.loginPrice).toBe('grupo');
+    expect(c.senhaPriceCifrada).toBe('cifra');
+    expect(c.linksServicos).toEqual({ '2D Price': 'http://p' });
+  });
+
+  it('contatos gravados como texto e série com texto viram array com nome novo', async () => {
+    const repo = montar({
+      Clientes: [cli('a', { servicos: [], contatos: JSON.stringify([{ id: 'k', servicos: '["Monitoria"]' }]) })],
+      AgendaSeries: [{ id: 's1', clientId: 'a', servicos: '["Precificação","Monitoria"]' }],
+    });
+    const r = await migrar(repo);
+    expect(repo.get('Clientes')[0].contatos[0].servicos).toEqual(['Plataforma 2D']);
+    expect(repo.get('AgendaSeries')[0].servicos).toEqual(['2D Price', 'Plataforma 2D']);
+    expect(r.seriesRenomeadas).toBe(1);
+  });
+
+  it('serviço fora da lista oficial segue com o mesmo nome', async () => {
+    const repo = montar({
+      Clientes: [cli('a', { servicos: ['Consultoria X'] })],
+      Agenda: [{ id: 'e1', clientId: 'a', servicos: ['Consultoria X'], status: 'Agendado', date: '2026-11-10' }],
+    });
+    const r = await migrar(repo);
+    expect(repo.get('Clientes')[0].produtos[0]).toMatchObject({ produto: 'Consultoria X', fase: 'Ativo' });
+    expect(repo.get('Agenda')[0].servicos).toEqual(['Consultoria X']);
+    expect(r.eventosRenomeados).toBe(0);
+  });
+
+  it('linha-base legada com nome antigo também cai com o item refeito', async () => {
+    const { MOTIVO_LEGADO } = require('../dominio/clientes.cjs');
+    const repo = montar({
+      Clientes: [cli('a', {
+        servicos: ['Precificação'],
+        produtos: [{ produto: 'Precificação', fase: 'Ativo', faseDesde: CRIADO, motivoFase: MOTIVO_LEGADO }],
+      })],
+      ProdutosHistorico: [{ id: 'h0', clientId: 'a', produto: 'Precificação', fase: 'Ativo', motivo: MOTIVO_LEGADO, mudouEm: CRIADO, gravadoEm: AGORA }],
+    });
+    await migrar(repo, { registroDw: { clientes: [{ id: 'a', entra: ['Precificação'] }] } });
+    const hist = repo.get('ProdutosHistorico');
+    expect(hist).toHaveLength(1);
+    expect(hist[0]).toMatchObject({ produto: '2D Price', mudouEm: '2026-10-30', motivo: 'migração para produtos (1.7)' });
+  });
+});
+
+describe('migrarProdutos: queda no meio', () => {
+  const dados = () => ({
+    Clientes: [cli('a', { servicos: ['Monitoria', 'Precificação', '2D Nexus'] }), cli('b', { servicos: '["Monitoria"]' })],
+    Agenda: [{ id: 'e1', clientId: 'a', type: 'Reunião', servicos: '["Monitoria"]', status: 'Concluído', date: diasAntes(5) }],
+    AgendaSeries: [{ id: 's1', clientId: 'a', servicos: ['Precificação'] }],
+  });
+  const registroDw = { clientes: [{ id: 'a', entra: ['Precificação'] }] };
+  const semId = (hist: Record<string, unknown>[]) => hist.map((h) => ({ ...h, id: '' }));
+
+  it('rodar de novo depois de falhar no meio chega ao mesmo estado de uma rodada limpa', async () => {
+    const limpo = montar(dados());
+    await migrar(limpo, { registroDw });
+
+    const repo = montar(dados());
+    const original = repo.save;
+    let falhou = false;
+    repo.save = (sheet: string, rows: unknown[]) => {
+      if (sheet === 'Agenda' && !falhou) { falhou = true; throw new Error('queda'); }
+      return original(sheet, rows);
+    };
+    await expect(migrar(repo, { registroDw })).rejects.toThrow('queda');
+    expect(repo.get('Agenda')[0].servicos).toBe('["Monitoria"]'); // parou mesmo no meio
+
+    const r = await migrar(repo, { registroDw });
+    expect(r.gravado).toBe(true);
+    expect(r.relogios.divergencias).toEqual([]);
+    for (const s of ['Categorias', 'Clientes', 'Agenda', 'AgendaSeries']) expect(repo.get(s)).toEqual(limpo.get(s));
+    expect(semId(repo.get('ProdutosHistorico'))).toEqual(semId(limpo.get('ProdutosHistorico')));
+  });
+
+  it('segunda rodada dias depois não refaz data nem acrescenta histórico', async () => {
+    const repo = montar(dados());
+    await migrar(repo, { registroDw });
+    const clientes = JSON.stringify(repo.get('Clientes'));
+    const hist = repo.get('ProdutosHistorico').length;
+    const r = await migrar(repo, { registroDw, agora: '2026-11-20T12:00:00.000Z' });
+    expect(r.relogios.permitidas).toEqual([]);
+    expect(JSON.stringify(repo.get('Clientes'))).toBe(clientes);
+    expect(repo.get('ProdutosHistorico')).toHaveLength(hist);
+  });
+});
+
+describe('migrarProdutos: CLI em processo separado (pastas temporárias)', () => {
+  const SCRIPT = path.join(__dirname, 'migrarProdutos.cjs');
+
+  function semear() {
+    const { repoPlanilha } = require('../dominio/repo.cjs');
+    const { initDbSqlite, _fecharParaTestes } = require('../dbSqlite.cjs');
+    initDbSqlite();
+    const repo = repoPlanilha();
+    repo.save('Categorias', categorias());
+    repo.save('Clientes', [cli('a', { servicos: ['Monitoria', 'Precificação'] })]);
+    _fecharParaTestes();
+  }
+  function rodar(args: string[], env: Record<string, string> = {}) {
+    return spawnSync(process.execPath, [SCRIPT, ...args], {
+      encoding: 'utf8',
+      env: { ...process.env, ONEDRIVE_ROOT: oneDriveDir, SQLITE_DIR: sqliteDir, APP_MODE: 'server', ...env },
+    });
+  }
+  function noBanco() {
+    const db = new (require('better-sqlite3'))(path.join(sqliteDir, 'carteira.sqlite'), { readonly: true });
+    const linha = db.prepare('SELECT servicos, produtos FROM Clientes').get();
+    db.close();
+    return linha;
+  }
+  const pasta = () => path.join(oneDriveDir, 'dados', 'migracoes');
+  const copias = () => (fs.existsSync(pasta()) ? fs.readdirSync(pasta()).filter((f) => f.endsWith('.sqlite')) : []);
+  const registro = (conteudo = JSON.stringify({ clientes: [{ id: 'a', entra: ['Precificação'] }] })) => {
+    fs.mkdirSync(pasta(), { recursive: true });
+    fs.writeFileSync(path.join(pasta(), '2026-10-30-produtos-dw.json'), conteudo);
+  };
+
+  it('sem flag só simula: banco intacto e nenhuma cópia', () => {
+    semear();
+    const antes = noBanco();
+    const r = rodar([]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/nada foi gravado/);
+    expect(noBanco()).toEqual(antes);
+    expect(copias()).toEqual([]);
+  });
+
+  it('--aplicar sem o registro DW recusa', () => {
+    semear();
+    const antes = noBanco();
+    const r = rodar(['--aplicar']);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/Registro do DW não encontrado/);
+    expect(noBanco()).toEqual(antes);
+    expect(copias()).toEqual([]);
+  });
+
+  it('--aplicar com máquina na 1.6 sai com erro; --ignorar-maquinas= nomeando grava e faz a cópia', () => {
+    semear();
+    registro();
+    logMaquina('Bruno2D', '1.6.17');
+    const antes = noBanco();
+    const recusado = rodar(['--aplicar']);
+    expect(recusado.status).toBe(1);
+    expect(recusado.stderr).toMatch(/Bruno2D/);
+    expect(noBanco()).toEqual(antes);
+    expect(copias()).toEqual([]);
+
+    const ok = rodar(['--aplicar', '--ignorar-maquinas=Outra, Bruno2D']);
+    expect(ok.status).toBe(0);
+    expect(JSON.parse(noBanco().servicos)).toEqual(['Plataforma 2D', '2D Price']);
+    expect(copias()).toHaveLength(1);
+    const copia = new (require('better-sqlite3'))(path.join(pasta(), copias()[0]), { readonly: true });
+    const linha = copia.prepare('SELECT servicos FROM Clientes').get();
+    copia.close();
+    expect(linha.servicos).toBe(antes.servicos); // é o "antes" de verdade
+  });
+
+  it('em modo cliente recusa antes de tocar em qualquer coisa', () => {
+    semear();
+    registro();
+    const antes = noBanco();
+    const r = rodar(['--aplicar'], { APP_MODE: 'client' });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/máquina servidora/);
+    expect(noBanco()).toEqual(antes);
+    expect(copias()).toEqual([]);
+  });
+
+  it('registro DW com JSON corrompido não grava', () => {
+    semear();
+    registro('{ corrompido');
+    const antes = noBanco();
+    const r = rodar(['--aplicar']);
+    expect(r.status).toBe(1);
+    expect(noBanco()).toEqual(antes);
+    expect(copias()).toEqual([]);
   });
 });
