@@ -1,4 +1,4 @@
-import { useRef, useState, type FocusEvent, type InputHTMLAttributes } from 'react';
+import { useRef, useState, type FocusEvent } from 'react';
 import { Check } from 'lucide-react';
 import { useCarteira } from '../../context/CarteiraContext';
 import { toastError } from '../../utils/toast';
@@ -7,7 +7,9 @@ import { ehLojaPrincipal, lojaPrincipal } from '../../utils/gruposLojas';
 import { cnpjIncompleto, lojasParaEdicao, lojasParaSalvar, type LojaEmEdicao } from '../../utils/lojas';
 import { SelectField } from '../SelectField';
 import { EditorLojas } from './EditorLojas';
-import { Button, Card, Chip, Field, Input, SecaoLabel, Textarea } from '../../ui';
+import { CampoTexto } from './CampoTexto';
+import { ProdutosCliente } from './ProdutosCliente';
+import { Button, Card, Chip, Field, Input, SecaoLabel } from '../../ui';
 import {
   CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, UNIDADE_CADENCIA_LABEL,
   type Cliente, type RelatorioCadencia, type UnidadeCadenciaRelatorio,
@@ -17,21 +19,6 @@ const UNIDADES_CADENCIA: UnidadeCadenciaRelatorio[] = ['dia', 'semana', 'mes', '
 
 type Patch = Partial<Cliente>;
 
-/** Campo de texto que salva ao sair (blur), só se mudou. `key={valor}` no uso
- *  reinicia o rascunho quando o valor muda por fora (outra máquina, outro campo). */
-function CampoTexto({ valor, onSalvar, multilinha, ...props }: {
-  valor: string;
-  onSalvar: (v: string) => void;
-  multilinha?: boolean;
-} & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur'>) {
-  const [rascunho, setRascunho] = useState(valor);
-  const sair = () => { if (rascunho.trim() !== valor.trim()) onSalvar(rascunho.trim()); };
-  if (multilinha) {
-    return <Textarea value={rascunho} onChange={(e) => setRascunho(e.target.value)} onBlur={sair} placeholder={props.placeholder} aria-label={props['aria-label']} />;
-  }
-  return <Input {...props} value={rascunho} onChange={(e) => setRascunho(e.target.value)} onBlur={sair} />;
-}
-
 /**
  * Cadastro do cliente DENTRO da ficha (1.6.11): todos os campos editáveis
  * juntos, cada um salvando sozinho ao sair do campo (selects e marcações salvam
@@ -39,28 +26,30 @@ function CampoTexto({ valor, onSalvar, multilinha, ...props }: {
  * mais ("uma ficha só"). O modal continua só para criar cliente novo.
  */
 export function CadastroCliente({ cliente }: { cliente: Cliente }) {
-  const { clientes, atualizarCliente, opcoesPorTipo, categoriasPorTipo } = useCarteira();
+  const { clientes, atualizarCliente, opcoesPorTipo } = useCarteira();
   const [situacao, setSituacao] = useState<'ocioso' | 'salvando' | 'salvo'>('ocioso');
   const [pausando, setPausando] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function salvar(patch: Patch) {
+  // Devolve se gravou: o bloco de produtos só fecha a edição de fase quando o
+  // servidor aceitou (ex.: recusa por falta de motivo mantém o texto digitado).
+  async function salvar(patch: Patch): Promise<boolean> {
     setSituacao('salvando');
     try {
       await atualizarCliente(cliente.id, patch);
       setSituacao('salvo');
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setSituacao('ocioso'), 2000);
+      return true;
     } catch (err) {
       setSituacao('ocioso');
       toastError(err instanceof Error ? err.message : 'Não foi possível salvar. Tente de novo.');
+      return false;
     }
   }
 
   const ehPrincipal = ehLojaPrincipal(cliente, clientes);
   const nomePrincipal = cliente.grupo && !ehPrincipal ? lojaPrincipal(cliente.grupo, clientes)?.empresa : undefined;
-  const servicos = cliente.servicos ?? [];
-  const independentes = cliente.servicosIndependentes ?? [];
   const statusOpcoes: string[] = [...CLIENTE_STATUS_OPCOES];
   if (cliente.status && !statusOpcoes.includes(cliente.status)) statusOpcoes.push(cliente.status);
 
@@ -81,8 +70,6 @@ export function CadastroCliente({ cliente }: { cliente: Cliente }) {
 
   const rel = cliente.relatorioCadencia;
   const salvarRelatorio = (r: RelatorioCadencia | undefined) => salvar({ relatorioCadencia: r });
-
-  const servicosPowerBI = categoriasPorTipo('servico').filter((c) => c.tipoLink === 'powerbi' && servicos.includes(c.valor));
 
   return (
     <Card style={{ marginBottom: 24 }} aria-label="Cadastro do cliente">
@@ -140,26 +127,9 @@ export function CadastroCliente({ cliente }: { cliente: Cliente }) {
             </Field>
           )}
 
-          <SecaoLabel>Serviços</SecaoLabel>
-          <div className="flex flex-wrap gap-2" style={{ marginBottom: 10 }}>
-            {opcoesPorTipo('servico').map((s) => (
-              <Chip key={s} variant="toggle" active={servicos.includes(s)} onClick={() => {
-                const novos = servicos.includes(s) ? servicos.filter((x) => x !== s) : [...servicos, s];
-                salvar({ servicos: novos, servicosIndependentes: independentes.filter((x) => novos.includes(x)) });
-              }}>{s}</Chip>
-            ))}
-          </div>
-          {servicos.length > 0 && (
-            <div className="flex flex-wrap gap-3 items-center" style={{ marginBottom: 14, fontSize: 12 }}>
-              <span className="text-text-muted">Independente (o cliente faz sozinho):</span>
-              {servicos.map((s) => (
-                <label key={s} className="check-row" style={{ fontSize: 12 }}>
-                  <input type="checkbox" checked={independentes.includes(s)}
-                    onChange={() => salvar({ servicosIndependentes: independentes.includes(s) ? independentes.filter((x) => x !== s) : [...independentes, s] })} /> {s}
-                </label>
-              ))}
-            </div>
-          )}
+          {/* Produtos (1.7.0) substituem "Serviços", os links Power BI e o login do Price:
+              fase, motivo e acesso de cada produto ficam num lugar só. */}
+          <ProdutosCliente cliente={cliente} salvar={salvar} linksEditaveis={ehPrincipal} nomePrincipal={nomePrincipal} />
 
           <SecaoLabel>Observação</SecaoLabel>
           <Field label="Observação">
@@ -177,44 +147,6 @@ export function CadastroCliente({ cliente }: { cliente: Cliente }) {
               <EditorLojas lojas={lojas} onChange={mudarLojas} />
             </div>
           </details>
-
-          {servicosPowerBI.length > 0 && (
-            <>
-              <SecaoLabel>Links Power BI</SecaoLabel>
-              {ehPrincipal ? servicosPowerBI.map((c) => (
-                <Field key={c.valor} label={c.valor}>
-                  <CampoTexto key={`l-${c.valor}-${cliente.linksServicos?.[c.valor] ?? ''}`} type="url" valor={cliente.linksServicos?.[c.valor] ?? ''}
-                    onSalvar={(v) => salvar({ linksServicos: { ...(cliente.linksServicos ?? {}), [c.valor]: v } })} placeholder={`Link do ${c.valor}`} />
-                </Field>
-              )) : (
-                <p className="text-text-muted" style={{ fontSize: 12.5, margin: '0 0 14px' }}>
-                  Os links desta rede ficam em <strong>{nomePrincipal}</strong> (a loja mais antiga do grupo "{cliente.grupo}").
-                </p>
-              )}
-            </>
-          )}
-
-          {servicos.includes('Precificação') && (
-            <>
-              <SecaoLabel>Login no Price</SecaoLabel>
-              <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <Field className="flex-1 basis-[140px]" label="Login">
-                  <CampoTexto key={`lp-${cliente.loginPrice ?? ''}`} valor={cliente.loginPrice ?? ''} onSalvar={(v) => salvar({ loginPrice: v })} placeholder="CNPJ de login" />
-                </Field>
-                <Field className="flex-1 basis-[140px]" label="Senha">
-                  {/* A senha nunca vem do servidor; vazio = manter a atual. */}
-                  <CampoTexto key="sp" type="password" valor="" onSalvar={(v) => v && salvar({ senhaPrice: v })}
-                    placeholder={cliente.temSenhaPrice ? '•••••• (salva — digite para trocar)' : 'Senha'} />
-                </Field>
-              </div>
-              {cliente.temSenhaPrice && (
-                <Button variant="ghost" size="sm" style={{ marginBottom: 14 }}
-                  onClick={() => salvar({ loginPrice: '', senhaPrice: null })}>
-                  Remover credencial do Price
-                </Button>
-              )}
-            </>
-          )}
 
           <SecaoLabel>Relatório automático</SecaoLabel>
           <label className="check-row" style={{ margin: '0.25rem 0 0.6rem' }}>

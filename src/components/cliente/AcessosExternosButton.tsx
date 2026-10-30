@@ -1,21 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, KeyRound } from 'lucide-react';
+import { eh2DPrice } from 'carteira-shared/produtos.cjs';
 import powerbiLogo from '../../assets/powerbi-logo.webp';
 import priceLogo from '../../assets/price-logo.svg';
 import type { Cliente } from '../../types';
 import { Button } from '../../ui';
 import { calcularPosicaoPopover } from '../../utils/popoverPosicao';
 import { abrirEEnviarLoginPrice, formatarCNPJ } from '../../utils/price';
-import { revelarCredenciaisPrice } from '../../api/client';
-import { toastError } from '../../utils/toast';
+import { revelarCredenciaisPrice, revelarCredenciaisProduto } from '../../api/client';
+import { toast, toastError } from '../../utils/toast';
 import { AbrirPriceModal, type FasePrice } from './AbrirPriceModal';
 
 interface AcessoOpcao {
   label: string;
-  /** Ausente = não é um link comum (`window.open`), é o Price — trata à
-   *  parte, dispara `abrirPrice` em vez de navegar direto. */
+  /** Link aberto direto (`window.open`). Ausente e sem `credencialDe` = é o
+   *  Price — trata à parte, dispara `abrirPrice` em vez de navegar direto. */
   url?: string;
+  /** Produto (fora o 2D Price) com senha salva: o clique busca login/senha e
+   *  copia a senha antes de abrir o link, se houver. */
+  credencialDe?: string;
 }
 
 interface AcessosExternosButtonProps {
@@ -53,6 +57,8 @@ function Icone({ opcao }: { opcao: AcessoOpcao }) {
     <span className="flex items-center justify-center shrink-0" style={{ width: 15 }}>
       {opcao.label === PRICE_LABEL ? (
         <img src={priceLogo} alt="" height={13} style={{ height: 13, width: 'auto', objectFit: 'contain' }} />
+      ) : opcao.credencialDe ? (
+        <KeyRound size={14} />
       ) : (
         <img src={powerbiLogo} alt="" width={15} height={15} style={{ width: 15, height: 15, objectFit: 'contain' }} />
       )}
@@ -61,13 +67,12 @@ function Icone({ opcao }: { opcao: AcessoOpcao }) {
 }
 
 /**
- * Botão de acesso externo no cabeçalho do cadastro do cliente — um link por
- * SERVIÇO PowerBI que o cliente tem (`cliente.linksServicos`, preenchido no
- * cadastro por um seletor interno: escolhe o serviço, cola o link), mais o
- * Price quando o cliente tem login/senha salvos (`temSenhaPrice`) — esse não
- * abre direto: mostra uma animação (`AbrirPriceModal`, puramente visual) e
- * envia o login de verdade numa aba nova. Sem nenhum acesso cadastrado, o
- * botão nem aparece.
+ * Botão de acesso externo no cabeçalho do cadastro do cliente — uma opção por
+ * PRODUTO não cancelado com link ou senha salvos (`cliente.produtos`, 1.7.0).
+ * O 2D Price com senha não abre direto: mostra uma animação (`AbrirPriceModal`,
+ * puramente visual) e envia o login de verdade numa aba nova. Os demais
+ * produtos com senha copiam a senha e abrem o link. Sem nenhum acesso
+ * cadastrado, o botão nem aparece.
  */
 export function AcessosExternosButton({ cliente, compacto = false }: AcessosExternosButtonProps) {
   const [open, setOpen] = useState(false);
@@ -91,16 +96,20 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
   // limpa assim que o login é enviado ou o modal fecha.
   const credencialPendenteRef = useRef<{ loginPrice: string; senhaPrice: string } | null>(null);
 
+  // Produto Cancelado não oferece acesso: o cliente não tem mais o produto
+  // (a senha guardada não é apagada ao cancelar, de propósito, mas não deve
+  // continuar oferecendo login automático). Suspenso/Em breve continuam.
+  const produtos = (cliente.produtos ?? []).filter((p) => p.fase !== 'Cancelado');
   const opcoes: AcessoOpcao[] = [
-    ...Object.entries(cliente.linksServicos ?? {})
-      .filter(([, url]) => url?.trim())
-      .map(([label, url]) => ({ label, url: url.trim() })),
-    // As duas condições, não só `temSenhaPrice`: sem checar o serviço, um
-    // cliente que desmarcou "Precificação" do cadastro continuava com a
-    // opção Price no seletor (a senha guardada não é apagada ao desmarcar o
-    // serviço, de propósito — ver ClientFormModal — mas não deveria ficar
-    // oferecendo login automático pra um serviço que o cliente não tem mais).
-    ...(cliente.temSenhaPrice && cliente.servicos?.includes('Precificação') ? [{ label: PRICE_LABEL }] : []),
+    ...produtos.flatMap((p): AcessoOpcao[] => {
+      const url = p.link?.trim() || undefined;
+      if (eh2DPrice(p.produto)) {
+        // Price com senha: login animado; o link do produto, se houver, fica como opção à parte.
+        return [...(url ? [{ label: p.produto, url }] : []), ...(cliente.temSenhaPrice ? [{ label: PRICE_LABEL }] : [])];
+      }
+      if (p.temSenha) return [{ label: p.produto, url, credencialDe: p.produto }];
+      return url ? [{ label: p.produto, url }] : [];
+    }),
   ];
 
   useEffect(() => {
@@ -201,14 +210,40 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
     setPriceState(null);
   }
 
+  /**
+   * Produto sem login automático: a senha vai pra área de transferência. A
+   * Carteira é servida por HTTP na LAN, onde o navegador não libera
+   * `navigator.clipboard` (só em contexto seguro) — aí login e senha aparecem
+   * no aviso, que é o único jeito de entregá-los ao usuário.
+   */
+  async function credencialProduto(produto: string, url?: string) {
+    // A aba nasce no clique (antes do await), senão o navegador bloqueia o pop-up.
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    let credencial: { login: string; senha: string };
+    try {
+      credencial = await revelarCredenciaisProduto(cliente.id, produto);
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : `Falha ao buscar o acesso de ${produto}.`);
+      return;
+    }
+    const prefixo = credencial.login ? `Login de ${produto}: ${credencial.login}. ` : '';
+    try {
+      await navigator.clipboard.writeText(credencial.senha);
+      toast('info', `${prefixo}Senha copiada — cole no campo de senha.`, 15000);
+    } catch {
+      toast('info', `${prefixo}Senha: ${credencial.senha}`, 30000);
+    }
+  }
+
   function abrir(o: AcessoOpcao) {
-    if (o.url) window.open(o.url, '_blank', 'noopener,noreferrer');
+    if (o.credencialDe) void credencialProduto(o.credencialDe, o.url);
+    else if (o.url) window.open(o.url, '_blank', 'noopener,noreferrer');
     else void abrirPrice();
     setOpen(false);
   }
 
   const estiloCompacto = compacto ? { padding: '0.28rem 0.45rem' } : undefined;
-  const rotuloGrupo = opcoes.some((o) => o.label === PRICE_LABEL) && opcoes.length > 1 ? 'Acessos' : 'Power BI';
+  const rotuloGrupo = opcoes.some((o) => o.label === PRICE_LABEL || o.credencialDe) ? 'Acessos' : 'Power BI';
 
   const modalPrice = priceState && (
     <AbrirPriceModal
