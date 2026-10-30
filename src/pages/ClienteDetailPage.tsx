@@ -1,46 +1,92 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { addDays, parseISO, subDays } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
-import { ArrowLeft, Bell as BellIcon, CalendarPlus, FileSpreadsheet, NotebookPen, Pencil, PhoneIncoming, Save, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Save } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { confirmDialog } from '../utils/confirmDialog';
 import { contatosVisiveis, servicosSemResponsavel } from '../utils/contatos';
+import { CabecalhoFicha } from '../components/cliente/CabecalhoFicha';
 import { CadastroCliente } from '../components/cliente/CadastroCliente';
 import { EditarCadastroModal } from '../components/cliente/EditarCadastroModal';
+import { LojasFicha } from '../components/cliente/LojasFicha';
+import { PainelFicha } from '../components/cliente/PainelFicha';
 import { EventFormModal } from '../components/EventFormModal';
 import { ReminderFormModal } from '../components/ReminderFormModal';
 import { RegistroContatoModal } from '../components/RegistroContatoModal';
 import { WhatsAppMensagemModal } from '../components/WhatsAppMensagemModal';
 import { ContatosCard } from '../components/cliente/ContatosCard';
 import { TimelineCard } from '../components/cliente/TimelineCard';
-import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
 import { AgilTarefasCard } from '../components/cliente/AgilTarefasCard';
 import { RelatoriosClienteModal } from '../components/cliente/RelatoriosClienteModal';
-import { AcessosExternosButton } from '../components/cliente/AcessosExternosButton';
 import { agruparLembretes, type TimelineFiltro, type TimelineItem } from '../utils/timelineCliente';
+import { tarefasPendentes } from '../utils/agilColunas';
+import { resumoFicha } from '../utils/resumoFicha';
+import { toastError } from '../utils/toast';
 import { usePersistedState } from '../hooks/usePersistedState';
-import { ModalShell } from '../components/ModalShell';
-import { Badge, Button, Card, Textarea } from '../ui';
-import type { Contato, EventoAgenda } from '../types';
+import { Button, Card, Tabs, Textarea } from '../ui';
+import type { Cliente, Contato, EventoAgenda } from '../types';
 import { buscarCatalogoAlvos } from '../api/client';
 import { comPrecificacaoDoGrupo } from '../utils/cadenciaServico';
 
+/**
+ * `key`: ir para a ficha irmã (aba Lojas) reusa a mesma rota. Sem remontar, o
+ * rascunho de anotação, o formulário de contato e os modais do cliente anterior
+ * continuariam na tela do novo.
+ */
 export default function ClienteDetailPage() {
   const { id } = useParams<{ id: string }>();
+  return <FichaCliente key={id} id={id} />;
+}
+
+/** Único lugar que edita `observacao`. Só monta com o cliente já carregado: montada
+ *  antes (F5 na ficha), o texto começaria vazio e o Salvar apagaria a anotação. */
+function AnotacoesFicha({ cliente }: { cliente: Cliente }) {
+  const { atualizarCliente } = useCarteira();
+  const [observacao, setObservacao] = useState(cliente.observacao ?? '');
+  const [salvando, setSalvando] = useState(false);
+
+  async function salvar() {
+    setSalvando(true);
+    try {
+      await atualizarCliente(cliente.id, { observacao });
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : 'Não foi possível salvar. Tente de novo.');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <Card>
+      <Textarea
+        aria-label="Anotações"
+        placeholder="Anotações sobre este cliente..."
+        value={observacao}
+        onChange={(e) => setObservacao(e.target.value)}
+        style={{ minHeight: 220, marginBottom: 12 }}
+      />
+      <Button variant="primary" onClick={salvar} disabled={salvando || observacao === (cliente.observacao ?? '')}>
+        <Save size={14} /> {salvando ? 'Salvando...' : 'Salvar anotação'}
+      </Button>
+    </Card>
+  );
+}
+
+function FichaCliente({ id }: { id: string | undefined }) {
   const navigate = useNavigate();
   const location = useLocation();
   const voltar = (location.state as { from?: string; fromLabel?: string } | null) ?? null;
   const backTo = voltar?.from ?? '/clientes';
   const backLabel = voltar?.fromLabel ?? 'Carteira';
-  const { clientes, agenda, lembretes, removerCliente, atualizarCliente, opcoesPorTipo } = useCarteira();
+  const { clientes, agenda, lembretes, acoes, cadencias, agilTarefas, agilColunas, removerCliente, atualizarCliente, opcoesPorTipo } = useCarteira();
+  const [abaLembrada, setAba] = usePersistedState('ficha:aba', 'historico');
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [eventoEditando, setEventoEditando] = useState<EventoAgenda | null>(null);
   const [eventoKey, setEventoKey] = useState(0); // muda p/ remontar a modal limpa (fechar o loop)
   const [reminderModalOpen, setReminderModalOpen] = useState(false);
   const [registroContatoOpen, setRegistroContatoOpen] = useState(false);
   const [contatosOpen, setContatosOpen] = useState(false);
-  const [anotacoesOpen, setAnotacoesOpen] = useState(false);
   const [relatoriosOpen, setRelatoriosOpen] = useState(false);
   const [editandoCadastro, setEditandoCadastro] = useState(false);
 
@@ -62,9 +108,6 @@ export default function ClienteDetailPage() {
     if (!id) return;
     buscarCatalogoAlvos(id, true).catch(() => { /* integração opcional — falha aqui não afeta a ficha */ });
   }, [id]);
-
-  const [observacao, setObservacao] = useState(cliente?.observacao ?? '');
-  const [salvandoObs, setSalvandoObs] = useState(false);
 
   const [contatoNome, setContatoNome] = useState('');
   const [contatoCargo, setContatoCargo] = useState('');
@@ -149,7 +192,13 @@ export default function ClienteDetailPage() {
     return clientes.filter((c) => c.grupo === cliente.grupo).sort((a, b) => a.empresa.localeCompare(b.empresa));
   }, [clientes, cliente]);
 
-  if (!cliente) {
+  // Memo: varre a carteira inteira, e digitar num modal aberto daqui re-renderiza a página.
+  const resumo = useMemo(
+    () => (cliente ? resumoFicha(cliente, clientes, agenda, acoes, cadencias) : null),
+    [cliente, clientes, agenda, acoes, cadencias]
+  );
+
+  if (!cliente || !resumo) {
     return (
       <div className="page-container">
         <Button variant="secondary" onClick={() => navigate(backTo)}>
@@ -158,18 +207,6 @@ export default function ClienteDetailPage() {
         <div className="empty-state">Cliente não encontrado.</div>
       </div>
     );
-  }
-
-  const obsMudou = observacao !== (cliente.observacao ?? '');
-
-  async function salvarObservacao() {
-    if (!id) return;
-    setSalvandoObs(true);
-    try {
-      await atualizarCliente(id, { observacao });
-    } finally {
-      setSalvandoObs(false);
-    }
   }
 
   async function adicionarContato() {
@@ -223,60 +260,61 @@ export default function ClienteDetailPage() {
     navigate('/clientes');
   }
 
+  const abas = [
+    { id: 'historico', rotulo: 'Histórico' },
+    { id: 'cadastro', rotulo: 'Cadastro' },
+    ...((cliente.lojasCadastro?.length ?? 0) > 0 || lojasDoGrupo.length > 1 ? [{ id: 'lojas', rotulo: 'Lojas' }] : []),
+    { id: 'anotacoes', rotulo: 'Anotações' },
+    { id: 'tarefas', rotulo: `Tarefas (${tarefasPendentes(agilTarefas.filter((t) => t.clientId === cliente.id), agilColunas).length})` },
+  ];
+  // A aba lembrada pode não existir neste cliente. Só a tela cai em Histórico:
+  // o lembrado fica, para valer de novo no próximo cliente que tiver a aba.
+  const aba = abas.some((a) => a.id === abaLembrada) ? abaLembrada : 'historico';
+
   return (
     <div className="page-container">
       <Button variant="secondary" onClick={() => navigate(backTo)} style={{ marginBottom: 20 }}>
         <ArrowLeft size={15} /> Voltar para {backLabel}
       </Button>
 
-      <Card style={{ marginBottom: 16 }}>
-        <div className="flex-between" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h1 className="page-title" style={{ marginBottom: 4 }}>{cliente.empresa}</h1>
-            {cliente.grupo && <span className="text-text-muted" style={{ fontSize: 13 }}>Rede {cliente.grupo}</span>}
-          </div>
-          <div className="flex-row">
-            <AcessosExternosButton cliente={cliente} />
-            <Button variant="danger" onClick={handleExcluir}>
-              <Trash2 size={15} /> Excluir
-            </Button>
-          </div>
-        </div>
-      </Card>
+      <CabecalhoFicha
+        cliente={cliente}
+        onNovoEvento={() => setEventModalOpen(true)}
+        onLembrete={() => setReminderModalOpen(true)}
+        onContatoCliente={() => setRegistroContatoOpen(true)}
+        onEditar={() => setEditandoCadastro(true)}
+        onRelatorios={() => setRelatoriosOpen(true)}
+        onExcluir={handleExcluir}
+      />
+      <PainelFicha cliente={cliente} resumo={resumo} contatos={contatos} onWhatsApp={setWaContato} onVerContatos={() => setContatosOpen(true)} />
 
-      <div className="dash-two-col">
-        <AnaliseIACard clienteId={cliente.id} />
-        <AgilTarefasCard cliente={cliente} />
-      </div>
+      <Tabs style={{ margin: '0 0 1rem' }}>
+        {abas.map((a) => (
+          <button key={a.id} type="button" className={`tab${aba === a.id ? ' is-active' : ''}`} onClick={() => setAba(a.id)}>{a.rotulo}</button>
+        ))}
+      </Tabs>
 
-      <div style={{ marginBottom: 24 }}>
-        <CadastroCliente valor={cliente} somenteLeitura />
-      </div>
+      {aba === 'historico' && (
+        <TimelineCard
+          cliente={cliente}
+          timeline={timeline}
+          filtro={filtroTimeline}
+          onFiltroChange={setFiltroTimeline}
+          onEditarEvento={(ev) => setEventoEditando(ev.doGrupo ? agenda.find((a) => a.id === ev.doGrupo!.origemId) ?? null : ev)}
+          expandida={timelineExpandida}
+          onToggleExpandir={() => setTimelineExpandida((v) => !v)}
+          totalOcultos={timelineOcultos}
+          janelaDiasPassado={JANELA_TIMELINE_DIAS_PASSADO}
+          janelaDiasFuturo={JANELA_TIMELINE_DIAS_FUTURO}
+        />
+      )}
+      {aba === 'cadastro' && <CadastroCliente valor={cliente} somenteLeitura />}
+      {aba === 'lojas' && <LojasFicha cliente={cliente} lojasDoGrupo={lojasDoGrupo} />}
+      {/* Fica montada escondida: olhar outra aba não pode apagar o que foi digitado e não salvo. */}
+      <div hidden={aba !== 'anotacoes'}><AnotacoesFicha cliente={cliente} /></div>
+      {aba === 'tarefas' && <AgilTarefasCard cliente={cliente} />}
+
       {editandoCadastro && <EditarCadastroModal key={cliente.id} cliente={cliente} onClose={() => setEditandoCadastro(false)} />}
-
-      <div className="flex-row" style={{ marginBottom: 24 }}>
-        <Button variant="primary" onClick={() => setEventModalOpen(true)}>
-          <CalendarPlus size={15} /> Novo Evento
-        </Button>
-        <Button variant="secondary" onClick={() => setReminderModalOpen(true)}>
-          <BellIcon size={15} /> Novo Lembrete
-        </Button>
-        <Button variant="secondary" onClick={() => setRegistroContatoOpen(true)} title="Registrar que o cliente entrou em contato">
-          <PhoneIncoming size={15} /> Cliente entrou em contato
-        </Button>
-        <Button variant="secondary" onClick={() => setContatosOpen(true)}>
-          <Users size={15} /> Contatos {contatos.length > 0 && `(${contatos.length})`}
-        </Button>
-        <Button variant="secondary" onClick={() => setRelatoriosOpen(true)} title="Relatórios deste cliente (prévia + exportar Excel)">
-          <FileSpreadsheet size={15} /> Relatórios
-        </Button>
-        <Button variant="secondary" onClick={() => setAnotacoesOpen(true)}>
-          <NotebookPen size={15} /> Anotações
-        </Button>
-        <Button variant="secondary" onClick={() => setEditandoCadastro(true)}>
-          <Pencil size={15} /> Editar cadastro
-        </Button>
-      </div>
 
       {contatosOpen && (
         <ContatosCard
@@ -303,67 +341,8 @@ export default function ClienteDetailPage() {
         />
       )}
 
-      {cliente.grupo && lojasDoGrupo.length > 1 && (
-        <Card flat style={{ marginBottom: 24 }}>
-          <div className="section-header">
-            <h3>Lojas do grupo <span className="text-text-muted" style={{ fontWeight: 400, fontSize: 13 }}>· {cliente.grupo}</span></h3>
-            <span className="text-text-muted" style={{ fontSize: 12 }}>{lojasDoGrupo.length}</span>
-          </div>
-          <div className="flex-row" style={{ flexWrap: 'wrap', gap: 8 }}>
-            {lojasDoGrupo.map((l) => (
-              l.id === cliente.id ? (
-                <Badge key={l.id} variant="accent" style={{ cursor: 'default' }}>
-                  {l.empresa.replace(`${cliente.grupo} - `, '') || l.empresa}
-                </Badge>
-              ) : (
-                <Badge as={Link} key={l.id} variant="muted" to={`/clientes/${l.id}`} style={{ cursor: 'pointer' }}>
-                  {l.empresa.replace(`${cliente.grupo} - `, '') || l.empresa}
-                </Badge>
-              )
-            ))}
-          </div>
-        </Card>
-      )}
-
-      <TimelineCard
-        cliente={cliente}
-        timeline={timeline}
-        filtro={filtroTimeline}
-        onFiltroChange={setFiltroTimeline}
-        onEditarEvento={(ev) => setEventoEditando(ev.doGrupo ? agenda.find((a) => a.id === ev.doGrupo!.origemId) ?? null : ev)}
-        expandida={timelineExpandida}
-        onToggleExpandir={() => setTimelineExpandida((v) => !v)}
-        totalOcultos={timelineOcultos}
-        janelaDiasPassado={JANELA_TIMELINE_DIAS_PASSADO}
-        janelaDiasFuturo={JANELA_TIMELINE_DIAS_FUTURO}
-      />
-
       {relatoriosOpen && (
         <RelatoriosClienteModal cliente={cliente} onClose={() => setRelatoriosOpen(false)} />
-      )}
-
-      {anotacoesOpen && (
-        <ModalShell
-          title="Anotações"
-          onClose={() => setAnotacoesOpen(false)}
-          onSubmit={(e) => e.preventDefault()}
-          footer={
-            <>
-              <Button variant="secondary" onClick={() => setAnotacoesOpen(false)}>Fechar</Button>
-              <Button variant="primary" onClick={salvarObservacao} disabled={salvandoObs || !obsMudou}>
-                <Save size={14} /> {salvandoObs ? 'Salvando...' : 'Salvar anotação'}
-              </Button>
-            </>
-          }
-        >
-          <Textarea
-            tone="modal"
-            placeholder="Anotações sobre este cliente..."
-            value={observacao}
-            onChange={(e) => setObservacao(e.target.value)}
-            style={{ minHeight: 220 }}
-          />
-        </ModalShell>
       )}
 
       {eventoEditando && <EventFormModal initial={eventoEditando} onClose={() => setEventoEditando(null)} />}

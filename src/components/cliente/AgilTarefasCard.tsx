@@ -4,7 +4,7 @@ import { format, isPast, parse, startOfDay } from 'date-fns';
 import { AlertTriangle, CalendarClock, KanbanSquare } from 'lucide-react';
 import clsx from 'clsx';
 import { useCarteira } from '../../context/CarteiraContext';
-import { colunaConcluida } from '../../utils/agilColunas';
+import { tarefasPendentes } from '../../utils/agilColunas';
 import { Card } from '../../ui';
 import type { Cliente } from '../../types';
 
@@ -19,26 +19,18 @@ interface AgilTarefasCardProps {
  * falta fazer, não o histórico já entregue (esse continua no board). Só
  * leitura + navegação — editar a tarefa continua sendo feito no board, o
  * mesmo padrão do agente de IA (`buscar_tarefas_cliente`), que já cruzava esse
- * dado sem a ficha do cliente nunca mostrar de volta. Oculto quando vazio, sem
- * popup: diferente de Contatos (que virou popup por sobrecarregar o cabeçalho),
- * aqui é uma lista curta e opcional.
+ * dado sem a ficha do cliente nunca mostrar de volta. Vive na aba Tarefas da
+ * ficha: sem nenhuma vinculada mostra a linha de vazio, senão a aba abre em branco.
  */
 export function AgilTarefasCard({ cliente }: AgilTarefasCardProps) {
   const { agilTarefas, agilBoards, agilColunas, agilWorkspaces } = useCarteira();
 
   const vinculadas = useMemo(() => agilTarefas.filter((t) => t.clientId === cliente.id), [agilTarefas, cliente.id]);
   const tarefas = useMemo(
-    () => vinculadas
-      .filter((t) => !colunaConcluida(agilColunas.find((c) => c.id === t.colunaId)?.titulo))
+    () => tarefasPendentes(vinculadas, agilColunas)
       .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')),
     [vinculadas, agilColunas]
   );
-
-  // Cliente sem NENHUMA tarefa vinculada nunca participou do Ágil — aí sim
-  // some (não faz sentido reservar a metade da tela pra isso pra sempre).
-  // Já com tarefas vinculadas mas todas concluídas, o card fica (mostra "tudo
-  // concluído") — senão o par com o card de IA fica com um buraco ao lado.
-  if (vinculadas.length === 0) return null;
 
   return (
     <Card flat>
@@ -46,7 +38,9 @@ export function AgilTarefasCard({ cliente }: AgilTarefasCardProps) {
         <h3>Tarefas Ágil</h3>
         <span className="text-text-muted" style={{ fontSize: 12 }}>{tarefas.length} pendente(s)</span>
       </div>
-      {tarefas.length === 0 && <div className="empty-state">Tudo concluído — nenhuma tarefa pendente.</div>}
+      {tarefas.length === 0 && (
+        <div className="empty-state">{vinculadas.length === 0 ? 'Nenhuma tarefa vinculada a este cliente.' : 'Tudo concluído — nenhuma tarefa pendente.'}</div>
+      )}
       <div className="flex flex-col gap-1.5">
         {tarefas.map((t) => {
           const board = agilBoards.find((b) => b.id === t.boardId);

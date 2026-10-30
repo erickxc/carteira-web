@@ -6,6 +6,10 @@ import type { AgilColuna, AgilTarefa } from '../types';
 // nomeia diferente, só deixa de reconhecer aquele caso específico.
 export const colunaConcluida = (titulo?: string) => /conclu|feito|pronto|final|done|entregue/i.test(titulo || '');
 
+/** Tarefas ainda por fazer: as que não estão em coluna concluída. */
+export const tarefasPendentes = (tarefas: AgilTarefa[], colunas: AgilColuna[]) =>
+  tarefas.filter((t) => !colunaConcluida(colunas.find((c) => c.id === t.colunaId)?.titulo));
+
 /**
  * Regra de negócio: uma Iniciativa (tarefa do board fixo de Iniciativas) não
  * pode ser movida pra uma coluna concluída enquanto houver tarefa vinculada
