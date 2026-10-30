@@ -1,3 +1,5 @@
+> **Status: histórico — quase tudo concluído** (30/10/2026). Motivo: ata por IA (`gerarAtaIA`), `datasAnteriores`, `ClientesFinais`, escopos 5.2/5.3, marcar concluído e PDF pelo agente já estão implementados. Vínculos de Dados Alvos revisados em 30/10/2026 (ver itens abaixo); só sobra o que depende do Ecossistema gerar pasta (Santa Luzia e os suspensos).
+
 # Pendências — 2026-08-31
 
 Levantamento feito ao fim de uma sessão longa de trabalho na integração com
@@ -44,13 +46,30 @@ foi entregue na release 1.4.0.
       Condessa, Guigo, SETE LAGOAS, e mais alguma que aparecer). Não é falha
       de busca — nenhuma das 46 pastas reais bate com esses nomes. Fica
       esperando o Ecossistema-Monitoria gerar o arquivo dessas empresas.
-- [ ] **Altese — `altese_cd` e `altese_ec`** sem cliente correspondente na
+      **Atualização 30/10/2026:** o Ecossistema gerou as pastas Guigo, SMAP,
+      Mosca_Branca, 7 Lagoas e CBraga. Vinculados (confirmado pelo usuário):
+      Guigo (2 lojas), SMAP (6 lojas por CNPJ), Mosca Branca (1), SETE LAGOAS
+      (`7lagoas`) e CBraga por loja — `cbraga_sj`→C. Braga (Silva Jardim),
+      `cbraga_ca`→CG. Braga (Casimiro de Abreu), `cbraga_ar`→Edumar - CBRAGA
+      (Araruama), pela cidade no cadastro de lojas do DW; antes as 3 estavam
+      todas em C. Braga. **Correção de erro:** `7lagoas` (R$ 12,4 mi) estava
+      vinculada à Peça.com — as vendas de Sete Lagoas contavam na Peça.com e a
+      SETE LAGOAS aparecia sem dado; movida para SETE LAGOAS. Ainda sem pasta:
+      Rainha, Brondani, Quality, AA Bangu, Condessa (suspensos/problemas
+      externos) e Santa Luzia (ativo). "Pecita" sem vínculo é esperado: é o
+      registro da rede, as lojas estão nos clientes por loja.
+- [x] **Resolvido 30/10/2026** — motivo: o usuário decidiu que CD e EC fazem
+      parte do atendimento da Penha; as duas lojas foram vinculadas a "Altese -
+      GM, Ford, Fiat, VW" (que passa a somar 6 lojas). SMART segue com
+      `altese_smart` + `altese_recreio`. Texto original:
+      **Altese — `altese_cd` e `altese_ec`** sem cliente correspondente na
       carteira (R$ 14,5 mi e R$ 4,5 mi represados). Decisão do usuário: ficam
       sem vínculo, fora de qualquer análise, até ele decidir criar clientes
       novos pra elas — quando isso acontecer, só vincular pelo painel já
       existente, sem precisar de código novo.
-- [ ] **Pecita — "Pecita - Itaguaí"** tem cliente cadastrado mas nenhuma
-      loja correspondente apareceu no arquivo real ainda.
+- [x] **Pecita — "Pecita - Itaguaí"** tem cliente cadastrado mas nenhuma
+      loja correspondente apareceu no arquivo real ainda. **Resolvido**
+      (conferido 30/10/2026): a loja `pecita` está vinculada a Pecita - Itaguaí.
 
 ## Bloqueado por decisão do usuário
 

@@ -1,3 +1,5 @@
+> **Status: histórico — superado** (30/10/2026). Motivo: análise de antes do monitorIA. Propunha a API da Anthropic; o projeto usa o Claude Code CLI e o Ollama. Os itens 1.1–1.4 já existem (`redigir_ata_reuniao`, chat, `gerar_relatorio_executivo`).
+
 <!-- title: Análise de IA — CARTEIRA 2D -->
 
 # Onde a IA se encaixa na CARTEIRA 2D

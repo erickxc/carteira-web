@@ -48,15 +48,18 @@ sugere.**
                          └─────────┬────────────────┘
                                    │ snapshot periódico (cron)
                                    ▼
-                    OneDrive (DATA_DIR) — transporte/backup
-                    ├── database_dev.xlsx      (espelho, só leitura humana/legado)
-                    ├── uploads/                (anexos — arquivo físico real)
-                    ├── backups/                (snapshots .xlsx e .sqlite datados)
-                    └── filas/
-                        ├── pendentes/           ◄── outras 3 máquinas escrevem aqui
-                        ├── resultados/
-                        ├── processadas/AAAA-MM/
-                        └── log/aplicadas-AAAA-MM.jsonl
+                    OneDrive (ONEDRIVE_ROOT = ...\Ecossistema-Monitoria\Carteira)
+                    ├── database_dev.xlsx      (espelho; entrada do analisador do Ecossistema)
+                    ├── backups/                (carteira-AAAA-MM-DD.sqlite e database_dev-AAAA-MM-DD.xlsx, retenção 2)
+                    └── dados/                  (DATA_DIR)
+                        ├── uploads/            (anexos — arquivo físico real)
+                        ├── dossies/, reunioes_json/, maquinas/
+                        └── filas/
+                            ├── pendentes/       ◄── outras 3 máquinas escrevem aqui
+                            ├── resultados/
+                            ├── leitura/         (carteira-snapshot.sqlite, lido pelas máquinas client)
+                            ├── processadas/AAAA-MM/
+                            └── log/aplicadas-AAAA-MM.jsonl
 
   ┌──────────────────────────┐
   │  Máquina "client"         │  isClienteAtivo, mesma UI/`.exe`, mesma release
@@ -76,8 +79,8 @@ sugere.**
   é um **espelho** regenerado por `server/backupSqlite.cjs`
   (`rodarBackupSqlite()`, cron em `server.cjs`), só pra quem precisa abrir o
   Excel direto ou como plano B histórico. `server/db.cjs` (o leitor/escritor
-  de xlsx original) ainda existe no código mas não é mais o caminho principal
-  das rotas.
+  de xlsx original, sobre a planilha CONGELADA `dados\database_dev.xlsx`) é
+  legado — não leia dado vivo por ele; use `repoPlanilha()`.
 - **Modo de execução decidido pelo hostname** (`server/modo.cjs`): só a
   máquina cujo hostname bate com `CARTEIRA_HOSTNAME_SERVIDOR` (default
   `Karol-2D`) roda em modo `server` (grava direto no SQLite, roda os crons de
@@ -109,14 +112,17 @@ sugere.**
   `AgilTarefas`, `AgilSubtarefas`, `AgilFrentes`, `AgilCamposPersonalizados`,
   `AgilComentarios`, `AgilConexoes`, `AgilHistorico`, `AnalisesIA`,
   `AnalisesIAHistorico`, `AcoesIA` (append-only), `UsoIA` (append-only),
-  `MemoriaIA`.
-- **Campos aninhados (array/objeto)** são serializados pra JSON string antes
-  de gravar (herança do modelo Excel, mantida no SQLite por compatibilidade de
-  schema) — ver `serialize*`/`deserialize*` em `src/api/client.ts`.
-- **Anexos**: arquivo físico via `multer`, sempre em `uploads/` dentro do
+  `MemoriaIA`, `StatusHistorico` (log de mudança de situação do cliente; só o
+  servidor escreve, fora da fila).
+- **Toda coluna é `TEXT` com `JSON.stringify`** — `dbSqlite.cjs` serializa e
+  desserializa qualquer valor sozinho. O frontend **não** serializa mais
+  (fazer isso causou dupla serialização em produção); `deserialize*` em
+  `src/api/client.ts` só tolera resíduo antigo em string.
+- **Anexos**: arquivo físico via `multer`, sempre em `dados/uploads/` dentro do
   OneDrive (`DATA_DIR`) — isso não mudou com a migração pro SQLite, porque o
   arquivo em si precisa estar acessível por qualquer máquina.
-- **IDs são gerados no frontend** (`uuid`), nunca no servidor.
+- **IDs**: normalmente gerados no frontend (`uuid`); `server/dominio/*.cjs`
+  usam o id recebido ou geram `crypto.randomUUID()` quando não vem.
 
 ### Fluxo de escrita (server) vs (client)
 
@@ -140,10 +146,11 @@ Rota HTTP → server/routes/*.cjs → server/dominio/*.cjs (repo.cjs) → dbSqli
 - **`server/dominio/*.cjs`** — regra de negócio + acesso a dados, um arquivo
   por entidade (`clientes.cjs`, `agenda.cjs`, `agilTarefas.cjs`, etc.).
   `repo.cjs` é o repositório genérico (`repoPlanilha()`) usado por cima do
-  `dbSqlite.cjs` — é aqui que `proibirEscritaEmModoCliente` mora de fato.
+  `dbSqlite.cjs` (em modo client lê do snapshot); a guarda
+  `proibirEscritaEmModoCliente` mora no próprio `dbSqlite.cjs`.
 - **`server/fila/`** — sincronização multi-máquina, ver seção 1.
 - **`server/ia/`** — subsistema monitorIA (agente de análise + chat
-  agêntico). Ver `monitor-ia` skill pra referência completa (41 ferramentas,
+  agêntico). Ver `monitor-ia` skill pra referência completa (42 ferramentas, 13 de escrita,
   provedores Ollama/Claude CLI, alertas, memória, custo). Resumo: dois
   provedores por trás da mesma interface (`provider.cjs`); ferramentas em
   `tools.cjs` compartilhadas pelos dois; no provedor Claude CLI, o próprio
@@ -153,8 +160,16 @@ Rota HTTP → server/routes/*.cjs → server/dominio/*.cjs (repo.cjs) → dbSqli
   OUTRO sistema (`DW_PLATAFORMA`, Postgres) pra enriquecer Segmento/Linha e
   credenciais do Price dos clientes que a Carteira já tem vinculados
   (`sincronizarPrice.cjs`). Nunca escreve no DW.
-- **`server/alvos/`** — módulo de "Dados Alvos" (metas/acompanhamento por
-  cliente, lido de CSVs externos — ver `PainelCadastroAlvos` no front).
+- **`server/reuniao/`** — monitorIA nas reuniões (`/api/reuniao`, só máquina
+  local): captura de áudio (`captura.py`), transcrição (faster-whisper no
+  motor Python da máquina), popups de insight (`popup/`, WebView2), ata + PDF
+  ao encerrar. Na reunião o agente só consulta (`server/ia/somenteLeitura.cjs`).
+- **`server/alvos/`** — módulo de "Dados Alvos" (vendas/metas por cliente,
+  lido dos arquivos do Ecossistema — **parquet** desde 22/10/2026 via
+  processo filho `lerParquet.mjs`, `.csv` como fallback; ver
+  `PainelCadastroAlvos` no front).
+- **`server/dominio/statusHistorico.cjs`** — log de mudança de
+  status/estado/pausa do cliente (Visão Geral de meses passados).
 - **`server/scripts/`** — scripts de manutenção/migração rodados manualmente
   (`publicarRelease.cjs` é o mais usado — ver seção 5).
 
@@ -171,16 +186,18 @@ paleta adaptada pra preto e branco (identidade 2D Consultores).
   URL condicional a `import.meta.env.DEV` (dev: URL absoluta com porta; prod:
   caminho relativo, resolvido pelo proxy do Apache).
 - **`src/pages/`** — uma por rota do `react-router-dom` (ver `src/App.tsx`):
-  Dashboard, Clientes, ClienteDetail, Agenda, Ações (Acompanhamento+Ações),
-  Contatos, Relatórios (`CarteiraDashboardPage`), Configurações, Ágil,
-  Assistente IA (chat do monitorIA).
+  `/` Dashboard, `/clientes`, `/clientes/dashboard` (`CarteiraDashboardPage`),
+  `/clientes/:id`, `/agenda`, `/acoes` (Acompanhamento+Ações), `/agil`,
+  `/contatos`, `/assistente` (chat do monitorIA), `/config`.
+- **`src/ui/`** — design system da 1.6 (`Button`, `Chip`, `Badge`, `Field`,
+  `Table`, `SecaoLabel`, `NumeroRolante`); tokens em `src/index.css`.
 - **`src/hooks/`** — lógica derivada por página, separada da UI
   (`useDashboardData.ts` é o maior: toda a camada de cálculo da Visão Geral).
 - **`src/utils/`** — funções puras, boa parte com `.test.ts` ao lado. Núcleo
   de negócio mora em `cadenciaServico.ts` (reexporta o motor compartilhado —
   ver seção 4).
 - **`src/components/`** — agrupado por domínio: `agenda/`, `agil/`,
-  `dashboard/` (16 cards da Visão Geral), `cliente/`, `config/`, `eventForm/`,
+  `dashboard/` (cards da Visão Geral), `cliente/`, `config/`, `eventForm/`,
   `ia/`, `acoes/`, `alvos/`, e componentes soltos de uso geral no topo
   (`Sidebar`, `GlobalSearch`, `EventFormModal`, `ClientFormModal`, etc.).
 
@@ -231,8 +248,10 @@ LAN → Apache (XAMPP) :8080  →  /              = dist/ (build estático do Vi
 |---|---|---|---|
 | Agenda/Cadência | `/agenda` | `server/dominio/agenda.cjs`, `agendaSeries.cjs`, `shared/cadenciaServico.cjs` | `AgendaPage`, `MonthGrid`, `WeekKanban`, `useDashboardData` |
 | Ágil (Kanban) | `/agil` | `server/dominio/agil*.cjs`, `server/routes/agil*.cjs` (10 entidades: Workspace→Board→Coluna/Swimlane→Tarefa→Subtarefa/Comentário/Conexão/Histórico) | `src/pages/AgilPage.tsx`, `src/components/agil/` (21 arquivos) |
-| monitorIA | `/assistente-ia` | `server/ia/` (ver skill `monitor-ia`) | `AssistenteIAPage`, `src/components/ia/` |
-| Dados Alvos | Configurações/cliente | `server/alvos/` (leitura de CSVs) | `src/components/alvos/` |
+| monitorIA | `/assistente` | `server/ia/` (ver skill `monitor-ia`) | `AssistenteIAPage`, `src/components/ia/` |
+| monitorIA na reunião | evento de Reunião (só `start:dev` por enquanto) | `server/reuniao/` | `src/components/agenda/ReuniaoMonitorIA.tsx` |
+| Dados Alvos | Configurações/cliente | `server/alvos/` (parquet; CSV de fallback) | `src/components/alvos/` |
+| Unir atendimentos (lojas → atendimento) | `/clientes` → "Unir atendimentos" | `server/alvos/mapa.cjs` (`alterarVinculo`, motivo obrigatório; vínculos em `dados/alvos-vinculos.json`, histórico em `dados/alvos-vinculos-historico.jsonl`) | `UnirAtendimentosModal.tsx`, `src/utils/unirAtendimentos.ts` |
 | DW/Price sync | (cron, sem UI própria) | `server/dw/` | — |
 | Extensão de acessos | download em Configurações | `public/extensao-2d-acessos.zip` (gerado por `scripts/gerarZipExtensao.cjs`) | `extensao-price-login/` (fonte da extensão), `ExtensaoAcessosCard.tsx` |
 
@@ -251,3 +270,4 @@ LAN → Apache (XAMPP) :8080  →  /              = dist/ (build estático do Vi
   `server/config.cjs`.
 - **Decidir se esta máquina é "server" ou "client"**: `server/modo.cjs`.
 - **Publicar release**: `server/scripts/publicarRelease.cjs`.
+- **Documentos antigos** (planos concluídos/abandonados): `docs/historico/`.

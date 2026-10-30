@@ -8,6 +8,13 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.6.18
+
+- Novo botão **Unir atendimentos** na Carteira: escolha o atendimento e marque as lojas que fazem parte dele (ex.: Altese Penha com CD e EC). As vendas passam a somar as lojas marcadas.
+- Mudar loja de atendimento agora pede o **motivo**, e o histórico mostra quem mudou, quando e por quê.
+- O monitorIA sabe dizer quais lojas compõem cada atendimento.
+- Colar o resumo de uma reunião volta a reconhecer os clientes cadastrados mais recentemente (Mosca Branca, Santa Luzia, Riolub).
+
 ## 1.6.17
 
 - Na Visão Geral, reuniões, relatórios, ações e cancelamentos de um cliente continuam contando no mês em que aconteceram, mesmo que ele seja suspenso ou fique inativo depois. Antes sumiam dos cards Reuniões por dia, Atendimento e Cancelamentos.

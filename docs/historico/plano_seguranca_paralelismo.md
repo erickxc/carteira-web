@@ -1,3 +1,5 @@
+> **Status: histórico — concluído** (30/10/2026). Motivo: implementado em `server/fila/` (controller, `userName`, tratamento de cópia de conflito), mas com o SQLite como banco oficial, não o Excel que este plano previa. Estado atual: ARQUITETURA.md §1.
+
 # Plano de segurança e paralelismo
 
 ## Objetivo

@@ -1,3 +1,5 @@
+> **Status: histórico — substituído** (30/10/2026). Motivo: parado desde 17/07/2026; a 1.6 seguiu outro caminho, com o design system em `src/ui/` (ver CLAUDE.md). O checklist cita componentes que não existem mais (`DonutChart`). Para retomar a migração, refazer o checklist contra `src/ui/`.
+
 # Plano de Migração para Tailwind CSS
 
 Documento de trabalho para concluir a migração do CSS semântico (`src/index.css`)

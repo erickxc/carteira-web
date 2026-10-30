@@ -57,3 +57,4 @@ relatorio-*/
 
 # Estado da skill de design (impeccable): payloads e mocks temporários.
 .impeccable/
+.obsidian/

@@ -37,6 +37,8 @@ tool-calling AQUI)  via MCP — mcpServidor.cjs → /api/ia/interno/*)
    server/alvos/*.cjs → Dados Alvos (parquet desde 22/10/2026, ver CLAUDE.md)
 ```
 
+As rotas `iaProvedor.cjs`, `analiseIA.cjs` e `reuniao.cjs` ficam em `server/routes/`.
+
 **Por que dois provedores**: `ollama` roda local/grátis; `claude-cli` usa a assinatura Claude do usuário (login OAuth do CLI, não API key — ver CLAUDE.md pro porquê disso importar). Produção usa `claude-cli` com **Haiku 5.5** (a GUI guarda o apelido; `estado.modeloParaCli()` traduz para o id passado em `--model`). Escolha em `IA_PROVIDER` (`.env`, trava) ou na GUI (Configurações → Sistema), persistida em `SQLITE_DIR/claude-cli.json`. **Nenhuma ferramenta nativa do CLI é liberada** (`argsDoCli`): com `Read` liberado ele lia arquivo FORA da pasta de trabalho (testado em 23/10/2026).
 
 ## As 42 ferramentas (`server/ia/tools.cjs`, array `FERRAMENTAS`)
@@ -51,7 +53,7 @@ Agrupadas por o que fazem — **nomes exatos**, use pra saber se algo já existe
 
 **Memória do agente** (regras gerais da carteira, não de um cliente): `buscar_memoria`, `registrar_memoria`, `remover_memoria`
 
-**Dados Alvos / Ecossistema** (vendas/produtos de clientes finais; dependem do leitor parquet — se aparecer "dados ainda não carregados", veja a seção Dados Alvos do CLAUDE.md): `buscar_fatos_alvos`, `buscar_resumo_vendas_alvos`, `buscar_analise_estrategica_alvos`, `definir_status_acompanhamento`, `buscar_fichas_clientes_finais`, `definir_ficha_cliente_final`
+**Dados Alvos / Ecossistema** (vendas/produtos de clientes finais; dependem do leitor parquet — se aparecer "dados ainda não carregados", veja a seção Dados Alvos do CLAUDE.md): `buscar_fatos_alvos`, `buscar_resumo_vendas_alvos` (traz `lojas`: as lojas unidas no atendimento — ver "Unir atendimentos" no CLAUDE.md), `buscar_analise_estrategica_alvos`, `definir_status_acompanhamento`, `buscar_fichas_clientes_finais`, `definir_ficha_cliente_final`
 
 **Relatório**: `gerar_relatorio_executivo`
 
@@ -73,12 +75,14 @@ Resumo (detalhes, armadilhas e decisões: CLAUDE.md + `docs/superpowers/specs/20
 
 | Peça | Arquivo | IA envolvida |
 |---|---|---|
+| Captura ao vivo | `captura.py` (microfone + loopback do som do computador) via `fonteCaptura.cjs`; `fonteSimulada.cjs` para áudio de arquivo | nenhuma |
 | Transcrição | `transcritor.py` (Whisper turbo local) + `vocabulario.cjs` | nenhuma chamada paga |
 | Checagem a cada 3 min | `insights.cjs` (`gerarJSON` sem ferramentas) | `origem: 'reuniao-ao-vivo'` |
 | Investigação de algo crítico | `investigacao.cjs` → `cliente.investigar` (MCP só leitura, material da pasta no pedido) | `origem: 'reuniao-investigacao'`, até 5 por reunião, uma por vez |
 | Investigação de produto | `produto.cjs` + `produto/investigar_produto.py` (DuckDB) | nenhuma — números do dado |
 | Popups | `popups.cjs` monta do dado; `redigirPopups` (modelo só escolhe e titula, ≤ 60 caracteres) | redação ainda NÃO medida em `UsoIA` (pendente) |
-| Ata no fim | `finalizar.cjs` → `redigirAtaReuniao` (mesmo motor do botão "Gerar ata com IA") | `origem: 'ata'` |
+| Ata no fim | `finalizar.cjs` → `redigirAtaReuniao` (mesmo motor do botão "Gerar ata com IA"); PDF anexado por `ataPdfAnexo.cjs` e refeito quando a ata é editada | `origem: 'ata'` |
+| Janela e avisos | `popup/popup-host.ps1` (WinForms + WebView2) abre os popups e, com `-Painel`, a janela da reunião (`popup/painel.html`); `notificacaoReuniao.cjs` | nenhuma |
 
 Regra de ouro dos popups: **número nunca vem do modelo**. Insight sem dado não vira popup.
 

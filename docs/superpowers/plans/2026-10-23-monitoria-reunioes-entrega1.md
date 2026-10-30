@@ -1,5 +1,7 @@
 # monitorIA nas reuniões — Entrega 1 (reunião simulada) Implementation Plan
 
+> **Status (30/10/2026): Tasks 1–7 implementadas; Task 8 (ensaio ponta a ponta) e as verificações manuais/reais seguem desmarcadas — não dá para confirmá-las pelo código.** Motivo da atualização: o código já existia (`server/reuniao/`, testes verdes) e os checkboxes nunca foram marcados. Desvios do plano: `notificar.cjs` virou `notificacaoReuniao.cjs` (e os insights hoje saem em janela própria, não em toast); o popup usa `popup/popup-host.ps1` + WebView2 em vez de `abrir-popup.ps1` (removido, não era referenciado); o motor fica em `%LOCALAPPDATA%\CarteiraWeb\motor-transcricao` (`server/reuniao/motor.cjs`), não em `SQLITE_DIR`. Já existe também o que vai além da entrega 1: captura ao vivo (`captura.py`, `fonteCaptura.cjs`), pausa, janela da reunião (`popup/painel.html`) e PDF da ata (`ataPdfAnexo.cjs`).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Com um arquivo de áudio tocado no ritmo de uma reunião, a Carteira transcreve ao vivo com Whisper, notifica insights no Windows e, ao encerrar, grava a ata no evento com a transcrição anexada e apaga o áudio.
@@ -46,10 +48,10 @@
 - Produces: `python transcritor.py --pasta <dir> --vocab <arquivo.txt> --threads <n>`; lê `mic-NNNN.wav`/`sistema-NNNN.wav` em ordem numérica, ignora `*.tmp`, anexa a `<dir>/transcricao.jsonl` uma linha JSON por segmento `{"faixa":"mic"|"sistema","pedaco":N,"inicio":s,"fim":s,"texto":"..."}` (`inicio`/`fim` em segundos desde o início da reunião = `(N-1)*30 + offset`); grava `<dir>/transcritor.pronto` depois de carregar o modelo; ao achar `<dir>/PARAR` e não restar pedaço pendente, grava `<dir>/transcritor.fim` e sai com 0.
 - Produces: `node scripts/prepararMotorTranscricao.cjs` cria `SQLITE_DIR/motor-transcricao/venv` e instala `faster-whisper==1.2.1 numpy`; imprime o caminho do `python.exe`. Caminho lido pelo Node via env `TRANSCRICAO_PYTHON` ou o padrão `SQLITE_DIR/motor-transcricao/venv/Scripts/python.exe`.
 
-- [ ] **Step 1:** Escrever `transcritor.py` (loop: listar pasta a cada 1 s; `initial_prompt` = conteúdo de `--vocab`; `cpu_threads` = `--threads`; `hotwords` = mesmo vocabulário).
-- [ ] **Step 2:** Rodar o preparo: `node scripts/prepararMotorTranscricao.cjs` → imprime caminho do python, `pip list` mostra `faster-whisper 1.2.1`.
+- [x] **Step 1:** Escrever `transcritor.py` (loop: listar pasta a cada 1 s; `initial_prompt` = conteúdo de `--vocab`; `cpu_threads` = `--threads`; `hotwords` = mesmo vocabulário).
+- [x] **Step 2:** Rodar o preparo: `node scripts/prepararMotorTranscricao.cjs` → imprime caminho do python, `pip list` mostra `faster-whisper 1.2.1`.
 - [ ] **Step 3:** Verificação manual: gerar 2 pedaços da gravação de demonstração (`ffmpeg -ss 300 -t 30 ... sistema-0001.wav`, `-ss 330 ... sistema-0002.wav`), rodar o transcritor, criar `PARAR`. Esperado: `transcricao.jsonl` com segmentos em português contendo "precificação", `transcritor.fim` criado, exit 0.
-- [ ] **Step 4:** Pronto para commit.
+- [x] **Step 4:** Pronto para commit.
 
 ### Task 2: Vocabulário (2D + cliente)
 
@@ -62,7 +64,7 @@
 - Produces: `montarVocabulario({ cliente, catalogo, base }) -> string` — `cliente` pode ser `undefined`; `catalogo = { produtos: string[], clientes: string[] }`; `base` = linhas do `vocabulario2D.txt` (injetável no teste). Ordem: empresa, nomes de `lojasCadastro`, nomes de `contatos`, base 2D, produtos, clientes do catálogo. Sem duplicados (comparação sem acento/maiúscula). Corta em 800 caracteres na fronteira de termo. Separador `, `.
 - Produces: `vocabularioDoEvento(repo, evento) -> string` — lê cliente de `repo.get('Clientes')`, catálogo via `catalogoDoCliente` em try/catch (falha = catálogo vazio).
 
-- [ ] **Step 1: Testes**
+- [x] **Step 1: Testes**
 ```ts
 it('cliente primeiro, depois 2D, depois catálogo, sem duplicar', () => {
   const v = montarVocabulario({ cliente: { empresa: 'Pecita - Campo Grande', lojasCadastro: [{ nome: 'CAMPO GRANDE' }], contatos: [{ nome: 'Natália' }] },
@@ -76,10 +78,10 @@ it('corta em 800 caracteres sem partir termo', () => {
 });
 ```
 (`contatos` e `lojasCadastro` podem chegar como string JSON — usar o `listaJSON` já usado em `tools.cjs`.)
-- [ ] **Step 2:** `npx vitest run server/reuniao/vocabulario.test.ts` → FAIL (módulo não existe).
-- [ ] **Step 3:** Implementar.
-- [ ] **Step 4:** Mesmo comando → PASS.
-- [ ] **Step 5:** Pronto para commit.
+- [x] **Step 2:** `npx vitest run server/reuniao/vocabulario.test.ts` → FAIL (módulo não existe).
+- [x] **Step 3:** Implementar.
+- [x] **Step 4:** Mesmo comando → PASS.
+- [x] **Step 5:** Pronto para commit.
 
 ### Task 3: Fonte simulada + leitura da transcrição + eco
 
@@ -93,7 +95,7 @@ it('corta em 800 caracteres sem partir termo', () => {
 - Produces: `lerSegmentos(pasta) -> Segmento[]` (`{faixa, pedaco, inicio, fim, texto}`, ignora linha malformada), `descartarEco(segs) -> Segmento[]`, `rotular(segs, nomeMonitor) -> {falante, inicio, fim, texto}[]` ordenado por `inicio`, `formatarTranscricao(rotulados) -> string` com linhas `[mm:ss] Falante: texto`.
 - Eco: descarta segmento `mic` quando existe `sistema` com `|inicio diff| <= 3` e similaridade ≥ 0,6 (Jaccard de palavras normalizadas sem acento, ≥ 3 palavras).
 
-- [ ] **Step 1: Testes**
+- [x] **Step 1: Testes**
 ```ts
 it('descarta eco do microfone', () => {
   const s = [{ faixa: 'sistema', pedaco: 1, inicio: 10, fim: 14, texto: 'a gente pode começar pela plataforma' },
@@ -108,10 +110,10 @@ it('formata com falante e minuto', () => {
 it('linha malformada no jsonl é ignorada', () => { /* grava 2 linhas válidas + 'xx' numa pasta temp; espera 2 */ });
 ```
 `fonteSimulada.test.ts`: gera 65 s de seno com `ffmpeg -f lavfi -i sine=d=65`, roda com `velocidade: 30`, espera `concluida`; asserta `sistema-0001.wav`..`0003.wav` e nenhum `.tmp`. Pular (`it.skipIf`) se `ffmpeg` não estiver no PATH.
-- [ ] **Step 2:** `npx vitest run server/reuniao/` → FAIL.
-- [ ] **Step 3:** Implementar os dois módulos.
-- [ ] **Step 4:** Mesmo comando → PASS.
-- [ ] **Step 5:** Pronto para commit.
+- [x] **Step 2:** `npx vitest run server/reuniao/` → FAIL.
+- [x] **Step 3:** Implementar os dois módulos.
+- [x] **Step 4:** Mesmo comando → PASS.
+- [x] **Step 5:** Pronto para commit.
 
 ### Task 4: Insights ao vivo + notificação
 
@@ -125,7 +127,7 @@ it('linha malformada no jsonl é ignorada', () => { /* grava 2 linhas válidas +
 - Produces: `criarCicloInsights({ repo, evento, llm = clienteLLM(), notificar, agora = () => Date.now() }) -> { rodar(trechoNovo: string): Promise<void>, enviados(): Insight[] }` — `rodar` com trecho vazio não chama o LLM; erro do LLM é logado e o ciclo segue; filtra `chave` repetida e `pauta` antes de metade da duração (contada do primeiro `rodar`); fila de notificações com intervalo mínimo de 120 s; várias pendentes viram uma notificação com textos unidos por ` · `.
 - Produces: `notificar({ titulo, texto }) -> void` em `notificar.cjs` — `spawn('powershell', ['-NoProfile', '-Command', script])` com toast WinRT; título/texto passados por variável de ambiente (nunca interpolados no script). Erro só é logado.
 
-- [ ] **Step 1: Testes** (LLM falso `{ gerarJSON: async () => ({ resumo: 'r', insights: [...] }) }`, `notificar` = `vi.fn()`, relógio controlado)
+- [x] **Step 1: Testes** (LLM falso `{ gerarJSON: async () => ({ resumo: 'r', insights: [...] }) }`, `notificar` = `vi.fn()`, relógio controlado)
 ```ts
 it('não chama o LLM sem trecho novo', async () => { await ciclo.rodar(''); expect(llm.gerarJSON).not.toHaveBeenCalled(); });
 it('mesma chave avisa uma vez', async () => { /* 2 rodadas devolvendo chave 'margem' */ expect(notificar).toHaveBeenCalledTimes(1); });
@@ -134,10 +136,10 @@ it('duas em menos de 2 min saem juntas', async () => { /* 2 insights no mesmo ci
 it('LLM falhando não lança', async () => { llm.gerarJSON = async () => { throw new Error('fora'); }; await expect(ciclo.rodar('oi')).resolves.toBeUndefined(); });
 it('evento sem cliente monta prompt sem dossiê', () => { expect(() => montarPromptInsights({ evento: { subject: 'Interna' }, trechoNovo: 'x', jaEnviados: [], podePauta: false })).not.toThrow(); });
 ```
-- [ ] **Step 2:** `npx vitest run server/reuniao/insights.test.ts` → FAIL.
-- [ ] **Step 3:** Implementar. Uso registrado com `origem: 'reuniao-ao-vivo'` quando `repo` vier.
+- [x] **Step 2:** `npx vitest run server/reuniao/insights.test.ts` → FAIL.
+- [x] **Step 3:** Implementar. Uso registrado com `origem: 'reuniao-ao-vivo'` quando `repo` vier.
 - [ ] **Step 4:** Mesmo comando → PASS. Verificação manual do toast: `node -e "require('./server/reuniao/notificar.cjs').notificar({titulo:'monitorIA · Teste',texto:'Aparece?'})"` → toast no canto da tela.
-- [ ] **Step 5:** Pronto para commit.
+- [x] **Step 5:** Pronto para commit.
 
 ### Task 4b: Pasta da reunião + investigação pelo CLI
 
@@ -155,7 +157,7 @@ it('evento sem cliente monta prompt sem dossiê', () => { expect(() => montarPro
 - Produces: `criarInvestigador({ cwd, repo, monitor, investigar, limite = 5 }) -> { pedir(item): boolean, ocupado(): boolean, total(): number }` — `pedir` recusa (false) se ocupado, se `chave` já investigada ou se atingiu `limite`; ao terminar chama `aoConcluir({ tipo: 'analise', texto, fontes, chave })`.
 - `criarCicloInsights` ganha `investigador` (opcional); repassa cada `investigar[]` do JSON a `investigador.pedir`.
 
-- [ ] **Step 1: Testes**
+- [x] **Step 1: Testes**
 ```ts
 it('pasta da reunião tem pauta, dossiê e transcrição; sem cliente não lança', ...);
 it('alvos indisponível → sem alvos.json, demais arquivos criados', ...);
@@ -164,9 +166,9 @@ it('investigador: uma por vez, sem repetir chave, no máximo 5', ...);
 it('resposta do agente separa texto e linha "Fontes:"', ...);
 it('rodarCli com pastaLeitura não passa bypassPermissions e libera Read/Glob/Grep', ...); // spawn falso, inspeciona args
 ```
-- [ ] **Step 2:** `npx vitest run server/reuniao/` → FAIL nos novos.
-- [ ] **Step 3:** Implementar.
-- [ ] **Step 4:** PASS + `npx vitest run server/ia/` verde.
+- [x] **Step 2:** `npx vitest run server/reuniao/` → FAIL nos novos.
+- [x] **Step 3:** Implementar.
+- [x] **Step 4:** PASS + `npx vitest run server/ia/` verde.
 - [ ] **Step 5: Verificação real de confinamento** (VERIFICAR do spec): pasta temp com `a.txt`; `investigar({ prompt: 'Leia a.txt e depois leia C:/Windows/win.ini e diga a primeira linha de cada' , cwd })`. Esperado: lê `a.txt`; leitura de `win.ini` negada. Se o CLI ler fora: parar e trocar por cópia em pasta + `--add-dir` ou negar `Read` com regra de caminho (Ruling no ledger).
 
 ### Task 4c: Ferramenta investigar_produto (Python + DuckDB)
@@ -180,7 +182,7 @@ it('rodarCli com pastaLeitura não passa bypassPermissions e libera Read/Glob/Gr
 - `investigarProduto({ clientId, produto, repo }) -> Promise<objeto>` em `produto.cjs` (resolve empresa/lojas pelo vínculo do Alvos; caminhos por env `ALVOS_DIR`/`DW_DIR`).
 - Regras: devolução `MOV = S` fora; D15 = (2·S1+S2)/3·2; Máximo = ⌈⌈D15⌉·1,12⌉; promoção exclui `prod` presente em `a-precificar` com reajuste > 0.
 
-- [ ] Testes (fixture com 2 lojas, 3 meses, 1 devolução ao fornecedor): devolução S não reduz a venda; excesso/falta/transferência corretos; promoção exclui item a reajustar.
+- [x] Testes (fixture com 2 lojas, 3 meses, 1 devolução ao fornecedor): devolução S não reduz a venda; excesso/falta/transferência corretos; promoção exclui item a reajustar.
 - [ ] FAIL → implementar → PASS; verificação real: Pecita/Bateria reproduz a simulação (Matriz 128 dias, excesso 91 un).
 
 ### Task 4d: Popup do insight
@@ -191,7 +193,7 @@ it('rodarCli com pastaLeitura não passa bypassPermissions e libera Read/Glob/Gr
 - `abrirPopup({ id, url, empilhar })` → spawn do ps1 (Edge `--app`, topmost sem foco, posição empilhada).
 - Insight sem `numeros`/`grafico` vindos da ferramenta → cai na notificação curta (`notificacaoReuniao.cjs`), nunca popup vazio.
 
-- [ ] Teste do template (jsdom ou string): 3 tipos de gráfico renderizam com os dados da simulação; texto do título/ação cortado no teto.
+- [x] Teste do template (jsdom ou string): 3 tipos de gráfico renderizam com os dados da simulação; texto do título/ação cortado no teto.
 - [ ] Verificação real: popup da Bateria abre por cima sem tirar o foco.
 
 ### Task 5: Ata ao encerrar
@@ -210,7 +212,7 @@ it('rodarCli com pastaLeitura não passa bypassPermissions e libera Read/Glob/Gr
   4. só então apaga os `*.wav` da pasta;
   5. erro em 2 ou 3: devolve `{ ok: false, erro }`, mantém os WAV.
 
-- [ ] **Step 1: Testes** (`mutar = vi.fn()`, `redigir` falso, pasta temp com 2 WAV e um jsonl, `UPLOADS_DIR` isolado via env)
+- [x] **Step 1: Testes** (`mutar = vi.fn()`, `redigir` falso, pasta temp com 2 WAV e um jsonl, `UPLOADS_DIR` isolado via env)
 ```ts
 it('salva transcrição antes da ata, ata com marca e insights, apaga wav', async () => {
   const r = await finalizarReuniao({ ...base, insights: [{ texto: 'Margem em queda' }] });
@@ -227,10 +229,10 @@ it('falha da IA mantém o áudio e a transcrição salva', async () => {
   expect(fs.readdirSync(pasta).filter((f) => f.endsWith('.wav')).length).toBe(2);
 });
 ```
-- [ ] **Step 2:** `npx vitest run server/reuniao/finalizar.test.ts` → FAIL.
-- [ ] **Step 3:** Implementar.
-- [ ] **Step 4:** PASS; `npx vitest run server/ia/` continua verde (export novo não quebra `toolsSchema.test`).
-- [ ] **Step 5:** Pronto para commit.
+- [x] **Step 2:** `npx vitest run server/reuniao/finalizar.test.ts` → FAIL.
+- [x] **Step 3:** Implementar.
+- [x] **Step 4:** PASS; `npx vitest run server/ia/` continua verde (export novo não quebra `toolsSchema.test`).
+- [x] **Step 5:** Pronto para commit.
 
 ### Task 6: Sessão + rotas
 
@@ -248,17 +250,17 @@ it('falha da IA mantém o áudio e a transcrição salva', async () => {
 - Threads do transcritor: `Math.max(2, Math.floor(os.cpus().length / 2))`.
 - Rotas: `POST /iniciar {eventId, simularArquivo, velocidade}` (400 sem `eventId`/`simularArquivo` nesta entrega; 404 evento inexistente; 409 sessão ativa), `GET /estado`, `POST /encerrar` (409 sem sessão ativa ou já finalizando). Middleware: 403 se `req.headers['x-forwarded-for']`.
 
-- [ ] **Step 1: Testes** (deps falsas; relógio controlado)
+- [x] **Step 1: Testes** (deps falsas; relógio controlado)
 ```ts
 it('409 ao iniciar com sessão ativa', ...);
 it('encerra sozinha após 5 min sem segmento novo', ...);
 it('encerrar duas vezes: segunda é 409, finalizar chamado uma vez', ...);
 it('rota recusa requisição vinda do Apache', async () => { /* header x-forwarded-for → 403 */ });
 ```
-- [ ] **Step 2:** `npx vitest run server/reuniao/sessao.test.ts server/routes/reuniao.test.ts` → FAIL.
-- [ ] **Step 3:** Implementar.
-- [ ] **Step 4:** PASS. `npm test` inteiro verde (os 2 flaky de `server/fila/` passam ao reexecutar).
-- [ ] **Step 5:** Pronto para commit.
+- [x] **Step 2:** `npx vitest run server/reuniao/sessao.test.ts server/routes/reuniao.test.ts` → FAIL.
+- [x] **Step 3:** Implementar.
+- [x] **Step 4:** PASS. `npm test` inteiro verde (os 2 flaky de `server/fila/` passam ao reexecutar).
+- [x] **Step 5:** Pronto para commit.
 
 ### Task 7: Painel de teste no evento (só dev)
 
@@ -272,8 +274,8 @@ it('rota recusa requisição vinda do Apache', async () => { /* header x-forward
 - Produces: painel com campo "Arquivo de áudio (caminho)", velocidade (1× / 4×), "Simular reunião"; enquanto ativa: "monitorIA ouvindo · N min" (polling de `/estado` a cada 5 s) e "Encerrar"; ao concluir, recarrega o evento (`ata`/`attachments`) via o CRUD do `CarteiraContext`.
 - Visual: componentes de `src/ui` (Button secondary/sm, Field, Input), sem cor nova, sem ponto colorido (memória "Status sem enfeite").
 
-- [ ] **Step 1:** Implementar; `npx tsc -b` e `npx eslint src/components/agenda/ReuniaoMonitorIA.tsx src/components/EventFormModal.tsx` limpos.
-- [ ] **Step 2:** Pronto para commit.
+- [x] **Step 1:** Implementar; `npx tsc -b` e `npx eslint src/components/agenda/ReuniaoMonitorIA.tsx src/components/EventFormModal.tsx` limpos.
+- [x] **Step 2:** Pronto para commit.
 
 ### Task 8: Ensaio ponta a ponta no start:dev
 

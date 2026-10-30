@@ -1,3 +1,5 @@
+> **Status: obsoleto — nunca implementado** (30/10/2026). Motivo: plano GestorPro (PostgreSQL, JWT, multi-tenant) anterior ao pivô para Carteira de Monitoria da 2D; a direção atual é SQLite local + OneDrive, sem autenticação.
+
 # GestorPro — Transformação Comercial Multi-Usuário
 
 Transformar o sistema pessoal "Carteira Web" em um **produto comercial multi-usuário** chamado **GestorPro**, com PostgreSQL como banco de dados, controle administrativo, dashboard de equipe e redesign visual minimalista com **modo claro e escuro** (sem glassmorphism).
