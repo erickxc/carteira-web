@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { CalendarDays, Menu } from 'lucide-react';
+import { CalendarDays, LogOut, Menu } from 'lucide-react';
 import { Sidebar } from './components/Sidebar';
 import { ThemeToggle } from './components/ThemeToggle';
 import { Button } from './ui';
@@ -20,6 +20,8 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { useCarteira } from './context/CarteiraContext';
 import { Dropdown } from './components/Dropdown';
 import { TransicaoDeTela } from './motion/TransicaoDeTela';
+import { LoginScreen } from './equipe/LoginScreen';
+import { lerSessao, NOME_EQUIPE, salvarSessao, type Equipe } from './equipe/sessao';
 // Imports estáticos (sem lazy): num app de LAN que é rebuildado com frequência,
 // o code-splitting causava tela branca quando a aba tinha um index.html antigo
 // apontando pra chunks que já não existiam. Bundle único é robusto e rápido na LAN.
@@ -34,7 +36,7 @@ import ContatosPage from './pages/ContatosPage';
 import AssistenteIAPage from './pages/AssistenteIAPage';
 import ConfiguracoesPage from './pages/ConfiguracoesPage';
 
-function Layout({ children }: { children: ReactNode }) {
+function Layout({ children, equipe, onSair }: { children: ReactNode; equipe: Equipe; onSair: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { filtroMonitor, setFiltroMonitor, monitoresDisponiveis } = useCarteira();
@@ -116,6 +118,9 @@ function Layout({ children }: { children: ReactNode }) {
               </div>
             )}
             <ThemeToggle />
+            <Button variant="secondary" onClick={onSair} title={`Sair da equipe ${NOME_EQUIPE[equipe]}`}>
+              {NOME_EQUIPE[equipe]} <LogOut size={15} />
+            </Button>
           </div>
         </div>
         <TransicaoDeTela>{children}</TransicaoDeTela>
@@ -133,7 +138,7 @@ function Layout({ children }: { children: ReactNode }) {
   );
 }
 
-function AppRoutes() {
+function AppRoutes({ equipe, onSair }: { equipe: Equipe; onSair: () => void }) {
   const { loading, error } = useCarteira();
 
   if (loading) return <LoadingScreen />;
@@ -148,7 +153,7 @@ function AppRoutes() {
   }
 
   return (
-    <Layout>
+    <Layout equipe={equipe} onSair={onSair}>
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/clientes" element={<ClientesPage />} />
@@ -166,9 +171,13 @@ function AppRoutes() {
 }
 
 export default function App() {
+  const [equipe, setEquipe] = useState(lerSessao);
+  const trocarEquipe = (nova: Equipe | null) => { salvarSessao(nova); setEquipe(nova); };
+
+  if (!equipe) return <LoginScreen onEntrar={trocarEquipe} />;
   return (
     <BrowserRouter>
-      <AppRoutes />
+      <AppRoutes equipe={equipe} onSair={() => trocarEquipe(null)} />
     </BrowserRouter>
   );
 }
