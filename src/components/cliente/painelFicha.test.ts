@@ -59,8 +59,8 @@ describe('PainelFicha', () => {
     expect(cabecalho()).not.toContain('Pausado');
   });
 
-  it('sem contato, "ver todos" continua lá: é a única porta para cadastrar o primeiro', () => {
-    expect(painel(VAZIO)).toContain('ver todos (0)');
+  it('sem contato, o botão vira "cadastrar contato": é a única porta para cadastrar o primeiro', () => {
+    expect(painel(VAZIO)).toContain('cadastrar contato');
   });
 
   it('prazo: nunca não se lê pelo sinal, vencido soma, no prazo conta o que falta, independente sem número', () => {

@@ -122,7 +122,7 @@ export function PainelFicha({ cliente, resumo, contatos, onWhatsApp, onVerContat
             ))}
             {/* Aparece também com zero: o modal aberto daqui é onde se cadastra o primeiro contato. */}
             <div>
-              <Button variant="ghost" size="sm" onClick={onVerContatos}>ver todos ({contatos.length})</Button>
+              <Button variant="ghost" size="sm" onClick={onVerContatos}>{contatos.length === 0 ? "cadastrar contato" : `ver todos (${contatos.length})`}</Button>
             </div>
           </div>
           <ListaAcessos cliente={cliente} />

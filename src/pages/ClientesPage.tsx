@@ -581,7 +581,7 @@ export default function ClientesPage() {
           </Card>
 
           {/* Celular: um cartão curto por atendimento, na mesma ordem. */}
-          <ul className="md:hidden flex flex-col gap-2">
+          <ul className="md:hidden flex flex-col gap-2 list-none p-0 m-0">
             {filtrados.map((c) => {
               const prazos = prazosPorCliente.get(c.id) ?? [];
               const prox = proximoAgendamento.get(c.id);
