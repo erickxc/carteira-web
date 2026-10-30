@@ -127,3 +127,74 @@ describe('mudancasDeFase', () => {
     ]);
   });
 });
+
+describe('casos de borda (testador)', () => {
+  const cadastro = [
+    p('Plataforma 2D', 'Ativo', { independente: true, link: 'LP' }),
+    p('2D Price', 'Ativo', { login: 'X', senhaCifrada: 'S' }),
+    p('Apura', 'Suspenso', { independente: true, link: 'LA', motivoFase: 'inadimplência' }),
+    p('2D Nexus', 'Em breve'),
+    p('Raptor', 'Cancelado', { motivoFase: 'cliente saiu' }),
+  ];
+
+  it('máquina 1.6 regrava o que recebeu (campos como texto JSON): nada muda de fase nem se perde', () => {
+    const d = derivarCamposLegados(cadastro);
+    // A 1.6 serializa arrays/objetos como texto e nunca recebe a senha cifrada.
+    const patch = {
+      servicos: JSON.stringify(d.servicos),
+      servicosIndependentes: JSON.stringify(d.servicosIndependentes),
+      linksServicos: JSON.stringify(d.linksServicos),
+      loginPrice: d.loginPrice,
+    };
+    const r = traduzirPatchLegado(cadastro, patch, AGORA)!;
+    expect(r).toHaveLength(cadastro.length);
+    for (const original of cadastro) {
+      const novo = r.find((x) => x.produto === original.produto)!;
+      expect(novo).toMatchObject({
+        fase: original.fase,
+        faseDesde: original.faseDesde,
+        motivoFase: original.motivoFase,
+      });
+      expect(Boolean(novo.independente)).toBe(Boolean(original.independente));
+      expect(novo.link).toBe(original.link);
+    }
+    expect(r.find((x) => x.produto === '2D Price')!.senhaCifrada).toBe('S');
+    expect(mudancasDeFase(cadastro, r)).toEqual([]);
+  });
+
+  it('Suspenso some de servicos/independentes derivados mas continua no cadastro com fase e motivo', () => {
+    const d = derivarCamposLegados(cadastro);
+    expect(d.servicos).not.toContain('Apura');
+    expect(d.servicosIndependentes).not.toContain('Apura');
+    const r = traduzirPatchLegado(cadastro, { servicos: ['Plataforma 2D'] }, AGORA)!;
+    expect(r.find((x) => x.produto === 'Apura')).toMatchObject({ fase: 'Suspenso', motivoFase: 'inadimplência' });
+    expect(r.find((x) => x.produto === '2D Nexus')!.fase).toBe('Em breve');
+    expect(r.find((x) => x.produto === 'Raptor')!.fase).toBe('Cancelado');
+  });
+
+  it('patch da 1.6 com nome antigo e novo misturados conta uma vez e não cancela Plataforma 2D', () => {
+    const r = traduzirPatchLegado(cadastro, { servicos: ['Monitoria', 'Plataforma 2D', 'Precificação'] }, AGORA)!;
+    expect(r.filter((x) => x.produto === 'Plataforma 2D')).toHaveLength(1);
+    expect(r.filter((x) => x.produto === '2D Price')).toHaveLength(1);
+    expect(r.find((x) => x.produto === 'Plataforma 2D')).toEqual(cadastro[0]);
+    expect(r.find((x) => x.produto === '2D Price')).toEqual(cadastro[1]);
+    expect(r.some((x) => /monitoria|precifica/i.test(x.produto))).toBe(false);
+  });
+
+  it('link com chave antiga vai para o produto renomeado', () => {
+    const r = traduzirPatchLegado(cadastro, { linksServicos: { Monitoria: 'novo', Apura: 'LA' } }, AGORA)!;
+    expect(r.find((x) => x.produto === 'Plataforma 2D')!.link).toBe('novo');
+    expect(r.find((x) => x.produto === '2D Price')!.link).toBeUndefined();
+  });
+
+  it('derivarCamposLegados aceita produtos como texto JSON e limpa login/senha sem 2D Price', () => {
+    expect(derivarCamposLegados(JSON.stringify(cadastro)).servicos).toEqual(['Plataforma 2D', '2D Price']);
+    expect(derivarCamposLegados([p('Apura', 'Ativo')])).toMatchObject({ loginPrice: '', senhaPriceCifrada: '' });
+  });
+
+  it('produto novo sem motivo é mudança com motivoMudou=false', () => {
+    expect(mudancasDeFase(cadastro, [...cadastro, p('Raptor2', 'Ativo', { motivoFase: '  ' })])).toEqual([
+      { produto: 'Raptor2', de: null, para: 'Ativo', motivoMudou: false },
+    ]);
+  });
+});
