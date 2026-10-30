@@ -1678,6 +1678,192 @@ describe('produtos do cliente', () => {
   });
 });
 
+describe('alterar_fase_produto: bordas', () => {
+  const CATEGORIAS = ['Plataforma 2D', 'Controladoria', 'Apura', '2D Alcance', '2D Nexus', '2D Price'].map((valor, i) => ({ id: `s${i}`, tipo: 'servico', valor, ordem: i }));
+  const SECRETO = /senhaCifrada|senhaPriceCifrada|CIFRA-SECRETA|LOGIN-SECRETO/;
+  const migrado = (over: Record<string, unknown> = {}) => clienteBase({
+    servicos: ['Plataforma 2D', 'Apura', '2D Price'], servicosIndependentes: ['Plataforma 2D'],
+    loginPrice: 'LOGIN-SECRETO', senhaPriceCifrada: 'CIFRA-SECRETA',
+    produtos: [
+      { produto: 'Plataforma 2D', fase: 'Ativo', faseDesde: '2026-01-01T00:00:00.000Z', motivoFase: 'migração', independente: true },
+      { produto: 'Apura', fase: 'Ativo', faseDesde: '2026-01-01T00:00:00.000Z', motivoFase: 'migração' },
+      { produto: '2D Nexus', fase: 'Em breve', faseDesde: '2026-01-01T00:00:00.000Z', motivoFase: 'migração' },
+      { produto: '2D Price', fase: 'Ativo', faseDesde: '2026-02-01T00:00:00.000Z', motivoFase: 'migração', login: 'LOGIN-SECRETO', senhaCifrada: 'CIFRA-SECRETA' },
+    ],
+    ...over,
+  });
+  type Item = { produto: string; fase: string; motivoFase: string; faseDesde: string; independente?: boolean; login?: string; senhaCifrada?: string };
+  type Linha = { servicos: string[]; servicosIndependentes: string[]; senhaPriceCifrada: string; loginPrice: string; observacao: string; produtos: Item[] };
+  const preparar = (cliente: Record<string, unknown> = migrado(), categorias: unknown[] = CATEGORIAS) => {
+    dbSqlite.saveSheetData('Clientes', [cliente]);
+    dbSqlite.saveSheetData('Categorias', categorias);
+    return repoBase({ Clientes: [cliente], Categorias: categorias });
+  };
+  const noBanco = () => dbSqlite.getSheetData('Clientes')[0] as unknown as Linha;
+  const item = (nome: string) => noBanco().produtos.find((p) => p.produto === nome)!;
+  const historico = () => dbSqlite.getSheetData('ProdutosHistorico') as unknown as { produto: string; fase: string; motivo: string }[];
+  /** Leitura nova, como cada chamada real do agente recebe. */
+  const releitura = () => repoBase({ Clientes: [noBanco() as unknown as Record<string, unknown>], Categorias: CATEGORIAS });
+
+  it('produto que o cliente JÁ TEM, com a caixa do usuário ("apura"), muda a fase', () => {
+    // Vindo de "cancela o apura": não pode responder "outra pessoa alterou".
+    const r = exec('alterar_fase_produto', preparar(), { clientId: 'c1', produto: 'apura', fase: 'Cancelado', motivo: 'Cliente desistiu' });
+    expect(r).toMatchObject({ produto: 'Apura', de: 'Ativo', fase: 'Cancelado' });
+    expect(item('Apura')).toMatchObject({ fase: 'Cancelado', motivoFase: 'Cliente desistiu' });
+  });
+
+  it('produto que o cliente JÁ TEM, por nome parcial ("nexus"), muda a fase', () => {
+    const r = exec('alterar_fase_produto', preparar(), { clientId: 'c1', produto: 'nexus', fase: 'Ativo', motivo: 'Começou a usar' });
+    expect(r).toMatchObject({ produto: '2D Nexus', de: 'Em breve', fase: 'Ativo' });
+    expect(item('2D Nexus').fase).toBe('Ativo');
+  });
+
+  it('"já está" vale também para o nome em outra caixa', () => {
+    expect(() => exec('alterar_fase_produto', preparar(), { clientId: 'c1', produto: 'APURA', fase: 'Ativo', motivo: 'x' })).toThrow(/alterar_fase_produto: Apura já está Ativo/);
+  });
+
+  it('o motivo vai para ProdutosHistorico, com uma linha só por mudança', () => {
+    exec('alterar_fase_produto', preparar(), { clientId: 'c1', produto: '2D Price', fase: 'Suspenso', motivo: 'Pausa pedida pelo cliente' });
+    const linhas = historico().filter((l) => l.produto === '2D Price' && l.fase === 'Suspenso');
+    expect(linhas).toHaveLength(1);
+    expect(linhas[0].motivo).toBe('Pausa pedida pelo cliente');
+  });
+
+  it('cliente ainda não migrado: muda só o pedido, não perde acesso e guarda a linha-base', () => {
+    const legado = clienteBase({ loginPrice: 'LOGIN-SECRETO', senhaPriceCifrada: 'CIFRA-SECRETA', linksServicos: { Precificação: 'http://price' } });
+    const categoriasAntigas = [{ id: 'k1', tipo: 'servico', valor: 'Monitoria', ordem: 1 }, { id: 'k2', tipo: 'servico', valor: 'Precificação', ordem: 2 }];
+    const r = exec('alterar_fase_produto', preparar(legado, categoriasAntigas), { clientId: 'c1', produto: 'Precificação', fase: 'Suspenso', motivo: 'Pausa' });
+    expect(r).toMatchObject({ produto: '2D Price', de: 'Ativo', fase: 'Suspenso' });
+    expect(JSON.stringify(r)).not.toMatch(SECRETO);
+    expect(item('Plataforma 2D').fase).toBe('Ativo');
+    expect(item('2D Price')).toMatchObject({ fase: 'Suspenso', login: 'LOGIN-SECRETO', senhaCifrada: 'CIFRA-SECRETA' });
+    // Antes da migração o derivado segue no nome vigente da categoria (a 1.6 acha a Monitoria por ele).
+    expect(noBanco().servicos).toEqual(['Monitoria']);
+    expect(noBanco().senhaPriceCifrada).toBe('CIFRA-SECRETA');
+    expect(historico().filter((l) => l.produto === '2D Price').map((l) => l.fase)).toEqual(['Ativo', 'Suspenso']);
+  });
+
+  it('item gravado com nome antigo em produtos: acha, muda e devolve no nome oficial', () => {
+    const antigo = migrado({ produtos: [{ produto: 'Monitoria', fase: 'Ativo', faseDesde: '2026-01-01T00:00:00.000Z', motivoFase: 'x' }] });
+    const r = exec('alterar_fase_produto', preparar(antigo), { clientId: 'c1', produto: 'Plataforma 2D', fase: 'Suspenso', motivo: 'Pausa' });
+    expect(r).toMatchObject({ produto: 'Plataforma 2D', de: 'Ativo', fase: 'Suspenso' });
+    expect(noBanco().produtos).toHaveLength(1);
+  });
+
+  it('nome antigo e novo misturados no legado aparecem como um produto só para o agente', () => {
+    const repo = repoBase({ Clientes: [clienteBase({ servicos: ['Monitoria', 'Plataforma 2D'] })] });
+    const lista = exec('buscar_clientes', repo, {}) as { produtos: { produto: string }[] }[];
+    expect(lista[0].produtos.map((p) => p.produto)).toEqual(['Plataforma 2D']);
+  });
+
+  it('fase mudada por outra pessoa depois da leitura: 409 e o banco fica como está', () => {
+    const defasado = preparar();
+    exec('alterar_fase_produto', defasado, { clientId: 'c1', produto: '2D Price', fase: 'Suspenso', motivo: 'Primeiro' });
+    let erro: { status?: number; message: string } | undefined;
+    try {
+      exec('alterar_fase_produto', defasado, { clientId: 'c1', produto: '2D Price', fase: 'Cancelado', motivo: 'Segundo' });
+    } catch (e) { erro = e as typeof erro; }
+    expect(erro?.status).toBe(409);
+    expect(erro?.message).toMatch(/está Suspenso/);
+    expect(item('2D Price')).toMatchObject({ fase: 'Suspenso', motivoFase: 'Primeiro' });
+  });
+
+  it('a recusa por 409 volta pro modelo pelo loop, sem derrubar a conversa', async () => {
+    const { conversar } = require('./orquestrador.cjs');
+    const repo = preparar();
+    exec('alterar_fase_produto', repo, { clientId: 'c1', produto: '2D Price', fase: 'Suspenso', motivo: 'Primeiro' });
+    const args = { clientId: 'c1', produto: '2D Price', fase: 'Cancelado', motivo: 'Segundo' };
+    const respostas = [
+      { role: 'assistant', content: '', tool_calls: [{ function: { name: 'alterar_fase_produto', arguments: args } }] },
+      { role: 'assistant', content: 'Outra pessoa já tinha mudado.' },
+    ];
+    let i = 0;
+    const chamadas: string[] = [];
+    const r = await conversar({
+      mensagens: [{ role: 'user', content: 'cancela' }], repo,
+      ollama: { gerarJSON: async () => ({}), chat: async (...a: unknown[]) => { chamadas.push(JSON.stringify(a)); return respostas[i++]; } },
+    });
+    expect(JSON.stringify(r)).toContain('Outra pessoa já tinha mudado.');
+    expect(chamadas[1]).toMatch(/outra pessoa alterou/);
+    expect(item('2D Price').fase).toBe('Suspenso');
+  });
+
+  it('suspender e reativar: volta à cadência, com faseDesde novo, independente e acesso intactos', () => {
+    exec('alterar_fase_produto', preparar(), { clientId: 'c1', produto: 'Plataforma 2D', fase: 'Suspenso', motivo: 'Pausa' });
+    expect(noBanco().servicos).not.toContain('Plataforma 2D');
+    expect(noBanco().servicosIndependentes).toEqual([]);
+    exec('alterar_fase_produto', releitura(), { clientId: 'c1', produto: 'Plataforma 2D', fase: 'Ativo', motivo: 'Voltou' });
+    expect(noBanco().servicos).toContain('Plataforma 2D');
+    expect(noBanco().servicosIndependentes).toEqual(['Plataforma 2D']);
+    expect(item('Plataforma 2D')).toMatchObject({ motivoFase: 'Voltou', independente: true });
+    expect(item('Plataforma 2D').faseDesde).not.toBe('2026-01-01T00:00:00.000Z');
+    expect(item('2D Price')).toMatchObject({ login: 'LOGIN-SECRETO', senhaCifrada: 'CIFRA-SECRETA' });
+  });
+
+  it('produto novo em Ativo entra em servicos; em outra fase, não', () => {
+    const repo = preparar();
+    exec('alterar_fase_produto', repo, { clientId: 'c1', produto: 'Controladoria', fase: 'Em breve', motivo: 'Em negociação' });
+    expect(noBanco().servicos).not.toContain('Controladoria');
+    const r = exec('alterar_fase_produto', repo, { clientId: 'c1', produto: '2D Alcance', fase: 'Ativo', motivo: 'Contratou' });
+    expect(r).toMatchObject({ produto: '2D Alcance', de: null, fase: 'Ativo' });
+    expect(noBanco().servicos).toContain('2D Alcance');
+    expect(item('2D Alcance').faseDesde).toBeTruthy();
+  });
+
+  it('produto em branco, sem nada na categoria, é recusado sem gravar', () => {
+    const repo = preparar(migrado(), []);
+    for (const produto of [undefined, '', '   ']) {
+      expect(() => exec('alterar_fase_produto', repo, { clientId: 'c1', produto, fase: 'Ativo', motivo: 'x' })).toThrow();
+    }
+    expect(noBanco().produtos).toHaveLength(4);
+  });
+
+  it('atualizar_cliente preserva produtos e acesso, e ignora servicos mandado junto', () => {
+    exec('atualizar_cliente', preparar(), { clientId: 'c1', observacao: 'x', servicos: ['Plataforma 2D'] });
+    expect(noBanco().observacao).toBe('x');
+    expect(noBanco().servicos).toEqual(['Plataforma 2D', 'Apura', '2D Price']);
+    expect(item('2D Price')).toMatchObject({ fase: 'Ativo', login: 'LOGIN-SECRETO', senhaCifrada: 'CIFRA-SECRETA' });
+  });
+
+  it('depois de suspender, o filtro por serviço não traz o cliente (nome novo nem antigo)', () => {
+    exec('alterar_fase_produto', preparar(), { clientId: 'c1', produto: '2D Price', fase: 'Suspenso', motivo: 'Pausa' });
+    const repo = releitura();
+    expect(exec('buscar_clientes', repo, { servico: '2D Price' })).toEqual([]);
+    expect(exec('buscar_clientes', repo, { servico: 'Precificação' })).toEqual([]);
+    expect(exec('buscar_clientes', repo, { servico: 'Apura' })).toHaveLength(1);
+  });
+
+  it('nenhuma ferramenta de leitura devolve login ou senha do cliente (varredura)', async () => {
+    // Fora da varredura: explicar_conceito_carteira chama o modelo.
+    const pular = new Set(['explicar_conceito_carteira']);
+    const repo = repoBase({
+      Clientes: [migrado()], Categorias: CATEGORIAS,
+      Agenda: [{ id: 'e1', clientId: 'c1', subject: 'Reunião', date: '2026-10-01T00:00:00.000Z', status: 'Concluído', servicos: ['Plataforma 2D'], monitores: [], attachments: [] }],
+    });
+    const leitura = FERRAMENTAS.filter((f) => !(f as unknown as { escreve?: boolean }).escreve && !pular.has(f.name));
+    expect(leitura.length).toBeGreaterThan(20);
+    let responderam = 0;
+    for (const f of leitura) {
+      let saida: unknown;
+      try { saida = await f.executar(repo, { clientId: 'c1', nome: 'Loja', eventId: 'e1' }); } catch { continue; }
+      responderam += 1;
+      expect(`${f.name}: ${JSON.stringify(saida)}`).not.toMatch(SECRETO);
+    }
+    expect(responderam).toBeGreaterThan(15);
+  }, 60_000);
+
+  it('o agente é orientado: gatilho nas normas, descrição pede confirmação, reunião bloqueia', () => {
+    const { INSTRUCAO_BASE } = require('./normas.cjs');
+    const { bloqueioDaOrigem, ORIGENS_SOMENTE_LEITURA } = require('./somenteLeitura.cjs');
+    expect(String(INSTRUCAO_BASE)).toMatch(/GATILHO FASE DE PRODUTO.*alterar_fase_produto/);
+    expect(tool('alterar_fase_produto').description).toMatch(/só chame depois de o usuário confirmar/);
+    for (const origem of ORIGENS_SOMENTE_LEITURA) {
+      expect(bloqueioDaOrigem(tool('alterar_fase_produto'), origem)).toMatch(/só consulta/);
+    }
+    expect(bloqueioDaOrigem(tool('alterar_fase_produto'), 'chat')).toBeNull();
+  });
+});
+
 describe('atualizar_cliente', () => {
   const CATEGORIAS = [
     { id: 'k1', tipo: 'monitor', valor: 'Erick Cardoso', ordem: 1 },
