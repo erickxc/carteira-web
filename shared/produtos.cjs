@@ -239,6 +239,7 @@ exports.ehPlataforma2D = ehPlataforma2D;
 exports.eh2DPrice = eh2DPrice;
 exports.renomearProduto = renomearProduto;
 exports.mesmoProduto = mesmoProduto;
+exports.nomesRenomeados = nomesRenomeados;
 exports.linksRenomeados = linksRenomeados;
 exports.comNomesDaCategoria = comNomesDaCategoria;
 exports.derivarCamposLegados = derivarCamposLegados;

@@ -58,6 +58,7 @@ export function derivarCamposLegados(
   linksAtuais?: Record<string, string> | string | null,
 ): CamposLegados | null;
 /** Links com a chave no nome oficial; aceita objeto ou texto JSON. */
+export function nomesRenomeados(raw: string[] | string | null | undefined): string[];
 export function linksRenomeados(raw: Record<string, string> | string | null | undefined): Record<string, string>;
 export function comNomesDaCategoria<T extends object>(cliente: T, categorias: string[]): T;
 export function produtosDeLegado(
