@@ -1,13 +1,15 @@
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { naoCancelado } from 'carteira-shared/cadenciaServico.cjs';
 import { buildFilaCadencia, comPrecificacaoDoGrupo, eh2DPrice, ehConcluido, ehPlataforma2D } from './cadenciaServico';
+import type { RelogioServico } from './cadenciaServico';
 import type { Acao, Cadencias, Cliente, EventoAgenda } from '../types';
 
 export interface ResumoFicha {
-  prazos: { servico: string; independente: boolean; atraso: number | null; proximo: Date | null }[];
+  /** `status` é o `statusReal` do relógio (null se independente): 'nunca' não se lê pelo sinal de `atraso`, que sem data de cadastro é negativo. */
+  prazos: { servico: string; independente: boolean; atraso: number | null; status: RelogioServico['statusReal'] | null; proximo: Date | null }[];
   /** Última entrega/conversa CONCLUÍDA, mais recente. */
   ultima: EventoAgenda | null;
-  /** Próxima marcada: não concluída, não cancelada/reagendada, dia >= hoje. Pendente conta. */
+  /** Próxima marcada: não concluída, não cancelada/reagendada, dia >= hoje. Pendente conta. Relatório não (envio programado), como em `proximos` de useDashboardData. */
   proxima: EventoAgenda | null;
 }
 
@@ -35,10 +37,10 @@ export function resumoFicha(
   const relogios = buildFilaCadencia(clientes, agendaGrupo, acoes, cadencias, hoje).find((f) => f.cliente.id === cliente.id)?.relogios ?? [];
 
   const prazos = RELOGIOS.flatMap(({ servico, eh }): ResumoFicha['prazos'] => {
-    if ((cliente.servicosIndependentes ?? []).some((s) => eh(s))) return [{ servico, independente: true, atraso: null, proximo: null }];
+    if ((cliente.servicosIndependentes ?? []).some((s) => eh(s))) return [{ servico, independente: true, atraso: null, status: null, proximo: null }];
     const r = relogios.find((x) => x.servico === servico);
     // `atrasoReal`, não `atraso`: com reunião marcada, `atraso` vira um peso de ordenação da fila (-100000).
-    return r ? [{ servico, independente: false, atraso: r.atrasoReal, proximo: r.proximo }] : [];
+    return r ? [{ servico, independente: false, atraso: r.atrasoReal, status: r.statusReal, proximo: r.proximo }] : [];
   });
 
   const doCliente = agendaGrupo.filter((a) => a.clientId === cliente.id);
@@ -48,6 +50,6 @@ export function resumoFicha(
   return {
     prazos,
     ultima: ordenados(doCliente.filter((a) => ehConcluido(a) && diasAte(a) <= 0)).at(-1) ?? null,
-    proxima: ordenados(doCliente.filter((a) => !ehConcluido(a) && naoCancelado(a) && diasAte(a) >= 0))[0] ?? null,
+    proxima: ordenados(doCliente.filter((a) => !ehConcluido(a) && naoCancelado(a) && !/relat/i.test(a.type || '') && diasAte(a) >= 0))[0] ?? null,
   };
 }

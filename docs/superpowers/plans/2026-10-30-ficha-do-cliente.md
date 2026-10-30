@@ -41,9 +41,9 @@
 - Produces:
   ```ts
   export interface ResumoFicha {
-    prazos: { servico: string; independente: boolean; atraso: number | null; proximo: Date | null }[];
+    prazos: { servico: string; independente: boolean; atraso: number | null; status: RelogioServico['statusReal'] | null; proximo: Date | null }[];
     ultima: EventoAgenda | null;   // última entrega/conversa CONCLUÍDA (ehConcluido), mais recente
-    proxima: EventoAgenda | null;  // próxima marcada: não concluída, não cancelada/reagendada, dia >= hoje
+    proxima: EventoAgenda | null;  // próxima marcada: não concluída, não cancelada/reagendada, não relatório, dia >= hoje
   }
   export function resumoFicha(cliente: Cliente, clientes: Cliente[], agenda: EventoAgenda[], acoes: Acao[], cadencias: Cadencias, hoje?: Date): ResumoFicha;
   ```
@@ -91,7 +91,7 @@
 - Produces:
   - `CabecalhoFicha({ cliente, onNovoEvento, onLembrete, onContatoCliente, onEditar, onRelatorios, onExcluir })` — nome (`h1.page-title`), linha de texto "Rede X · Monitor · Segmento · Status · Estado"; botões: *Novo evento* (primary), *Lembrete*, *Cliente entrou em contato*, *Editar cadastro* (secondary); menu "⋯" (`Dropdown` existente ou `Button size="icon"` + menu) com *Relatórios* e *Excluir* (danger, com `confirmDialog` atual).
   - `PainelFicha({ cliente, resumo, contatos, onWhatsApp, onVerContatos })` — grade `grid-cols-1 md:grid-cols-2`, 4 `Card`s:
-    - **Prazos**: por item, nome do produto + número de dias (vencido = `text-danger` com "+N d"; no prazo = "N d" até vencer; independente = texto "independente" em `text-text-muted`). Vazio: "Sem produto com prazo".
+    - **Prazos**: por item, nome do produto + número de dias (`status` 'nunca' = "nunca atendido" em `text-danger`, sem olhar o sinal de `atraso`; vencido = `text-danger` com "+N d"; no prazo = "N d" até vencer; independente = texto "independente" em `text-text-muted`). Vazio: "Sem produto com prazo".
     - **Reuniões**: "Última" (data dd/MM, tipo, assunto, 1ª linha de `resumo`/`ata` truncada) e "Próxima" (data, hora, assunto; "(pendente)" quando o status for Pendente). Vazios: "Nenhuma conversa concluída" / "Nenhuma reunião marcada".
     - **monitorIA**: `<AnaliseIACard clienteId compacto />`.
     - **Contatos e acessos**: até 3 contatos (nome, cargo, botão WhatsApp → `onWhatsApp`), "ver todos (N)" → `onVerContatos` (abre o `ContatosCard` atual); abaixo `<ListaAcessos cliente />`. Vazio: "Nenhum contato cadastrado".

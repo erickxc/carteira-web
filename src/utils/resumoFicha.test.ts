@@ -66,7 +66,7 @@ describe('resumoFicha', () => {
     const preco = evento('preco', -10, 'Concluído', { clientId: 'c2', clientName: 'Loja 2', type: 'Precificação', servicos: ['2D Price'] });
     const r = resumoFicha(c, [c, irma], [preco], [], CADENCIAS, HOJE);
     expect(r.ultima?.doGrupo?.origemId).toBe('preco');
-    expect(r.prazos).toEqual([{ servico: '2D Price', independente: false, atraso: -20, proximo: null }]);
+    expect(r.prazos).toEqual([{ servico: '2D Price', independente: false, atraso: -20, status: 'em_dia', proximo: null }]);
   });
 
   it('ação de Price concluída na loja-irmã conta no prazo, como na fila', () => {
@@ -88,8 +88,8 @@ describe('resumoFicha', () => {
     const c = cliente({ servicos: ['Plataforma 2D', '2D Price'], servicosIndependentes: ['2D Price'] });
     const r = resumoFicha(c, [c], [evento('feita', -10, 'Concluído', { servicos: ['Plataforma 2D'] })], [], CADENCIAS, HOJE);
     expect(r.prazos).toEqual([
-      { servico: 'Plataforma 2D', independente: false, atraso: -20, proximo: null },
-      { servico: '2D Price', independente: true, atraso: null, proximo: null },
+      { servico: 'Plataforma 2D', independente: false, atraso: -20, status: 'em_dia', proximo: null },
+      { servico: '2D Price', independente: true, atraso: null, status: null, proximo: null },
     ]);
   });
 });
@@ -127,8 +127,8 @@ describe('resumoFicha: casos de borda', () => {
     const c = lojaDaRede({ servicos: ['Plataforma 2D', '2D Price'] });
     const feita = evento('feita', -10, 'Concluído', { ...naIrma, type: 'Reunião', servicos: ['Plataforma 2D', '2D Price'] });
     expect(resumoFicha(c, [c, irma], [feita], [], CADENCIAS, HOJE).prazos).toEqual([
-      { servico: 'Plataforma 2D', independente: false, atraso: 335, proximo: null },
-      { servico: '2D Price', independente: false, atraso: -20, proximo: null },
+      { servico: 'Plataforma 2D', independente: false, atraso: 335, status: 'nunca', proximo: null },
+      { servico: '2D Price', independente: false, atraso: -20, status: 'em_dia', proximo: null },
     ]);
   });
 
@@ -145,7 +145,7 @@ describe('resumoFicha: casos de borda', () => {
     const servicos = { servicos: ['Plataforma 2D', '2D Price'], servicosIndependentes: ['2D Price'] };
     for (const c of [cliente({ ...servicos, estado: 'Inativo' }), cliente({ ...servicos, pausadoAte: dia(10) })]) {
       const r = resumoFicha(c, [c], agenda, [], CADENCIAS, HOJE);
-      expect(r.prazos).toEqual([{ servico: '2D Price', independente: true, atraso: null, proximo: null }]);
+      expect(r.prazos).toEqual([{ servico: '2D Price', independente: true, atraso: null, status: null, proximo: null }]);
       expect(r.ultima?.id).toBe('feita');
       expect(r.proxima?.id).toBe('marcada');
     }
@@ -155,8 +155,15 @@ describe('resumoFicha: casos de borda', () => {
     const c = cliente({ servicos: ['Monitoria', 'Price'], servicosIndependentes: ['Price'] });
     const [plataforma, price, ...resto] = resumoFicha(c, [c], [], [], CADENCIAS, HOJE).prazos;
     expect(plataforma).toMatchObject({ servico: 'Plataforma 2D', independente: false, atraso: 335 });
-    expect(price).toEqual({ servico: '2D Price', independente: true, atraso: null, proximo: null });
+    expect(price).toEqual({ servico: '2D Price', independente: true, atraso: null, status: null, proximo: null });
     expect(resto).toEqual([]);
+  });
+
+  it('sem toque: status "nunca", inclusive no legado sem data de cadastro, onde o atraso sai negativo', () => {
+    const legado = cliente({ servicos: ['Plataforma 2D'], createdAt: undefined } as Partial<Cliente>);
+    expect(resumoFicha(legado, [legado], [], [], CADENCIAS, HOJE).prazos[0]).toMatchObject({ status: 'nunca', atraso: -30 });
+    const antigo = cliente({ servicos: ['Plataforma 2D'] });
+    expect(resumoFicha(antigo, [antigo], [], [], CADENCIAS, HOJE).prazos[0]).toMatchObject({ status: 'nunca', atraso: 335 });
   });
 
   it('produto sem relógio não vira prazo; produto com prazo futuro também não', () => {
