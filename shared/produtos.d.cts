@@ -51,12 +51,14 @@ export const MOTIVO_VERSAO_ANTERIOR: string;
 export function ehPlataforma2D(nome: string): boolean;
 export function eh2DPrice(nome: string): boolean;
 export function renomearProduto(nome: string): string;
+export function mesmoProduto(a: string, b: string): boolean;
 /** `null` quando `produtos` está ausente (cliente não migrado). */
 export function derivarCamposLegados(
   produtos: ProdutoCliente[] | string | null | undefined,
   linksAtuais?: Record<string, string> | string | null,
 ): CamposLegados | null;
 /** Links com a chave no nome oficial; aceita objeto ou texto JSON. */
+export function nomesRenomeados(raw: string[] | string | null | undefined): string[];
 export function linksRenomeados(raw: Record<string, string> | string | null | undefined): Record<string, string>;
 export function comNomesDaCategoria<T extends object>(cliente: T, categorias: string[]): T;
 export function produtosDeLegado(

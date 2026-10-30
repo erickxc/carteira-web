@@ -82,7 +82,7 @@ const CASOS = [
   { id: 14, cliente: 'Maniacar', p: 'Esse cliente já foi analisado?' },
 
   // --- Serviço independente (correção nova) ---
-  { id: 15, cliente: 'Altese - Recreio + Barra', p: 'Quais serviços desse cliente dependem de reunião?', esperado: [/monitoria/i] },
+  { id: 15, cliente: 'Altese - Recreio + Barra', p: 'Quais serviços desse cliente dependem de reunião?', esperado: [/plataforma|monitoria/i] },
   { id: 16, cliente: 'Altese - Recreio + Barra', p: 'Preciso agendar reunião de Precificação pra esse cliente?' },
   { id: 17, p: 'Tem algum cliente que faz algum serviço sozinho, sem depender de reunião?' },
 

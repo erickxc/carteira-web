@@ -7,9 +7,6 @@ import type { ServicoCad } from '../../utils/cadenciaServico';
 
 type FiltroServico = ServicoCad | 'Todos';
 const SERVICOS: FiltroServico[] = ['Todos', 'Plataforma 2D', '2D Price'];
-const SERVICO_LABEL: Record<FiltroServico, string> = {
-  Todos: 'Geral', 'Plataforma 2D': 'Monitoria', '2D Price': 'Precificação',
-};
 
 interface ItemVencendo {
   nome: string;
@@ -29,7 +26,7 @@ interface VencendoCardProps {
 
 type Aba = 'vencidos' | 'vencendo';
 
-/** Prazos de Monitoria/Price em volta de hoje, sem entrega marcada: os que venceram
+/** Prazos de Plataforma 2D/2D Price em volta de hoje, sem entrega marcada: os que venceram
  * nos últimos 15 dias (ninguém agiu) e os que vencem nos próximos 5 (`itensVencendo`
  * do motor compartilhado). Um atendimento com 2 serviços aparece 2x. */
 export function VencendoCard({ total, itens, vencidos, filtroServico, onFiltroServico }: VencendoCardProps) {
@@ -42,11 +39,11 @@ export function VencendoCard({ total, itens, vencidos, filtroServico, onFiltroSe
           { key: 'vencidos', label: 'Vencidos', contagem: vencidos.length, classeContagem: 'vencendo-total is-vencido' },
           { key: 'vencendo', label: 'Vencendo', contagem: total, classeContagem: 'vencendo-total' },
         ]} />
-        <InfoComoConta texto="Prazo de Monitoria (30 dias) ou Price (15 dias) que venceu nos últimos 15 dias ou vence nos próximos 5, sem entrega marcada." />
+        <InfoComoConta texto="Prazo de Plataforma 2D (30 dias) ou 2D Price (15 dias) que venceu nos últimos 15 dias ou vence nos próximos 5, sem entrega marcada." />
       </div>
       <div className="flex flex-wrap items-center gap-[0.35rem] mb-2">
         {SERVICOS.map((s) => (
-          <Chip key={s} active={filtroServico === s} onClick={() => onFiltroServico(s)}>{SERVICO_LABEL[s]}</Chip>
+          <Chip key={s} active={filtroServico === s} onClick={() => onFiltroServico(s)}>{s === 'Todos' ? 'Geral' : s}</Chip>
         ))}
         <span className="ml-auto text-text-muted" style={{ fontSize: 12 }}>{aba === 'vencidos' ? 'últimos 15 dias' : 'próximos 5 dias'}</span>
       </div>

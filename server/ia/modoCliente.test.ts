@@ -124,6 +124,46 @@ describe('APP_MODE=client: escrita de IA vai pra fila, nunca direto no SQLite', 
     expect(operacoesNaFila('memoriaIA')).toEqual([]);
   });
 
+  it('alterar_fase_produto enfileira só o item alterado e não vaza segredo', () => {
+    const cliente = {
+      id: 'c1', empresa: 'X', servicos: ['Plataforma 2D', '2D Price'], loginPrice: 'L-SECRETO', senhaPriceCifrada: 'S-SECRETA',
+      produtos: [
+        { produto: 'Plataforma 2D', fase: 'Ativo', faseDesde: '2026-01-01', motivoFase: 'm' },
+        { produto: '2D Price', fase: 'Ativo', faseDesde: '2026-01-01', motivoFase: 'm', login: 'L-SECRETO', senhaCifrada: 'S-SECRETA' },
+      ],
+    };
+    // O caminho cliente valida contra o snapshot publicado pelo controller.
+    const { SNAPSHOT_FILE, HEADERS_BY_SHEET } = require2('../config.cjs');
+    fs.mkdirSync(path.dirname(SNAPSHOT_FILE), { recursive: true });
+    const Database = require2('better-sqlite3');
+    const snap = new Database(SNAPSHOT_FILE);
+    const colunas: string[] = HEADERS_BY_SHEET.Clientes;
+    snap.exec(`CREATE TABLE "Clientes" (${colunas.map((c) => `"${c}" TEXT`).join(', ')})`);
+    snap.prepare(`INSERT INTO "Clientes" (${colunas.map((c) => `"${c}"`).join(', ')}) VALUES (${colunas.map(() => '?').join(', ')})`)
+      .run(...colunas.map((c) => (c in cliente ? (c === 'id' ? cliente.id : JSON.stringify((cliente as Record<string, unknown>)[c])) : null)));
+    snap.close();
+
+    const repo = repoMemoria({ Clientes: [cliente], Categorias: [] });
+    const args = { clientId: 'c1', produto: '2D Price', fase: 'Suspenso', motivo: 'Pausa' };
+    const r = ferramenta('alterar_fase_produto')(repo, args);
+    expect(r).toMatchObject({ empresa: 'X', produto: '2D Price', de: 'Ativo', fase: 'Suspenso', motivoFase: 'Pausa', servicos: ['Plataforma 2D'] });
+    expect(JSON.stringify(r)).not.toMatch(/SECRET/);
+
+    const ops = operacoesNaFila('clientes');
+    expect(ops).toHaveLength(1);
+    expect(ops[0]).toMatchObject({ operation: 'update', recordId: 'c1' });
+    expect(ops[0].changes).toEqual({ produtoAlterado: { produto: '2D Price', fase: 'Suspenso', motivoFase: 'Pausa', faseAnterior: 'Ativo' } });
+    expect(JSON.stringify(ops[0])).not.toMatch(/SECRET/);
+
+    // Sem snapshot novo: a ferramenta enxerga a própria operação pendente, sem
+    // falso "outra pessoa alterou" e sem "já está Ativo" com o Suspenso na fila.
+    expect(() => ferramenta('alterar_fase_produto')(repo, { ...args, fase: 'Suspenso' })).toThrow(/2D Price já está Suspenso/);
+    expect(ferramenta('alterar_fase_produto')(repo, { ...args, fase: 'Ativo', motivo: 'Voltou' })).toMatchObject({ de: 'Suspenso', fase: 'Ativo' });
+    const seguintes = operacoesNaFila('clientes');
+    expect(seguintes).toHaveLength(2);
+    expect(seguintes.map((o: { changes: { produtoAlterado: { faseAnterior: string } } }) => o.changes.produtoAlterado.faseAnterior).sort()).toEqual(['Ativo', 'Suspenso']);
+  });
+
   it('corrigir_dossie_cliente funciona (o dossiê é ARQUIVO, não SQLite) sem sincronizar AnalisesIA', () => {
     const repo = repoMemoria({
       Clientes: [{ id: 'c1', empresa: 'X', servicos: [] }],

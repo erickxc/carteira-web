@@ -5,9 +5,14 @@ import {
   classificarCadencia,
   contatoRecenteNaoRefletido,
   rotuloRelogio,
+  servicosQueDependemDeReuniao,
+  ehSolicitacao,
+  ehToqueMonitoria,
+  ehToquePrice,
   type FilaCadItem,
   type RelogioServico,
 } from './cadenciaServico';
+import { buildUltimaInteracaoMap } from './ultimaInteracao';
 import type { Acao, Cadencias, Cliente, EventoAgenda } from '../types';
 
 const CADENCIAS: Cadencias = {
@@ -442,5 +447,39 @@ describe('filtroServicoSalvo e ehServicoDeReuniao (1.7)', () => {
     const { ehServicoDeReuniao } = await import('./cadenciaServico');
     expect(['Monitoria', 'Plataforma 2D', 'Precificação', '2D Price'].every(ehServicoDeReuniao)).toBe(true);
     expect(['Apura', 'Controladoria', '2D Nexus', '2D Alcance', 'OptiMarco', 'Raptor', 'Protocolo GPS'].some(ehServicoDeReuniao)).toBe(false);
+  });
+});
+
+describe('servicosQueDependemDeReuniao', () => {
+  // Produto sem prazo (Controladoria, Apura...) nunca exige reunião — bug de 30/10/2026:
+  // a Cobertura contava cliente com Controladoria como "sem entrega".
+  it('só considera serviços com prazo (Monitoria/Precificação) não independentes', () => {
+    expect(servicosQueDependemDeReuniao({ id: 'c', servicos: ['Monitoria', 'Controladoria', 'Apura'], servicosIndependentes: [] })).toEqual(['Monitoria']);
+    expect(servicosQueDependemDeReuniao({ id: 'c', servicos: ['Monitoria', 'Precificação', 'Controladoria'], servicosIndependentes: ['Monitoria', 'Precificação'] })).toEqual([]);
+    expect(servicosQueDependemDeReuniao({ id: 'c', servicos: ['Controladoria', 'OptiMarco'] })).toEqual([]);
+    expect(servicosQueDependemDeReuniao({ id: 'c', servicos: '["Precificação","Raptor"]' })).toEqual(['Precificação']);
+  });
+
+  it('nomes novos e misturados: Plataforma 2D conta, independente casa pelo nome oficial, repetido conta uma vez', () => {
+    expect(servicosQueDependemDeReuniao({ id: 'c', servicos: ['Plataforma 2D', 'Apura'] })).toEqual(['Plataforma 2D']);
+    expect(servicosQueDependemDeReuniao({ id: 'c', servicos: ['2D Price'] })).toEqual(['2D Price']);
+    expect(servicosQueDependemDeReuniao({ id: 'c', servicos: ['Plataforma 2D', '2D Price'], servicosIndependentes: ['Monitoria', 'Precificação'] })).toEqual([]);
+    expect(servicosQueDependemDeReuniao({ id: 'c', servicos: ['Monitoria', 'Plataforma 2D'] })).toEqual(['Monitoria']);
+  });
+});
+
+describe('Solicitação fica fora das contas', () => {
+  const sol = { id: 's', clientId: 'a', clientName: 'a', type: 'Solicitação', status: 'Solicitado', date: '2026-10-28T03:00:00.000Z', servicos: ['Monitoria', 'Precificação'] } as unknown as EventoAgenda;
+  it('reconhece o tipo', () => {
+    expect(ehSolicitacao(sol)).toBe(true);
+    expect(ehSolicitacao({ ...sol, type: 'Reunião' })).toBe(false);
+  });
+  it('não cobre prazo mesmo com serviço marcado', () => {
+    expect(ehToqueMonitoria(sol)).toBe(false);
+    expect(ehToquePrice(sol)).toBe(false);
+  });
+  it('não vira última interação nem marcada como concluída por engano', () => {
+    const m = buildUltimaInteracaoMap([{ ...sol, status: 'Concluído' }], [], { now: new Date('2026-10-30T12:00:00.000Z') });
+    expect(m.has('a')).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, isSameMonth, parseISO, subMonths } from 'date-fns';
-import { atendimentoEmDia, buildFilaCadencia, comPrecificacaoDoGrupo, contatoRecenteNaoRefletido, ehEntrega, relogioNoPrazo, type RelogioServico, type ServicoCad } from './cadenciaServico';
+import { atendimentoEmDia, buildFilaCadencia, comPrecificacaoDoGrupo, contatoRecenteNaoRefletido, ehEntrega, relogioNoPrazo, servicosQueDependemDeReuniao, type RelogioServico, type ServicoCad } from './cadenciaServico';
 import { buildUltimaInteracaoMap } from './ultimaInteracao';
 import type { Acao, Cadencias, Cliente, EventoAgenda } from '../types';
 
@@ -117,10 +117,8 @@ export function calcularIndicadoresPrazo(e: EntradaIndicadores): IndicadoresPraz
   );
 
   const precisaDeContato = (c: Cliente) => {
-    const servicos = c.servicos ?? [];
-    if (servicos.length === 0) return true;
-    const independentes = c.servicosIndependentes ?? [];
-    return servicos.some((s) => !independentes.includes(s));
+    if ((c.servicos ?? []).length === 0) return true;
+    return servicosQueDependemDeReuniao(c).length > 0;
   };
   const baseCobertura = ativos.filter(precisaDeContato);
   const cobertura = {

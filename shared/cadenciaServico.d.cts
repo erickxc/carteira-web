@@ -109,6 +109,8 @@ export function ehAvisoDeCancelamento(e: { motivoContato?: string }): boolean;
 
 export function temServico(c: ClienteCadencia, re: RegExp, flag: string): boolean;
 export function ehIndependente(c: ClienteCadencia, re: RegExp): boolean;
+export function ehSolicitacao(a: { type?: string }): boolean;
+export function servicosQueDependemDeReuniao(c: ClienteCadencia): string[];
 export function naoCancelado(a: EventoCadencia): boolean;
 export function ehConcluido(a: { status?: string }): boolean;
 export type CategoriaCancelamento = 'cliente_cancelou' | 'cliente_ausente' | 'nos_cancelamos' | 'lancamento_errado';

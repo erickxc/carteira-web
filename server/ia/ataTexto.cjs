@@ -1,5 +1,6 @@
 const { addMinutes, format, parseISO } = require('date-fns');
 const { textoDirecaoOuLegado } = require('./formatoRegistroMonitoria.cjs');
+const { mesmoProduto } = require('../../shared/produtos.cjs');
 
 /**
  * Port server-side (CommonJS) de `src/utils/ata.ts` (`gerarAta`) — usado por
@@ -74,7 +75,7 @@ function gerarAta(ev, ctx = {}, ia) {
     const contatos = (ctx.cliente && ctx.cliente.contatos) ?? [];
     if (contatos.length === 0) return [];
     const doServico = servicos.length > 0
-      ? contatos.filter((c) => (c.servicos ?? []).length === 0 || (c.servicos ?? []).some((s) => servicos.includes(s)))
+      ? contatos.filter((c) => (c.servicos ?? []).length === 0 || (c.servicos ?? []).some((s) => servicos.some((e) => mesmoProduto(s, e))))
       : contatos;
     return doServico.map((c) => (c.cargo ? `${c.nome} (${c.cargo})` : c.nome));
   })();

@@ -18,6 +18,15 @@ const evBase = {
  * trava aqui só o bug real que motivou a existência deste arquivo de teste,
  * pra não voltar despercebido numa próxima edição deste port.
  */
+describe('ataTexto.cjs: participantes por produto, com nome antigo ou novo', () => {
+  it('contato marcado com "Monitoria" entra em evento de "Plataforma 2D"', () => {
+    const cliente = { contatos: [{ nome: 'Ana', servicos: ['Monitoria'] }, { nome: 'Bia', servicos: ['Apura'] }] };
+    const ata = gerarAta({ ...evBase, servicos: ['Plataforma 2D'] }, { cliente });
+    expect(ata).toContain('Ana');
+    expect(ata).not.toContain('Bia');
+  });
+});
+
 describe('ataTexto.cjs: seção 1 (RESUMO) não vira dump de export de transcrição', () => {
   // Caso REAL de produção (Renocar, 03/09/2026) — mesmo texto usado em
   // src/utils/ata.test.ts, encurtado aqui só o bastante pra passar do teto.

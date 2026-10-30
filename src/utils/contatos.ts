@@ -1,3 +1,4 @@
+import { renomearProduto } from 'carteira-shared/produtos.cjs';
 import type { Cliente, Contato } from '../types';
 
 /** Contato como a tela vê: o próprio da loja ou um herdado do grupo. */
@@ -56,6 +57,6 @@ export function servicosSemResponsavel(cliente: Cliente | undefined, contatos: C
   const doCliente = cliente?.servicos ?? [];
   if (doCliente.length === 0 || contatos.length === 0) return [];
   if (contatos.some((c) => (c.servicos ?? []).length === 0)) return [];
-  const cobertos = new Set(contatos.flatMap((c) => c.servicos ?? []));
-  return doCliente.filter((s) => !cobertos.has(s));
+  const cobertos = new Set(contatos.flatMap((c) => c.servicos ?? []).map(renomearProduto));
+  return doCliente.filter((s) => !cobertos.has(renomearProduto(s)));
 }

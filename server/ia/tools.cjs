@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { startOfWeek, endOfWeek, parseISO } = require('date-fns');
 const { executarMutacao } = require('../fila/mutacao.cjs');
+const { aplicarOverlay } = require('../fila/pendentes.cjs');
 const { lerDossieCliente, corrigirDossieCliente, gerarAnalisesPendentes } = require('./analisesAutomaticas.cjs');
 const { TEMPLATE_DOSSIE } = require('./analiseCliente.cjs');
 const { gerarAtaIA } = require('./geracaoAta.cjs');
@@ -16,7 +17,9 @@ const {
 /** Agenda vista por atendimento: inclui a precificação do grupo salva numa
  *  loja-irmã (cópia com `doGrupo`; o `id` real é `doGrupo.origemId`). */
 const agendaPorAtendimento = (repo) => comPrecificacaoDoGrupo(repo.get('Agenda'), repo.get('Clientes'));
-const { servicoPadraoDoEvento, categoriaCancelamento } = require('../../shared/cadenciaServico.cjs');
+const { servicoPadraoDoEvento, categoriaCancelamento, servicosQueDependemDeReuniao, ehSolicitacao } = require('../../shared/cadenciaServico.cjs');
+const { renomearProduto, mesmoProduto, PRODUTOS_OFICIAIS, FASES } = require('../../shared/produtos.cjs');
+const { produtosDoCliente } = require('../dominio/clientes.cjs');
 const { sugerirAgenda } = require('../dominio/sugestaoAgenda.cjs');
 const { getCache: getCacheCeoAgenda } = require('../ceoAgenda.cjs');
 const { CADENCIAS_SEED, UPLOADS_DIR } = require('../config.cjs');
@@ -55,6 +58,11 @@ function resolverOpcao(repo, tipo, valor, campo) {
 
   const exato = opcoes.find((o) => semAcento(o) === alvo);
   if (exato) return exato;
+
+  // Produto: "Monitoria" e "Plataforma 2D" são o mesmo, em qualquer sentido — o modelo
+  // e a sugestão automática podem usar um nome e a categoria (migrada ou não) o outro.
+  const mesmoNome = tipo === 'servico' && opcoes.find((o) => mesmoProduto(o, valor));
+  if (mesmoNome) return mesmoNome;
 
   const parciais = opcoes.filter((o) => semAcento(o).startsWith(alvo) || semAcento(o).includes(alvo));
   if (parciais.length === 1) return parciais[0];
@@ -99,6 +107,15 @@ function lerCadencias(repo) {
  * `ClientFormModal.tsx`). Sem isso explícito, o agente trata o nome composto
  * como bloco único e fala "a empresa X" quando devia falar "a loja X (rede Y)".
  */
+/**
+ * Produtos como o agente os vê. Lista branca de propósito: o retorno de uma
+ * ferramenta vai para o modelo e fica gravado em `AcoesIA`, que a API devolve —
+ * login, senha cifrada e link ficam só na ficha, e campo novo não vaza sozinho.
+ */
+const produtosParaAgente = (cliente) => produtosDoCliente(cliente).map(({ produto, fase, faseDesde, motivoFase, independente }) => ({
+  produto, fase, faseDesde: faseDesde || null, motivoFase: motivoFase || null, independente: Boolean(independente),
+}));
+
 function identidadeCliente(cliente) {
   const grupo = cliente.grupo || null;
   const loja = grupo ? cliente.empresa.replace(`${grupo} - `, '') : null;
@@ -153,7 +170,7 @@ function situacaoCadastro(repo, cliente) {
     pausadoAtivo,
     servicos,
     servicosIndependentes: independentes,
-    dependemDeReuniao: servicos.filter((sv) => !independentes.includes(sv)),
+    dependemDeReuniao: servicosQueDependemDeReuniao(cliente),
     proximoEvento: futuros[0]
       ? { date: dataCivilEvento(futuros[0].date), hora: futuros[0].time || null, type: futuros[0].type }
       : null,
@@ -247,7 +264,7 @@ function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo
     // virava `status: "Ativo"` e devolvia zero, porque nenhum cliente tem esse
     // status. Visto no log de auditoria em produção.
     .filter(({ cliente }) => !estado || (cliente.estado || '') === estado)
-    .filter(({ cliente }) => !servico || listaJSON(cliente.servicos).includes(servico))
+    .filter(({ cliente }) => !servico || listaJSON(cliente.servicos).some((s) => mesmoProduto(s, servico)))
     .filter(({ analise }) => !nivelRisco || analise?.nivelRisco === nivelRisco)
     .filter(({ cliente }) => !grupoBusca || normalizar(cliente.grupo).includes(grupoBusca))
     .filter(({ cliente }) => !localBusca || normalizar(cliente.local) === localBusca)
@@ -275,6 +292,7 @@ function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo
       // sem isso aqui, uma resposta sobre "quem agendar" incluía cliente cujo
       // único serviço é independente.
       servicosIndependentes: listaJSON(cliente.servicosIndependentes),
+      produtos: produtosParaAgente(cliente),
       nivelRisco: analise?.nivelRisco ?? null,
     }));
 
@@ -397,6 +415,7 @@ function buscarDossieCliente(repo, { clientId }) {
   return {
     ...identidadeCliente(cliente),
     ...situacaoCadastro(repo, cliente),
+    produtos: produtosParaAgente(cliente),
     dossie: lerDossieCliente(clientId),
     ultimaAnalise: analise ?? null,
   };
@@ -727,7 +746,7 @@ function criarEvento(repo, args) {
   // ver o comentário lá sobre o "Erick" que virou campo vazio na tela.
   const type = resolverOpcao(repo, 'tipo_evento', args.type, 'criar_evento: type');
   // Serviço é obrigatório em todo evento. Sem ele, usa o dedutível do cliente
-  // (Precificação → Price, Relatório → Monitoria, cliente com um serviço só);
+  // (Precificação → 2D Price, Relatório → Plataforma 2D, cliente com um só);
   // se for ambíguo, erra pedindo o serviço em vez de gravar vazio.
   const servicosPedidos = listaJSON(args.servicos).length ? args.servicos : servicoPadraoDoEvento({ type }, cliente);
   if (!servicosPedidos) {
@@ -830,7 +849,6 @@ function atualizarCliente(repo, args) {
   if (args.status !== undefined) patch.status = resolverOpcao(repo, 'status_cliente', args.status, 'atualizar_cliente: status');
   if (args.local !== undefined) patch.local = args.local ? resolverOpcao(repo, 'local_cliente', args.local, 'atualizar_cliente: local') : '';
   if (args.linha !== undefined) patch.linha = args.linha ? resolverOpcao(repo, 'linha_cliente', args.linha, 'atualizar_cliente: linha') : '';
-  if (args.servicos !== undefined) patch.servicos = resolverLista(repo, 'servico', args.servicos, 'atualizar_cliente: servicos') || [];
   if (args.estado !== undefined) {
     const alvo = semAcento(args.estado);
     const valido = ['ativo', 'inativo'].find((e) => e === alvo);
@@ -857,10 +875,51 @@ function atualizarCliente(repo, args) {
   }
 
   if (Object.keys(patch).length === 0) {
-    throw new Error('atualizar_cliente: nenhum campo pra alterar — informe ao menos um (monitor, status, estado, local, linha, servicos, observacao, endereco, grupo, pausadoAte).');
+    throw new Error('atualizar_cliente: nenhum campo pra alterar — informe ao menos um (monitor, status, estado, local, linha, observacao, endereco, grupo, pausadoAte).');
   }
 
-  return executarMutacao('clientes', 'update', { id: clientId, patch });
+  const salvo = executarMutacao('clientes', 'update', { id: clientId, patch });
+  if (!salvo) return salvo;
+  // O retorno vai pro modelo e pro `AcoesIA`: a linha inteira levaria a senha cifrada.
+  const { senhaPriceCifrada: _senha, loginPrice: _login, ...resto } = salvo;
+  return { ...resto, produtos: produtosParaAgente(salvo) };
+}
+
+/**
+ * Muda a fase de um produto pelo mesmo caminho da ficha (`produtoAlterado`):
+ * merge sobre a linha atual, motivo validado, histórico gravado. `faseAnterior`
+ * faz o domínio recusar se outra pessoa já mudou. Produto ainda fora do cadastro
+ * do cliente entra na fase pedida ("Apura entra em breve"). Em máquina cliente lê
+ * com o overlay da fila, a mesma visão do domínio: sem ele, a alteração anterior do
+ * próprio usuário, ainda pendente, pareceria mudança de "outra pessoa".
+ */
+function alterarFaseProduto(repo, { clientId, produto, fase, motivo } = {}) {
+  if (!clientId) throw new Error('alterar_fase_produto: "clientId" é obrigatório.');
+  const linhas = repo.get('Clientes');
+  const cliente = (isClient ? aplicarOverlay('Clientes', linhas) : linhas).find((c) => String(c.id) === String(clientId));
+  if (!cliente) throw new Error(`alterar_fase_produto: cliente "${clientId}" não encontrado.`);
+  if (!produto) throw new Error('alterar_fase_produto: "produto" é obrigatório.');
+  const motivoLimpo = String(motivo ?? '').trim();
+  if (!motivoLimpo) throw new Error('alterar_fase_produto: "motivo" é obrigatório — pergunte ao usuário, não invente.');
+  const faseValida = FASES.find((f) => semAcento(f) === semAcento(fase));
+  if (!faseValida) throw new Error(`alterar_fase_produto: fase "${fase}" inválida. Valores válidos: ${FASES.join(', ')}.`);
+
+  // Nome primeiro: `atual` só é confiável com o nome oficial ("apura", "nexus").
+  const lista = produtosDoCliente(cliente);
+  const alvo = semAcento(renomearProduto(produto));
+  const nome = renomearProduto([...lista.map((p) => p.produto), ...PRODUTOS_OFICIAIS].find((p) => semAcento(p) === alvo)
+    ?? resolverOpcao(repo, 'servico', produto, 'alterar_fase_produto: produto'));
+  const atual = lista.find((p) => mesmoProduto(p.produto, nome));
+  // Sem mudança de fase o domínio aceitaria o motivo novo sem linha no histórico.
+  if (atual?.fase === faseValida) throw new Error(`alterar_fase_produto: ${nome} já está ${faseValida}.`);
+
+  const salvo = executarMutacao('clientes', 'update', {
+    id: clientId,
+    patch: { produtoAlterado: { produto: nome, fase: faseValida, motivoFase: motivoLimpo, faseAnterior: atual ? atual.fase : null } },
+  });
+  if (!salvo) throw new Error(`alterar_fase_produto: cliente "${clientId}" não encontrado.`);
+  const item = produtosParaAgente(salvo).find((p) => p.produto === nome);
+  return { clientId, empresa: salvo.empresa, de: atual ? atual.fase : null, ...item, servicos: listaJSON(salvo.servicos) };
 }
 
 /** Mesmo cálculo de `segmentoDe` em `src/components/AcaoFormModal.tsx` — a
@@ -1466,18 +1525,23 @@ function buscarProximasReunioes(repo, { dias } = {}, ctx = {}) {
   const hoje = new Date().toISOString().slice(0, 10);
   const limite = new Date(Date.now() + janela * 86400e3).toISOString().slice(0, 10);
 
-  const eventos = repo.get('Agenda')
+  const naJanela = repo.get('Agenda')
     .filter((a) => idsDoEscopo.has(String(a.clientId)))
     .filter((a) => !/conclu|realiz|cancel|reagend/i.test(a.status || ''))
     .filter((a) => { const d = String(a.date || '').slice(0, 10); return d >= hoje && d <= limite; })
-    .sort((a, b) => `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`))
+    .sort((a, b) => `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`));
+  // Solicitação é pedido não aprovado, não reunião: vem à parte, para o agente não afirmar que está marcada.
+  const solicitacoes = naJanela.filter(ehSolicitacao).map((a) => ({
+    clientId: a.clientId, empresa: a.clientName, date: dataCivilEvento(a.date), time: a.time || null, subject: a.subject || '',
+  }));
+  const eventos = naJanela.filter((a) => !ehSolicitacao(a))
     .slice(0, 40)
     .map((a) => ({
       clientId: a.clientId, empresa: a.clientName, type: a.type, date: dataCivilEvento(a.date),
       time: a.time || null, subject: a.subject || '', status: a.status, monitores: listaJSON(a.monitores),
     }));
 
-  return { janelaDias: janela, total: eventos.length, eventos };
+  return { janelaDias: janela, total: eventos.length, eventos, solicitacoes };
 }
 
 /**
@@ -1616,8 +1680,8 @@ function buscarCoberturaContatos(repo, { clientId }) {
   const contratados = listaJSON(cliente.servicos);
   let semResponsavel = [];
   if (contratados.length > 0 && visiveis.length > 0 && !visiveis.some((c) => listaJSON(c.servicos).length === 0)) {
-    const cobertos = new Set(visiveis.flatMap((c) => listaJSON(c.servicos)));
-    semResponsavel = contratados.filter((s) => !cobertos.has(s));
+    const cobertos = new Set(visiveis.flatMap((c) => listaJSON(c.servicos)).map(renomearProduto));
+    semResponsavel = contratados.filter((s) => !cobertos.has(renomearProduto(s)));
   }
 
   return {
@@ -1644,7 +1708,7 @@ function buscarContatos(repo, { nome, cargo, servico } = {}, ctx = {}) {
       const servicosContato = listaJSON(c.servicos);
       if (buscaNome && !(c.nome || '').toLowerCase().includes(buscaNome)) continue;
       if (buscaCargo && !(c.cargo || '').toLowerCase().includes(buscaCargo)) continue;
-      if (servico && servicosContato.length > 0 && !servicosContato.includes(servico)) continue;
+      if (servico && servicosContato.length > 0 && !servicosContato.some((s) => mesmoProduto(s, servico))) continue;
       todos.push({ nome: c.nome, cargo: c.cargo || '', telefone: c.telefone || '', empresa: cliente.empresa, servicos: servicosContato, escopo: c.escopo || 'loja' });
     }
   }
@@ -1814,7 +1878,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_registros_produto',
-    description: 'Devolve os registros brutos de produto/situação (serviço Monitoria) e produto/margem (Precificação) das reuniões mais recentes de um cliente — use quando o usuário perguntar algo específico sobre produto, margem ou situação que o resumo do dossiê pode não detalhar (ex.: "o que foi precificado na última reunião da Gomec", "quais produtos caíram nos últimos meses").',
+    description: 'Devolve os registros brutos de produto/situação (reunião com Plataforma 2D) e produto/margem (Precificação) das reuniões mais recentes de um cliente — use quando o usuário perguntar algo específico sobre produto, margem ou situação que o resumo do dossiê pode não detalhar (ex.: "o que foi precificado na última reunião da Gomec", "quais produtos caíram nos últimos meses").',
     parameters: { type: 'object', properties: { clientId: { type: 'string' } }, required: ['clientId'] },
     executar: buscarRegistrosProduto,
   },
@@ -1845,7 +1909,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_vencendo',
-    description: 'Mesmo cálculo do card "Vencendo" da Visão Geral. "itens" = prazos de Monitoria (30 dias) ou Price (15 dias) que AINDA VÃO VENCER dentro de "dias" (NÃO estão vencidos). "vencidos" = prazos que JÁ VENCERAM nos últimos 15 dias sem nada marcado (aba Vencidos do card) — use este para "quem está vencido/atrasado". Janela de "itens" (padrão 5, pode pedir qualquer janela até 60 — "semana que vem" é uns 12-14 dias a partir de hoje, calcule pelo dia da semana atual) e sem reunião futura marcada. Relatório não tem prazo próprio: relatório concluído com Monitoria zera a Monitoria. A lista é por SERVIÇO (um atendimento com 2 serviços vencendo aparece 2x).',
+    description: 'Mesmo cálculo do card "Vencendo" da Visão Geral. "itens" = prazos de Plataforma 2D (30 dias) ou 2D Price (15 dias) que AINDA VÃO VENCER dentro de "dias" (NÃO estão vencidos). "vencidos" = prazos que JÁ VENCERAM nos últimos 15 dias sem nada marcado (aba Vencidos do card) — use este para "quem está vencido/atrasado". Janela de "itens" (padrão 5, pode pedir qualquer janela até 60 — "semana que vem" é uns 12-14 dias a partir de hoje, calcule pelo dia da semana atual) e sem reunião futura marcada. Relatório não tem prazo próprio: relatório concluído com Monitoria zera a Monitoria. A lista é por SERVIÇO (um atendimento com 2 serviços vencendo aparece 2x).',
     parameters: {
       type: 'object',
       properties: {
@@ -1862,7 +1926,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_cobertura_servicos',
-    description: 'Mesmo cálculo do card "Cobertura por Serviço" da Visão Geral — dos atendimentos que têm prazo de cada serviço (contratado e não independente), quantos estão no prazo (Monitoria 30 dias, Price 15 dias; só entrega concluída do serviço zera o prazo). "contrataram" = base com prazo. Diferente de buscar_cobertura (entrega concluída nos últimos 2 meses, sem olhar serviço). Devolve a lista de quem está fora do prazo.',
+    description: 'Mesmo cálculo do card "Cobertura por Serviço" da Visão Geral — dos atendimentos que têm prazo de cada serviço (contratado e não independente), quantos estão no prazo (Plataforma 2D 30 dias, 2D Price 15 dias; só entrega concluída do serviço zera o prazo). "contrataram" = base com prazo. Diferente de buscar_cobertura (entrega concluída nos últimos 2 meses, sem olhar serviço). Devolve a lista de quem está fora do prazo.',
     parameters: { type: 'object', properties: {} },
     executar: buscarCoberturaServicosTool,
   },
@@ -1892,7 +1956,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_proximas_reunioes',
-    description: 'Próximos eventos da AGENDA DA CARTEIRA (reunião/contato/relatório/precificação, dos clientes do monitor) — nunca a agenda pessoal do Marco (isso é buscar_agenda_ceo). Use pra "quais reuniões eu tenho marcada", "o que tenho essa semana", "minha agenda dos próximos dias". Exclui eventos já concluídos/realizados e cancelados/reagendados — só o que ainda vai acontecer.',
+    description: 'Próximos eventos da AGENDA DA CARTEIRA (reunião/contato/relatório/precificação, dos clientes do monitor) — nunca a agenda pessoal do Marco (isso é buscar_agenda_ceo). Use pra "quais reuniões eu tenho marcada", "o que tenho essa semana", "minha agenda dos próximos dias". Exclui eventos já concluídos/realizados e cancelados/reagendados — só o que ainda vai acontecer. Em `solicitacoes` vêm à parte os pedidos do cliente pelo Hub ainda sem aprovação: NÃO são reunião marcada, nunca diga que estão agendados.',
     parameters: { type: 'object', properties: { dias: { type: 'number', description: 'Janela de dias à frente (padrão 14, máx 60).' } } },
     executar: buscarProximasReunioes,
   },
@@ -2018,7 +2082,7 @@ const FERRAMENTAS = [
         time: { type: 'string', description: 'Hora local HH:mm (ex.: "14:30"). Sem isso, uma Reunião é criada sem checagem de conflito de horário.' },
         subject: { type: 'string' },
         description: { type: 'string' },
-        servicos: { type: 'array', items: { type: 'string' }, description: 'Serviços tratados no evento, exatamente como cadastrados (ex.: "Monitoria"). OBRIGATÓRIO em todo tipo, inclusive contato e ligação — só pode omitir quando o cliente contrata um único serviço (ou para Precificação/Relatório, que têm serviço definido pelo tipo); se o cliente tem Monitoria e Price, pergunte ao usuário.' },
+        servicos: { type: 'array', items: { type: 'string' }, description: 'Serviços tratados no evento, exatamente como cadastrados (ex.: "Plataforma 2D"). OBRIGATÓRIO em todo tipo, inclusive contato e ligação — só pode omitir quando o cliente contrata um único serviço (ou para Precificação/Relatório, que têm serviço definido pelo tipo); se o cliente tem Plataforma 2D e 2D Price, pergunte ao usuário.' },
         monitores: { type: 'array', items: { type: 'string' }, description: 'Nome COMPLETO do monitor, como cadastrado (ex.: "Erick Cardoso", não "Erick").' },
         sala: { type: 'string', description: 'Sala, como cadastrada.' },
         status: { type: 'string', description: 'Status do evento, como cadastrado (ex.: "Agendado", "Pendente"). Padrão "Agendado". Se o usuário pedir um status que não existe no cadastro, a ferramenta erra com a lista válida — NÃO diga que criou com esse status.' },
@@ -2054,7 +2118,7 @@ const FERRAMENTAS = [
   {
     name: 'atualizar_cliente',
     escreve: true,
-    description: 'Altera o CADASTRO de um cliente (monitor, status, estado Ativo/Inativo, local/segmento, linha, serviços contratados, observação, endereço, grupo, pausa temporária). Só mexe no que você informar. NÃO cria nem exclui cliente — isso continua sendo feito na tela. GRAVA DADO: só chame depois de o usuário confirmar.',
+    description: 'Altera o CADASTRO de um cliente (monitor, status, estado Ativo/Inativo, local/segmento, linha, observação, endereço, grupo, pausa temporária). Só mexe no que você informar. Produto contratado NÃO é aqui: use alterar_fase_produto. NÃO cria nem exclui cliente — isso continua sendo feito na tela. GRAVA DADO: só chame depois de o usuário confirmar.',
     parameters: {
       type: 'object',
       properties: {
@@ -2064,7 +2128,6 @@ const FERRAMENTAS = [
         estado: { type: 'string', description: 'Ativo | Inativo — liga/desliga o cliente das contas de cadência e do dashboard.' },
         local: { type: 'string', description: 'Segmento (Autopeça, Oficina, ...), como cadastrado.' },
         linha: { type: 'string', description: 'Linha de produto (Leve, Pesada, Geral), como cadastrada.' },
-        servicos: { type: 'array', items: { type: 'string' }, description: 'Serviços contratados, como cadastrados. Substitui a lista inteira.' },
         observacao: { type: 'string' },
         endereco: { type: 'string' },
         grupo: { type: 'string', description: 'Grupo/rede do cliente (análise segmentada).' },
@@ -2079,6 +2142,22 @@ const FERRAMENTAS = [
     executar: atualizarCliente,
   },
   {
+    name: 'alterar_fase_produto',
+    escreve: true,
+    description: 'Muda a fase de um produto do cliente (Em breve, Suspenso, Ativo, Cancelado) ou inclui um produto novo na fase informada. Só Ativo entra em cadência e em "servicos". O motivo é obrigatório e fica no histórico: use o que o usuário disse, nunca invente. GRAVA DADO: só chame depois de o usuário confirmar.',
+    parameters: {
+      type: 'object',
+      properties: {
+        clientId: { type: 'string' },
+        produto: { type: 'string', description: 'Nome do produto (ex.: "Plataforma 2D", "2D Price", "Apura").' },
+        fase: { type: 'string', enum: FASES },
+        motivo: { type: 'string', description: 'Motivo da mudança, nas palavras do usuário.' },
+      },
+      required: ['clientId', 'produto', 'fase', 'motivo'],
+    },
+    executar: alterarFaseProduto,
+  },
+  {
     name: 'registrar_acao',
     escreve: true,
     description: 'Registra uma Ação (Contato/Reunião/Relatório/Price) do cliente — já REALIZADA (data hoje ou passado) ou PROGRAMADA (data futura). Pra ação realizada, "resultado" diferencia "sucesso" (conseguiu falar/entregar — conta como toque de cadência, o cliente sai de vencido) de "sem_sucesso" (tentou e não conseguiu: ligou e não atendeu, mandou mensagem sem resposta — NÃO conta como toque, o cliente continua vencido na fila, só fica registrado que já houve tentativa). Nunca registre uma tentativa falha como "sucesso" só pra "resolver" a pendência — é exatamente o erro que esse campo existe pra evitar. GRAVA DADO: só chame depois de o usuário confirmar.',
@@ -2089,7 +2168,7 @@ const FERRAMENTAS = [
         tipo: { type: 'string', enum: ['contato', 'reuniao', 'relatorio', 'price'] },
         data: { type: 'string', description: 'AAAA-MM-DD. Ausente = hoje.' },
         resultado: { type: 'string', enum: ['sucesso', 'sem_sucesso'], description: 'Só pra ação já realizada (data hoje/passado). Ignorado se "data" for futura (vira status "programado" automaticamente).' },
-        servico: { type: 'string', description: 'Serviço a que a ação se refere, como cadastrado (ex.: "Monitoria").' },
+        servico: { type: 'string', description: 'Serviço a que a ação se refere, como cadastrado (ex.: "Plataforma 2D").' },
         monitor: { type: 'string', description: 'Monitor responsável, como cadastrado.' },
         notes: { type: 'string' },
       },

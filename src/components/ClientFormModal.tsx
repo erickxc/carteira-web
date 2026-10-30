@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
+import { eh2DPrice } from '../utils/cadenciaServico';
 import { toastError } from '../utils/toast';
 import { ModalShell } from './ModalShell';
 import { SelectField } from './SelectField';
@@ -427,8 +428,8 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                 ao salvar preserva a senha atual — só troca se digitar algo
                 novo. Fase 2 (ainda não construída): um programa auxiliar por
                 máquina usa esse login/senha pra abrir o Price já logado. */}
-            {servicos.includes('Precificação') && (
-              <Field as="div" label="Login no Price">
+            {servicos.some(eh2DPrice) && (
+              <Field as="div" label="Login no 2D Price">
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Input
                     tone="modal"
@@ -456,7 +457,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                 {initial?.temSenhaPrice && (
                   removerCredencialPrice ? (
                     <p className="text-[0.78rem] text-danger" style={{ marginTop: 4 }}>
-                      Login e senha do Price serão removidos ao salvar.{' '}
+                      Login e senha do 2D Price serão removidos ao salvar.{' '}
                       <button type="button" className="link-button" onClick={() => setRemoverCredencialPrice(false)}>Desfazer</button>
                     </p>
                   ) : (
@@ -466,7 +467,7 @@ export function ClientFormModal({ initial, onClose }: ClientFormModalProps) {
                       style={{ marginTop: 4 }}
                       onClick={() => setRemoverCredencialPrice(true)}
                     >
-                      Remover credencial do Price
+                      Remover credencial do 2D Price
                     </button>
                   )
                 )}

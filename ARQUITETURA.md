@@ -113,7 +113,8 @@ sugere.**
   `AgilComentarios`, `AgilConexoes`, `AgilHistorico`, `AnalisesIA`,
   `AnalisesIAHistorico`, `AcoesIA` (append-only), `UsoIA` (append-only),
   `MemoriaIA`, `StatusHistorico` (log de mudança de situação do cliente; só o
-  servidor escreve, fora da fila).
+  servidor escreve, fora da fila), `ProdutosHistorico` (log de mudança de fase
+  dos produtos do cliente; idem).
 - **Toda coluna é `TEXT` com `JSON.stringify`** — `dbSqlite.cjs` serializa e
   desserializa qualquer valor sozinho. O frontend **não** serializa mais
   (fazer isso causou dupla serialização em produção); `deserialize*` em
@@ -170,6 +171,8 @@ Rota HTTP → server/routes/*.cjs → server/dominio/*.cjs (repo.cjs) → dbSqli
   `PainelCadastroAlvos` no front).
 - **`server/dominio/statusHistorico.cjs`** — log de mudança de
   status/estado/pausa do cliente (Visão Geral de meses passados).
+- **`server/dominio/produtosHistorico.cjs`** — log de mudança de fase dos
+  produtos do cliente, mesmo desenho; `clientesEm` refaz `servicos` da época.
 - **`server/scripts/`** — scripts de manutenção/migração rodados manualmente
   (`publicarRelease.cjs` é o mais usado — ver seção 5).
 
@@ -252,6 +255,7 @@ LAN → Apache (XAMPP) :8080  →  /              = dist/ (build estático do Vi
 | monitorIA na reunião | evento de Reunião (só `start:dev` por enquanto) | `server/reuniao/` | `src/components/agenda/ReuniaoMonitorIA.tsx` |
 | Dados Alvos | Configurações/cliente | `server/alvos/` (parquet; CSV de fallback) | `src/components/alvos/` |
 | Unir atendimentos (lojas → atendimento) | `/clientes` → "Unir atendimentos" | `server/alvos/mapa.cjs` (`alterarVinculo`, motivo obrigatório; vínculos em `dados/alvos-vinculos.json`, histórico em `dados/alvos-vinculos-historico.jsonl`) | `UnirAtendimentosModal.tsx`, `src/utils/unirAtendimentos.ts` |
+| Produtos do cliente | Ficha do cliente | `shared/produtos.cjs`, `server/dominio/clientes.cjs`, `produtosHistorico.cjs`, `server/dw/retratoProdutos.cjs`, `server/routes/dwProdutos.cjs`, `server/scripts/migrarProdutos.cjs` | `src/components/cliente/ProdutosCliente.tsx`, `src/utils/produtosNoDw.ts` |
 | DW/Price sync | (cron, sem UI própria) | `server/dw/` | — |
 | Extensão de acessos | download em Configurações | `public/extensao-2d-acessos.zip` (gerado por `scripts/gerarZipExtensao.cjs`) | `extensao-price-login/` (fonte da extensão), `ExtensaoAcessosCard.tsx` |
 
@@ -261,6 +265,8 @@ LAN → Apache (XAMPP) :8080  →  /              = dist/ (build estático do Vi
   `isClienteAtivo` (reexportado em `src/utils/formatters.ts`).
 - **Cadência/relógio de serviço**: `shared/cadenciaServico.cjs` →
   `buildFilaCadencia`/`calcularRelogio`.
+- **Produtos do cliente (fases, campos derivados, tradução de máquina antiga)**:
+  `shared/produtos.cjs`.
 - **Schema de cada tabela**: `server/config.cjs` → `HEADERS_BY_SHEET`.
 - **Quais entidades sincronizam entre máquinas**: `server/fila/entidades.cjs`.
 - **Rotas da API**: `server.cjs` (registro) → `server/routes/*.cjs`.

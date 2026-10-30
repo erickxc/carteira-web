@@ -67,7 +67,7 @@ const SUGESTOES: { titulo: string; pergunta: string }[] = [
   { titulo: 'Quem agendar agora', pergunta: 'Quem eu devo agendar essa semana?' },
   { titulo: 'Sem contato há mais tempo', pergunta: 'Quais clientes estão sem nenhum contato há mais tempo?' },
   { titulo: 'Vencendo em breve', pergunta: 'Algum cliente vence a cadência nos próximos dias?' },
-  { titulo: 'Serviço descoberto', pergunta: 'Quem contratou Precificação e não está sendo atendido?' },
+  { titulo: 'Serviço descoberto', pergunta: 'Quem contratou 2D Price e não está sendo atendido?' },
   { titulo: 'Panorama de risco', pergunta: 'Gera um relatório executivo da carteira.' },
 ];
 

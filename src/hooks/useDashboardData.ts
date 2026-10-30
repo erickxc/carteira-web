@@ -12,7 +12,8 @@ import { usePersistedState } from './usePersistedState';
 import { isClienteAtivo } from '../utils/formatters';
 import { clienteStatusCor, riscoIACor } from '../utils/badges';
 import {
-  buildFilaCadencia, comPrecificacaoDoGrupo, ehEntrega, ehServicoDeReuniao, filtroServicoSalvo, itensVencendo, type ServicoCad,
+  buildFilaCadencia, comPrecificacaoDoGrupo, ehEntrega, ehServicoDeReuniao, filtroServicoSalvo, itensVencendo,
+  ehSolicitacao,
 } from '../utils/cadenciaServico';
 import { mesesComDados } from '../utils/periodo';
 import { calcularIndicadoresPrazo, LIMIAR_SEM_ACOMPANHAMENTO_DIAS, recortarAte } from '../utils/indicadoresPrazo';
@@ -297,12 +298,11 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   // (contratado e não independente), quantos estão no prazo. Vem de
   // `calcularIndicadoresPrazo` (mesma regra do Ritmo e do agente).
   const { servicosDist, totalAtendidos } = useMemo(() => {
-    const rotulo: Record<ServicoCad, string> = { 'Plataforma 2D': 'Monitoria', '2D Price': 'Price' };
     const dist = prazo.porServico.map((atual) => {
       const antes = prazoAnterior.porServico.find((x) => x.servico === atual.servico)!;
       return {
         servico: atual.servico,
-        label: rotulo[atual.servico],
+        label: atual.servico,
         n: atual.cobertos.length,
         base: atual.cobertos.length + atual.descobertos.length,
         anterior: { n: antes.cobertos.length, base: antes.cobertos.length + antes.descobertos.length },
@@ -531,7 +531,7 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   // (que já vinha filtrada pelo Tipo do topo). Relatórios ficam fora da lista e
   // viram uma linha de resumo da semana: são envio programado, não compromisso
   // com o cliente, e os automáticos (dezenas por mês) tomavam as 5 posições.
-  const aindaVai = (a: EventoAgenda) => !/conclu|realiz|cancel|reagend/i.test(a.status || '') && differenceInCalendarDays(parseISO(a.date), hoje) >= 0;
+  const aindaVai = (a: EventoAgenda) => !ehSolicitacao(a) && !/conclu|realiz|cancel|reagend/i.test(a.status || '') && differenceInCalendarDays(parseISO(a.date), hoje) >= 0;
   const proximos = useMemo(() =>
     agendaDoMonitor
       .filter((a) => aindaVai(a) && !/relat/i.test(a.type || ''))

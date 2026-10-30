@@ -50,14 +50,11 @@ export function filtroServicoSalvo(v: string): ServicoCad | 'Todos' {
 }
 
 /**
- * Serviços que são TRATADOS numa reunião — só Monitoria e Precificação, que
- * são também os únicos com régua de cadência aqui.
+ * Produtos com régua de cadência — só Plataforma 2D e 2D Price.
  *
- * Os outros serviços do cadastro (Controladoria, OptiMarco, AutoTech, Book
- * Fiscal, Raptor, Protocolo GPS, Apura...) são INFORMACIONAIS: decisão do
- * usuário — existem no cadastro do cliente e no Dashboard da Carteira, mas não
- * aparecem em "Serviços tratados" de um evento e não entram em métrica de
- * monitoria. Mesma dupla de regex já usada no motor compartilhado.
+ * Os outros serviços do cadastro (Controladoria, OptiMarco, Apura...) não entram em métrica de monitoria nem
+ * em registro rápido de contato. Desde a 1.7 podem ser marcados na reunião
+ * (o formulário oferece os Ativos do cliente), mas não zeram relógio.
  */
 /** Agenda + cópia de cada precificação do grupo pra cada loja-irmã — só pra medida por atendimento (ver motor). */
 export const comPrecificacaoDoGrupo = motor.comPrecificacaoDoGrupo as (agenda: EventoAgenda[], clientes: Cliente[]) => EventoAgenda[];
@@ -78,11 +75,14 @@ export const itensVencendo = motor.itensVencendo as (
 ) => { cliente: Cliente; relogio: RelogioServico; diasParaVencer: number }[];
 
 export const relogioNoPrazo = motor.relogioNoPrazo;
+export const ehSolicitacao = motor.ehSolicitacao;
+export const ehToqueMonitoria = motor.ehToqueMonitoria as (a: EventoAgenda) => boolean;
+export const servicosQueDependemDeReuniao = motor.servicosQueDependemDeReuniao;
 export const atendimentoEmDia = motor.atendimentoEmDia as (f: { relogios: RelogioServico[] }) => boolean;
 export const ehEntrega = motor.ehEntrega as (a: EventoAgenda) => boolean;
 export const ehConcluido = motor.ehConcluido as (a: { status?: string }) => boolean;
 export type CategoriaCancelamento = motor.CategoriaCancelamento;
 export const categoriaCancelamento = motor.categoriaCancelamento;
 export const ehAvisoDeCancelamento = motor.ehAvisoDeCancelamento;
-/** Serviço dedutível para um evento sem serviço (Precificação → Price, Relatório → Monitoria, cliente com um serviço só); null = ambíguo. */
+/** Serviço dedutível para um evento sem serviço (Precificação → 2D Price, Relatório → Plataforma 2D, cliente com um só); null = ambíguo. */
 export const servicoPadraoDoEvento = motor.servicoPadraoDoEvento as (evento: { type?: string }, cliente: Cliente | undefined) => string[] | null;

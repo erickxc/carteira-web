@@ -218,4 +218,4 @@ function remover(repo, id) {
   return true;
 }
 
-module.exports = { criar, atualizar, remover, gerarRelatorioSeConfigurado, produtosDoCliente };
+module.exports = { criar, atualizar, remover, gerarRelatorioSeConfigurado, produtosDoCliente, MOTIVO_LEGADO };

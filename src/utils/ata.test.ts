@@ -15,6 +15,15 @@ const evBase = {
   resumo: 'Conversamos sobre o estoque parado de amortecedores.',
 };
 
+describe('gerarAta: participantes por produto, com nome antigo ou novo', () => {
+  const cliente = { contatos: [{ nome: 'Ana', servicos: ['Monitoria'] }, { nome: 'Bia', servicos: ['Apura'] }] } as never;
+  it('contato marcado com "Monitoria" entra em evento de "Plataforma 2D"', () => {
+    const ata = gerarAta({ ...evBase, servicos: ['Plataforma 2D'] } as never, { cliente } as never);
+    expect(ata).toContain('Ana');
+    expect(ata).not.toContain('Bia');
+  });
+});
+
 describe('gerarAta: sem seções de IA (comportamento original preservado)', () => {
   it('usa o resumo e a heurística de decisão por regex nas seções 2/3', () => {
     const texto = gerarAta({ ...evBase, resumo: 'decisão: reduzir o pedido do mês.' });

@@ -30,7 +30,7 @@ export function AderenciaCard({
   total, emDia, marcadas,
   anterior, rotuloAnterior, filtroServico, onFiltroServico, grupos, linhas, onAbrirCliente,
 }: AderenciaCardProps) {
-  const regra = `Em dia = ${filtroServico === 'Todos' ? 'todos os serviços do atendimento' : `o prazo de ${filtroServico}`} dentro do prazo (Monitoria 30 dias, Price 15). Só entrega concluída com o serviço marcado zera o prazo; contato e reunião futura não contam.`;
+  const regra = `Em dia = ${filtroServico === 'Todos' ? 'todos os serviços do atendimento' : `o prazo de ${filtroServico}`} dentro do prazo (Plataforma 2D 30 dias, 2D Price 15). Só entrega concluída com o serviço marcado zera o prazo; contato e reunião futura não contam.`;
   return (
     <Card className="kpi-card">
       <div className="section-header">

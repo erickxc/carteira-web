@@ -25,6 +25,14 @@ describe('calcularIndicadoresPrazo', () => {
     ev('nunca', 'Reunião', 'Agendado', 3, ['Monitoria']), // passado em aberto: não conta
   ];
 
+  it('Cobertura: produto sem prazo (Controladoria) não coloca o cliente na base', () => {
+    const r = calcular(
+      [cli('fiscal', ['Controladoria']), cli('indep', ['Monitoria', 'Controladoria'], { servicosIndependentes: ['Monitoria'] }), cli('normal', ['Monitoria', 'Controladoria'])],
+      []
+    );
+    expect(nomes(r.cobertura.semContato)).toEqual(['normal']);
+  });
+
   it('Ritmo: em dia só com todos os serviços no prazo', () => {
     const r = calcular(ativos, agenda);
     expect(r.ritmo.total).toBe(3);

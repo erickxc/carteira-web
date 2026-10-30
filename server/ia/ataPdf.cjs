@@ -1,5 +1,6 @@
 const { jsPDF } = require('jspdf');
 const { format, parseISO } = require('date-fns');
+const { mesmoProduto } = require('../../shared/produtos.cjs');
 
 /**
  * Port server-side (CommonJS) de `src/utils/ataPdf.ts` — mesmo layout/marca,
@@ -119,7 +120,7 @@ function gerarAtaPdfBuffer(ev, ctx = {}) {
   const contatos = ctx.cliente?.contatos ?? [];
   const doCliente = (ctx.participantesCliente?.filter(Boolean)) ?? (
     servicosEv.length > 0
-      ? contatos.filter((c) => (c.servicos ?? []).length === 0 || (c.servicos ?? []).some((s) => servicosEv.includes(s)))
+      ? contatos.filter((c) => (c.servicos ?? []).length === 0 || (c.servicos ?? []).some((s) => servicosEv.some((e) => mesmoProduto(s, e))))
       : contatos
   ).map((c) => (c.cargo ? `${c.nome} (${c.cargo})` : c.nome));
   const monitoresEv = ev.monitores ?? [];

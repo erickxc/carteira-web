@@ -1,6 +1,6 @@
 ---
 name: monitor-ia
-description: Referência técnica completa do subsistema monitorIA (agente de IA da CARTEIRA 2D) — arquitetura, provedores, as 42 ferramentas (13 de escrita), monitorIA nas reuniões (popups, investigação de produto, somente leitura), alertas, memória, custo/uso. Use ao implementar/alterar qualquer coisa em server/ia/ ou server/reuniao/, ao decidir se uma feature nova precisa de ferramenta pro agente (checklist do CLAUDE.md), ou ao responder perguntas analíticas sobre NÚMEROS/DADOS/INFORMAÇÕES do próprio monitorIA (quantas ferramentas existem, quanto custou, quais alertas disparam, como o risco é calculado) — não sobre a carteira de clientes em si (isso é CLAUDE.md).
+description: Referência técnica completa do subsistema monitorIA (agente de IA da CARTEIRA 2D) — arquitetura, provedores, as 43 ferramentas (14 de escrita), monitorIA nas reuniões (popups, investigação de produto, somente leitura), alertas, memória, custo/uso. Use ao implementar/alterar qualquer coisa em server/ia/ ou server/reuniao/, ao decidir se uma feature nova precisa de ferramenta pro agente (checklist do CLAUDE.md), ou ao responder perguntas analíticas sobre NÚMEROS/DADOS/INFORMAÇÕES do próprio monitorIA (quantas ferramentas existem, quanto custou, quais alertas disparam, como o risco é calculado) — não sobre a carteira de clientes em si (isso é CLAUDE.md).
 ---
 
 # monitorIA — referência técnica
@@ -30,7 +30,7 @@ tool-calling AQUI)  via MCP — mcpServidor.cjs → /api/ia/interno/*)
    │                 │      └─ somenteLeitura.cjs filtra por ORIGEM (reunião = só leitura)
    └────────┬────────┘
             ▼
-   server/ia/tools.cjs — 42 ferramentas (FERRAMENTAS), 13 com `escreve: true`
+   server/ia/tools.cjs — 43 ferramentas (FERRAMENTAS), 14 com `escreve: true`
             │
             ▼
    server/dominio/*.cjs (via repoPlanilha()) → SQLite → espelho database_dev.xlsx
@@ -41,15 +41,15 @@ As rotas `iaProvedor.cjs`, `analiseIA.cjs` e `reuniao.cjs` ficam em `server/rout
 
 **Por que dois provedores**: `ollama` roda local/grátis; `claude-cli` usa a assinatura Claude do usuário (login OAuth do CLI, não API key — ver CLAUDE.md pro porquê disso importar). Produção usa `claude-cli` com **Haiku 5.5** (a GUI guarda o apelido; `estado.modeloParaCli()` traduz para o id passado em `--model`). Escolha em `IA_PROVIDER` (`.env`, trava) ou na GUI (Configurações → Sistema), persistida em `SQLITE_DIR/claude-cli.json`. **Nenhuma ferramenta nativa do CLI é liberada** (`argsDoCli`): com `Read` liberado ele lia arquivo FORA da pasta de trabalho (testado em 23/10/2026).
 
-## As 42 ferramentas (`server/ia/tools.cjs`, array `FERRAMENTAS`)
+## As 43 ferramentas (`server/ia/tools.cjs`, array `FERRAMENTAS`)
 
 Agrupadas por o que fazem — **nomes exatos**, use pra saber se algo já existe antes de propor ferramenta nova:
 
-**Leitura de cliente/carteira**: `buscar_clientes` (filtro `nome` casa também nome de loja e CNPJ; devolve as lojas do atendimento e o campo `ativo` já calculado), `buscar_dossie_cliente`, `buscar_historico_risco_cliente`, `buscar_contatos_cliente`, `buscar_contatos`, `buscar_cobertura_contatos`, `buscar_historico_eventos`, `buscar_registros_produto`, `buscar_lembretes_cliente`, `buscar_tarefas_cliente`, `buscar_opcoes_evento`, `buscar_config_cadencias`
+**Leitura de cliente/carteira**: `buscar_clientes` (filtro `nome` casa também nome de loja e CNPJ; devolve as lojas do atendimento, o campo `ativo` já calculado e `produtos` com fase/desde/motivo/independente, nunca login nem senha), `buscar_dossie_cliente`, `buscar_historico_risco_cliente`, `buscar_contatos_cliente`, `buscar_contatos`, `buscar_cobertura_contatos`, `buscar_historico_eventos`, `buscar_registros_produto`, `buscar_lembretes_cliente`, `buscar_tarefas_cliente`, `buscar_opcoes_evento`, `buscar_config_cadencias`
 
 **Fila/priorização/visão geral**: `buscar_fila_priorizacao`, `buscar_vencendo`, `buscar_cobertura`, `buscar_cobertura_servicos`, `buscar_alertas_acompanhamento`, `buscar_cancelamentos` (total, taxa, reincidentes e motivos), `sugerir_encaixes_agenda`, `verificar_disponibilidade` (devolve também `cargaSemana`), `buscar_agenda_ceo` (agenda PESSOAL do Marco/CEO, Google Calendar — não é da carteira), `buscar_proximas_reunioes` (agenda DA CARTEIRA — as duas têm "agenda" na descrição, achado real: o modelo confundia as duas)
 
-**Escrita — CONDICIONAL, exige confirmação do usuário antes de gravar** (13 com `escreve: true`; todas seguem o padrão "descreve o que faria, só grava se confirmado"; **bloqueadas nas origens da reunião**, ver abaixo): `criar_evento`, `atualizar_evento`, `atualizar_cliente` (inclui pausa temporária), `registrar_acao` (`resultado: 'sucesso' | 'sem_sucesso'`; NUNCA registrar tentativa falha como sucesso), `criar_lembrete`, `corrigir_dossie_cliente`, `redigir_ata_reuniao`, `gerar_ata_pdf`, `reanalisar_cliente`, `registrar_memoria`, `remover_memoria`, `definir_status_acompanhamento`, `definir_ficha_cliente_final`
+**Escrita — CONDICIONAL, exige confirmação do usuário antes de gravar** (14 com `escreve: true`; todas seguem o padrão "descreve o que faria, só grava se confirmado"; **bloqueadas nas origens da reunião**, ver abaixo): `criar_evento`, `atualizar_evento`, `atualizar_cliente` (inclui pausa temporária), `alterar_fase_produto` (`clientId`, `produto`, `fase`, `motivo`, todos obrigatórios; passa por `clientes.atualizar`), `registrar_acao` (`resultado: 'sucesso' | 'sem_sucesso'`; NUNCA registrar tentativa falha como sucesso), `criar_lembrete`, `corrigir_dossie_cliente`, `redigir_ata_reuniao`, `gerar_ata_pdf`, `reanalisar_cliente`, `registrar_memoria`, `remover_memoria`, `definir_status_acompanhamento`, `definir_ficha_cliente_final`
 
 **Memória do agente** (regras gerais da carteira, não de um cliente): `buscar_memoria`, `registrar_memoria`, `remover_memoria`
 
