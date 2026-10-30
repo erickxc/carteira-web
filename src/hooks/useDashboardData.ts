@@ -301,6 +301,7 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
     const dist = prazo.porServico.map((atual) => {
       const antes = prazoAnterior.porServico.find((x) => x.servico === atual.servico)!;
       return {
+        servico: atual.servico,
         label: rotulo[atual.servico],
         n: atual.cobertos.length,
         base: atual.cobertos.length + atual.descobertos.length,

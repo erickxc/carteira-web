@@ -22,7 +22,6 @@ import { RitmoMensalCard } from '../components/dashboard/RitmoMensalCard';
 import { CargaMonitorCard } from '../components/dashboard/CargaMonitorCard';
 import { ReunioesDiaCard } from '../components/dashboard/ReunioesDiaCard';
 import { montarGruposPrazo } from '../utils/gruposPrazo';
-import type { ServicoCad } from '../utils/cadenciaServico';
 import { ReminderFormModal } from '../components/ReminderFormModal';
 import { janelaDoMes } from '../utils/periodo';
 import type { Cliente } from '../types';
@@ -58,7 +57,7 @@ export default function DashboardPage() {
   const grupos = useMemo(() => montarGruposPrazo({
     ritmo: { emDia: d.aderencia.emDiaClientes, emDiaMarcada: d.aderencia.emDiaMarcadaClientes, agendaMarcada: d.aderencia.agendaMarcadaClientes, contatoRecente: d.aderencia.contatoRecenteClientes, precisa: d.aderencia.precisaClientes },
     cobertura: { cobertos: d.cobertura.cobertosClientes, semContato: d.cobertura.semContatoClientes },
-    servicos: d.servicosDist.map((s) => ({ servico: s.label as ServicoCad, descobertos: s.descobertosClientes })),
+    servicos: d.servicosDist.map((s) => ({ servico: s.servico, descobertos: s.descobertosClientes })),
     filtroServico: d.filtroServicoAderencia,
     janela: janelaCobertura,
     hoje: d.dataReferencia,
