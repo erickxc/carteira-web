@@ -197,3 +197,17 @@ describe('resumoFicha: casos de borda', () => {
     expect(agenda.map((a) => a.id)).toEqual(['b', 'a']);
   });
 });
+
+// Spec, bloco Reuniões: "mesmo critério de 'próximo' de useDashboardData", que tira relatório.
+describe('resumoFicha: próxima reunião e relatório automático', () => {
+  it('relatório mais perto não esconde a reunião marcada', () => {
+    const c = cliente();
+    const agenda = [evento('relatorio', 1, 'Agendado', { type: 'Relatório' }), evento('reuniao', 5, 'Agendado')];
+    expect(resumoFicha(c, [c], agenda, [], CADENCIAS, HOJE).proxima?.id).toBe('reuniao');
+  });
+
+  it('só relatório marcado: nenhuma reunião marcada', () => {
+    const c = cliente();
+    expect(resumoFicha(c, [c], [evento('relatorio', 1, 'Agendado', { type: 'Relatório' })], [], CADENCIAS, HOJE).proxima).toBeNull();
+  });
+});
