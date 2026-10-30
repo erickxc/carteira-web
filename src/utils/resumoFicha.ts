@@ -25,8 +25,8 @@ const primeiraLinha = (texto: string) => texto.split('\n').map((l) => l.trim()).
 
 // A linha depois do cabeçalho da seção, desde que não seja já o cabeçalho seguinte.
 const SECOES_DA_ATA = /^(?:1\. RESUMO|2\. O QUE FOI TRATADO)[ \t]*\r?\n[ \t]*(?!\d+\. )(\S.*)$/gm;
-// "ATA DE REUNIÃO — Pecita" ou "ATA — RELATÓRIO — Pecita" (`src/utils/ata.ts`).
-const TITULO_DA_ATA = /^ATA (DE REUNIÃO|— )/;
+// "ATA DE REUNIÃO — Pecita", "ATA — RELATÓRIO — Pecita" (`src/utils/ata.ts`) ou o antigo "Ata — RioJC — 21/08/2026 10:00".
+const TITULO_DA_ATA = /^ATA (DE REUNIÃO|— )/i;
 
 /**
  * Uma linha sobre o que foi conversado. A ata gerada começa com título e cabeçalho:

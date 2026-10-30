@@ -221,6 +221,10 @@ describe('resumoFicha: próxima reunião e relatório automático', () => {
 });
 
 describe('resumoDaConversa: a linha nunca é o título da ata', () => {
+  it('título no formato antigo, com data, também não é resumo', () => {
+    expect(resumoDaConversa({ ata: 'Ata — RioJC — 21/08/2026 10:00' } as Parameters<typeof resumoDaConversa>[0])).toBe('');
+  });
+
   const ev = (ata: string) => ({ id: 'e', ata }) as EventoAgenda;
   const TITULO = /^ATA\b/;
 

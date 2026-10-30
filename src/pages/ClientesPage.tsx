@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
+import { Fragment, useCallback, useMemo, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
 import * as XLSX from 'xlsx';
 import { Link, useNavigate } from 'react-router-dom';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
@@ -16,7 +16,6 @@ import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
 import { UnirAtendimentosModal } from '../components/alvos/UnirAtendimentosModal';
 import { ValorPrazo } from '../components/cliente/PainelFicha';
 import { MenuMais } from '../components/MenuMais';
-import { buscarAnalisesIA } from '../api/client';
 import { agruparPorGrupo, contarLojasFisicas, type LinhaTabela } from '../utils/gruposLojas';
 import { Dropdown } from '../components/Dropdown';
 import { Button, Card, Td, Th } from '../ui';
@@ -55,7 +54,7 @@ function SituacaoFora({ cliente }: { cliente: Cliente }) {
 }
 
 export default function ClientesPage() {
-  const { clientes, agenda, acoes, cadencias, criarClientesEmLote, opcoesPorTipo, filtroMonitor } = useCarteira();
+  const { clientes, agenda, acoes, analisesIA, cadencias, criarClientesEmLote, opcoesPorTipo, filtroMonitor } = useCarteira();
   const navigate = useNavigate();
   const hoje = new Date();
 
@@ -86,17 +85,8 @@ export default function ClientesPage() {
   const [versaoVinculos, setVersaoVinculos] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Uma chamada só, no mount da tela — não por linha — pra colorir o ícone
-  // "IA" pelo risco e permitir ordenar a coluna. `Map` por clientId: leitura
-  // O(1) por linha ao renderizar a tabela inteira.
-  const [analisesPorCliente, setAnalisesPorCliente] = useState<Map<string, AnaliseIA>>(new Map());
-  useEffect(() => {
-    let cancelado = false;
-    buscarAnalisesIA()
-      .then((lista) => { if (!cancelado) setAnalisesPorCliente(new Map(lista.map((a) => [a.clientId, a]))); })
-      .catch(() => { /* coluna cai pra "sem análise" em todo mundo — não é crítico pra tela funcionar */ });
-    return () => { cancelado = true; };
-  }, []);
+  // As análises já vêm do contexto: a tela não busca de novo.
+  const analisesPorCliente = useMemo(() => new Map(analisesIA.map((a) => [a.clientId, a])), [analisesIA]);
 
   // Uma fila só para a tela inteira: mesma ordem e mesmos prazos da tela de Ações e da ficha.
   const { ordemFila, prazosPorCliente } = useMemo(() => {

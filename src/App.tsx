@@ -85,13 +85,13 @@ function Layout({ children, equipe, onSair }: { children: ReactNode; equipe: Equ
       />
       <div className={`sidebar-backdrop${mobileOpen ? ' is-open' : ''}`} onClick={() => setMobileOpen(false)} />
       <main className="main-content">
-        <div className="flex items-center gap-2 px-6 pt-4 -mb-2">
+        <div className="flex flex-wrap items-center gap-2 px-6 pt-4 -mb-2">
           <button className="sidebar-hamburger" onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
             <Menu size={22} />
           </button>
           {/* Equipe logada em destaque: Negócios e Fiscal usam a mesma Carteira e precisam saber em qual estão. */}
           <span className="text-[1.05rem] font-bold uppercase tracking-[0.08em] text-text-primary">{NOME_EQUIPE[equipe]}</span>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2 md:gap-3">
             <BaseSincronizadaCard />
             <ReunioesHojeCard />
             <Button
