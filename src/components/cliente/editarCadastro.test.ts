@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CadastroCliente } from './CadastroCliente';
 import { EditarCadastroModal } from './EditarCadastroModal';
+import { ProdutosCliente } from './ProdutosCliente';
 import { ModalShell } from '../ModalShell';
 import type { Cliente, ProdutoClienteTela } from '../../types';
 
@@ -55,7 +56,9 @@ function abrir(rascunho: Cliente, { aberto = cliente, vivo = aberto }: { aberto?
   const modal = EditarCadastroModal({ cliente: vivo, onClose }) as ReactElement<Props>;
   expect(modal.type).toBe(ModalShell);
   const botao = (rotulo: string) => elementos(modal.props.footer as ReactNode).find((e) => e.props.children === rotulo)!;
-  return { botao, salvar: () => (modal.props.onSubmit as (e: unknown) => Promise<void>)({ preventDefault() {} }), onClose };
+  const salvar = (formulario: { querySelector: (s: string) => unknown } = { querySelector: () => null }) =>
+    (modal.props.onSubmit as (e: unknown) => Promise<void>)({ preventDefault() {}, currentTarget: formulario });
+  return { botao, salvar, onClose, travarFechar: modal.props.travarFechar };
 }
 
 let gravados: unknown[][];
@@ -140,6 +143,36 @@ describe('EditarCadastroModal', () => {
     await salvar();
     expect(onClose).not.toHaveBeenCalled();
     expect(avisos).toEqual(['recusado']);
+  });
+});
+
+describe('EditarCadastroModal: não perder o que foi digitado', () => {
+  it('sem alteração fecha com Esc e clique fora; com alteração, só pelos botões', () => {
+    expect(abrir({ ...cliente }).travarFechar).toBe(false);
+    expect(abrir({ ...cliente, endereco: 'Rua B' }).travarFechar).toBe(true);
+  });
+
+  it('troca de fase aberta: o Salvar do painel avisa, não grava e não fecha', async () => {
+    const seletores: string[] = [];
+    const { salvar, onClose } = abrir({ ...cliente, status: 'Suspenso' });
+    await salvar({ querySelector: (s) => { seletores.push(s); return {}; } });
+    expect(seletores).toEqual(['[data-bloco-produtos] textarea']);
+    expect(gravados).toEqual([]);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(avisos[0]).toMatch(/troca de fase/);
+  });
+
+  it('o que o Salvar procura existe: o bloco tem a marca e só a edição de fase tem textarea', () => {
+    const comProduto = { ...cliente, produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2025-03-15', motivoFase: 'x' }] as ProdutoClienteTela[] };
+    const bloco = (estados: unknown[]) => {
+      h.estados = estados;
+      return renderToStaticMarkup(createElement(ProdutosCliente, { cliente: comProduto, salvar: async () => true, linksEditaveis: true }));
+    };
+    expect(bloco([])).not.toContain('<textarea');
+    expect(bloco([{ produto: '2D Price', fase: 'Cancelado', motivo: '', novo: false, de: 'Ativo' }])).toContain('<textarea');
+    expect(bloco([{ produto: 'Protocolo GPS', fase: 'Ativo', motivo: '', novo: true }])).toContain('<textarea');
+    h.estados = [];
+    expect(renderToStaticMarkup(createElement(CadastroCliente, { cliente, valor: cliente, onChange: () => {} }))).toContain('data-bloco-produtos');
   });
 });
 

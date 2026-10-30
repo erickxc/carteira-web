@@ -21,6 +21,8 @@ interface ModalShellProps {
   headerBackground?: string;
   /** Cor do texto/ícones do cabeçalho — só relevante junto de `headerBackground`. */
   headerForeground?: string;
+  /** Ligado, Esc e clique fora não fecham: só os botões do rodapé (rascunho com alteração). */
+  travarFechar?: boolean;
   children: ReactNode;
 }
 
@@ -31,34 +33,38 @@ interface ModalShellProps {
  * título, conteúdo do body e botões do footer; lógica/estado continuam no
  * componente de cada um.
  */
-export function ModalShell({ title, onClose, onSubmit, footer, size, titleNode, headerBackground, headerForeground, children }: ModalShellProps) {
+export function ModalShell({ title, onClose, onSubmit, footer, size, titleNode, headerBackground, headerForeground, travarFechar, children }: ModalShellProps) {
   const { fechando, fechar } = useFecharAnimado(onClose);
   const modalRef = useRef<HTMLDivElement>(null);
   const tituloId = useId();
 
-  // Esc fecha, igual ao Dropdown — e foco volta pra quem abriu o modal, senão
-  // o teclado "perde o lugar" depois de fechar (foco cai pro <body>).
+  // Foco volta pra quem abriu o modal, senão o teclado "perde o lugar" depois de
+  // fechar (foco cai pro <body>). Efeito próprio: refazê-lo junto com o do Esc
+  // tiraria o foco do campo quando `travarFechar` muda.
   useEffect(() => {
     const elementoAnterior = document.activeElement as HTMLElement | null;
     // Só assume o foco se nada dentro do modal já pegou foco sozinho (ex.:
     // campo com `autoFocus`) — senão rouba o foco do campo certo.
     if (!modalRef.current?.contains(document.activeElement)) modalRef.current?.focus();
+    return () => elementoAnterior?.focus();
+  }, []);
+
+  // Esc fecha, igual ao Dropdown.
+  useEffect(() => {
+    if (travarFechar) return;
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') fechar();
     }
     document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      elementoAnterior?.focus();
-    };
-  }, [fechar]);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [fechar, travarFechar]);
 
   // Portal para o <body>: o modal é renderizado dentro das páginas, que ficam
   // sob a transição de tela (`TransicaoDeTela`, anima transform). Um ancestral com transform
   // faz `position: fixed` se ancorar NELE em vez da viewport — o modal saía da
   // tela e não redimensionava. No body, o fixed volta a valer pela viewport.
   return createPortal(
-    <div className={`modal-overlay${fechando ? ' is-closing' : ''}`} onClick={fechar}>
+    <div className={`modal-overlay${fechando ? ' is-closing' : ''}`} onClick={travarFechar ? undefined : fechar}>
       <div
         ref={modalRef}
         className={`modal${size ? ` modal-${size}` : ''}`}

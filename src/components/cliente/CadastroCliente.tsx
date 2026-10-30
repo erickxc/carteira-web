@@ -119,7 +119,7 @@ function CadastroEdicao({ cliente, valor, onChange }: { cliente: Cliente; valor:
 
         {/* Produtos (1.7.0): fase, motivo e acesso de cada produto, gravados na hora.
             Recebem o cliente vivo, não o rascunho. */}
-        <div onKeyDown={segurarEnter}>
+        <div data-bloco-produtos onKeyDown={segurarEnter}>
           <ProdutosCliente cliente={cliente} salvar={salvarProduto} linksEditaveis={ehPrincipal} nomePrincipal={nomePrincipal} />
         </div>
         <p className="text-text-muted" style={{ fontSize: 12, margin: '0 0 14px' }}>

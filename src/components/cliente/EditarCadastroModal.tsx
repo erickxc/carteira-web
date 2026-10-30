@@ -23,6 +23,14 @@ export function EditarCadastroModal({ cliente, onClose }: { cliente: Cliente; on
 
   async function salvar(e: FormEvent) {
     e.preventDefault();
+    // Troca de fase aberta não vai neste Salvar: sem o aviso, o painel fecharia e a
+    // fase continuaria a antiga, com a pessoa achando que mudou.
+    // ponytail: o editor de fase é o único textarea do bloco de produtos e o estado é
+    // interno de ProdutosCliente; se lá ganhar outro textarea, trocar por uma prop.
+    if ((e.currentTarget as HTMLFormElement).querySelector('[data-bloco-produtos] textarea')) {
+      toastError('Conclua ou cancele a troca de fase antes de salvar.');
+      return;
+    }
     if (!rascunho.empresa.trim()) {
       toastError('O nome não pode ficar vazio.');
       return;
@@ -61,6 +69,7 @@ export function EditarCadastroModal({ cliente, onClose }: { cliente: Cliente; on
       onClose={onClose}
       onSubmit={salvar}
       size="xl"
+      travarFechar={Object.keys(patchCadastro(original, rascunho)).length > 0}
       footer={(
         <>
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
