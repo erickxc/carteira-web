@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { resumoFicha } from './resumoFicha';
+import { gerarAta, type AtaSecoesIA } from './ata';
+import { resumoDaConversa, resumoFicha } from './resumoFicha';
 import type { Acao, Cadencias, Cliente, EventoAgenda } from '../types';
 
 const CADENCIAS = { monitoria_dias: 30, price_dias: 30 } as Cadencias;
@@ -216,5 +217,38 @@ describe('resumoFicha: próxima reunião e relatório automático', () => {
   it('só relatório marcado: nenhuma reunião marcada', () => {
     const c = cliente();
     expect(resumoFicha(c, [c], [evento('relatorio', 1, 'Agendado', { type: 'Relatório' })], [], CADENCIAS, HOJE).proxima).toBeNull();
+  });
+});
+
+describe('resumoDaConversa: a linha nunca é o título da ata', () => {
+  const ev = (ata: string) => ({ id: 'e', ata }) as EventoAgenda;
+  const TITULO = /^ATA\b/;
+
+  it('ata do gerador atual: lê a seção de resumo', () => {
+    const ata = gerarAta({ type: 'Reunião', clientName: 'Pecita', date: dia(-3), subject: 'Margem' }, {}, { oQueFoiTratado: 'Margem subiu no trimestre\nOutra linha' } as AtaSecoesIA);
+    expect(resumoDaConversa(ev(ata))).toBe('Margem subiu no trimestre');
+  });
+
+  it('ata do gerador atual ainda em branco: vazio', () => {
+    expect(resumoDaConversa(ev(gerarAta({ type: 'Relatório', clientName: 'Pecita', date: dia(-3) })))).toBe('');
+  });
+
+  it('ata salva com quebra de linha do Windows', () => {
+    expect(resumoDaConversa(ev('ATA DE REUNIÃO — Pecita\r\n\r\n1. RESUMO\r\n   Margem subiu\r\n\r\n2. O QUE FOI TRATADO\r\n'))).toBe('Margem subiu');
+  });
+
+  // Falham até corrigir resumoDaConversa. Sem a seção "1. RESUMO" preenchida ela
+  // cai em primeiraLinha, que numa ata gerada é o próprio título.
+  it('ata antiga (antes de 02/09/2026, seção "1. PAUTA") não mostra o título', () => {
+    const ata = 'ATA DE REUNIÃO — Pecita\n12/08/2026 · 14:00\nMonitor: Erick\n\n1. PAUTA\n   (sem pauta registrada)\n\n2. O QUE FOI TRATADO\n   Margem subiu\n';
+    expect(resumoDaConversa(ev(ata))).not.toMatch(TITULO);
+  });
+
+  it('ata antiga de outro tipo de entrega também não', () => {
+    expect(resumoDaConversa(ev('ATA — RELATÓRIO — Pecita\n12/08/2026\n\n1. PAUTA\n   (sem pauta registrada)\n'))).not.toMatch(TITULO);
+  });
+
+  it('seção de resumo apagada à mão não mostra o título', () => {
+    expect(resumoDaConversa(ev('ATA DE REUNIÃO — Pecita\n\n1. RESUMO\n\n2. O QUE FOI TRATADO\n   Algo\n'))).not.toMatch(TITULO);
   });
 });
