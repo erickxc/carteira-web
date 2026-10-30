@@ -16,7 +16,7 @@ const {
 /** Agenda vista por atendimento: inclui a precificação do grupo salva numa
  *  loja-irmã (cópia com `doGrupo`; o `id` real é `doGrupo.origemId`). */
 const agendaPorAtendimento = (repo) => comPrecificacaoDoGrupo(repo.get('Agenda'), repo.get('Clientes'));
-const { servicoPadraoDoEvento, categoriaCancelamento } = require('../../shared/cadenciaServico.cjs');
+const { servicoPadraoDoEvento, categoriaCancelamento, servicosQueDependemDeReuniao } = require('../../shared/cadenciaServico.cjs');
 const { sugerirAgenda } = require('../dominio/sugestaoAgenda.cjs');
 const { getCache: getCacheCeoAgenda } = require('../ceoAgenda.cjs');
 const { CADENCIAS_SEED, UPLOADS_DIR } = require('../config.cjs');
@@ -153,7 +153,7 @@ function situacaoCadastro(repo, cliente) {
     pausadoAtivo,
     servicos,
     servicosIndependentes: independentes,
-    dependemDeReuniao: servicos.filter((sv) => !independentes.includes(sv)),
+    dependemDeReuniao: servicosQueDependemDeReuniao(cliente),
     proximoEvento: futuros[0]
       ? { date: dataCivilEvento(futuros[0].date), hora: futuros[0].time || null, type: futuros[0].type }
       : null,

@@ -19,6 +19,7 @@ const {
   isClienteAtivo, buildUltimaInteracaoMap, buildFilaCadencia, classificarCadencia,
   contatoRecenteNaoRefletido, rotuloRelogio, listaJSON,
   atendimentoEmDia, relogioNoPrazo, itensVencendo, ehEntrega, comPrecificacaoDoGrupo,
+  servicosQueDependemDeReuniao,
 } = motor;
 
 /**
@@ -83,10 +84,8 @@ function buscarVencendo(clientes, agenda, acoes, cadencias, now = new Date(), ja
  */
 function buscarCobertura(clientes, agenda, now = new Date()) {
   const precisaDeContato = (c) => {
-    const servicos = listaJSON(c.servicos);
-    if (servicos.length === 0) return true;
-    const independentes = listaJSON(c.servicosIndependentes);
-    return servicos.some((s) => !independentes.includes(s));
+    if (listaJSON(c.servicos).length === 0) return true;
+    return servicosQueDependemDeReuniao(c).length > 0;
   };
   const ativos = clientes.filter((c) => isClienteAtivo(c, now) && precisaDeContato(c));
   const ativosIds = new Set(ativos.map((c) => c.id));
@@ -154,7 +153,7 @@ module.exports = {
   // Reexportado do motor compartilhado — mesma interface pública de antes,
   // pra nenhum `require('../dominio/cadenciaServico.cjs')` existente precisar mudar.
   comPrecificacaoDoGrupo, isClienteAtivo, buildUltimaInteracaoMap, buildFilaCadencia, classificarCadencia, contatoRecenteNaoRefletido,
-  listaJSON, rotuloRelogio,
+  listaJSON, rotuloRelogio, servicosQueDependemDeReuniao,
   // Específico do backend.
   calcularAderencia, buscarVencendo, buscarCobertura, buscarCoberturaServicos, buscarAlertasSemAcompanhamento,
 };

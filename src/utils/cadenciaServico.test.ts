@@ -5,6 +5,7 @@ import {
   classificarCadencia,
   contatoRecenteNaoRefletido,
   rotuloRelogio,
+  servicosQueDependemDeReuniao,
   type FilaCadItem,
   type RelogioServico,
 } from './cadenciaServico';
@@ -428,5 +429,16 @@ describe('buildFilaCadencia — o que conta como "marcado"', () => {
     const c = cliente({ servicos: ['Precificação'] });
     const [f] = buildFilaCadencia([c], [futuro({ type: 'Precificação', servicos: ['Precificação'] })], [], CADENCIAS, NOW);
     expect(f.relogios[0].status).toBe('coberto');
+  });
+});
+
+describe('servicosQueDependemDeReuniao', () => {
+  // Produto sem prazo (Controladoria, Apura...) nunca exige reunião — bug de 30/10/2026:
+  // a Cobertura contava cliente com Controladoria como "sem entrega".
+  it('só considera serviços com prazo (Monitoria/Precificação) não independentes', () => {
+    expect(servicosQueDependemDeReuniao({ id: 'c', servicos: ['Monitoria', 'Controladoria', 'Apura'], servicosIndependentes: [] })).toEqual(['Monitoria']);
+    expect(servicosQueDependemDeReuniao({ id: 'c', servicos: ['Monitoria', 'Precificação', 'Controladoria'], servicosIndependentes: ['Monitoria', 'Precificação'] })).toEqual([]);
+    expect(servicosQueDependemDeReuniao({ id: 'c', servicos: ['Controladoria', 'OptiMarco'] })).toEqual([]);
+    expect(servicosQueDependemDeReuniao({ id: 'c', servicos: '["Precificação","Raptor"]' })).toEqual(['Precificação']);
   });
 });

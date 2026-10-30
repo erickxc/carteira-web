@@ -156,6 +156,17 @@ function ehIndependente(c, re) {
   return listaJSON(c.servicosIndependentes).some((s) => re.test(s));
 }
 
+/**
+ * Serviços do cliente que dependem de reunião: os que têm prazo (Monitoria e
+ * Precificação/Price) e não estão marcados como independentes. Produto sem
+ * prazo (Controladoria, Apura, OptiMarco...) nunca entra — bug de 30/10/2026:
+ * a Cobertura contava cliente com Controladoria como "sem entrega".
+ */
+function servicosQueDependemDeReuniao(c) {
+  const independentes = listaJSON(c.servicosIndependentes);
+  return listaJSON(c.servicos).filter((s) => /monitor|price|prec/i.test(s) && !independentes.includes(s));
+}
+
 const naoCancelado = (a) => !/cancel|reagend/i.test(a.status || '');
 
 /**
@@ -566,6 +577,7 @@ exports.buildUltimaInteracaoMap = buildUltimaInteracaoMap;
 exports.ehAvisoDeCancelamento = ehAvisoDeCancelamento;
 exports.temServico = temServico;
 exports.ehIndependente = ehIndependente;
+exports.servicosQueDependemDeReuniao = servicosQueDependemDeReuniao;
 exports.naoCancelado = naoCancelado;
 exports.ehMarcadoConfirmado = ehMarcadoConfirmado;
 exports.ehConcluido = ehConcluido;
