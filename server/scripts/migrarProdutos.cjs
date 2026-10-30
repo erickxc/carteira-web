@@ -25,6 +25,7 @@ const { atualizar, produtosDoCliente, MOTIVO_LEGADO } = require('../dominio/clie
 const produtosHistorico = require('../dominio/produtosHistorico.cjs');
 const { listaJSON, buildFilaCadencia } = require('../../shared/cadenciaServico.cjs');
 const { PRODUTOS_OFICIAIS, renomearProduto, nomesRenomeados } = require('../../shared/produtos.cjs');
+const { buscarCobertura } = require('../dominio/cadenciaServico.cjs');
 
 const MOTIVO = 'migração para produtos (1.7)';
 /** Produtos acrescentados pelo DW nesta data (spec §4): o relógio parte daqui. */
@@ -212,6 +213,16 @@ function compararRelogios(antes, depois, novosDesde, clientes) {
   return { comparados: antes.size, permitidas, divergencias };
 }
 
+/** Cobertura antes × depois: os relógios não pegam quem entra ou sai da conta sem
+ * mudar de relógio (ex.: cliente só com produto Em breve fica sem `servicos`). */
+function compararCobertura(antes, depois) {
+  const semContato = new Set(antes.semContatoClientes);
+  const novos = new Set(depois.semContatoClientes);
+  const clientes = [...new Set([...semContato, ...novos])].filter((n) => semContato.has(n) !== novos.has(n)).sort();
+  const mudou = antes.total !== depois.total || antes.cobertos !== depois.cobertos || clientes.length > 0;
+  return { antes: { total: antes.total, cobertos: antes.cobertos }, depois: { total: depois.total, cobertos: depois.cobertos }, clientes, mudou };
+}
+
 /**
  * `opts.backup` (só com `aplicar`): cópia do banco, aguardada antes da primeira
  * escrita; se falhar, nada é gravado. `opts.maquinasDir`: pasta dos logs de versão.
@@ -237,6 +248,7 @@ async function migrar(repo, opts = {}) {
     historico: 0,
     historicoRemovido: [],
     relogios: { comparados: 0, permitidas: [], divergencias: [] },
+    cobertura: null,
   };
   if (!entradas) {
     return { ...relatorio, recusa: 'Registro do DW em formato inesperado: o esperado é { clientes: [{ id, entra: [produtos] }] }, com id em texto em todos os itens.' };
@@ -245,8 +257,10 @@ async function migrar(repo, opts = {}) {
   // Ensaio geral: a mesma sequência sobre uma cópia em memória.
   const copia = repoMemoria(Object.fromEntries(SHEETS.map((s) => [s, repo.get(s)])));
   const antes = relogiosPorCliente(copia, agora);
+  const coberturaAntes = buscarCobertura(copia.get('Clientes'), copia.get('Agenda'), agora);
   const ensaio = aplicarPassos(copia, entradas, agora);
   const relogios = compararRelogios(antes, relogiosPorCliente(copia, agora), ensaio.clientes.novosDesde, copia.get('Clientes'));
+  const cobertura = compararCobertura(coberturaAntes, buscarCobertura(copia.get('Clientes'), copia.get('Agenda'), agora));
 
   Object.assign(relatorio, {
     categorias: ensaio.categorias.nomes,
@@ -259,10 +273,15 @@ async function migrar(repo, opts = {}) {
     historico: ensaio.historico.novas,
     historicoRemovido: ensaio.historico.removidas,
     relogios,
+    cobertura,
   });
 
   if (relogios.divergencias.length) {
     relatorio.recusa = `${relogios.divergencias.length} relógio(s) divergem fora da regra de "desde quando" (spec §4).`;
+    return relatorio;
+  }
+  if (cobertura.mudou) {
+    relatorio.recusa = `A Cobertura mudaria com a migração (${cobertura.antes.cobertos} de ${cobertura.antes.total} -> ${cobertura.depois.cobertos} de ${cobertura.depois.total}).`;
     return relatorio;
   }
   if (!aplicar) return relatorio;
@@ -317,6 +336,11 @@ function imprimir(r) {
   console.log(`Relógios comparados: ${comparados} · mudam pela regra do DW: ${permitidas.length} · divergem: ${divergencias.length}`);
   for (const d of permitidas) console.log(`  [DW] ${d.empresa} · ${d.servico}: ${d.antes} -> ${d.depois}`);
   for (const d of divergencias) console.log(`  [DIVERGE] ${d.empresa} · ${d.servico}: ${d.antes} -> ${d.depois}`);
+  if (r.cobertura) {
+    const { antes, depois, clientes } = r.cobertura;
+    console.log(`Cobertura: ${antes.cobertos} de ${antes.total} -> ${depois.cobertos} de ${depois.total}`);
+    for (const n of clientes) console.log(`  [COBERTURA] ${n}`);
+  }
   if (r.maquinasAtrasadas.length) {
     console.log(`Máquinas abaixo da 1.7: ${r.maquinasAtrasadas.map((m) => `${m.maquina} (${m.versao})`).join(', ')}`);
   }

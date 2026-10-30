@@ -275,6 +275,22 @@ describe('migrarProdutos: aplicar', () => {
     ]);
   });
 
+  it('Cobertura igual antes e depois; cliente que entraria na conta aborta sem gravar', async () => {
+    const repo = montar({ Clientes: [cli('a', { servicos: ['Monitoria', 'Precificação'], servicosIndependentes: ['Monitoria'] })] });
+    const ok = await migrar(repo);
+    expect(ok.gravado).toBe(true);
+    expect(ok.cobertura).toMatchObject({ antes: { total: 1 }, depois: { total: 1 }, clientes: [], mudou: false });
+
+    // Só produto Em breve: sem `servicos` depois da migração, entraria na conta.
+    const repo2 = montar({ Clientes: [cli('b', { servicos: ['2D Nexus'] })] });
+    const antes = JSON.stringify(repo2._dump());
+    const r = await migrar(repo2);
+    expect(r.gravado).toBe(false);
+    expect(r.recusa).toContain('Cobertura');
+    expect(r.cobertura.clientes).toEqual(['b']);
+    expect(JSON.stringify(repo2._dump())).toBe(antes);
+  });
+
   it('relógio que diverge fora da regra aborta sem gravar, inclusive de cliente hoje inativo', async () => {
     // Flag legada sem `servicos`: hoje tem relógio; o `monitoria` derivado o tiraria.
     const repo = montar({ Clientes: [cli('a', { servicos: [], monitoria: true, estado: 'Inativo' })] });
