@@ -36,6 +36,6 @@ export default defineConfig({
     // entende CommonJS nativamente — e a tela ficava em branco com
     // "SyntaxError: does not provide an export named...". `npm run build`
     // nunca teve esse problema (usa Rollup, que converte CJS→ESM sempre).
-    include: ['carteira-shared/cadenciaServico.cjs'],
+    include: ['carteira-shared/cadenciaServico.cjs', 'carteira-shared/produtos.cjs'],
   },
 });
