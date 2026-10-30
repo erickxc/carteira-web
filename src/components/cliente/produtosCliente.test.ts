@@ -72,9 +72,9 @@ describe('bloco Produtos da ficha', () => {
   it('"No DW agora": marcado, parcial, não marcado, — e aviso só quando diverge da fase', () => {
     const lojas = [{ nome: 'A', cnpj: '11', endereco: '' }, { nome: 'B', cnpj: '22', endereco: '' }, { nome: 'C', cnpj: '33', endereco: '' }];
     const retrato = { geradoEm: DATA, porCnpj: {
-      11: ['Plataforma 2D', 'Apura', 'Controladoria', 'OptiMarco'],
-      22: ['Plataforma 2D', 'Apura', 'OptiMarco'],
-      33: ['Plataforma 2D', 'OptiMarco'],
+      11: { produtos: ['Plataforma 2D', 'Apura', 'Controladoria', 'OptiMarco'] },
+      22: { produtos: ['Plataforma 2D', 'Apura', 'OptiMarco'] },
+      33: { produtos: ['Plataforma 2D', 'OptiMarco'] },
     } };
     const c = cliente([
       prod('Plataforma 2D'), prod('Controladoria', 'Cancelado'), prod('Apura'),
@@ -93,7 +93,7 @@ describe('bloco Produtos da ficha', () => {
   it('Plataforma marcada em outra loja do grupo aparece como marcada aqui', () => {
     const c = cliente([prod('Plataforma 2D')], { grupo: 'Rede', lojasCadastro: [{ nome: 'A', cnpj: '11', endereco: '' }] });
     contexto.clientes = [c, cliente([], { id: 'c2', grupo: 'rede', lojasCadastro: [{ nome: 'B', cnpj: '22', endereco: '' }] })];
-    const t = texto(htmlDaFicha(c, { retrato: { geradoEm: DATA, porCnpj: { 11: [], 22: ['Plataforma 2D'] } } }));
+    const t = texto(htmlDaFicha(c, { retrato: { geradoEm: DATA, porCnpj: { 11: { produtos: [] }, 22: { produtos: ['Plataforma 2D'] } } } }));
     expect(t).toContain('No DW: marcado');
     expect(t).not.toContain('não marcado no DW');
   });

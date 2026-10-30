@@ -74,4 +74,24 @@ async function buscarProdutosParametroBi() {
   return rows;
 }
 
-module.exports = { buscarDadosPrice, buscarProdutosParametroBi };
+/**
+ * Dados fiscais por loja, para o retrato. Colunas SEMPRE listadas: `empresas`
+ * guarda `certificado_senha`/`certificado_nome` e `apura_usuarios` guarda
+ * `senha`, e nada disso pode sair daqui (o retrato mora no OneDrive).
+ * `to_char`: a validade é timestamp sem fuso — como Date, viraria o dia anterior
+ * ao converter pra ISO. O `ativo` vem junto: quem decide é `montarRetrato`.
+ */
+async function buscarDadosFiscaisLojas() {
+  const db = conectar();
+  const [empresas, grupos, apura] = await Promise.all([
+    db.query("SELECT cnpj, to_char(certificado_validade, 'YYYY-MM-DD') AS certificado_validade, telefone, email FROM empresas"),
+    db.query(
+      'SELECT r.raiz_cnpj, g.codigo, g.nome, (r.ativo AND g.ativo) AS ativo '
+      + 'FROM grupos_fiscais_raizes r JOIN grupos_fiscais g ON g.id = r.grupo_id',
+    ),
+    db.query('SELECT cnpj, ultimo_login_em, ativo FROM apura_usuarios'),
+  ]);
+  return { empresas: empresas.rows, grupos: grupos.rows, apura: apura.rows };
+}
+
+module.exports = { buscarDadosPrice, buscarProdutosParametroBi, buscarDadosFiscaisLojas };

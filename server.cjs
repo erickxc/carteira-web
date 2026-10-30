@@ -17,6 +17,7 @@ const { iniciarSincronizacaoPeriodica: iniciarSyncCeoAgenda } = require('./serve
 const { rodarCicloComSnapshot } = require('./server/fila/controller.cjs');
 const { sincronizarPriceDoDW } = require('./server/dw/sincronizarPrice.cjs');
 const { gerarRetrato } = require('./server/dw/retratoProdutos.cjs');
+const { consultarSituacao } = require('./server/dw/receitaCnpj.cjs');
 const { gerarAnalisesPendentes } = require('./server/ia/analisesAutomaticas.cjs');
 const { consolidarAgilIniciativas } = require('./server/scripts/consolidarAgilIniciativas.cjs');
 
@@ -200,8 +201,10 @@ if (isServer) {
 // Retrato "No DW agora" (produtos marcados no `parametro_bi`, só leitura) —
 // gravado em `dados/dw-produtos.json` pras máquinas client lerem
 // (`server/dw/retratoProdutos.cjs`). Só na servidora e com o DW configurado.
+// Situação na Receita só aos domingos: leva minutos (700 ms por CNPJ) e muda pouco.
 function rodarRetratoDw(origem) {
-  gerarRetrato().catch((err) => console.warn(`Falha ao gerar o retrato de produtos do DW (${origem}):`, err.message));
+  const consultarReceita = new Date().getDay() === 0 ? consultarSituacao : undefined;
+  gerarRetrato({ consultarReceita }).catch((err) => console.warn(`Falha ao gerar o retrato de produtos do DW (${origem}):`, err.message));
 }
 if (isServer && DW_PLATAFORMA_CONFIGURADO) {
   rodarRetratoDw('boot');

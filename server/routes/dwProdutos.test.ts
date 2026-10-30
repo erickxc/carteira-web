@@ -54,7 +54,10 @@ function configurar({ modo, dw, buscar }: { modo: 'server' | 'client'; dw: boole
   const caminho = resolver('../dw/dwPlataforma.cjs');
   require.cache[caminho] = {
     id: caminho, filename: caminho, loaded: true,
-    exports: { buscarProdutosParametroBi: async () => { chamadas.n++; return buscar ? buscar() : []; } },
+    exports: {
+      buscarProdutosParametroBi: async () => { chamadas.n++; return buscar ? buscar() : []; },
+      buscarDadosFiscaisLojas: async () => ({ empresas: [], grupos: [], apura: [] }),
+    },
   } as unknown as NodeJS.Module;
   return chamadas;
 }
@@ -85,7 +88,7 @@ describe('GET /api/dw-produtos', () => {
 
   it('máquina client lê o arquivo gravado pela servidora', async () => {
     configurar({ modo: 'client', dw: false });
-    const retrato = { geradoEm: 'g', porCnpj: { '11111111000111': ['2D Price'] } };
+    const retrato = { geradoEm: 'g', porCnpj: { '11111111000111': { produtos: ['2D Price'] } } };
     fs.mkdirSync(path.dirname(arquivo()), { recursive: true });
     fs.writeFileSync(arquivo(), JSON.stringify(retrato));
     const { url, fechar } = await subir();
@@ -132,14 +135,14 @@ describe('POST /api/dw-produtos/atualizar', () => {
       const res = await fetch(`${url}/atualizar`, { method: 'POST' });
       expect(res.status).toBe(200);
       const corpo = await res.json();
-      expect(corpo.porCnpj).toEqual({ '11111111000111': ['2D Price'] });
+      expect(corpo.porCnpj).toEqual({ '11111111000111': { produtos: ['2D Price'] } });
       expect(JSON.parse(fs.readFileSync(arquivo(), 'utf-8'))).toEqual(corpo);
     } finally { fechar(); }
   });
 
   it('DW fora: 502 e o retrato anterior continua no GET', async () => {
     configurar({ modo: 'server', dw: true, buscar: async () => { throw new Error('conexão recusada'); } });
-    const anterior = { geradoEm: 'ontem', porCnpj: { '1': ['Apura'] } };
+    const anterior = { geradoEm: 'ontem', porCnpj: { '1': { produtos: ['Apura'] } } };
     fs.mkdirSync(path.dirname(arquivo()), { recursive: true });
     fs.writeFileSync(arquivo(), JSON.stringify(anterior));
     const { url, fechar } = await subir();
