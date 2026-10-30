@@ -147,6 +147,14 @@ export function TimelineCard({
                     {evento.doGrupo && <Badge variant="muted">Do grupo · salvo em {evento.doGrupo.lojaOrigem}</Badge>}
                   </div>
                   {evento.description && <p className="text-text-muted" style={{ fontSize: 13, margin: 0 }}>{evento.description}</p>}
+                  {item.lembretes?.map((l) => (
+                    <div key={l.id} className="flex-row text-text-muted" style={{ gap: 6, fontSize: 12, marginTop: 6, flexWrap: 'wrap' }}>
+                      <BellIcon size={12} aria-label="Lembrete" />
+                      <span>{format(parseISO(l.datetime), 'dd/MM/yyyy HH:mm')}</span>
+                      <span>{l.title}</span>
+                      <span>{l.status === 'concluido' ? 'Concluído' : 'Ativo'}</span>
+                    </div>
+                  ))}
                   {evento.attachments.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                       {evento.attachments.map((anexo) => (

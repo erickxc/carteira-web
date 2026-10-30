@@ -17,7 +17,7 @@ import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
 import { AgilTarefasCard } from '../components/cliente/AgilTarefasCard';
 import { RelatoriosClienteModal } from '../components/cliente/RelatoriosClienteModal';
 import { AcessosExternosButton } from '../components/cliente/AcessosExternosButton';
-import type { TimelineFiltro, TimelineItem } from '../utils/timelineCliente';
+import { agruparLembretes, type TimelineFiltro, type TimelineItem } from '../utils/timelineCliente';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { ModalShell } from '../components/ModalShell';
 import { Badge, Button, Card, Textarea } from '../ui';
@@ -127,7 +127,7 @@ export default function ClienteDetailPage() {
       .sort((a, b) => b.quando.getTime() - a.quando.getTime());
   }, [historico, lembretes, id, filtroTimeline]);
 
-  const timeline = useMemo(() => {
+  const timelineNaJanela = useMemo(() => {
     if (timelineExpandida) return timelineCompleta;
     const agora = new Date();
     const limiteInicio = subDays(agora, JANELA_TIMELINE_DIAS_PASSADO);
@@ -135,7 +135,11 @@ export default function ClienteDetailPage() {
     return timelineCompleta.filter((i) => i.quando >= limiteInicio && i.quando <= limiteFim);
   }, [timelineCompleta, timelineExpandida]);
 
-  const timelineOcultos = timelineCompleta.length - timeline.length;
+  // Conta antes de agrupar: lembrete que entrou no card do evento não está oculto.
+  const timelineOcultos = timelineCompleta.length - timelineNaJanela.length;
+  // Agrupa só o que sobrou da janela: reunião fora dela com lembrete dentro (ex.:
+  // reunião daqui a 12 dias, lembrete daqui a 5) levaria o lembrete junto e ele sumiria.
+  const timeline = useMemo(() => agruparLembretes(timelineNaJanela), [timelineNaJanela]);
 
   // Lojas do mesmo grupo (rede) — cada loja é um cliente próprio.
   const lojasDoGrupo = useMemo(() => {
