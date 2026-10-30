@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, KeyRound } from 'lucide-react';
-import { eh2DPrice } from 'carteira-shared/produtos.cjs';
+import { eh2DPrice, linksRenomeados, renomearProduto } from 'carteira-shared/produtos.cjs';
 import powerbiLogo from '../../assets/powerbi-logo.webp';
 import priceLogo from '../../assets/price-logo.svg';
 import type { Cliente } from '../../types';
 import { Button } from '../../ui';
 import { calcularPosicaoPopover } from '../../utils/popoverPosicao';
 import { abrirEEnviarLoginPrice, formatarCNPJ } from '../../utils/price';
+import { entregarAcesso } from '../../utils/entregarAcesso';
 import { revelarCredenciaisPrice, revelarCredenciaisProduto } from '../../api/client';
 import { toast, toastError } from '../../utils/toast';
 import { AbrirPriceModal, type FasePrice } from './AbrirPriceModal';
+import { AcessoManualModal, type AcessoManual } from './AcessoManualModal';
 
 interface AcessoOpcao {
   label: string;
@@ -78,6 +80,7 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [priceState, setPriceState] = useState<PriceModalState | null>(null);
+  const [acessoManual, setAcessoManual] = useState<AcessoManual | null>(null);
   const nomeJanelaPrice = `price-2d-${cliente.id}`;
   const wrapRef = useRef<HTMLDivElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
@@ -110,6 +113,10 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
       if (p.temSenha) return [{ label: p.produto, url, credencialDe: p.produto }];
       return url ? [{ label: p.produto, url }] : [];
     }),
+    // Link de produto que não está no cadastro (fica só em `linksServicos`).
+    ...Object.entries(linksRenomeados(cliente.linksServicos))
+      .filter(([nome]) => !(cliente.produtos ?? []).some((p) => renomearProduto(p.produto) === nome))
+      .map(([label, url]) => ({ label, url })),
   ];
 
   useEffect(() => {
@@ -211,14 +218,11 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
   }
 
   /**
-   * Produto sem login automático: a senha vai pra área de transferência. A
-   * Carteira é servida por HTTP na LAN, onde o navegador não libera
-   * `navigator.clipboard` (só em contexto seguro) — aí login e senha aparecem
-   * no aviso, que é o único jeito de entregá-los ao usuário.
+   * Produto sem login automático: a senha vai pra área de transferência e só
+   * depois o link abre (ver `entregarAcesso`). Se a cópia ou a aba falharem, o
+   * modal oferece os dois passos num clique novo — a senha nunca aparece sozinha.
    */
   async function credencialProduto(produto: string, url?: string) {
-    // A aba nasce no clique (antes do await), senão o navegador bloqueia o pop-up.
-    if (url) window.open(url, '_blank', 'noopener,noreferrer');
     let credencial: { login: string; senha: string };
     try {
       credencial = await revelarCredenciaisProduto(cliente.id, produto);
@@ -226,12 +230,12 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
       toastError(err instanceof Error ? err.message : `Falha ao buscar o acesso de ${produto}.`);
       return;
     }
-    const prefixo = credencial.login ? `Login de ${produto}: ${credencial.login}. ` : '';
-    try {
-      await navigator.clipboard.writeText(credencial.senha);
+    const { copiou, abriu } = await entregarAcesso(credencial.senha, url);
+    if (copiou && abriu) {
+      const prefixo = credencial.login ? `Login de ${produto}: ${credencial.login}. ` : '';
       toast('info', `${prefixo}Senha copiada — cole no campo de senha.`, 15000);
-    } catch {
-      toast('info', `${prefixo}Senha: ${credencial.senha}`, 30000);
+    } else {
+      setAcessoManual({ produto, ...credencial, url: abriu ? undefined : url, copiou });
     }
   }
 
@@ -245,15 +249,20 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
   const estiloCompacto = compacto ? { padding: '0.28rem 0.45rem' } : undefined;
   const rotuloGrupo = opcoes.some((o) => o.label === PRICE_LABEL || o.credencialDe) ? 'Acessos' : 'Power BI';
 
-  const modalPrice = priceState && (
-    <AbrirPriceModal
-      fase={priceState.fase}
-      cnpjMostrado={priceState.cnpjMostrado}
-      senhaMostrada={priceState.senhaMostrada}
-      erro={priceState.erro}
-      onClose={fecharPriceModal}
-      onAbrirManualmente={abrirPriceManualmente}
-    />
+  const modalPrice = (
+    <>
+      {priceState && (
+        <AbrirPriceModal
+          fase={priceState.fase}
+          cnpjMostrado={priceState.cnpjMostrado}
+          senhaMostrada={priceState.senhaMostrada}
+          erro={priceState.erro}
+          onClose={fecharPriceModal}
+          onAbrirManualmente={abrirPriceManualmente}
+        />
+      )}
+      {acessoManual && <AcessoManualModal acesso={acessoManual} onClose={() => setAcessoManual(null)} />}
+    </>
   );
 
   // Um único acesso cadastrado: abre direto, sem popover — menos clique no caso comum.

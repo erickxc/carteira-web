@@ -122,6 +122,12 @@ describe('bloco Produtos da ficha', () => {
     expect(semSenha).not.toContain('Remover senha');
   });
 
+  it('no 2D Price, remover a senha diz que leva o login junto', () => {
+    const html = htmlDaFicha(cliente([prod('2D Price', 'Ativo', { temSenha: true })]));
+    expect(html).toContain('Remover login e senha');
+    expect(html).not.toContain('Remover senha');
+  });
+
   it('link só é editável na loja principal; nas outras, diz onde ele fica', () => {
     const c = cliente([prod('Apura', 'Ativo', { link: 'http://link-apura' })], { grupo: 'Rede' });
     const principal = htmlDaFicha(c);
@@ -201,6 +207,14 @@ describe('botão de acessos', () => {
     expect(htmlAcessos(cliente([prod('Apura', 'Ativo', { temSenha: true })]))).toContain('title="Abrir Apura"');
     expect(htmlAcessos(cliente([prod('Apura', 'Ativo', { temSenha: true }), prod('Raptor', 'Ativo', { link: 'http://x' })])))
       .toContain('title="2 links: Apura, Raptor"');
+  });
+
+  it('link de produto que não está no cadastro continua no botão', () => {
+    const c = cliente([prod('Apura', 'Ativo', { link: 'http://a' })], { linksServicos: { Monitoria: 'http://bi', Apura: 'http://a' } });
+    expect(htmlAcessos(c)).toContain('title="2 links: Apura, Plataforma 2D"');
+    // Produto Cancelado continua sem oferecer o link, mesmo com ele em linksServicos.
+    const cancelado = cliente([prod('Apura', 'Cancelado', { link: 'http://a' })], { linksServicos: { Apura: 'http://a' } });
+    expect(texto(htmlAcessos(cancelado))).toBe('—');
   });
 
   it('2D Price: senha vira o login animado; link fica como opção à parte', () => {
