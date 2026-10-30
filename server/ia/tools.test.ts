@@ -284,7 +284,7 @@ describe('buscar_clientes', () => {
       expect(exec('buscar_clientes', repoComLoja())[0].lojas[0].nome).toBe('Matriz');
     });
 
-    it('Apura: null = tem usuário e nunca entrou; campo ausente = sem usuário, como a descrição promete ao modelo', () => {
+    it('Apura: null = tem usuário e nunca entrou; campo ausente = sem informação, como a descrição diz ao modelo', () => {
       gravarRetrato(JSON.stringify({ porCnpj: { [cnpj]: { apura: { usuarios: 1, ultimoAcesso: null } } } }));
       const comUsuario = JSON.parse(JSON.stringify(exec('buscar_clientes', repoComLoja())))[0].lojas[0];
       expect(comUsuario).toHaveProperty('apuraUltimoAcesso', null);
@@ -292,6 +292,19 @@ describe('buscar_clientes', () => {
       gravarRetrato(JSON.stringify({ porCnpj: { [cnpj]: { certificadoValidade: '2026-12-01' } } }));
       const semUsuario = JSON.parse(JSON.stringify(exec('buscar_clientes', repoComLoja())))[0].lojas[0];
       expect(semUsuario).not.toHaveProperty('apuraUltimoAcesso');
+    });
+
+    it('a descrição não deixa o modelo ler campo ausente como "sem usuário" e define o certificado null', () => {
+      const { description } = FERRAMENTAS.find((f) => f.name === 'buscar_clientes')!;
+      expect(description).not.toMatch(/campo ausente = sem usuário/i);
+      expect(description).toMatch(/Campo ausente = sem informação/);
+      expect(description).toMatch(/"certificadoValidade" null/);
+    });
+
+    it('loja no DW sem data de certificado: o campo vem null, como a descrição define', () => {
+      gravarRetrato(JSON.stringify({ porCnpj: { [cnpj]: { certificadoValidade: null } } }));
+      const loja = JSON.parse(JSON.stringify(exec('buscar_clientes', repoComLoja())))[0].lojas[0];
+      expect(loja).toHaveProperty('certificadoValidade', null);
     });
 
     it('loja sem CNPJ, CNPJ fora do retrato e retrato sem porCnpj: sai sem dado fiscal, sem quebrar', () => {

@@ -126,8 +126,9 @@ function identidadeCliente(cliente, retrato = retratoOuNada()) {
   // precisar de uma ferramenta separada só pra isso.
   // Lojas físicas do atendimento (1.6.8): o agente responde CNPJ/endereço de
   // cada loja ("qual o CNPJ da Altese Ford?") sem ferramenta à parte. Os dados
-  // fiscais vêm do retrato do DW; o que ele não tem fica fora do JSON, para o
-  // agente não ler ausência de dado como informação.
+  // fiscais vêm do retrato do DW; o que ele não tem fica fora do JSON. A descrição
+  // de `buscar_clientes` diz ao modelo que ausência não é informação: o campo some
+  // também sem retrato, com arquivo ilegível e com CNPJ fora do DW.
   const lojas = (Array.isArray(cliente.lojasCadastro) ? cliente.lojasCadastro : []).map((l) => {
     const fiscal = fiscalDaLoja(retrato, l.cnpj);
     return {
@@ -1824,7 +1825,7 @@ function verificarDisponibilidade(repo, { date, time, monitores, sala }) {
 const FERRAMENTAS = [
   {
     name: 'buscar_clientes',
-    description: 'Busca/lista clientes da carteira. Cada resultado traz um campo "ativo" (calculado) — é ESTE que responde "cliente ativo?"/"quantos clientes ativos?", nunca o "estado" sozinho: um cliente pode ter estado=Ativo e mesmo assim "ativo: false" se o status não for de atendimento (Suspenso/Atendido pelo Marco/Problemas Externos) ou se estiver em pausa temporária (pausadoAte). "estado" (Ativo/Inativo, o campo bruto do cadastro) e "status" (situação granular: Regular, Suspenso, Atendido pelo Marco, Gratuidade, Problemas Externos) continuam disponíveis como FILTROS separados, se precisar filtrar por um valor exato específico. Pra achar UM cliente pelo nome que o usuário falou, use "nome" (busca parcial, ignora acento e maiúscula) — é o caminho pra obter o clientId antes de qualquer ferramenta que peça clientId. Também filtra por nível de risco, status, serviço, grupo/rede ou local (segmento de negócio: Autopeça, Oficina, Distribuidora...). Um cliente com "grupo" é uma LOJA de uma rede — o nome da rede sozinho (ex.: "Altese") não é um cliente, use o filtro "grupo" pra achar todas as lojas dela de uma vez. Cada item de "lojas" traz, quando há dado: "situacaoCnpj" (situação na Receita), "certificadoValidade" (vencimento do certificado digital, aaaa-mm-dd), "grupoFiscal" e "apuraUltimoAcesso" (null = tem usuário no Apura e nunca entrou; campo ausente = sem usuário). Sem nenhum filtro, devolve a carteira inteira.',
+    description: 'Busca/lista clientes da carteira. Cada resultado traz um campo "ativo" (calculado) — é ESTE que responde "cliente ativo?"/"quantos clientes ativos?", nunca o "estado" sozinho: um cliente pode ter estado=Ativo e mesmo assim "ativo: false" se o status não for de atendimento (Suspenso/Atendido pelo Marco/Problemas Externos) ou se estiver em pausa temporária (pausadoAte). "estado" (Ativo/Inativo, o campo bruto do cadastro) e "status" (situação granular: Regular, Suspenso, Atendido pelo Marco, Gratuidade, Problemas Externos) continuam disponíveis como FILTROS separados, se precisar filtrar por um valor exato específico. Pra achar UM cliente pelo nome que o usuário falou, use "nome" (busca parcial, ignora acento e maiúscula) — é o caminho pra obter o clientId antes de qualquer ferramenta que peça clientId. Também filtra por nível de risco, status, serviço, grupo/rede ou local (segmento de negócio: Autopeça, Oficina, Distribuidora...). Um cliente com "grupo" é uma LOJA de uma rede — o nome da rede sozinho (ex.: "Altese") não é um cliente, use o filtro "grupo" pra achar todas as lojas dela de uma vez. Cada item de "lojas" traz, quando há dado: "situacaoCnpj" (situação na Receita), "certificadoValidade" (vencimento do certificado digital, aaaa-mm-dd), "grupoFiscal" e "apuraUltimoAcesso" (null = tem usuário no Apura e nunca entrou). "certificadoValidade" null = o DW conhece a loja mas não tem data de certificado. Campo ausente = sem informação, não um "não": pode ser falta de usuário ou falta de dado do DW, então nunca afirme que a loja não tem usuário no Apura, certificado ou situação só porque o campo não veio. Sem nenhum filtro, devolve a carteira inteira.',
     parameters: {
       type: 'object',
       properties: {
