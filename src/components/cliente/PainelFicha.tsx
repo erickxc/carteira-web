@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { format, parseISO } from 'date-fns';
 import { MessageCircle } from 'lucide-react';
 import { Button, Card } from '../../ui';
+import { isClienteAtivo } from '../../utils/formatters';
 import { linkWhatsApp } from '../../utils/whatsapp';
 import type { ContatoVisivel } from '../../utils/contatos';
 import { resumoDaConversa, type ResumoFicha } from '../../utils/resumoFicha';
@@ -61,7 +62,10 @@ export function PainelFicha({ cliente, resumo, contatos, onWhatsApp, onVerContat
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4" style={{ marginBottom: 16 }}>
       <Bloco titulo="Prazos">
-        {prazos.length === 0 ? <Vazio>Sem produto com prazo</Vazio> : (
+        {prazos.length === 0 ? (
+          // A fila não calcula relógio de quem está fora de atendimento: esse vazio não diz nada sobre os produtos.
+          <Vazio>{isClienteAtivo(cliente) ? 'Sem produto com prazo' : 'Fora da cadência (cliente pausado ou fora de atendimento)'}</Vazio>
+        ) : (
           <div className="flex flex-col gap-1.5 text-[0.85rem]">
             {prazos.map((p) => (
               <div key={p.servico} className="flex-between" style={{ gap: 12 }}>

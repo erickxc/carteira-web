@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { differenceInCalendarDays, format, isValid, parseISO } from 'date-fns';
 import { Bell, CalendarPlus, FileSpreadsheet, MoreHorizontal, Pencil, PhoneIncoming, Trash2 } from 'lucide-react';
 import { Button, Card } from '../../ui';
 import type { Cliente } from '../../types';
@@ -35,7 +36,10 @@ export function CabecalhoFicha({ cliente, onNovoEvento, onLembrete, onContatoCli
     };
   }, [menuAberto]);
 
-  const situacao = [cliente.grupo && `Rede ${cliente.grupo}`, cliente.monitor, cliente.local, cliente.status, cliente.estado].filter(Boolean).join(' · ');
+  // Mesma regra de `isClienteAtivo`: o dia escolhido ainda é de pausa.
+  const pausaAte = parseISO(cliente.pausadoAte ?? '');
+  const pausa = isValid(pausaAte) && differenceInCalendarDays(pausaAte, new Date()) >= 0 && `Pausado até ${format(pausaAte, 'dd/MM')}`;
+  const situacao = [cliente.grupo && `Rede ${cliente.grupo}`, cliente.monitor, cliente.local, cliente.status, cliente.estado, pausa].filter(Boolean).join(' · ');
 
   return (
     <Card style={{ marginBottom: 16 }}>

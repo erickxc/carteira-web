@@ -1,3 +1,4 @@
+import { addDays, format } from 'date-fns';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
@@ -33,6 +34,29 @@ describe('PainelFicha', () => {
     for (const texto of ['Sem produto com prazo', 'Nenhuma conversa concluída', 'Nenhuma reunião marcada', 'Nenhum contato cadastrado', 'Nenhum acesso cadastrado', 'Prazos', 'Reuniões', 'monitorIA', 'Contatos e acessos']) {
       expect(html).toContain(texto);
     }
+  });
+
+  // Data como o input grava, relativa a hoje: `isClienteAtivo` e o cabeçalho comparam com o relógio real.
+  const diaLocal = (dias: number) => format(addDays(new Date(), dias), 'yyyy-MM-dd');
+
+  it('prazos vazios de cliente fora de atendimento não dizem que falta produto', () => {
+    for (const fora of [{ pausadoAte: diaLocal(1) }, { status: 'Suspenso' }, { estado: 'Inativo' }]) {
+      const html = painel(VAZIO, [], { ...cliente, ...fora } as Cliente);
+      expect(html).toContain('Fora da cadência');
+      expect(html).not.toContain('Sem produto com prazo');
+    }
+    expect(painel(VAZIO, [], { ...cliente, pausadoAte: diaLocal(-1) })).toContain('Sem produto com prazo');
+  });
+
+  it('cabeçalho: pausa vigente (inclusive o próprio dia) aparece na situação; vencida ou sem data, não', () => {
+    const cabecalho = (pausadoAte?: string) => renderToStaticMarkup(createElement(CabecalhoFicha, {
+      cliente: { ...cliente, pausadoAte },
+      onNovoEvento: () => {}, onLembrete: () => {}, onContatoCliente: () => {}, onEditar: () => {}, onRelatorios: () => {}, onExcluir: () => {},
+    }));
+    expect(cabecalho(diaLocal(0))).toContain(`Pausado até ${format(new Date(), 'dd/MM')}`);
+    expect(cabecalho(diaLocal(-1))).not.toContain('Pausado');
+    expect(cabecalho('')).not.toContain('Pausado');
+    expect(cabecalho()).not.toContain('Pausado');
   });
 
   it('sem contato, "ver todos" continua lá: é a única porta para cadastrar o primeiro', () => {
