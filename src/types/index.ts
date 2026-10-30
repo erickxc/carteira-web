@@ -204,7 +204,7 @@ export const CATEGORIA_CANCELAMENTO_LABEL: Record<Exclude<EventoAgenda['motivoCa
 };
 
 export const CLIENTE_ESTADO_OPCOES = ['Ativo', 'Inativo'] as const;
-export const CLIENTE_STATUS_OPCOES = ['Regular', 'Suspenso', 'Atendido pelo Marco', 'Gratuidade', 'Problemas Externos', 'Férias'] as const;
+export const CLIENTE_STATUS_OPCOES = ['Regular', 'Suspenso', 'Gratuidade', 'Problemas Externos', 'Férias'] as const;
 
 export type NovoCliente = Omit<Cliente, 'id' | 'createdAt'>;
 
