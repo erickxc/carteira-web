@@ -164,11 +164,12 @@ describe('migrarProdutos: aplicar', () => {
 
   it('renomeia e ordena só a categoria servico, sem duplicar', async () => {
     const repo = montar({ Categorias: [...categorias(), { id: 'c5', tipo: 'servico', valor: 'Plataforma 2D', ordem: 3 }, { id: 'c6', tipo: 'servico', valor: 'Outro', ordem: 4 }] });
-    await migrar(repo);
+    const r = await migrar(repo);
     const cats = repo.get('Categorias');
     const servico = cats.filter((c: { tipo: string }) => c.tipo === 'servico').sort((a: { ordem: number }, b: { ordem: number }) => a.ordem - b.ordem);
     expect(servico.map((c: { valor: string }) => c.valor)).toEqual(['Plataforma 2D', '2D Nexus', '2D Price', 'Outro']);
     expect(cats.find((c: { id: string }) => c.id === 'c4').valor).toBe('Monitoria');
+    expect(r.categoriasFundidas).toEqual([{ id: 'c5', de: 'Plataforma 2D', para: 'Plataforma 2D' }]);
   });
 
   it('corrige texto e renomeia evento, série, contato e chave de link', async () => {
@@ -254,6 +255,8 @@ describe('migrarProdutos: aplicar', () => {
     expect(price).toHaveLength(1);
     expect(price[0].mudouEm).toBe('2026-10-30');
     expect(hist.filter((h: { produto: string }) => h.produto === 'Apura').map((h: { id: string }) => h.id)).toEqual(['h2', 'h3']);
+    // O que saiu de uma tabela que só acrescenta fica no relatório.
+    expect(r.historicoRemovido).toEqual([{ clientId: 'a', produto: '2D Price', fase: 'Ativo', mudouEm: CRIADO }]);
   });
 
   it('grava a linha-base de cada cliente+produto e é idempotente', async () => {
@@ -484,14 +487,64 @@ describe('migrarProdutos: registro DW, bordas', () => {
     expect(repo.get('Clientes')[0].produtos[0].faseDesde).toBe('2026-10-30');
   });
 
-  it('id que não é da carteira e produto que o cliente não tem não criam nada', async () => {
+  const semPar = { clientes: [{ id: 'fantasma', entra: ['Monitoria'] }, { id: 'a', entra: ['Precificação'] }] };
+
+  it('entrada sem par: simulação lista, aplicar recusa sem gravar', async () => {
     const repo = montar({ Clientes: [cli('a', { servicos: ['Monitoria'] })] });
-    const r = await migrar(repo, { registroDw: { clientes: [{ id: 'fantasma', entra: ['Monitoria'] }, { id: 'a', entra: ['Precificação'] }] } });
+    const antes = JSON.stringify(repo._dump());
+    const simulado = await migrar(repo, { aplicar: false, registroDw: semPar });
+    expect(simulado.recusa).toBeNull();
+    expect(simulado.registroDw).toEqual({
+      entradas: 2,
+      casadas: 0,
+      aplicadas: 0,
+      naoCasadas: [
+        { id: 'fantasma', produto: 'Plataforma 2D', motivo: 'cliente não encontrado' },
+        { id: 'a', produto: '2D Price', motivo: 'cliente não tem este produto' },
+      ],
+    });
+    const r = await migrar(repo, { registroDw: semPar, backup: async () => { throw new Error('não deveria copiar'); } });
+    expect(r.gravado).toBe(false);
+    expect(r.recusa).toMatch(/2 entrada\(s\) do registro/);
+    expect(JSON.stringify(repo._dump())).toBe(antes);
+  });
+
+  it('entrada sem par aceita de propósito grava e não cria nada', async () => {
+    const repo = montar({ Clientes: [cli('a', { servicos: ['Monitoria'] })] });
+    const r = await migrar(repo, { registroDw: semPar, aceitarRegistroSemPar: true });
     expect(r.gravado).toBe(true);
     const [c] = repo.get('Clientes');
     expect(c.produtos.map((p: { produto: string }) => p.produto)).toEqual(['Plataforma 2D']);
     expect(c.produtos[0].faseDesde).toBe(CRIADO);
     expect(r.relogios.permitidas).toEqual([]);
+  });
+
+  it.each([
+    ['chave de id errada', { clientes: [{ clientId: 'a', entra: ['Precificação'] }] }],
+    ['id vazio', { clientes: [{ id: ' ', entra: ['Precificação'] }] }],
+    ['id que não é texto', { clientes: [{ id: 7, entra: ['Precificação'] }] }],
+    ['chave de entra errada', { clientes: [{ id: 'a', acrescentados: ['Precificação'] }] }],
+    ['entra que não é lista', { clientes: [{ id: 'a', entra: 'Precificação' }] }],
+    ['item que não é objeto', { clientes: [null] }],
+  ])('recusa registro com %s, inclusive na simulação', async (_nome, registroDw) => {
+    const repo = montar({ Clientes: [cli('a', { servicos: ['Precificação'] })] });
+    const antes = JSON.stringify(repo._dump());
+    for (const aplicar of [true, false]) {
+      const r = await migrar(repo, { aplicar, registroDw });
+      expect(r.gravado).toBe(false);
+      expect(r.recusa).toMatch(/registro/i);
+    }
+    expect(JSON.stringify(repo._dump())).toBe(antes);
+  });
+
+  it('relatório conta as entradas; a segunda rodada segue casada, sem aplicar de novo', async () => {
+    const repo = montar({ Clientes: [cli('a', { servicos: ['Monitoria', 'Precificação'] })] });
+    const registroDw = { clientes: [{ id: 'a', entra: ['Precificação'] }, { id: 'a', entra: ['Monitoria'] }] };
+    const r1 = await migrar(repo, { registroDw });
+    expect(r1.registroDw).toEqual({ entradas: 2, casadas: 2, aplicadas: 2, naoCasadas: [] });
+    const r2 = await migrar(repo, { registroDw });
+    expect(r2.gravado).toBe(true);
+    expect(r2.registroDw).toEqual({ entradas: 2, casadas: 2, aplicadas: 0, naoCasadas: [] });
   });
 
   it('decisão real de alguém não é remarcada pelo registro DW', async () => {
@@ -667,6 +720,36 @@ describe('migrarProdutos: CLI em processo separado (pastas temporárias)', () =>
     expect(r.stdout).toMatch(/nada foi gravado/);
     expect(noBanco()).toEqual(antes);
     expect(copias()).toEqual([]);
+  });
+
+  it('imprime a contagem do registro e as entradas sem par; a flag libera', () => {
+    semear();
+    registro(JSON.stringify({ clientes: [{ id: 'a', entra: ['Precificação'] }, { id: 'fantasma', entra: ['Monitoria'] }] }));
+    const simulado = rodar([]);
+    expect(simulado.status).toBe(0);
+    expect(simulado.stdout).toMatch(/Registro do DW: 2 entrada\(s\) · 1 casada\(s\) · 1 aplicada\(s\) · 1 sem par/);
+    expect(simulado.stdout).toMatch(/\[SEM PAR\] fantasma · Plataforma 2D: cliente não encontrado/);
+    expect(rodar(['--aplicar']).status).toBe(1);
+    expect(copias()).toEqual([]);
+    expect(rodar(['--aplicar', '--aceitar-registro-sem-par']).status).toBe(0);
+    expect(copias()).toHaveLength(1);
+  });
+
+  it('imprime com o motivo o que a migração removeu', () => {
+    const { MOTIVO_LEGADO } = require('../dominio/clientes.cjs');
+    const { repoPlanilha } = require('../dominio/repo.cjs');
+    const { initDbSqlite, _fecharParaTestes } = require('../dbSqlite.cjs');
+    initDbSqlite();
+    const repo = repoPlanilha();
+    repo.save('Categorias', [...categorias(), { id: 'c5', tipo: 'servico', valor: 'Plataforma 2D', ordem: 3 }]);
+    repo.save('Clientes', [cli('a', { servicos: ['Monitoria'], produtos: [{ produto: 'Monitoria', fase: 'Ativo', faseDesde: CRIADO, motivoFase: MOTIVO_LEGADO }] })]);
+    repo.save('ProdutosHistorico', [{ id: 'h1', clientId: 'a', produto: 'Monitoria', fase: 'Ativo', motivo: MOTIVO_LEGADO, mudouEm: CRIADO, gravadoEm: AGORA }]);
+    _fecharParaTestes();
+    const r = rodar([]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/\[CATEGORIA REMOVIDA\] "Plataforma 2D" \(c5\)\. Motivo: duplicada/);
+    expect(r.stdout).toMatch(/1 removida\(s\)/);
+    expect(r.stdout).toMatch(/\[HISTÓRICO REMOVIDO\] a · Monitoria · Ativo .*Motivo: linha-base suposta refeita pela migração/);
   });
 
   it('--aplicar sem o registro DW recusa', () => {

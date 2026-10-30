@@ -12,6 +12,8 @@
  *       node server/scripts/migrarProdutos.cjs --aplicar  (cópia do banco e grava)
  *       --ignorar-maquinas=Bruno2D,JENIFFER-2D            (máquinas na 1.6 que o
  *                                                          usuário confirmou fora de uso)
+ *       --aceitar-registro-sem-par                        (entradas do registro do DW sem
+ *                                                          cliente/produto, conferidas na simulação)
  */
 const fs = require('fs');
 const path = require('path');
@@ -53,11 +55,36 @@ function maquinasAtrasadas(dir) {
 }
 
 /** `{ clienteId: Set<nome oficial> }` do registro de 30/10; `null` se o formato
- * não é o esperado — sem ele, os clientes voltariam a nascer vencidos. */
+ * não é o esperado — sem ele, os clientes voltariam a nascer vencidos, e a trava
+ * de relógios não pega isso, porque nada muda em relação a hoje. */
 function entradasDoDw(registro) {
   if (registro === undefined) return new Map();
   if (!registro || !Array.isArray(registro.clientes)) return null;
-  return new Map(registro.clientes.map((c) => [String(c.id), new Set(nomesRenomeados(c.entra))]));
+  const entradas = new Map();
+  for (const c of registro.clientes) {
+    if (!c || !ehTexto(c.id) || !Array.isArray(c.entra)) return null;
+    const nomes = entradas.get(c.id) || new Set();
+    for (const nome of nomesRenomeados(c.entra)) nomes.add(nome);
+    entradas.set(c.id, nomes);
+  }
+  return entradas;
+}
+
+/** Quanto do registro achou cliente+produto. Casada não é aplicada: quem já migrou
+ * ou tem decisão real mantém a data, e a 2ª rodada não aplica nada. */
+function conferirRegistro(entradas, clientes, novosDesde) {
+  const porId = new Map(clientes.map((c) => [String(c.id), c]));
+  const naoCasadas = [];
+  let total = 0;
+  for (const [id, nomes] of entradas) {
+    const cliente = porId.get(id);
+    const tem = new Set(cliente ? produtosDoCliente(cliente).map((p) => renomearProduto(p.produto)) : []);
+    for (const produto of nomes) {
+      total += 1;
+      if (!tem.has(produto)) naoCasadas.push({ id, produto, motivo: cliente ? 'cliente não tem este produto' : 'cliente não encontrado' });
+    }
+  }
+  return { entradas: total, casadas: total - naoCasadas.length, aplicadas: novosDesde.size, naoCasadas };
 }
 
 function migrarCategorias(repo) {
@@ -67,15 +94,21 @@ function migrarCategorias(repo) {
     return i < 0 ? PRODUTOS_OFICIAIS.length : i;
   };
   const vistos = new Set();
+  const fundidas = [];
   const servico = todas
     .filter((c) => c.tipo === 'servico')
     .sort((a, b) => Number(a.ordem ?? 0) - Number(b.ordem ?? 0))
+    .filter((c) => {
+      const para = renomearProduto(c.valor);
+      if (vistos.has(para)) { fundidas.push({ id: c.id, de: c.valor, para }); return false; }
+      vistos.add(para);
+      return true;
+    })
     .map((c) => ({ ...c, valor: renomearProduto(c.valor) }))
-    .filter((c) => !vistos.has(c.valor) && vistos.add(c.valor))
     .sort((a, b) => posicao(a.valor) - posicao(b.valor)) // estável: sem posição, mantém a ordem
     .map((c, ordem) => ({ ...c, ordem }));
   repo.save('Categorias', [...todas.filter((c) => c.tipo !== 'servico'), ...servico]);
-  return servico.map((c) => c.valor);
+  return { nomes: servico.map((c) => c.valor), fundidas };
 }
 
 function migrarClientes(repo, entradas) {
@@ -134,9 +167,13 @@ function migrarServicos(repo, sheet) {
  * Price que só entrou em 30/10. */
 function migrarHistorico(repo, refeitos, agora) {
   const historico = repo.get('ProdutosHistorico');
-  const validas = historico.filter((h) => !(h.motivo === MOTIVO_LEGADO && refeitos.has(`${h.clientId}|${renomearProduto(h.produto)}`)));
-  if (validas.length !== historico.length) repo.save('ProdutosHistorico', validas);
-  return produtosHistorico.sincronizar(repo, agora);
+  const cai = (h) => h.motivo === MOTIVO_LEGADO && refeitos.has(`${h.clientId}|${renomearProduto(h.produto)}`);
+  const removidas = historico.filter(cai);
+  if (removidas.length) repo.save('ProdutosHistorico', historico.filter((h) => !cai(h)));
+  return {
+    novas: produtosHistorico.sincronizar(repo, agora),
+    removidas: removidas.map(({ clientId, produto, fase, mudouEm }) => ({ clientId, produto, fase, mudouEm })),
+  };
 }
 
 function aplicarPassos(repo, entradas, agora) {
@@ -180,7 +217,7 @@ function compararRelogios(antes, depois, novosDesde, clientes) {
  * escrita; se falhar, nada é gravado. `opts.maquinasDir`: pasta dos logs de versão.
  */
 async function migrar(repo, opts = {}) {
-  const { aplicar = false, registroDw, ignorarMaquinas = [], backup } = opts;
+  const { aplicar = false, registroDw, ignorarMaquinas = [], aceitarRegistroSemPar = false, backup } = opts;
   const agora = new Date(opts.agora ?? Date.now());
   const atrasadas = maquinasAtrasadas(opts.maquinasDir ?? path.join(DATA_DIR, 'maquinas'));
   const entradas = entradasDoDw(registroDw);
@@ -191,15 +228,18 @@ async function migrar(repo, opts = {}) {
     copia: null,
     maquinasAtrasadas: atrasadas,
     categorias: [],
+    categoriasFundidas: [],
+    registroDw: { entradas: 0, casadas: 0, aplicadas: 0, naoCasadas: [] },
     clientes: { total: 0, porFase: {} },
     textoCorrigido: { clientes: 0, eventos: 0 },
     eventosRenomeados: 0,
     seriesRenomeadas: 0,
     historico: 0,
+    historicoRemovido: [],
     relogios: { comparados: 0, permitidas: [], divergencias: [] },
   };
   if (!entradas) {
-    return { ...relatorio, recusa: 'Registro do DW em formato inesperado: falta a lista "clientes" (clientes[].entra).' };
+    return { ...relatorio, recusa: 'Registro do DW em formato inesperado: o esperado é { clientes: [{ id, entra: [produtos] }] }, com id em texto em todos os itens.' };
   }
 
   // Ensaio geral: a mesma sequência sobre uma cópia em memória.
@@ -209,12 +249,15 @@ async function migrar(repo, opts = {}) {
   const relogios = compararRelogios(antes, relogiosPorCliente(copia, agora), ensaio.clientes.novosDesde, copia.get('Clientes'));
 
   Object.assign(relatorio, {
-    categorias: ensaio.categorias,
+    categorias: ensaio.categorias.nomes,
+    categoriasFundidas: ensaio.categorias.fundidas,
+    registroDw: conferirRegistro(entradas, copia.get('Clientes'), ensaio.clientes.novosDesde),
     clientes: { total: copia.get('Clientes').length, porFase: ensaio.clientes.fases },
     textoCorrigido: { clientes: ensaio.clientes.textoClientes.length, eventos: ensaio.eventos.texto },
     eventosRenomeados: ensaio.eventos.mudaram,
     seriesRenomeadas: ensaio.series.mudaram,
-    historico: ensaio.historico,
+    historico: ensaio.historico.novas,
+    historicoRemovido: ensaio.historico.removidas,
     relogios,
   });
 
@@ -223,6 +266,13 @@ async function migrar(repo, opts = {}) {
     return relatorio;
   }
   if (!aplicar) return relatorio;
+
+  const { naoCasadas } = relatorio.registroDw;
+  if (naoCasadas.length && !aceitarRegistroSemPar) {
+    relatorio.recusa = `${naoCasadas.length} entrada(s) do registro do DW sem cliente/produto: esses clientes nasceriam vencidos. `
+      + 'Confira a lista; se estiver certa (ex.: cliente apagado depois de 30/10), rode com --aceitar-registro-sem-par.';
+    return relatorio;
+  }
 
   const bloqueiam = atrasadas.filter((m) => !ignorarMaquinas.includes(m.maquina));
   if (bloqueiam.length) {
@@ -252,10 +302,17 @@ async function copiarBanco(agora = new Date()) {
 
 function imprimir(r) {
   console.log(`Categorias de produto: ${r.categorias.join(', ')}`);
+  for (const c of r.categoriasFundidas) console.log(`  [CATEGORIA REMOVIDA] "${c.de}" (${c.id}). Motivo: duplicada de "${c.para}" depois da renomeação`);
+  const dw = r.registroDw;
+  console.log(`Registro do DW: ${dw.entradas} entrada(s) · ${dw.casadas} casada(s) · ${dw.aplicadas} aplicada(s) · ${dw.naoCasadas.length} sem par`);
+  for (const n of dw.naoCasadas) console.log(`  [SEM PAR] ${n.id} · ${n.produto}: ${n.motivo}`);
   console.log(`Clientes: ${r.clientes.total} · produtos por fase:`, r.clientes.porFase);
   console.log(`Texto corrigido: ${r.textoCorrigido.clientes} cliente(s), ${r.textoCorrigido.eventos} evento(s)`);
   console.log(`Renomeados: ${r.eventosRenomeados} evento(s), ${r.seriesRenomeadas} série(s)`);
-  console.log(`ProdutosHistorico: ${r.historico} linha(s) nova(s)`);
+  console.log(`ProdutosHistorico: ${r.historico} linha(s) nova(s) · ${r.historicoRemovido.length} removida(s)`);
+  for (const h of r.historicoRemovido) {
+    console.log(`  [HISTÓRICO REMOVIDO] ${h.clientId} · ${h.produto} · ${h.fase} desde ${h.mudouEm}. Motivo: linha-base suposta refeita pela migração`);
+  }
   const { comparados, permitidas, divergencias } = r.relogios;
   console.log(`Relógios comparados: ${comparados} · mudam pela regra do DW: ${permitidas.length} · divergem: ${divergencias.length}`);
   for (const d of permitidas) console.log(`  [DW] ${d.empresa} · ${d.servico}: ${d.antes} -> ${d.depois}`);
@@ -288,7 +345,8 @@ async function main() {
     console.warn(`Aviso: registro do DW não encontrado (${REGISTRO_DW}); simulando sem ele.\n`);
   }
 
-  const r = await migrar(repoPlanilha(), { aplicar, registroDw, ignorarMaquinas, backup: () => copiarBanco() });
+  const aceitarRegistroSemPar = process.argv.includes('--aceitar-registro-sem-par');
+  const r = await migrar(repoPlanilha(), { aplicar, registroDw, ignorarMaquinas, aceitarRegistroSemPar, backup: () => copiarBanco() });
   imprimir(r);
   if (r.recusa) process.exit(1);
 }
