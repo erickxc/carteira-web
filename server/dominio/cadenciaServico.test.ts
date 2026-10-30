@@ -406,3 +406,77 @@ describe('buildFilaCadencia — Plataforma 2D / 2D Price e faseDesde', () => {
     expect(relogio(cadencia.buildFilaCadencia([c], [], [], { price_dias: 15 }, AGORA), '2D Price')?.atrasoReal).toBe(159 - 15);
   });
 });
+
+describe('Task 2 — casos de borda (nomes misturados e faseDesde)', () => {
+  const AGORA = new Date('2026-10-31T12:00:00');
+  const base = { id: 'c1', empresa: 'Loja', estado: 'Ativo', status: 'Regular', createdAt: '2026-05-25T00:00:00' };
+  type Fila = { relogios: { servico: string; status: string; atrasoReal: number }[] }[];
+  const relogio = (fila: Fila, servico: string) => fila[0]?.relogios.find((r) => r.servico === servico);
+  const fila = (c: object, agenda: object[] = []) => cadencia.buildFilaCadencia([c], agenda, [], { price_dias: 15 }, AGORA) as Fila;
+
+  it('independente com nome antigo vale para o produto com nome novo (sem relógio)', () => {
+    const c = { ...base, servicos: ['Plataforma 2D', '2D Price'], servicosIndependentes: ['Monitoria'] };
+    expect(fila(c)[0].relogios.map((r) => r.servico)).toEqual(['2D Price']);
+  });
+
+  it('nome antigo e novo do Price juntos geram um relógio só', () => {
+    const c = { ...base, servicos: ['Precificação', '2D Price'] };
+    expect(fila(c)[0].relogios.map((r) => r.servico)).toEqual(['2D Price']);
+  });
+
+  it('reunião antiga marcada "Precificação" zera o 2D Price', () => {
+    const c = { ...base, servicos: ['2D Price'] };
+    const ev = { clientId: 'c1', date: '2026-10-26', type: 'Reunião', status: 'Concluído', servicos: ['Precificação'] };
+    expect(relogio(fila(c, [ev]), '2D Price')?.status).toBe('em_dia');
+  });
+
+  it('produto Suspenso não empresta faseDesde: conta do cadastro', () => {
+    const c = { ...base, servicos: ['2D Price'], produtos: [{ produto: '2D Price', fase: 'Suspenso', faseDesde: '2026-10-30T00:00:00' }] };
+    expect(relogio(fila(c), '2D Price')?.atrasoReal).toBe(159 - 15);
+  });
+
+  it('faseDesde inválido cai no cadastro', () => {
+    const c = { ...base, servicos: ['2D Price'], produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: 'lixo' }] };
+    expect(relogio(fila(c), '2D Price')?.atrasoReal).toBe(159 - 15);
+  });
+
+  it('faseDesde de outro produto não muda o relógio da Plataforma 2D', () => {
+    const c = { ...base, servicos: ['Plataforma 2D', '2D Price'], produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-10-30T00:00:00' }] };
+    expect(relogio(fila(c), 'Plataforma 2D')?.atrasoReal).toBe(159 - 30);
+    expect(relogio(fila(c), '2D Price')?.atrasoReal).toBe(1 - 15);
+  });
+
+  it('produto com nome antigo em produtos também é reconhecido', () => {
+    const c = { ...base, servicos: ['Precificação'], produtos: [{ produto: 'Precificação', fase: 'Ativo', faseDesde: '2026-10-30T00:00:00' }] };
+    expect(relogio(fila(c), '2D Price')?.atrasoReal).toBe(1 - 15);
+  });
+
+  it('com toque concluído, faseDesde não altera o relógio (regra só do "nunca atendido")', () => {
+    const c = { ...base, servicos: ['2D Price'], produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-10-30T00:00:00' }] };
+    const ev = { clientId: 'c1', date: '2026-09-01', type: 'Precificação', status: 'Concluído', servicos: [] };
+    const r = relogio(fila(c, [ev]), '2D Price');
+    expect(r?.status).toBe('vencido');
+    expect(r?.atrasoReal).toBe(60 - 15);
+  });
+
+  it('sem createdAt mas com faseDesde: conta da fase em vez de "nunca" imediato', () => {
+    const semCadastro: Record<string, unknown> = { ...base };
+    delete semCadastro.createdAt;
+    const c = { ...semCadastro, servicos: ['2D Price'], produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-10-30T00:00:00' }] };
+    expect(relogio(fila(c), '2D Price')?.status).toBe('em_dia');
+  });
+
+  it('servicoDoRelogio converte nomes antigos e preserva os demais', () => {
+    expect(['Monitoria', 'Precificação', 'Price', 'Plataforma 2D', '2D Price', 'Apura'].map(require('../../shared/cadenciaServico.cjs').servicoDoRelogio))
+      .toEqual(['Plataforma 2D', '2D Price', '2D Price', 'Plataforma 2D', '2D Price', 'Apura']);
+  });
+
+  it('calcularAderencia com opts.servico antigo = mesmo resultado do nome novo', () => {
+    const clientes = [{ ...base, servicos: ['Plataforma 2D', '2D Price'] }];
+    const agenda = [{ clientId: 'c1', date: '2026-10-26', type: 'Reunião', status: 'Concluído', servicos: ['Plataforma 2D'] }];
+    const novo = cadencia.calcularAderencia(clientes, agenda, [], {}, AGORA, { servico: 'Plataforma 2D' });
+    expect(cadencia.calcularAderencia(clientes, agenda, [], {}, AGORA, { servico: 'Monitoria' })).toEqual(novo);
+    expect(novo).toMatchObject({ total: 1, emDia: 1 });
+    expect(cadencia.calcularAderencia(clientes, agenda, [], {}, AGORA, { servico: 'Price' })).toMatchObject({ total: 1, emDia: 0 });
+  });
+});

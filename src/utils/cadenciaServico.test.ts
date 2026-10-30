@@ -430,3 +430,17 @@ describe('buildFilaCadencia — o que conta como "marcado"', () => {
     expect(f.relogios[0].status).toBe('coberto');
   });
 });
+
+describe('filtroServicoSalvo e ehServicoDeReuniao (1.7)', () => {
+  it('filtro salvo antes da 1.7 vira o nome novo; desconhecido vira Todos', async () => {
+    const { filtroServicoSalvo } = await import('./cadenciaServico');
+    expect(['Monitoria', 'Price', 'Plataforma 2D', '2D Price', 'Relatório', 'Todos', ''].map(filtroServicoSalvo))
+      .toEqual(['Plataforma 2D', '2D Price', 'Plataforma 2D', '2D Price', 'Todos', 'Todos', 'Todos']);
+  });
+
+  it('ehServicoDeReuniao reconhece nome antigo e novo, e só eles', async () => {
+    const { ehServicoDeReuniao } = await import('./cadenciaServico');
+    expect(['Monitoria', 'Plataforma 2D', 'Precificação', '2D Price'].every(ehServicoDeReuniao)).toBe(true);
+    expect(['Apura', 'Controladoria', '2D Nexus', '2D Alcance', 'OptiMarco', 'Raptor', 'Protocolo GPS'].some(ehServicoDeReuniao)).toBe(false);
+  });
+});
