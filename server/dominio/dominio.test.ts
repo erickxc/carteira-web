@@ -103,3 +103,29 @@ describe('dominio/acoes', () => {
     expect(updated?.updatedAt).not.toBe(nova.createdAt);
   });
 });
+
+describe('dominio/agenda: Solicitação (pedido do Hub)', () => {
+  const pedido = { clientId: 'c1', type: 'Contato', status: 'Solicitado', subject: 'Solicitação do cliente pelo Hub' };
+
+  it('criar converte status Solicitado para o tipo Solicitação (o Hub grava Contato)', () => {
+    const repo = repoMemoria({ Agenda: [], Categorias: [] });
+    expect(agendaDominio.criar(repo, pedido, SEM_EFEITOS).type).toBe('Solicitação');
+  });
+
+  it('criar não mexe em outro status nem atualizar desfaz a aprovação', () => {
+    const repo = repoMemoria({ Agenda: [], Categorias: [] });
+    const contato = agendaDominio.criar(repo, { clientId: 'c1', type: 'Contato', status: 'Agendado' }, SEM_EFEITOS);
+    expect(contato.type).toBe('Contato');
+    const s = agendaDominio.criar(repo, pedido, SEM_EFEITOS);
+    expect(agendaDominio.atualizar(repo, s.id, { type: 'Reunião', status: 'Agendado' }, SEM_EFEITOS).type).toBe('Reunião');
+  });
+
+  it('prepararSolicitacoes converte o que já existe, cria a categoria e é idempotente', () => {
+    const repo = repoMemoria({ Agenda: [{ id: 'e1', ...pedido }, { id: 'e2', clientId: 'c1', type: 'Reunião', status: 'Agendado' }], Categorias: [{ id: 'k', tipo: 'tipo_evento', valor: 'Reunião', ordem: 0 }] });
+    expect(agendaDominio.prepararSolicitacoes(repo)).toBe(1);
+    expect(repo.get('Agenda').map((e: { type: string }) => e.type)).toEqual(['Solicitação', 'Reunião']);
+    expect(repo.get('Categorias').filter((c: { valor: string }) => c.valor === 'Solicitação')).toHaveLength(1);
+    expect(agendaDominio.prepararSolicitacoes(repo)).toBe(0);
+    expect(repo.get('Categorias').filter((c: { valor: string }) => c.valor === 'Solicitação')).toHaveLength(1);
+  });
+});

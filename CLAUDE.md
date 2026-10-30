@@ -193,6 +193,14 @@ Hoje as três são entidades da fila, com módulo em `server/dominio/` cada (`ac
 
 Validando o risco da carteira (29/09/2026), 17 de 39 classificações estavam erradas pela mesma causa: `textoEvento` (`server/ia/analiseCliente.cjs`) mandava ao modelo só data e status, então contato, ligação e relatório concluídos chegavam como "(sem registro)" e viravam "reunião sem ata" — e o prompt tratava ata vazia como desengajamento do cliente, quando quem escreve a ata é o monitor. Hoje o cabeçalho traz o tipo, o texto de "sem registro" depende do tipo e da data (antes de `INICIO_REGISTRO` = 2026-08-01 a equipe não registrava ata, orientação do time), e o prompt proíbe subir o risco por ata vazia — ela vira Pendência interna.
 
+### Solicitação: pedido de reunião do Hub, fora de todas as contas
+
+O Hub 2D (`machineId: hub-2d`, código fora deste repositório) grava na fila um evento `Contato` + status `Solicitado`. `server/dominio/agenda.cjs` converte na entrada para o tipo próprio `Solicitação` (cor `--tipo-solicitacao`), e `prepararSolicitacoes` (boot do servidor) cria a categoria e converte o que já existia. `ehSolicitacao` (motor) deixa o evento fora de entrega, prazo, última interação e "marcado"; próximos eventos, lista da Carteira e análise de risco também o excluem, e o monitorIA o recebe à parte (`solicitacoes` em `buscar_proximas_reunioes`). Na agenda aparece com qualquer filtro de tipo enquanto aguarda aprovação. Na ficha, o monitor fala com o cliente (WhatsApp ao lado do pedido), edita e **Aprova** (vira Reunião + Agendado, a partir daí conta normalmente) ou **Recusa** (Cancelado com motivo obrigatório; continua Solicitação, então não entra nos cancelamentos). Não é opção para criar evento à mão.
+
+### Ficha da reunião (`EventFormModal`): Agendamento e Registro
+
+Uma coluna com duas abas, porque marcar (antes) e registrar (depois) são momentos diferentes. Reunião já passada abre no Registro. O cabeçalho mostra tipo, cliente e status; avisos de conflito e motivo ficam acima das abas porque o status muda de qualquer uma. Tipos simples (Contato, Ligação, Relatório, Precificação) não têm abas. "Registro da Monitoria" e "Grupo / Só esta loja" saíram da tela, mas o dado gravado é mantido ao salvar.
+
 ### Dossiê (arquivo) e AnalisesIA (sheet) são DUAS fontes — mantidas em sincronia num campo
 
 Bug de produção: `corrigir_dossie_cliente` só reescrevia o arquivo do dossiê. A ficha do cliente (`AnaliseIACard`) e o dashboard leem `AnalisesIA.sugestaoProximaPauta`/`resumo`/`nivelRisco` — um campo **separado**, gerado só pela análise automática. Usuário confirmava "a reunião já aconteceu, atualiza a pauta" pelo chat, o agente confirmava, o dossiê mudava — e a ficha do cliente continuava mostrando a pauta antiga, porque lia a outra fonte.

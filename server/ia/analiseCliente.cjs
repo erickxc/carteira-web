@@ -1,5 +1,5 @@
 const { clienteLLM } = require('./provider.cjs');
-const { listaJSON } = require('../dominio/cadenciaServico.cjs');
+const { listaJSON, servicosQueDependemDeReuniao } = require('../dominio/cadenciaServico.cjs');
 const { textoDirecaoOuLegado } = require('./formatoRegistroMonitoria.cjs');
 
 const NIVEIS_RISCO = ['baixo', 'medio', 'alto'];
@@ -135,7 +135,7 @@ function montarPrompt({ cliente, eventosNovos, dossieAnterior }) {
   };
   const servicos = lista(cliente.servicos);
   const independentes = lista(cliente.servicosIndependentes);
-  const dependentes = servicos.filter((sv) => !independentes.includes(sv));
+  const dependentes = servicosQueDependemDeReuniao(cliente);
   const blocoServicos = servicos.length === 0 ? '' : `
 
 SERVIÇOS CONTRATADOS: ${servicos.join(', ')}.${independentes.length ? `
