@@ -40,7 +40,11 @@ function comProdutosEm(c: Cliente, linhas: ProdutoHistoricoItem[] | undefined, l
     const v = naData.get(renomearProduto(p.produto));
     return v ? { ...p, fase: v.fase, faseDesde: v.mudouEm } : p;
   });
-  return { ...c, servicos, ...(produtos ? { produtos } : {}) };
+  // Limite: `independente` não está no log — vale a marca de hoje (o item
+  // Cancelado a mantém); mudar a independência depois reflete retroativamente.
+  const independentes = new Set(c.produtos?.filter((p) => p.independente).map((p) => renomearProduto(p.produto)));
+  const servicosIndependentes = servicos.filter((p) => independentes.has(p));
+  return { ...c, servicos, servicosIndependentes, ...(produtos ? { produtos } : {}) };
 }
 
 /**
