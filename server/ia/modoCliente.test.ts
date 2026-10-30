@@ -155,10 +155,13 @@ describe('APP_MODE=client: escrita de IA vai pra fila, nunca direto no SQLite', 
     expect(ops[0].changes).toEqual({ produtoAlterado: { produto: '2D Price', fase: 'Suspenso', motivoFase: 'Pausa', faseAnterior: 'Ativo' } });
     expect(JSON.stringify(ops[0])).not.toMatch(/SECRET/);
 
-    // Repetir antes do controller aplicar: a leitura está velha, o overlay não.
-    // Recusa em vez de empilhar uma segunda operação em cima da primeira.
-    expect(() => ferramenta('alterar_fase_produto')(repo, { ...args, fase: 'Cancelado' })).toThrow(/está Suspenso/);
-    expect(operacoesNaFila('clientes')).toHaveLength(1);
+    // Sem snapshot novo: a ferramenta enxerga a própria operação pendente, sem
+    // falso "outra pessoa alterou" e sem "já está Ativo" com o Suspenso na fila.
+    expect(() => ferramenta('alterar_fase_produto')(repo, { ...args, fase: 'Suspenso' })).toThrow(/2D Price já está Suspenso/);
+    expect(ferramenta('alterar_fase_produto')(repo, { ...args, fase: 'Ativo', motivo: 'Voltou' })).toMatchObject({ de: 'Suspenso', fase: 'Ativo' });
+    const seguintes = operacoesNaFila('clientes');
+    expect(seguintes).toHaveLength(2);
+    expect(seguintes.map((o: { changes: { produtoAlterado: { faseAnterior: string } } }) => o.changes.produtoAlterado.faseAnterior).sort()).toEqual(['Ativo', 'Suspenso']);
   });
 
   it('corrigir_dossie_cliente funciona (o dossiê é ARQUIVO, não SQLite) sem sincronizar AnalisesIA', () => {

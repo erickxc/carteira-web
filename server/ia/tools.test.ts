@@ -1718,6 +1718,11 @@ describe('alterar_fase_produto: bordas', () => {
     expect(item('2D Nexus').fase).toBe('Ativo');
   });
 
+  it('nome oficial em minúsculas fora da categoria ("raptor") é aceito', () => {
+    const r = exec('alterar_fase_produto', preparar(), { clientId: 'c1', produto: 'raptor', fase: 'Em breve', motivo: 'Proposta aceita' });
+    expect(r).toMatchObject({ produto: 'Raptor', de: null, fase: 'Em breve' });
+  });
+
   it('"já está" vale também para o nome em outra caixa', () => {
     expect(() => exec('alterar_fase_produto', preparar(), { clientId: 'c1', produto: 'APURA', fase: 'Ativo', motivo: 'x' })).toThrow(/alterar_fase_produto: Apura já está Ativo/);
   });

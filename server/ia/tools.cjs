@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { startOfWeek, endOfWeek, parseISO } = require('date-fns');
 const { executarMutacao } = require('../fila/mutacao.cjs');
+const { aplicarOverlay } = require('../fila/pendentes.cjs');
 const { lerDossieCliente, corrigirDossieCliente, gerarAnalisesPendentes } = require('./analisesAutomaticas.cjs');
 const { TEMPLATE_DOSSIE } = require('./analiseCliente.cjs');
 const { gerarAtaIA } = require('./geracaoAta.cjs');
@@ -888,11 +889,14 @@ function atualizarCliente(repo, args) {
  * Muda a fase de um produto pelo mesmo caminho da ficha (`produtoAlterado`):
  * merge sobre a linha atual, motivo validado, histórico gravado. `faseAnterior`
  * faz o domínio recusar se outra pessoa já mudou. Produto ainda fora do cadastro
- * do cliente entra na fase pedida ("Apura entra em breve").
+ * do cliente entra na fase pedida ("Apura entra em breve"). Em máquina cliente lê
+ * com o overlay da fila, a mesma visão do domínio: sem ele, a alteração anterior do
+ * próprio usuário, ainda pendente, pareceria mudança de "outra pessoa".
  */
 function alterarFaseProduto(repo, { clientId, produto, fase, motivo } = {}) {
   if (!clientId) throw new Error('alterar_fase_produto: "clientId" é obrigatório.');
-  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
+  const linhas = repo.get('Clientes');
+  const cliente = (isClient ? aplicarOverlay('Clientes', linhas) : linhas).find((c) => String(c.id) === String(clientId));
   if (!cliente) throw new Error(`alterar_fase_produto: cliente "${clientId}" não encontrado.`);
   if (!produto) throw new Error('alterar_fase_produto: "produto" é obrigatório.');
   const motivoLimpo = String(motivo ?? '').trim();
@@ -900,10 +904,12 @@ function alterarFaseProduto(repo, { clientId, produto, fase, motivo } = {}) {
   const faseValida = FASES.find((f) => semAcento(f) === semAcento(fase));
   if (!faseValida) throw new Error(`alterar_fase_produto: fase "${fase}" inválida. Valores válidos: ${FASES.join(', ')}.`);
 
-  const atual = produtosDoCliente(cliente).find((p) => mesmoProduto(p.produto, produto));
-  const nome = renomearProduto(atual?.produto
-    ?? PRODUTOS_OFICIAIS.find((p) => mesmoProduto(p, produto))
+  // Nome primeiro: `atual` só é confiável com o nome oficial ("apura", "nexus").
+  const lista = produtosDoCliente(cliente);
+  const alvo = semAcento(renomearProduto(produto));
+  const nome = renomearProduto([...lista.map((p) => p.produto), ...PRODUTOS_OFICIAIS].find((p) => semAcento(p) === alvo)
     ?? resolverOpcao(repo, 'servico', produto, 'alterar_fase_produto: produto'));
+  const atual = lista.find((p) => mesmoProduto(p.produto, nome));
   // Sem mudança de fase o domínio aceitaria o motivo novo sem linha no histórico.
   if (atual?.fase === faseValida) throw new Error(`alterar_fase_produto: ${nome} já está ${faseValida}.`);
 
