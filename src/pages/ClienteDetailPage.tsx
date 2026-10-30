@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { addDays, parseISO, subDays } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
-import { ArrowLeft, Bell as BellIcon, CalendarPlus, FileSpreadsheet, NotebookPen, PhoneIncoming, Save, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Bell as BellIcon, CalendarPlus, FileSpreadsheet, NotebookPen, Pencil, PhoneIncoming, Save, Trash2, Users } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { confirmDialog } from '../utils/confirmDialog';
 import { contatosVisiveis, servicosSemResponsavel } from '../utils/contatos';
 import { CadastroCliente } from '../components/cliente/CadastroCliente';
+import { EditarCadastroModal } from '../components/cliente/EditarCadastroModal';
 import { EventFormModal } from '../components/EventFormModal';
 import { ReminderFormModal } from '../components/ReminderFormModal';
 import { RegistroContatoModal } from '../components/RegistroContatoModal';
@@ -41,6 +42,7 @@ export default function ClienteDetailPage() {
   const [contatosOpen, setContatosOpen] = useState(false);
   const [anotacoesOpen, setAnotacoesOpen] = useState(false);
   const [relatoriosOpen, setRelatoriosOpen] = useState(false);
+  const [editandoCadastro, setEditandoCadastro] = useState(false);
 
   // Memoizado: sem isso, `cliente` é recalculado (nova referência) a cada
   // render, e o compilador do React não consegue provar que memos que dependem
@@ -247,8 +249,10 @@ export default function ClienteDetailPage() {
         <AgilTarefasCard cliente={cliente} />
       </div>
 
-      {/* Cadastro editável na própria ficha (1.6.11) — sem lápis nem modal. */}
-      <CadastroCliente key={cliente.id} cliente={cliente} />
+      <div style={{ marginBottom: 24 }}>
+        <CadastroCliente valor={cliente} somenteLeitura />
+      </div>
+      {editandoCadastro && <EditarCadastroModal key={cliente.id} cliente={cliente} onClose={() => setEditandoCadastro(false)} />}
 
       <div className="flex-row" style={{ marginBottom: 24 }}>
         <Button variant="primary" onClick={() => setEventModalOpen(true)}>
@@ -268,6 +272,9 @@ export default function ClienteDetailPage() {
         </Button>
         <Button variant="secondary" onClick={() => setAnotacoesOpen(true)}>
           <NotebookPen size={15} /> Anotações
+        </Button>
+        <Button variant="secondary" onClick={() => setEditandoCadastro(true)}>
+          <Pencil size={15} /> Editar cadastro
         </Button>
       </div>
 

@@ -3,7 +3,7 @@ import { Input, Textarea } from '../../ui';
 
 /** Campo de texto que salva ao sair (blur), só se mudou. `key={valor}` no uso
  *  reinicia o rascunho quando o valor muda por fora (outra máquina, outro campo).
- *  Arquivo próprio porque a ficha (`CadastroCliente`) e o bloco de produtos usam. */
+ *  Usado pelo bloco de produtos da ficha, que grava campo a campo. */
 export function CampoTexto({ valor, onSalvar, multilinha, ...props }: {
   valor: string;
   onSalvar: (v: string) => void;
