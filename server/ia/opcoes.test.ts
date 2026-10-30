@@ -112,6 +112,22 @@ describe('resolverOpcao', () => {
     expect(resolverOpcao(depois, 'servico', 'Precificação', 'x')).toBe('2D Price');
   });
 
+  it('produto: variações de escrita do nome antigo e novo caem na mesma categoria', () => {
+    const antes = repoMemoria({ Categorias: CATEGORIAS });
+    for (const v of ['monitoria', 'MONITORIA', 'plataforma', 'plataforma 2d']) expect(resolverOpcao(antes, 'servico', v, 'x')).toBe('Monitoria');
+    for (const v of ['price', 'Price', 'precificacao', '2d price']) expect(resolverOpcao(antes, 'servico', v, 'x')).toBe('Precificação');
+    const depois = repoMemoria({ Categorias: [{ id: '4', tipo: 'servico', valor: 'Plataforma 2D' }, { id: '5', tipo: 'servico', valor: '2D Price' }] });
+    for (const v of ['monitoria', 'plataforma']) expect(resolverOpcao(depois, 'servico', v, 'x')).toBe('Plataforma 2D');
+    for (const v of ['price', 'precificacao']) expect(resolverOpcao(depois, 'servico', v, 'x')).toBe('2D Price');
+  });
+
+  it('o alias de produto não vaza para o TIPO de evento nem aceita produto inexistente', () => {
+    const repo = repoMemoria({ Categorias: [...CATEGORIAS, { id: '20', tipo: 'tipo_evento', valor: 'Precificação' }] });
+    expect(() => resolverOpcao(repo, 'tipo_evento', '2D Price', 'x')).toThrow();
+    expect(resolverOpcao(repo, 'tipo_evento', 'Precificação', 'x')).toBe('Precificação');
+    expect(() => resolverOpcao(repo, 'servico', 'Raptor', 'x')).toThrow();
+  });
+
   it('categoria sem nenhuma opção cadastrada não trava — devolve o valor como veio', () => {
     const semCategoria = repoMemoria({ Categorias: [] });
     expect(resolverOpcao(semCategoria, 'monitor', 'Qualquer', 'monitor')).toBe('Qualquer');

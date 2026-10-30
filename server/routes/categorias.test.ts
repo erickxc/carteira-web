@@ -139,3 +139,56 @@ describe('PUT /api/categorias/:id — limpa tipoLink com null', () => {
     }
   });
 });
+
+describe('reordenar produtos (setas de Configurações)', () => {
+  const put = (url: string, id: string, corpo: object) =>
+    fetch(`${url}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) });
+  const post = async (url: string, valor: string, extra: object = {}) =>
+    (await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo: 'servico', valor, ...extra }) })).json();
+
+  it('`ordem` regravada persiste (inclusive 0) e não apaga cor nem valor', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const a = await post(url, 'Apura', { cor: '#112233' });
+      const b = await post(url, 'Raptor');
+      // Como `mover`: PUT { valor, ordem }, um por item.
+      await Promise.all([put(url, a.id, { valor: a.valor, ordem: 1 }), put(url, b.id, { valor: b.valor, ordem: 0 })]);
+      const lista = await (await fetch(url)).json();
+      const ordenada = lista.sort((x: { ordem: number }, y: { ordem: number }) => x.ordem - y.ordem);
+      expect(ordenada.map((c: { valor: string }) => c.valor)).toEqual(['Raptor', 'Apura']);
+      expect(ordenada[0].ordem).toBe(0);
+      expect(ordenada[1].cor).toBe('#112233');
+    } finally {
+      fechar();
+    }
+  });
+
+  it('categoria criada depois de uma exclusão pode repetir `ordem` — por isso a lista inteira é regravada', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const a = await post(url, 'Apura');
+      await post(url, 'Raptor');
+      await fetch(`${url}/${a.id}`, { method: 'DELETE' });
+      const c = await post(url, 'Controladoria');
+      const lista = await (await fetch(url)).json();
+      expect(lista.find((x: { valor: string }) => x.valor === 'Raptor').ordem).toBe(c.ordem);
+    } finally {
+      fechar();
+    }
+  });
+});
+
+describe('seed de produtos', () => {
+  it('base nova nasce com a lista oficial, na ordem oficial; base existente não muda', () => {
+    const { initDbSqlite, getSheetData, saveSheetData } = require('../dbSqlite.cjs');
+    const { PRODUTOS_OFICIAIS } = require('../../shared/produtos.cjs');
+    initDbSqlite();
+    const servicos = () => getSheetData('Categorias').filter((c: { tipo: string }) => c.tipo === 'servico')
+      .sort((a: { ordem: number }, b: { ordem: number }) => a.ordem - b.ordem).map((c: { valor: string }) => c.valor);
+    expect(servicos()).toEqual(PRODUTOS_OFICIAIS);
+
+    saveSheetData('Categorias', [{ id: '1', tipo: 'servico', valor: 'Monitoria', ordem: 0, createdAt: '' }]);
+    initDbSqlite();
+    expect(servicos()).toEqual(['Monitoria']);
+  });
+});

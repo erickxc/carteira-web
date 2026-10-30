@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { opcoesProdutoEvento, passaFiltroProduto, servicosDaImportacao } from './produtosTela';
-import type { Cliente } from '../types';
+import { buildFilaCadencia, comPrecificacaoDoGrupo } from './cadenciaServico';
+import type { Cadencias, Cliente, EventoAgenda } from '../types';
 
 const cli = (...produtos: [string, string][]) =>
   ({ produtos: produtos.map(([produto, fase]) => ({ produto, fase, faseDesde: '', motivoFase: '' })) }) as unknown as Cliente;
@@ -67,5 +68,89 @@ describe('servicosDaImportacao', () => {
   });
   it('coluna vazia ou negativa não marca', () => {
     expect(servicosDaImportacao({ 'Plataforma 2D': '', Monitoria: 'não' }, novas)).toEqual([]);
+  });
+});
+
+describe('opcoesProdutoEvento — casos de borda', () => {
+  it('Em breve e Cancelado também ficam fora; cliente legado sem `produtos` vê todos', () => {
+    const c = cli(['Apura', 'Ativo'], ['2D Nexus', 'Em breve'], ['Raptor', 'Cancelado']);
+    expect(opcoesProdutoEvento([...CATEGORIAS, '2D Nexus', 'Raptor'], c, [], false)).toEqual(['Apura']);
+    expect(opcoesProdutoEvento(CATEGORIAS, {} as Cliente, [], false)).toEqual(CATEGORIAS);
+  });
+  it('"ver todos" não some com o marcado fora da categoria nem repete chip', () => {
+    expect(opcoesProdutoEvento(CATEGORIAS, cli(['Apura', 'Ativo']), ['AutoTech', 'Apura'], true))
+      .toEqual([...CATEGORIAS, 'AutoTech']);
+  });
+  it('evento antigo com os dois nomes do mesmo produto gera um chip só', () => {
+    expect(opcoesProdutoEvento(CATEGORIAS, cli(['Plataforma 2D', 'Ativo']), ['Monitoria', 'Plataforma 2D'], false)).toEqual(['Monitoria']);
+  });
+  it('Precificação marcada ocupa o lugar do 2D Price, mesmo com o cliente sem ele Ativo', () => {
+    expect(opcoesProdutoEvento(CATEGORIAS, cli(['Apura', 'Ativo'], ['2D Price', 'Suspenso']), ['Precificação'], false))
+      .toEqual(['Apura', 'Precificação']);
+  });
+  it('sugestão com nome oficial aparece numa categoria ainda antiga, sem chip a mais', () => {
+    expect(opcoesProdutoEvento(['Monitoria', 'Precificação'], cli(['Plataforma 2D', 'Ativo']), ['2D Price'], false))
+      .toEqual(['Monitoria', '2D Price']);
+  });
+});
+
+describe('passaFiltroProduto — casos de borda', () => {
+  it('filtro salvo "Precificação" acha 2D Price, e produto gravado com nome antigo acha o filtro novo', () => {
+    expect(passaFiltroProduto(cli(['2D Price', 'Ativo']), ['Precificação'], 'Ativo')).toBe(true);
+    expect(passaFiltroProduto(cli(['Monitoria', 'Ativo']), ['Plataforma 2D'], 'Ativo')).toBe(true);
+  });
+  it('vários produtos: basta um deles estar NA fase — outro produto na fase não conta', () => {
+    const c = cli(['Plataforma 2D', 'Suspenso'], ['Apura', 'Ativo']);
+    expect(passaFiltroProduto(c, ['Plataforma 2D', 'Apura'], 'Ativo')).toBe(true);
+    expect(passaFiltroProduto(c, ['Plataforma 2D'], 'Ativo')).toBe(false);
+  });
+  it('cliente sem `produtos` não quebra: só sai quando há produto ou fase específica pedida', () => {
+    const semLista = {} as Cliente;
+    expect(passaFiltroProduto(semLista, [], 'Ativo')).toBe(true);
+    expect(passaFiltroProduto(semLista, [], 'Suspenso')).toBe(false);
+    expect(passaFiltroProduto(semLista, ['Apura'], 'Todas')).toBe(false);
+  });
+});
+
+describe('servicosDaImportacao — casos de borda', () => {
+  const novas = ['Plataforma 2D', '2D Price'];
+  it('coluna nova e antiga na mesma linha marcam uma vez só', () => {
+    expect(servicosDaImportacao({ 'Plataforma 2D': 'Sim', Monitoria: 'Sim', '2D Price': 'x', Price: 1, Precificação: true }, novas)).toEqual(novas);
+  });
+  it('coluna antiga vazia não apaga a nova ao lado', () => {
+    expect(servicosDaImportacao({ Monitoria: '', 'Plataforma 2D': 'Sim' }, novas)).toEqual(['Plataforma 2D']);
+  });
+  it('categoria sem o produto cai no nome oficial; outras categorias não são confundidas', () => {
+    expect(servicosDaImportacao({ Monitoria: 'Sim', Price: 'Sim' }, ['Apura', 'Protocolo GPS', 'Controladoria'])).toEqual(novas);
+  });
+});
+
+describe('reunião com produto sem relógio (1.7: formulário oferece qualquer Ativo)', () => {
+  const CAD = { monitoria_dias: 30, price_dias: 15, recontato_dias: 5 } as Cadencias;
+  const now = new Date('2026-10-30T12:00:00Z');
+  const cliente = (id: string, grupo = '') =>
+    ({ id, empresa: id, estado: 'Ativo', status: 'Regular', grupo, createdAt: '2026-01-01T00:00:00.000Z', servicos: ['Plataforma 2D', '2D Price', 'Apura'] }) as unknown as Cliente;
+  const reuniao = (clientId: string, date: string, status: string, servicos: string[]) =>
+    ({ id: `${clientId}-${date}`, clientId, date, status, type: 'Reunião', servicos }) as unknown as EventoAgenda;
+  const relogios = (agenda: EventoAgenda[]) => buildFilaCadencia([cliente('a')], agenda, [], CAD, now)[0].relogios;
+
+  it('concluída só com Apura não zera nenhum relógio', () => {
+    const base = relogios([]);
+    const depois = relogios([reuniao('a', '2026-10-29T00:00:00.000Z', 'Concluído', ['Apura'])]);
+    expect(depois.map((r) => [r.servico, r.status, r.atraso])).toEqual(base.map((r) => [r.servico, r.status, r.atraso]));
+    expect(depois.every((r) => r.ultimo === null)).toBe(true);
+  });
+  it('agendada só com Apura não cobre o prazo', () => {
+    const depois = relogios([reuniao('a', '2026-11-05T00:00:00.000Z', 'Agendado', ['Apura'])]);
+    expect(depois.some((r) => r.status === 'coberto' || r.proximo)).toBe(false);
+  });
+  it('com Apura e Plataforma 2D zera só o relógio da Plataforma', () => {
+    const [plat, price] = relogios([reuniao('a', '2026-10-29T00:00:00.000Z', 'Concluído', ['Apura', 'Plataforma 2D'])]);
+    expect(plat.status).toBe('em_dia');
+    expect(price.ultimo).toBeNull();
+  });
+  it('não vira precificação do grupo: nenhuma cópia para a loja-irmã', () => {
+    const agenda = [reuniao('a', '2026-10-29T00:00:00.000Z', 'Concluído', ['Apura'])];
+    expect(comPrecificacaoDoGrupo(agenda, [cliente('a', 'Rede'), cliente('b', 'Rede')])).toHaveLength(1);
   });
 });
