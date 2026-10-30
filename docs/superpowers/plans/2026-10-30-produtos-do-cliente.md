@@ -226,4 +226,4 @@
 - [ ] **Step 1:** atualizar os documentos.
 - [ ] **Step 2:** `npm run build` + `npm test` → PASS.
 - [ ] **Step 3: Commit** — `docs: produtos do cliente (1.7.0)`
-- [ ] **Step 4 (com o usuário, não automático):** confirmar resposta do responsável pelo `2d_hub`/analisador; publicar; atualizar Karol-2D; aguardar as demais máquinas em uso na 1.7 (`dados/maquinas/*.log`); `migrarProdutos.cjs` simulado em produção → revisar com o usuário → `--aplicar`.
+- [ ] **Step 4 (com o usuário, não automático):** integrar a `main` na branch e repetir `npm run build` + `npm test` (nada de publicar de base defasada: a release sai da árvore atual); confirmar resposta do responsável pelo `2d_hub`/analisador; publicar; atualizar Karol-2D com "Atualizar agora" logo em seguida, antes de editar produtos em outra máquina (senão a edição some em silêncio, ver CLAUDE.md); aguardar as demais máquinas em uso na 1.7 (`dados/maquinas/*.log`); `migrarProdutos.cjs` simulado em produção → revisar com o usuário → `--aplicar`.
