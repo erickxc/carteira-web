@@ -150,7 +150,9 @@ Grava pelo domínio (mesmo caminho das telas). Rodar primeiro numa cópia (`star
 ## 10. Entrega
 
 - Versão **1.7.0**. A Karol-2D (servidor) atualiza primeiro; o servidor aceita patch antigo (seção 1), então máquinas 1.6.x seguem funcionando até atualizar.
-- Ordem: publicar → atualizar Karol-2D → rodar a migração simulada → conferir relatório com o usuário → `--aplicar`.
+- **A 1.7 funciona sem a migração**: cliente sem `produtos` é lido montando os produtos a partir de `servicos`/`servicosIndependentes`/`linksServicos` (só em memória, sem gravar), e snapshot sem a tabela `ProdutosHistorico` não quebra nada.
+- **Snapshot do OneDrive** (`filas/leitura/carteira-snapshot.sqlite`, cópia inteira do SQLite lida pelas máquinas client com as colunas que cada versão conhece): coluna e tabela novas são ignoradas pela 1.6 sem erro. O que quebra a 1.6 é a **renomeação** (ela acha a Monitoria por `/monitor/i`; "Plataforma 2D" some). Por isso a migração só grava quando todas as máquinas em uso estão na 1.7+ (`dados/maquinas/*.log`); o script lista as atrasadas e só segue com confirmação explícita de que não estão em uso.
+- Ordem: publicar → atualizar Karol-2D → aguardar as demais máquinas na 1.7 → migração simulada → conferir relatório com o usuário → `--aplicar`.
 - Mostrar a ficha nova local (`start:dev` + prints claro/escuro/celular) antes de publicar.
 
 ## Riscos
