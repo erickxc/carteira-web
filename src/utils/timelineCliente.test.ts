@@ -54,3 +54,44 @@ describe('agruparLembretes', () => {
     expect(e1.kind === 'evento' && e1.lembretes).toBeUndefined();
   });
 });
+
+describe('agruparLembretes: bordas', () => {
+  it('dois lembretes do mesmo evento entram os dois, na ordem da lista', () => {
+    const r = agruparLembretes([lembrete('l2', 'e1'), evento('e1'), lembrete('l1', 'e1')]);
+    expect(ids(r)).toEqual(['e1']);
+    const e = r[0];
+    expect(e.kind === 'evento' && e.lembretes?.map((l) => l.id)).toEqual(['l2', 'l1']);
+  });
+
+  it('cada lembrete vai para o seu evento, sem misturar', () => {
+    const r = agruparLembretes([evento('e1'), evento('e2'), lembrete('l1', 'e1'), lembrete('l2', 'e2')]);
+    expect(r.map((i) => (i.kind === 'evento' ? i.lembretes?.map((l) => l.id) : null))).toEqual([['l1'], ['l2']]);
+  });
+
+  it('o evento recebido não é alterado quando recebe lembrete', () => {
+    const e1 = evento('e1');
+    const r = agruparLembretes([e1, lembrete('l1', 'e1')]);
+    expect(e1.kind === 'evento' && e1.lembretes).toBeUndefined();
+    expect(r[0]).not.toBe(e1);
+  });
+
+  it('eventId igual ao id de outro LEMBRETE não agrupa: só evento recebe lembrete', () => {
+    expect(ids(agruparLembretes([lembrete('x'), lembrete('l1', 'x')]))).toEqual(['x', 'l1']);
+  });
+
+  it('cópia de precificação do grupo tem outro id: lembrete do evento original continua item', () => {
+    const copia = evento('orig@loja2');
+    expect(ids(agruparLembretes([copia, lembrete('l1', 'orig')]))).toEqual(['orig@loja2', 'l1']);
+  });
+
+  it('nenhum lembrete some: total de lembretes antes e depois é o mesmo', () => {
+    const r = agruparLembretes([evento('e1'), lembrete('a', 'e1'), lembrete('b', 'ausente'), lembrete('c'), lembrete('d', 'e1')]);
+    const soltos = r.filter((i) => i.kind === 'lembrete').map((i) => i.id);
+    const dentro = r.flatMap((i) => (i.kind === 'evento' ? (i.lembretes ?? []).map((l) => l.id) : []));
+    expect([...soltos, ...dentro].sort()).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('lista vazia devolve lista vazia', () => {
+    expect(agruparLembretes([])).toEqual([]);
+  });
+});
