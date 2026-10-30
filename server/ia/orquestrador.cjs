@@ -66,6 +66,8 @@ function descreverAcao(ferramenta, argumentos, resultado) {
       return `Criando evento${argumentos.subject ? `: ${argumentos.subject}` : ''}...`;
     case 'criar_lembrete':
       return `Criando lembrete${argumentos.title ? `: ${argumentos.title}` : ''}...`;
+    case 'alterar_fase_produto':
+      return `Mudando ${argumentos.produto || 'produto'} para ${argumentos.fase || 'nova fase'}${nomeCliente ? ` em ${nomeCliente}` : ''}...`;
     case 'buscar_memoria':
       return 'Consultando as regras do processo...';
     case 'registrar_memoria':

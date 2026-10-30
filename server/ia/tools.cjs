@@ -17,7 +17,8 @@ const {
  *  loja-irmã (cópia com `doGrupo`; o `id` real é `doGrupo.origemId`). */
 const agendaPorAtendimento = (repo) => comPrecificacaoDoGrupo(repo.get('Agenda'), repo.get('Clientes'));
 const { servicoPadraoDoEvento, categoriaCancelamento } = require('../../shared/cadenciaServico.cjs');
-const { renomearProduto, mesmoProduto } = require('../../shared/produtos.cjs');
+const { renomearProduto, mesmoProduto, PRODUTOS_OFICIAIS, FASES } = require('../../shared/produtos.cjs');
+const { produtosDoCliente } = require('../dominio/clientes.cjs');
 const { sugerirAgenda } = require('../dominio/sugestaoAgenda.cjs');
 const { getCache: getCacheCeoAgenda } = require('../ceoAgenda.cjs');
 const { CADENCIAS_SEED, UPLOADS_DIR } = require('../config.cjs');
@@ -105,6 +106,15 @@ function lerCadencias(repo) {
  * `ClientFormModal.tsx`). Sem isso explícito, o agente trata o nome composto
  * como bloco único e fala "a empresa X" quando devia falar "a loja X (rede Y)".
  */
+/**
+ * Produtos como o agente os vê. Lista branca de propósito: o retorno de uma
+ * ferramenta vai para o modelo e fica gravado em `AcoesIA`, que a API devolve —
+ * login, senha cifrada e link ficam só na ficha, e campo novo não vaza sozinho.
+ */
+const produtosParaAgente = (cliente) => produtosDoCliente(cliente).map(({ produto, fase, faseDesde, motivoFase, independente }) => ({
+  produto, fase, faseDesde: faseDesde || null, motivoFase: motivoFase || null, independente: Boolean(independente),
+}));
+
 function identidadeCliente(cliente) {
   const grupo = cliente.grupo || null;
   const loja = grupo ? cliente.empresa.replace(`${grupo} - `, '') : null;
@@ -281,6 +291,7 @@ function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo
       // sem isso aqui, uma resposta sobre "quem agendar" incluía cliente cujo
       // único serviço é independente.
       servicosIndependentes: listaJSON(cliente.servicosIndependentes),
+      produtos: produtosParaAgente(cliente),
       nivelRisco: analise?.nivelRisco ?? null,
     }));
 
@@ -403,6 +414,7 @@ function buscarDossieCliente(repo, { clientId }) {
   return {
     ...identidadeCliente(cliente),
     ...situacaoCadastro(repo, cliente),
+    produtos: produtosParaAgente(cliente),
     dossie: lerDossieCliente(clientId),
     ultimaAnalise: analise ?? null,
   };
@@ -836,7 +848,6 @@ function atualizarCliente(repo, args) {
   if (args.status !== undefined) patch.status = resolverOpcao(repo, 'status_cliente', args.status, 'atualizar_cliente: status');
   if (args.local !== undefined) patch.local = args.local ? resolverOpcao(repo, 'local_cliente', args.local, 'atualizar_cliente: local') : '';
   if (args.linha !== undefined) patch.linha = args.linha ? resolverOpcao(repo, 'linha_cliente', args.linha, 'atualizar_cliente: linha') : '';
-  if (args.servicos !== undefined) patch.servicos = resolverLista(repo, 'servico', args.servicos, 'atualizar_cliente: servicos') || [];
   if (args.estado !== undefined) {
     const alvo = semAcento(args.estado);
     const valido = ['ativo', 'inativo'].find((e) => e === alvo);
@@ -863,10 +874,46 @@ function atualizarCliente(repo, args) {
   }
 
   if (Object.keys(patch).length === 0) {
-    throw new Error('atualizar_cliente: nenhum campo pra alterar — informe ao menos um (monitor, status, estado, local, linha, servicos, observacao, endereco, grupo, pausadoAte).');
+    throw new Error('atualizar_cliente: nenhum campo pra alterar — informe ao menos um (monitor, status, estado, local, linha, observacao, endereco, grupo, pausadoAte).');
   }
 
-  return executarMutacao('clientes', 'update', { id: clientId, patch });
+  const salvo = executarMutacao('clientes', 'update', { id: clientId, patch });
+  if (!salvo) return salvo;
+  // O retorno vai pro modelo e pro `AcoesIA`: a linha inteira levaria a senha cifrada.
+  const { senhaPriceCifrada: _senha, loginPrice: _login, ...resto } = salvo;
+  return { ...resto, produtos: produtosParaAgente(salvo) };
+}
+
+/**
+ * Muda a fase de um produto pelo mesmo caminho da ficha (`produtoAlterado`):
+ * merge sobre a linha atual, motivo validado, histórico gravado. `faseAnterior`
+ * faz o domínio recusar se outra pessoa já mudou. Produto ainda fora do cadastro
+ * do cliente entra na fase pedida ("Apura entra em breve").
+ */
+function alterarFaseProduto(repo, { clientId, produto, fase, motivo } = {}) {
+  if (!clientId) throw new Error('alterar_fase_produto: "clientId" é obrigatório.');
+  const cliente = repo.get('Clientes').find((c) => String(c.id) === String(clientId));
+  if (!cliente) throw new Error(`alterar_fase_produto: cliente "${clientId}" não encontrado.`);
+  if (!produto) throw new Error('alterar_fase_produto: "produto" é obrigatório.');
+  const motivoLimpo = String(motivo ?? '').trim();
+  if (!motivoLimpo) throw new Error('alterar_fase_produto: "motivo" é obrigatório — pergunte ao usuário, não invente.');
+  const faseValida = FASES.find((f) => semAcento(f) === semAcento(fase));
+  if (!faseValida) throw new Error(`alterar_fase_produto: fase "${fase}" inválida. Valores válidos: ${FASES.join(', ')}.`);
+
+  const atual = produtosDoCliente(cliente).find((p) => mesmoProduto(p.produto, produto));
+  const nome = renomearProduto(atual?.produto
+    ?? PRODUTOS_OFICIAIS.find((p) => mesmoProduto(p, produto))
+    ?? resolverOpcao(repo, 'servico', produto, 'alterar_fase_produto: produto'));
+  // Sem mudança de fase o domínio aceitaria o motivo novo sem linha no histórico.
+  if (atual?.fase === faseValida) throw new Error(`alterar_fase_produto: ${nome} já está ${faseValida}.`);
+
+  const salvo = executarMutacao('clientes', 'update', {
+    id: clientId,
+    patch: { produtoAlterado: { produto: nome, fase: faseValida, motivoFase: motivoLimpo, faseAnterior: atual ? atual.fase : null } },
+  });
+  if (!salvo) throw new Error(`alterar_fase_produto: cliente "${clientId}" não encontrado.`);
+  const item = produtosParaAgente(salvo).find((p) => p.produto === nome);
+  return { clientId, empresa: salvo.empresa, de: atual ? atual.fase : null, ...item, servicos: listaJSON(salvo.servicos) };
 }
 
 /** Mesmo cálculo de `segmentoDe` em `src/components/AcaoFormModal.tsx` — a
@@ -2060,7 +2107,7 @@ const FERRAMENTAS = [
   {
     name: 'atualizar_cliente',
     escreve: true,
-    description: 'Altera o CADASTRO de um cliente (monitor, status, estado Ativo/Inativo, local/segmento, linha, serviços contratados, observação, endereço, grupo, pausa temporária). Só mexe no que você informar. NÃO cria nem exclui cliente — isso continua sendo feito na tela. GRAVA DADO: só chame depois de o usuário confirmar.',
+    description: 'Altera o CADASTRO de um cliente (monitor, status, estado Ativo/Inativo, local/segmento, linha, observação, endereço, grupo, pausa temporária). Só mexe no que você informar. Produto contratado NÃO é aqui: use alterar_fase_produto. NÃO cria nem exclui cliente — isso continua sendo feito na tela. GRAVA DADO: só chame depois de o usuário confirmar.',
     parameters: {
       type: 'object',
       properties: {
@@ -2070,7 +2117,6 @@ const FERRAMENTAS = [
         estado: { type: 'string', description: 'Ativo | Inativo — liga/desliga o cliente das contas de cadência e do dashboard.' },
         local: { type: 'string', description: 'Segmento (Autopeça, Oficina, ...), como cadastrado.' },
         linha: { type: 'string', description: 'Linha de produto (Leve, Pesada, Geral), como cadastrada.' },
-        servicos: { type: 'array', items: { type: 'string' }, description: 'Serviços contratados, como cadastrados. Substitui a lista inteira.' },
         observacao: { type: 'string' },
         endereco: { type: 'string' },
         grupo: { type: 'string', description: 'Grupo/rede do cliente (análise segmentada).' },
@@ -2083,6 +2129,22 @@ const FERRAMENTAS = [
       required: ['clientId'],
     },
     executar: atualizarCliente,
+  },
+  {
+    name: 'alterar_fase_produto',
+    escreve: true,
+    description: 'Muda a fase de um produto do cliente (Em breve, Suspenso, Ativo, Cancelado) ou inclui um produto novo na fase informada. Só Ativo entra em cadência e em "servicos". O motivo é obrigatório e fica no histórico: use o que o usuário disse, nunca invente. GRAVA DADO: só chame depois de o usuário confirmar.',
+    parameters: {
+      type: 'object',
+      properties: {
+        clientId: { type: 'string' },
+        produto: { type: 'string', description: 'Nome do produto (ex.: "Plataforma 2D", "2D Price", "Apura").' },
+        fase: { type: 'string', enum: FASES },
+        motivo: { type: 'string', description: 'Motivo da mudança, nas palavras do usuário.' },
+      },
+      required: ['clientId', 'produto', 'fase', 'motivo'],
+    },
+    executar: alterarFaseProduto,
   },
   {
     name: 'registrar_acao',

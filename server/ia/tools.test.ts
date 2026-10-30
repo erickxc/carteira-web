@@ -41,7 +41,7 @@ let dbSqlite: typeof import('../dbSqlite.cjs');
 const MODULOS = [
   '../config.cjs', '../dbSqlite.cjs', '../modo.cjs', '../dominio/repo.cjs', '../dominio/cadenciaServico.cjs',
   '../dominio/sugestaoAgenda.cjs', '../dominio/feriados.cjs', '../ceoAgenda.cjs',
-  './tools.cjs', './analisesAutomaticas.cjs', './analiseCliente.cjs', './ollamaClient.cjs',
+  './tools.cjs', './orquestrador.cjs', './analisesAutomaticas.cjs', './analiseCliente.cjs', './ollamaClient.cjs',
   '../fila/mutacao.cjs', '../dominio/agenda.cjs', '../dominio/lembretes.cjs',
   '../alvos/leitor.cjs', '../alvos/cache.cjs', '../alvos/mapa.cjs', '../alvos/estado.cjs',
   '../alvos/entidades.cjs', '../alvos/movimento.cjs', '../alvos/acompanhamento.cjs', '../alvos/consulta.cjs',
@@ -134,8 +134,8 @@ function escreverDossie(clientId: string, slug: string, corpo: string) {
 // 1-8: catálogo e contrato geral das ferramentas
 // ---------------------------------------------------------------------------
 describe('catálogo de ferramentas', () => {
-  it('1. expõe exatamente as 42 ferramentas esperadas', () => {
-    expect(FERRAMENTAS).toHaveLength(42);
+  it('1. expõe exatamente as 43 ferramentas esperadas', () => {
+    expect(FERRAMENTAS).toHaveLength(43);
   });
 
   it('2. nenhum nome de ferramenta duplicado', () => {
@@ -188,9 +188,9 @@ describe('catálogo de ferramentas', () => {
    * implementação — por isso o teste falha ao adicionar uma nova.
    */
   it('7. a lista de ferramentas de edição é a esperada', () => {
-    const edicao = FERRAMENTAS.filter((f) => /^(corrigir|atualizar|editar|remover|excluir|deletar)/.test(f.name));
+    const edicao = FERRAMENTAS.filter((f) => /^(alterar|corrigir|atualizar|editar|remover|excluir|deletar)/.test(f.name));
     expect(edicao.map((f) => f.name).sort()).toEqual([
-      'atualizar_cliente', 'atualizar_evento', 'corrigir_dossie_cliente', 'remover_memoria',
+      'alterar_fase_produto', 'atualizar_cliente', 'atualizar_evento', 'corrigir_dossie_cliente', 'remover_memoria',
     ]);
   });
 
@@ -1559,6 +1559,122 @@ describe('atualizar_evento', () => {
     const repo = repoBase({ Agenda: [{ ...EVENTO, time: '15:00' }, outro], Categorias: CATEGORIAS });
     expect(() => exec('atualizar_evento', repo, { eventId: 'ev1', sala: 'Paris' }))
       .toThrow(/sala "Paris" já está ocupada/);
+  });
+});
+
+describe('produtos do cliente', () => {
+  const PRODUTOS = [
+    { produto: 'Plataforma 2D', fase: 'Ativo', faseDesde: '2026-01-01T00:00:00.000Z', motivoFase: 'migração', independente: true },
+    { produto: '2D Price', fase: 'Ativo', faseDesde: '2026-02-01T00:00:00.000Z', motivoFase: 'migração', link: 'http://price', login: 'LOGIN-SECRETO', senhaCifrada: 'CIFRA-SECRETA' },
+  ];
+  const clienteComProdutos = () => clienteBase({
+    produtos: PRODUTOS, servicos: ['Plataforma 2D', '2D Price'], loginPrice: 'LOGIN-SECRETO', senhaPriceCifrada: 'CIFRA-SECRETA',
+  });
+  const CATEGORIAS = ['Plataforma 2D', 'Apura', '2D Price', '2D Nexus'].map((valor, i) => ({ id: `s${i}`, tipo: 'servico', valor, ordem: i }));
+
+  /** Mesmo motivo do `atualizar_cliente`: a escrita vai pelo repo real (isolado). */
+  function preparar() {
+    dbSqlite.saveSheetData('Clientes', [clienteComProdutos()]);
+    dbSqlite.saveSheetData('Categorias', CATEGORIAS);
+    return repoBase({ Clientes: [clienteComProdutos()], Categorias: CATEGORIAS });
+  }
+  const noBanco = () => dbSqlite.getSheetData('Clientes')[0] as unknown as { servicos: string[]; produtos: { produto: string; fase: string; motivoFase: string; faseDesde: string; senhaCifrada?: string }[] };
+  const doBanco = (nome: string) => noBanco().produtos.find((p) => p.produto === nome);
+  const ARGS = { clientId: 'c1', produto: '2D Price', fase: 'Suspenso', motivo: 'Cliente pediu pausa no Price' };
+
+  it('buscar_clientes e buscar_dossie_cliente trazem fase, desde, motivo e independente, sem acesso', () => {
+    const repo = repoBase({ Clientes: [clienteComProdutos()] });
+    const lista = exec('buscar_clientes', repo, {}) as { produtos: unknown[] }[];
+    expect(lista[0].produtos).toEqual([
+      { produto: 'Plataforma 2D', fase: 'Ativo', faseDesde: '2026-01-01T00:00:00.000Z', motivoFase: 'migração', independente: true },
+      { produto: '2D Price', fase: 'Ativo', faseDesde: '2026-02-01T00:00:00.000Z', motivoFase: 'migração', independente: false },
+    ]);
+    const dossie = exec('buscar_dossie_cliente', repo, { clientId: 'c1' }) as { produtos: unknown[] };
+    expect(dossie.produtos).toEqual(lista[0].produtos);
+    for (const texto of [JSON.stringify(lista), JSON.stringify(dossie)]) {
+      expect(texto).not.toMatch(/senhaCifrada|senhaPriceCifrada|CIFRA-SECRETA|LOGIN-SECRETO|http:\/\/price/);
+    }
+  });
+
+  it('buscar_clientes monta os produtos de cliente ainda não migrado', () => {
+    const lista = exec('buscar_clientes', repoBase(), {}) as { produtos: { produto: string; fase: string }[] }[];
+    expect(lista[0].produtos.map((p) => [p.produto, p.fase])).toEqual([['Plataforma 2D', 'Ativo'], ['2D Price', 'Ativo']]);
+  });
+
+  it('sem motivo (ou só espaços), recusa e nada muda', () => {
+    const repo = preparar();
+    for (const motivo of [undefined, '', '   ']) {
+      expect(() => exec('alterar_fase_produto', repo, { ...ARGS, motivo })).toThrow(/"motivo" é obrigatório/);
+    }
+    expect(doBanco('2D Price')!.fase).toBe('Ativo');
+  });
+
+  it('com motivo, muda a fase no banco, tira de servicos e devolve sem segredo', () => {
+    const r = exec('alterar_fase_produto', preparar(), ARGS) as Record<string, unknown>;
+    expect(r).toMatchObject({ empresa: 'Loja Teste', produto: '2D Price', de: 'Ativo', fase: 'Suspenso', motivoFase: ARGS.motivo });
+    expect(JSON.stringify(r)).not.toMatch(/senha|CIFRA-SECRETA|LOGIN-SECRETO/i);
+    const salvo = doBanco('2D Price')!;
+    expect(salvo).toMatchObject({ fase: 'Suspenso', motivoFase: ARGS.motivo, senhaCifrada: 'CIFRA-SECRETA' });
+    expect(salvo.faseDesde).not.toBe('2026-02-01T00:00:00.000Z');
+    expect(noBanco().servicos).toEqual(['Plataforma 2D']);
+  });
+
+  it('aceita nome antigo e fase em minúscula; produto novo entra no cadastro', () => {
+    const repo = preparar();
+    expect(exec('alterar_fase_produto', repo, { ...ARGS, produto: 'Precificação', fase: 'suspenso' })).toMatchObject({ produto: '2D Price', fase: 'Suspenso' });
+    expect(exec('alterar_fase_produto', repo, { clientId: 'c1', produto: 'nexus', fase: 'Em breve', motivo: 'Vai começar em dezembro' })).toMatchObject({ produto: '2D Nexus', de: null });
+    expect(doBanco('2D Nexus')!.fase).toBe('Em breve');
+    // Produto da lista oficial que a categoria ainda não tem: a ficha aceita, o agente também.
+    expect(exec('alterar_fase_produto', repo, { clientId: 'c1', produto: 'Raptor', fase: 'Em breve', motivo: 'Proposta aceita' })).toMatchObject({ produto: 'Raptor' });
+  });
+
+  it('erros que voltam pro modelo corrigir: fase, produto, cliente e fase igual', () => {
+    const repo = preparar();
+    expect(() => exec('alterar_fase_produto', repo, { ...ARGS, fase: 'Pausado' })).toThrow(/Em breve, Suspenso, Ativo, Cancelado/);
+    expect(() => exec('alterar_fase_produto', repo, { ...ARGS, produto: 'Inexistente' })).toThrow(/não existe/);
+    expect(() => exec('alterar_fase_produto', repo, { ...ARGS, clientId: 'zzz' })).toThrow(/não encontrado/);
+    // Sem isto, o motivo seria trocado sem mudança de fase e sem linha no histórico.
+    expect(() => exec('alterar_fase_produto', repo, { ...ARGS, fase: 'Ativo' })).toThrow(/já está Ativo/);
+    expect(doBanco('2D Price')!.motivoFase).toBe('migração');
+  });
+
+  it('pelo loop do agente, a alteração fica em AcoesIA com o motivo e sem segredo', async () => {
+    const { conversar } = require('./orquestrador.cjs');
+    const repo = preparar();
+    const respostas = [
+      { role: 'assistant', content: '', tool_calls: [{ function: { name: 'alterar_fase_produto', arguments: ARGS } }] },
+      { role: 'assistant', content: 'Feito.' },
+    ];
+    let i = 0;
+    await conversar({
+      mensagens: [{ role: 'user', content: 'pode suspender' }], repo,
+      ollama: { gerarJSON: async () => ({}), chat: async () => respostas[i++] },
+    });
+    const acoes = (repo as unknown as { _dump: () => { AcoesIA: Record<string, unknown>[] } })._dump().AcoesIA;
+    expect(acoes).toHaveLength(1);
+    expect(acoes[0]).toMatchObject({ ferramenta: 'alterar_fase_produto', clientId: 'c1', argumentos: ARGS });
+    expect(acoes[0].descricao).toMatch(/2D Price/);
+    expect(JSON.stringify(acoes)).not.toMatch(/CIFRA-SECRETA|LOGIN-SECRETO/);
+    expect(doBanco('2D Price')!.fase).toBe('Suspenso');
+  });
+
+  it('é escrita: fica fora da reunião', () => {
+    const { ferramentasDaOrigem } = require('./somenteLeitura.cjs');
+    expect(tool('alterar_fase_produto')).toMatchObject({ escreve: true });
+    expect((tool('alterar_fase_produto').parameters as JsonSchemaObjeto).required).toEqual(['clientId', 'produto', 'fase', 'motivo']);
+    expect(ferramentasDaOrigem(FERRAMENTAS, 'reuniao-ao-vivo').map((f: { name: string }) => f.name)).not.toContain('alterar_fase_produto');
+  });
+
+  it('atualizar_cliente não devolve segredo (o retorno vai pro modelo e pro AcoesIA)', () => {
+    const texto = JSON.stringify(exec('atualizar_cliente', preparar(), { clientId: 'c1', observacao: 'x' }));
+    expect(texto).toContain('"observacao":"x"');
+    expect(texto).not.toMatch(/senhaCifrada|senhaPriceCifrada|CIFRA-SECRETA|LOGIN-SECRETO/);
+  });
+
+  it('atualizar_cliente não mexe em serviços: cancelaria produto sem o motivo de quem pediu', () => {
+    expect((tool('atualizar_cliente').parameters as JsonSchemaObjeto).properties).not.toHaveProperty('servicos');
+    expect(() => exec('atualizar_cliente', preparar(), { clientId: 'c1', servicos: ['Plataforma 2D'] })).toThrow(/nenhum campo pra alterar/);
+    expect(doBanco('2D Price')!.fase).toBe('Ativo');
   });
 });
 
