@@ -89,6 +89,8 @@ function Layout({ children, equipe, onSair }: { children: ReactNode; equipe: Equ
           <button className="sidebar-hamburger" onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
             <Menu size={22} />
           </button>
+          {/* Equipe logada em destaque: Negócios e Fiscal usam a mesma Carteira e precisam saber em qual estão. */}
+          <span className="text-[1.05rem] font-bold uppercase tracking-[0.08em] text-text-primary">{NOME_EQUIPE[equipe]}</span>
           <div className="ml-auto flex items-center gap-3">
             <BaseSincronizadaCard />
             <ReunioesHojeCard />
@@ -119,7 +121,7 @@ function Layout({ children, equipe, onSair }: { children: ReactNode; equipe: Equ
             )}
             <ThemeToggle />
             <Button variant="secondary" onClick={onSair} title={`Sair da equipe ${NOME_EQUIPE[equipe]}`}>
-              {NOME_EQUIPE[equipe]} <LogOut size={15} />
+              Sair <LogOut size={15} />
             </Button>
           </div>
         </div>
