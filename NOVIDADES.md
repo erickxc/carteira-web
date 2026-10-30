@@ -8,6 +8,11 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.6.19
+
+- A Cobertura dos Atendimentos não conta mais cliente só por ter produto sem prazo (Controladoria, Apura, OptiMarco...): só Monitoria e Precificação que dependem de reunião.
+- O monitorIA segue a mesma regra e não trata esses produtos como pendência de reunião.
+
 ## 1.6.18
 
 - Novo botão **Unir atendimentos** na Carteira: escolha o atendimento e marque as lojas que fazem parte dele (ex.: Altese Penha com CD e EC). As vendas passam a somar as lojas marcadas.
