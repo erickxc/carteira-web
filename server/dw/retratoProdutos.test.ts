@@ -2,7 +2,7 @@ import { createRequire } from 'module';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const require = createRequire(import.meta.url);
 
@@ -268,6 +268,52 @@ describe('buscarDadosFiscaisLojas — o que é pedido ao DW', () => {
   });
 });
 
+describe('buscarDadosFiscaisLojas — cada consulta alimenta o seu campo', () => {
+  const resolver = (m: string) => require.resolve(m, { paths: [__dirname] });
+  const VARS = ['DW_PLATAFORMA_HOST', 'DW_PLATAFORMA_PORT', 'DW_PLATAFORMA_DATABASE', 'DW_PLATAFORMA_USER', 'DW_PLATAFORMA_PASSWORD'];
+
+  it('colunas pedidas e linhas certas em empresas/grupos/apura; validade em texto, sem virar o dia pelo fuso', async () => {
+    const envAntes = Object.fromEntries(VARS.map((k) => [k, process.env[k]]));
+    const pgAntes = require.cache[resolver('pg')];
+    VARS.forEach((k) => { process.env[k] = k.endsWith('PORT') ? '1' : 'falso'; });
+    const caminho = resolver('pg');
+    const consultas: string[] = [];
+    require.cache[caminho] = {
+      id: caminho, filename: caminho, loaded: true,
+      exports: { Pool: class {
+        query(sql: string) {
+          consultas.push(sql);
+          if (/from empresas/i.test(sql)) return Promise.resolve({ rows: [{ de: 'empresas' }] });
+          if (/grupos_fiscais_raizes/i.test(sql)) return Promise.resolve({ rows: [{ de: 'grupos' }] });
+          if (/from apura_usuarios/i.test(sql)) return Promise.resolve({ rows: [{ de: 'apura' }] });
+          return Promise.reject(new Error(`consulta inesperada: ${sql}`));
+        }
+      } },
+    } as unknown as NodeJS.Module;
+    delete require.cache[resolver('./dwPlataforma.cjs')];
+    limparCaches();
+    try {
+      const { buscarDadosFiscaisLojas } = require('./dwPlataforma.cjs');
+      expect(await buscarDadosFiscaisLojas()).toEqual({
+        empresas: [{ de: 'empresas' }], grupos: [{ de: 'grupos' }], apura: [{ de: 'apura' }],
+      });
+      const [empresas, grupos, apura] = consultas;
+      expect(empresas).toMatch(/to_char\(certificado_validade, 'YYYY-MM-DD'\) AS certificado_validade/);
+      for (const c of ['cnpj', 'telefone', 'email']) expect(empresas).toContain(c);
+      for (const c of ['raiz_cnpj', 'codigo', 'nome', 'ativo']) expect(grupos).toContain(c);
+      for (const c of ['cnpj', 'ultimo_login_em', 'ativo']) expect(apura).toContain(c);
+      // Só leitura: nada de escrita no DW.
+      for (const sql of consultas) expect(sql).toMatch(/^\s*SELECT\b/i);
+    } finally {
+      for (const [k, v] of Object.entries(envAntes)) {
+        if (v === undefined) delete process.env[k]; else process.env[k] = v;
+      }
+      if (pgAntes) require.cache[caminho] = pgAntes; else delete require.cache[caminho];
+      delete require.cache[resolver('./dwPlataforma.cjs')];
+    }
+  });
+});
+
 describe('consultarSituacao (BrasilAPI)', () => {
   const resp = (status: number, corpo: unknown = {}) => ({ ok: status < 400, status, json: async () => corpo });
 
@@ -306,5 +352,153 @@ describe('consultarSituacao (BrasilAPI)', () => {
     expect(await consultarSituacao(A, { buscar: async () => resp(404) })).toBeNull();
     expect(await consultarSituacao(A, { buscar: async () => { throw new Error('rede'); } })).toBeNull();
     expect(await consultarSituacao(A, { buscar: async () => resp(200, {}) })).toBeNull();
+  });
+});
+
+describe('consultarSituacao — bordas', () => {
+  const resp = (status: number, corpo: unknown = {}) => ({ ok: status < 400, status, json: async () => corpo });
+
+  it('não espera depois da 5ª tentativa com 429: esperar à toa só atrasaria a rotina', async () => {
+    const { consultarSituacao } = require('./receitaCnpj.cjs');
+    const esperas: number[] = [];
+    await consultarSituacao(A, { buscar: async () => resp(429), esperar: async (ms: number) => { esperas.push(ms); } });
+    expect(esperas).toEqual([5000, 5000, 5000, 5000]);
+  });
+
+  it('erro HTTP que não é 429 não tenta de novo', async () => {
+    const { consultarSituacao } = require('./receitaCnpj.cjs');
+    let n = 0;
+    expect(await consultarSituacao(A, { buscar: async () => { n++; return resp(500); } })).toBeNull();
+    expect(n).toBe(1);
+  });
+
+  it('corpo que não é JSON vira null, sem derrubar a rotina', async () => {
+    const { consultarSituacao } = require('./receitaCnpj.cjs');
+    const r = await consultarSituacao(A, {
+      buscar: async () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError('html'); } }),
+    });
+    expect(r).toBeNull();
+  });
+
+  it('sem data da situação grava desde = null, e a chamada tem prazo (signal)', async () => {
+    const { consultarSituacao } = require('./receitaCnpj.cjs');
+    let signal: AbortSignal | null | undefined;
+    const r = await consultarSituacao(A, {
+      buscar: async (_u: string, init: RequestInit) => { signal = init.signal; return resp(200, { descricao_situacao_cadastral: 'BAIXADA' }); },
+    });
+    expect(r).toEqual({ situacao: 'BAIXADA', desde: null });
+    expect(signal).toBeInstanceOf(AbortSignal);
+  });
+});
+
+describe('montarRetrato — bordas dos dados fiscais', () => {
+  it('coluna sensível que chegue por engano nas linhas não vai para o arquivo', async () => {
+    const { gerarRetrato, ARQUIVO } = require('./retratoProdutos.cjs');
+    await gerarRetrato({
+      buscar: async () => [],
+      buscarFiscais: async () => ({
+        empresas: [{ cnpj: A, certificado_validade: '2026-12-01', telefone: 't', email: 'e', certificado_senha: 'SEGREDO1', certificado_nome: 'SEGREDO2' }],
+        grupos: [],
+        apura: [{ cnpj: A, ultimo_login_em: null, ativo: true, senha: 'SEGREDO3' }],
+      }),
+      agora: 'x',
+    });
+    const texto = fs.readFileSync(ARQUIVO, 'utf-8');
+    expect(texto).not.toMatch(/SEGREDO|senha|certificado_nome/i);
+  });
+
+  it('Apura e raiz com máscara caem na mesma loja; raiz com linha inativa e ativa vale a ativa', () => {
+    const { montarRetrato } = require('./retratoProdutos.cjs');
+    const r = montarRetrato([linha(A, [])], 'g', {
+      fiscais: {
+        empresas: [],
+        apura: [{ cnpj: '11.111.111/0001-11', ultimo_login_em: null, ativo: true }],
+        grupos: [
+          { raiz_cnpj: '11.111.111', codigo: 'velho', nome: 'Velho', ativo: false },
+          { raiz_cnpj: '11.111.111', codigo: 'novo', nome: 'Novo', ativo: true },
+        ],
+      },
+    });
+    expect(Object.keys(r.porCnpj)).toEqual([A]);
+    expect(r.porCnpj[A].apura.usuarios).toBe(1);
+    expect(r.porCnpj[A].grupoFiscal.codigo).toBe('novo');
+  });
+
+  it('campos vazios do DW viram null, não string vazia nem undefined', () => {
+    const { montarRetrato } = require('./retratoProdutos.cjs');
+    const r = montarRetrato([], 'g', { fiscais: { empresas: [{ cnpj: A, certificado_validade: null, telefone: '', email: null }] } });
+    expect(r.porCnpj[A]).toEqual({ certificadoValidade: null, telefone: null, email: null });
+  });
+});
+
+describe('gerarRetrato — bordas da rotina', () => {
+  const buscar = async () => [linha(A, ['apura'])];
+
+  it('falha da parte fiscal não apaga o retrato anterior', async () => {
+    const { gerarRetrato, lerRetrato } = require('./retratoProdutos.cjs');
+    await gerarRetrato({ buscar, buscarFiscais: semFiscais, agora: 'a' });
+    await expect(gerarRetrato({ buscar, buscarFiscais: async () => { throw new Error('sem permissão'); } })).rejects.toThrow('sem permissão');
+    expect(lerRetrato().geradoEm).toBe('a');
+  });
+
+  it('700 ms entre as consultas à Receita por padrão, e nenhuma pausa antes da primeira', async () => {
+    const { gerarRetrato } = require('./retratoProdutos.cjs');
+    const pausas: unknown[] = [];
+    const espiao = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((fn: () => void, ms?: number) => {
+      pausas.push(ms);
+      fn();
+      return 0;
+    }) as unknown as typeof setTimeout);
+    try {
+      const repo = { get: () => [{ lojasCadastro: [{ cnpj: A }, { cnpj: A2 }, { cnpj: B }] }] };
+      await gerarRetrato({ buscar, buscarFiscais: semFiscais, consultarReceita: async () => null, repo, agora: 'x' });
+    } finally {
+      espiao.mockRestore();
+    }
+    expect(pausas).toEqual([700, 700]);
+  });
+
+  it('lojasCadastro em texto JSON (resíduo antigo) também é consultada; lista inválida é ignorada', async () => {
+    const { gerarRetrato } = require('./retratoProdutos.cjs');
+    const pedidos: string[] = [];
+    const repo = { get: () => [{ lojasCadastro: JSON.stringify([{ cnpj: A }]) }, { lojasCadastro: '{ quebrado' }] };
+    await gerarRetrato({
+      buscar, buscarFiscais: semFiscais, repo, pausaMs: 0, agora: 'x',
+      consultarReceita: async (c: string) => { pedidos.push(c); return null; },
+    });
+    expect(pedidos).toEqual([A]);
+  });
+
+  it('retrato no formato antigo (array por CNPJ) é reescrito sem erro', async () => {
+    const { gerarRetrato, ARQUIVO } = require('./retratoProdutos.cjs');
+    fs.mkdirSync(path.dirname(ARQUIVO), { recursive: true });
+    fs.writeFileSync(ARQUIVO, JSON.stringify({ geradoEm: 'velho', porCnpj: { [A]: ['Apura'] } }));
+    const r = await gerarRetrato({ buscar, buscarFiscais: semFiscais, agora: 'x' });
+    expect(r.porCnpj[A]).toEqual({ produtos: ['Apura'] });
+  });
+});
+
+describe('gerarRetrato — repositório de verdade (SQLite isolado)', () => {
+  const EXTRAS = ['../dbSqlite.cjs', '../dominio/repo.cjs', '../modo.cjs'];
+  const limparExtras = () => {
+    for (const m of EXTRAS) {
+      try { delete require.cache[require.resolve(m, { paths: [__dirname] })]; } catch { /* não carregado */ }
+    }
+  };
+  beforeEach(limparExtras);
+  afterEach(() => {
+    try { require('../dbSqlite.cjs')._fecharParaTestes(); } catch { /* não aberta */ }
+    limparExtras();
+  });
+
+  it('sem repo injetado, lê as lojas gravadas em Clientes e guarda a situação', async () => {
+    const { saveSheetData } = require('../dbSqlite.cjs');
+    saveSheetData('Clientes', [{ id: 'c1', empresa: 'Teste', lojasCadastro: [{ nome: 'L', cnpj: '11.111.111/0001-11', endereco: '' }] }]);
+    const { gerarRetrato, lerRetrato } = require('./retratoProdutos.cjs');
+    await gerarRetrato({
+      buscar: async () => [], buscarFiscais: semFiscais, pausaMs: 0, agora: 'domingo',
+      consultarReceita: async () => ({ situacao: 'ATIVA', desde: '2005-11-03' }),
+    });
+    expect(lerRetrato().porCnpj[A]).toEqual({ receita: { situacao: 'ATIVA', desde: '2005-11-03', consultadoEm: 'domingo' } });
   });
 });

@@ -18,6 +18,14 @@ describe('produtosNoDw', () => {
     expect(produtosNoDw(cBraga, retrato, [cBraga, cgBraga])['2D Price']).toEqual({ marcado: 0, total: 1 });
   });
 
+  it('arquivo no formato antigo (array por CNPJ) ou loja só com dados fiscais: não acusa "não marcado"', () => {
+    const c = cliente('A', ['1']);
+    const antigo = { geradoEm: 'x', porCnpj: { 1: ['Apura'] } } as unknown as RetratoDw;
+    expect(produtosNoDw(c, antigo, [c])).toEqual({});
+    const soFiscal: RetratoDw = { geradoEm: 'x', porCnpj: { 1: { certificadoValidade: '2026-12-01' } } };
+    expect(produtosNoDw(c, soFiscal, [c])).toEqual({});
+  });
+
   it('conta lojas do atendimento achadas no retrato', () => {
     const gomec = cliente('Gomec', ['1', '2', '3', '4', '5']);
     const retrato: RetratoDw = {
