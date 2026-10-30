@@ -1,5 +1,7 @@
+const { differenceInCalendarDays, format, isValid, parse } = require('date-fns');
 const { buscarVencendo, buscarAlertasSemAcompanhamento, isClienteAtivo, comPrecificacaoDoGrupo } = require('../dominio/cadenciaServico.cjs');
-const { ehMarcadoConfirmado } = require('../../shared/cadenciaServico.cjs');
+const { ehMarcadoConfirmado, listaJSON } = require('../../shared/cadenciaServico.cjs');
+const { retratoOuNada, fiscalDaLoja } = require('../dw/retratoProdutos.cjs');
 const { lerCadencias } = require('./tools.cjs');
 const { lerDossieCliente } = require('./analisesAutomaticas.cjs');
 
@@ -23,6 +25,7 @@ const { lerDossieCliente } = require('./analisesAutomaticas.cjs');
  */
 
 const SEVERIDADE = { alta: 3, media: 2, baixa: 1 };
+const DIAS_ALERTA_CERTIFICADO = 30;
 
 /**
  * Sinais de deterioração que aparecem em texto livre — bullets de "Pontos de
@@ -53,7 +56,38 @@ function clientesComEventoFuturo(agenda, agora) {
   return comFuturo;
 }
 
-function gerarAlertas(repo, { agora = new Date(), max = 8 } = {}) {
+/** Certificado digital vencido ou a até 30 dias: um cartão por cliente, listando as lojas, a pior primeiro. */
+function alertasCertificado(ativos, retrato, agora) {
+  const alertas = [];
+  for (const c of ativos) {
+    const lojas = listaJSON(c.lojasCadastro)
+      .map((l) => {
+        const data = fiscalDaLoja(retrato, l?.cnpj)?.certificadoValidade;
+        const dia = data ? parse(data, 'yyyy-MM-dd', agora) : null;
+        if (!dia || !isValid(dia)) return null;
+        return { nome: l.nome || l.cnpj, quando: format(dia, 'dd/MM/yyyy'), dias: differenceInCalendarDays(dia, agora) };
+      })
+      .filter((l) => l && l.dias <= DIAS_ALERTA_CERTIFICADO)
+      .sort((a, b) => a.dias - b.dias);
+    if (lojas.length === 0) continue;
+    const vencido = lojas[0].dias < 0;
+    const detalhe = lojas.map((l) => `${l.nome}: ${l.dias < 0 ? 'vencido' : 'vence'} em ${l.quando}`).join('; ');
+    alertas.push({
+      id: `certificado:${c.id}`,
+      tipo: 'certificado',
+      severidade: vencido ? 'alta' : 'media',
+      titulo: `${c.empresa}: certificado digital ${vencido ? 'vencido' : 'vencendo'}`,
+      detalhe,
+      clientId: c.id,
+      cliente: c.empresa,
+      monitor: c.monitor || null,
+      pergunta: `O certificado digital da ${c.empresa} precisa de atenção (${detalhe}). Me mostra a situação dessas lojas e o que resolver primeiro.`,
+    });
+  }
+  return alertas;
+}
+
+function gerarAlertas(repo, { agora = new Date(), max = 8, retrato = retratoOuNada() } = {}) {
   const clientes = repo.get('Clientes');
   // Alertas são por atendimento: precificação do grupo vale pra cada loja.
   const agenda = comPrecificacaoDoGrupo(repo.get('Agenda'), clientes);
@@ -196,9 +230,13 @@ function gerarAlertas(repo, { agora = new Date(), max = 8 } = {}) {
     if (!atual || SEVERIDADE[a.severidade] > SEVERIDADE[atual.severidade]) porCliente.set(String(a.clientId), a);
   }
 
-  return [...porCliente.values()]
-    .sort((a, b) => SEVERIDADE[b.severidade] - SEVERIDADE[a.severidade] || a.cliente.localeCompare(b.cliente))
-    .slice(0, max);
+  const maisGraveAntes = (a, b) => SEVERIDADE[b.severidade] - SEVERIDADE[a.severidade] || a.cliente.localeCompare(b.cliente);
+  const principais = [...porCliente.values()].sort(maisGraveAntes).slice(0, max);
+
+  // Certificado fica de fora do "mais grave por cliente" e do `max`: a tela o
+  // esconde de quem não é do Fiscal, e aí esse cartão teria tomado o lugar do
+  // alerta que a pessoa veria. E nenhum certificado vencido pode sumir pelo corte.
+  return [...principais, ...alertasCertificado(ativos, retrato, agora)].sort(maisGraveAntes);
 }
 
 /**

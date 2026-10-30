@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCarteira } from '../../context/CarteiraContext';
-import { AlertTriangle, CalendarClock, HelpCircle, MessageSquare, PhoneOff, RefreshCw, Repeat } from 'lucide-react';
+import { AlertTriangle, CalendarClock, HelpCircle, MessageSquare, PhoneOff, RefreshCw, Repeat, ShieldAlert } from 'lucide-react';
 import { buscarAlertasIA, buscarPadroesCarteira, type AlertaIA, type PadraoCarteira, type SeveridadeAlerta } from '../../api/client';
+import { lerSessao } from '../../equipe/sessao';
 import { Badge, Button } from '../../ui';
+import { alertasVisiveis } from '../../utils/alertasVisiveis';
 
 /**
  * Cartões de alerta do monitorIA — a porta de entrada da conversa.
@@ -24,6 +26,7 @@ const ICONE: Record<AlertaIA['tipo'], typeof AlertTriangle> = {
   sem_analise: HelpCircle,
   contradicao_dossie: AlertTriangle,
   pauta_parada: CalendarClock,
+  certificado: ShieldAlert,
 };
 
 const VARIANTE: Record<SeveridadeAlerta, 'danger' | 'warning' | 'muted'> = {
@@ -50,7 +53,7 @@ export default function AlertasIA({
   // ninguém em especial, então continuam aparecendo pra todos.
   const { filtroMonitor } = useCarteira();
   const alertas = useMemo(
-    () => (alertasBrutos ?? []).filter((a) => filtroMonitor === 'Todos' || a.monitor === filtroMonitor),
+    () => alertasVisiveis(alertasBrutos ?? [], filtroMonitor, lerSessao()),
     [alertasBrutos, filtroMonitor],
   );
 

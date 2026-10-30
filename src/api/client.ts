@@ -688,7 +688,7 @@ export type SeveridadeAlerta = 'alta' | 'media' | 'baixa';
 
 export interface AlertaIA {
   id: string;
-  tipo: 'risco_sem_pauta' | 'sem_contato' | 'vencendo' | 'sem_analise' | 'contradicao_dossie' | 'pauta_parada';
+  tipo: 'risco_sem_pauta' | 'sem_contato' | 'vencendo' | 'sem_analise' | 'contradicao_dossie' | 'pauta_parada' | 'certificado';
   severidade: SeveridadeAlerta;
   titulo: string;
   detalhe: string;

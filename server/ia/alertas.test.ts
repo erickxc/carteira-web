@@ -1,6 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { gerarAlertas } from './alertas.cjs';
 import { repoMemoria } from '../dominio/repo.cjs';
+
+// `gerarAlertas` lê o retrato do DW por padrão: sem isto, os casos abaixo que não
+// passam `retrato` leriam o arquivo real do OneDrive desta máquina.
+const pastaIsolada = await vi.hoisted(async () => {
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const pasta = mkdtempSync(join(tmpdir(), 'carteira-alertas-'));
+  process.env.ONEDRIVE_ROOT = pasta;
+  process.env.SQLITE_DIR = pasta;
+  return pasta;
+});
 
 /**
  * Os alertas existem pra transformar as análises automáticas — que rodavam e
@@ -130,6 +142,78 @@ function recarregarComDossieTemp() {
   analisesAutomaticas = require2('./analisesAutomaticas.cjs');
   alertasComDossie = require2('./alertas.cjs');
 }
+
+describe('alerta de certificado', () => {
+  afterAll(() => fs.rmSync(pastaIsolada, { recursive: true, force: true }));
+
+  // Data local, como a tela: 2026-08-28 + 30 dias = 2026-09-27.
+  const comLojas = (...cnpjs: string[]) => cliente('c1', 'Pecita', {
+    monitor: 'Erick',
+    lojasCadastro: cnpjs.map((cnpj, i) => ({ nome: `Loja ${i + 1}`, cnpj })),
+  });
+  const retratoCom = (validades: Record<string, string | null>) => ({
+    geradoEm: 'x',
+    porCnpj: Object.fromEntries(Object.entries(validades).map(([cnpj, certificadoValidade]) => [cnpj, { certificadoValidade }])),
+  });
+  const certificados = (repo: unknown, retrato: unknown) => gerarAlertas(repo, { agora: AGORA, retrato })
+    .filter((a: { tipo: string }) => a.tipo === 'certificado');
+
+  it('loja vencida gera cartão crítico, com a loja e a pergunta pronta', () => {
+    const repo = base({ Clientes: [comLojas('111')] });
+    const [alerta, ...resto] = certificados(repo, retratoCom({ 111: '2026-08-27' }));
+    expect(resto).toEqual([]);
+    expect(alerta).toMatchObject({ id: 'certificado:c1', severidade: 'alta', clientId: 'c1', cliente: 'Pecita', monitor: 'Erick' });
+    expect(alerta.detalhe).toBe('Loja 1: vencido em 27/08/2026');
+    expect(alerta.pergunta).toContain('Pecita');
+    expect(alerta.pergunta).toContain(alerta.detalhe);
+  });
+
+  it('a 30 dias gera; a 31 não gera', () => {
+    const repo = base({ Clientes: [comLojas('111')] });
+    const [alerta] = certificados(repo, retratoCom({ 111: '2026-09-27' }));
+    expect(alerta.severidade).toBe('media');
+    expect(alerta.detalhe).toBe('Loja 1: vence em 27/09/2026');
+    expect(certificados(repo, retratoCom({ 111: '2026-09-28' }))).toEqual([]);
+  });
+
+  it('sem retrato, CNPJ fora do retrato, sem data ou data ilegível não geram', () => {
+    const repo = base({ Clientes: [comLojas('111')] });
+    expect(certificados(repo, null)).toEqual([]);
+    expect(certificados(repo, retratoCom({ 222: '2026-08-27' }))).toEqual([]);
+    expect(certificados(repo, retratoCom({ 111: null }))).toEqual([]);
+    expect(certificados(repo, retratoCom({ 111: 'lixo' }))).toEqual([]);
+  });
+
+  it('duas lojas do mesmo cliente = um cartão, a pior primeiro; só as que precisam de atenção', () => {
+    const repo = base({ Clientes: [comLojas('111', '222', '333')] });
+    const lista = certificados(repo, retratoCom({ 111: '2026-09-10', 222: '2026-08-01', 333: '2027-01-01' }));
+    expect(lista).toHaveLength(1);
+    expect(lista[0].severidade).toBe('alta');
+    expect(lista[0].detalhe).toBe('Loja 2: vencido em 01/08/2026; Loja 1: vence em 10/09/2026');
+  });
+
+  it('CNPJ com pontuação casa com o retrato e cliente inativo não gera', () => {
+    const repo = base({ Clientes: [
+      cliente('c1', 'Pecita', { lojasCadastro: [{ nome: 'Matriz', cnpj: '07.503.705/0001-70' }] }),
+      cliente('c2', 'Saiu', { estado: 'Inativo', lojasCadastro: [{ nome: 'Matriz', cnpj: '111' }] }),
+    ] });
+    const lista = certificados(repo, retratoCom({ 111: '2026-08-01', '07503705000170': '2026-08-01' }));
+    expect(lista.map((a: { clientId: string }) => a.clientId)).toEqual(['c1']);
+  });
+
+  it('fica fora do dedup e do max: quem não vê este tipo não pode perder o cartão que ele tomaria', () => {
+    const clientes = Array.from({ length: 3 }, (_, i) => cliente(`c${i}`, `Loja ${i}`, { lojasCadastro: [{ nome: 'Matriz', cnpj: `${i}` }] }));
+    const repo = base({
+      Clientes: clientes,
+      AnalisesIA: clientes.map((c) => ({ id: `a${c.id}`, clientId: c.id, nivelRisco: 'alto', resumo: '' })),
+    });
+    const alertas: { tipo: string; clientId: string }[] = gerarAlertas(repo, {
+      agora: AGORA, max: 2, retrato: retratoCom({ 0: '2026-08-01', 1: '2026-08-01', 2: '2026-08-01' }),
+    });
+    expect(alertas.filter((a) => a.tipo === 'certificado')).toHaveLength(3);
+    expect(alertas.filter((a) => a.tipo === 'risco_sem_pauta')).toHaveLength(2);
+  });
+});
 
 describe('alertas que dependem do dossiê (contradição, pauta parada, padrões)', () => {
   beforeEach(() => {

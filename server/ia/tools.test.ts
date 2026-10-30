@@ -45,7 +45,7 @@ const MODULOS = [
   '../fila/mutacao.cjs', '../dominio/agenda.cjs', '../dominio/lembretes.cjs',
   '../alvos/leitor.cjs', '../alvos/cache.cjs', '../alvos/mapa.cjs', '../alvos/estado.cjs',
   '../alvos/entidades.cjs', '../alvos/movimento.cjs', '../alvos/acompanhamento.cjs', '../alvos/consulta.cjs',
-  '../alvos/clientesFinais.cjs', '../alvos/tags.cjs',
+  '../alvos/clientesFinais.cjs', '../alvos/tags.cjs', '../dw/retratoProdutos.cjs',
 ];
 
 /** Vocabulário compartilhado do Ecossistema (`Bancos/tags.json`) — em teste,
@@ -247,6 +247,42 @@ describe('buscar_clientes', () => {
       { nome: 'Altese FORD', cnpj: '07.503.705/0001-70', endereco: 'AV LOBO JUNIOR 874' },
       { nome: 'Altese GM', cnpj: '31.263.577/0002-09', endereco: 'AV LOBO JUNIOR 980' },
     ]);
+  });
+
+  describe('dados fiscais das lojas (retrato do DW)', () => {
+    const cnpj = '07503705000170';
+    const repoComLoja = () => repoBase({ Clientes: [clienteBase({ lojasCadastro: [{ nome: 'Matriz', cnpj, endereco: 'Rua A' }] })] });
+    const gravarRetrato = (conteudo: string) => {
+      fs.mkdirSync(path.join(tmpOneDrive, 'dados'), { recursive: true });
+      fs.writeFileSync(path.join(tmpOneDrive, 'dados', 'dw-produtos.json'), conteudo);
+    };
+
+    it('junta por CNPJ os quatro campos, sem telefone nem e-mail', () => {
+      gravarRetrato(JSON.stringify({ porCnpj: { [cnpj]: {
+        certificadoValidade: '2026-12-01', telefone: '21', email: 'a@b',
+        grupoFiscal: { codigo: 'altese', nome: 'Altese' },
+        apura: { usuarios: 2, ultimoAcesso: '2026-10-28T12:00:00.000Z' },
+        receita: { situacao: 'ATIVA', desde: '2005-11-03', consultadoEm: 'x' },
+      } } }));
+      const [r] = exec('buscar_clientes', repoComLoja());
+      expect(r.lojas).toEqual([{
+        nome: 'Matriz', cnpj: '07.503.705/0001-70', endereco: 'Rua A',
+        situacaoCnpj: 'ATIVA', certificadoValidade: '2026-12-01',
+        grupoFiscal: { codigo: 'altese', nome: 'Altese' }, apuraUltimoAcesso: '2026-10-28T12:00:00.000Z',
+      }]);
+    });
+
+    it('as outras ferramentas com identidade do cliente também trazem', () => {
+      gravarRetrato(JSON.stringify({ porCnpj: { [cnpj]: { certificadoValidade: '2026-12-01' } } }));
+      const r = exec('buscar_contatos_cliente', repoComLoja(), { clientId: clienteBase().id });
+      expect(r.lojas[0].certificadoValidade).toBe('2026-12-01');
+    });
+
+    it('sem retrato, ou com o arquivo ilegível, a ferramenta segue respondendo', () => {
+      expect(exec('buscar_clientes', repoComLoja())[0].lojas[0]).toEqual({ nome: 'Matriz', cnpj: '07.503.705/0001-70', endereco: 'Rua A' });
+      gravarRetrato('{ corrompido');
+      expect(exec('buscar_clientes', repoComLoja())[0].lojas[0].nome).toBe('Matriz');
+    });
   });
 
   it('9. lista todos sem filtro', () => {

@@ -20,6 +20,7 @@ const agendaPorAtendimento = (repo) => comPrecificacaoDoGrupo(repo.get('Agenda')
 const { servicoPadraoDoEvento, categoriaCancelamento, servicosQueDependemDeReuniao, ehSolicitacao } = require('../../shared/cadenciaServico.cjs');
 const { renomearProduto, mesmoProduto, PRODUTOS_OFICIAIS, FASES } = require('../../shared/produtos.cjs');
 const { produtosDoCliente } = require('../dominio/clientes.cjs');
+const { retratoOuNada, fiscalDaLoja } = require('../dw/retratoProdutos.cjs');
 const { sugerirAgenda } = require('../dominio/sugestaoAgenda.cjs');
 const { getCache: getCacheCeoAgenda } = require('../ceoAgenda.cjs');
 const { CADENCIAS_SEED, UPLOADS_DIR } = require('../config.cjs');
@@ -116,7 +117,7 @@ const produtosParaAgente = (cliente) => produtosDoCliente(cliente).map(({ produt
   produto, fase, faseDesde: faseDesde || null, motivoFase: motivoFase || null, independente: Boolean(independente),
 }));
 
-function identidadeCliente(cliente) {
+function identidadeCliente(cliente, retrato = retratoOuNada()) {
   const grupo = cliente.grupo || null;
   const loja = grupo ? cliente.empresa.replace(`${grupo} - `, '') : null;
   // `local`: segmento de negócio (Autopeça, Oficina, Indústria...), não o
@@ -124,12 +125,21 @@ function identidadeCliente(cliente) {
   // cliente, pra o agente ter contexto do tipo de negócio na conversa sem
   // precisar de uma ferramenta separada só pra isso.
   // Lojas físicas do atendimento (1.6.8): o agente responde CNPJ/endereço de
-  // cada loja ("qual o CNPJ da Altese Ford?") sem ferramenta à parte.
-  const lojas = (Array.isArray(cliente.lojasCadastro) ? cliente.lojasCadastro : []).map((l) => ({
-    nome: l.nome,
-    cnpj: String(l.cnpj || '').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || null,
-    endereco: l.endereco || null,
-  }));
+  // cada loja ("qual o CNPJ da Altese Ford?") sem ferramenta à parte. Os dados
+  // fiscais vêm do retrato do DW; o que ele não tem fica fora do JSON, para o
+  // agente não ler ausência de dado como informação.
+  const lojas = (Array.isArray(cliente.lojasCadastro) ? cliente.lojasCadastro : []).map((l) => {
+    const fiscal = fiscalDaLoja(retrato, l.cnpj);
+    return {
+      nome: l.nome,
+      cnpj: String(l.cnpj || '').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || null,
+      endereco: l.endereco || null,
+      situacaoCnpj: fiscal?.receita?.situacao,
+      certificadoValidade: fiscal?.certificadoValidade,
+      grupoFiscal: fiscal?.grupoFiscal,
+      apuraUltimoAcesso: fiscal?.apura?.ultimoAcesso,
+    };
+  });
   return { empresa: cliente.empresa, grupo, loja, local: cliente.local || null, ...(lojas.length ? { lojas } : {}) };
 }
 
@@ -256,6 +266,8 @@ function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo
 
   // `casaNome` é parametrizado pra permitir a segunda passada tolerante
   // (plural/pontuação) quando a busca exata não achou nada — ver `nucleoNome`.
+  // Uma leitura só do retrato: a lista pode ter a carteira inteira.
+  const retrato = retratoOuNada();
   const filtrar = (casaNome) => clientes
     .map((c) => ({ cliente: c, analise: analisePorCliente.get(String(c.id)) }))
     .filter(({ cliente }) => !status || cliente.status === status)
@@ -274,7 +286,7 @@ function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo
     .filter(({ cliente }) => casaNome(cliente))
     .map(({ cliente, analise }) => ({
       id: cliente.id,
-      ...identidadeCliente(cliente),
+      ...identidadeCliente(cliente, retrato),
       status: cliente.status,
       estado: cliente.estado || null,
       // Bug real: o modelo respondia "quantos clientes ativos" contando só
@@ -1812,7 +1824,7 @@ function verificarDisponibilidade(repo, { date, time, monitores, sala }) {
 const FERRAMENTAS = [
   {
     name: 'buscar_clientes',
-    description: 'Busca/lista clientes da carteira. Cada resultado traz um campo "ativo" (calculado) — é ESTE que responde "cliente ativo?"/"quantos clientes ativos?", nunca o "estado" sozinho: um cliente pode ter estado=Ativo e mesmo assim "ativo: false" se o status não for de atendimento (Suspenso/Atendido pelo Marco/Problemas Externos) ou se estiver em pausa temporária (pausadoAte). "estado" (Ativo/Inativo, o campo bruto do cadastro) e "status" (situação granular: Regular, Suspenso, Atendido pelo Marco, Gratuidade, Problemas Externos) continuam disponíveis como FILTROS separados, se precisar filtrar por um valor exato específico. Pra achar UM cliente pelo nome que o usuário falou, use "nome" (busca parcial, ignora acento e maiúscula) — é o caminho pra obter o clientId antes de qualquer ferramenta que peça clientId. Também filtra por nível de risco, status, serviço, grupo/rede ou local (segmento de negócio: Autopeça, Oficina, Distribuidora...). Um cliente com "grupo" é uma LOJA de uma rede — o nome da rede sozinho (ex.: "Altese") não é um cliente, use o filtro "grupo" pra achar todas as lojas dela de uma vez. Sem nenhum filtro, devolve a carteira inteira.',
+    description: 'Busca/lista clientes da carteira. Cada resultado traz um campo "ativo" (calculado) — é ESTE que responde "cliente ativo?"/"quantos clientes ativos?", nunca o "estado" sozinho: um cliente pode ter estado=Ativo e mesmo assim "ativo: false" se o status não for de atendimento (Suspenso/Atendido pelo Marco/Problemas Externos) ou se estiver em pausa temporária (pausadoAte). "estado" (Ativo/Inativo, o campo bruto do cadastro) e "status" (situação granular: Regular, Suspenso, Atendido pelo Marco, Gratuidade, Problemas Externos) continuam disponíveis como FILTROS separados, se precisar filtrar por um valor exato específico. Pra achar UM cliente pelo nome que o usuário falou, use "nome" (busca parcial, ignora acento e maiúscula) — é o caminho pra obter o clientId antes de qualquer ferramenta que peça clientId. Também filtra por nível de risco, status, serviço, grupo/rede ou local (segmento de negócio: Autopeça, Oficina, Distribuidora...). Um cliente com "grupo" é uma LOJA de uma rede — o nome da rede sozinho (ex.: "Altese") não é um cliente, use o filtro "grupo" pra achar todas as lojas dela de uma vez. Cada item de "lojas" traz, quando há dado: "situacaoCnpj" (situação na Receita), "certificadoValidade" (vencimento do certificado digital, aaaa-mm-dd), "grupoFiscal" e "apuraUltimoAcesso" (null = tem usuário no Apura e nunca entrou; campo ausente = sem usuário). Sem nenhum filtro, devolve a carteira inteira.',
     parameters: {
       type: 'object',
       properties: {

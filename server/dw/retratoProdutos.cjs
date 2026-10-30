@@ -160,4 +160,17 @@ function lerRetrato() {
   }
 }
 
-module.exports = { gerarRetrato, lerRetrato, montarRetrato, COLUNAS, ARQUIVO };
+/** Para quem só enriquece uma resposta (ferramentas e alertas do monitorIA):
+ *  arquivo ilegível ou preso pelo OneDrive vira "sem retrato", não erro no chat. */
+function retratoOuNada() {
+  try {
+    return lerRetrato();
+  } catch (err) {
+    console.warn('Retrato do DW ilegível, segue sem dados fiscais:', err.message);
+    return null;
+  }
+}
+
+const fiscalDaLoja = (retrato, cnpj) => retrato?.porCnpj?.[digitos(cnpj)];
+
+module.exports = { gerarRetrato, lerRetrato, retratoOuNada, fiscalDaLoja, montarRetrato, COLUNAS, ARQUIVO };
