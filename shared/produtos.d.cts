@@ -39,7 +39,8 @@ export interface ClienteLegado {
 export interface MudancaDeFase {
   produto: string;
   de: string | null;
-  para: string;
+  /** `null` = produto removido da lista. */
+  para: string | null;
   motivoMudou: boolean;
 }
 
@@ -50,7 +51,8 @@ export const MOTIVO_VERSAO_ANTERIOR: string;
 export function ehPlataforma2D(nome: string): boolean;
 export function eh2DPrice(nome: string): boolean;
 export function renomearProduto(nome: string): string;
-export function derivarCamposLegados(produtos: ProdutoCliente[] | string): CamposLegados;
+/** `null` quando `produtos` está ausente (cliente não migrado). */
+export function derivarCamposLegados(produtos: ProdutoCliente[] | string | null | undefined): CamposLegados | null;
 export function produtosDeLegado(
   cliente: ClienteLegado,
   opts: {
@@ -61,7 +63,7 @@ export function produtosDeLegado(
   },
 ): ProdutoCliente[];
 export function traduzirPatchLegado(
-  produtosAtuais: ProdutoCliente[] | string | undefined,
+  produtosAtuais: ProdutoCliente[] | string | null | undefined,
   patch: ClienteLegado & { produtos?: unknown; [campo: string]: unknown },
   agora: string,
 ): ProdutoCliente[] | null;

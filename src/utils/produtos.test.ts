@@ -40,7 +40,7 @@ describe('derivarCamposLegados', () => {
       p('2D Price', 'Ativo', { login: 'X', senhaCifrada: 'S' }),
       p('Apura', 'Suspenso'),
       p('2D Nexus', 'Em breve'),
-    ]);
+    ])!;
     expect(r.servicos).toEqual(['Plataforma 2D', '2D Price']);
     expect(r.servicosIndependentes).toEqual(['Plataforma 2D']);
     expect(r.linksServicos).toEqual({ 'Plataforma 2D': 'L' });
@@ -138,7 +138,7 @@ describe('casos de borda (testador)', () => {
   ];
 
   it('máquina 1.6 regrava o que recebeu (campos como texto JSON): nada muda de fase nem se perde', () => {
-    const d = derivarCamposLegados(cadastro);
+    const d = derivarCamposLegados(cadastro)!;
     // A 1.6 serializa arrays/objetos como texto e nunca recebe a senha cifrada.
     const patch = {
       servicos: JSON.stringify(d.servicos),
@@ -163,7 +163,7 @@ describe('casos de borda (testador)', () => {
   });
 
   it('Suspenso some de servicos/independentes derivados mas continua no cadastro com fase e motivo', () => {
-    const d = derivarCamposLegados(cadastro);
+    const d = derivarCamposLegados(cadastro)!;
     expect(d.servicos).not.toContain('Apura');
     expect(d.servicosIndependentes).not.toContain('Apura');
     const r = traduzirPatchLegado(cadastro, { servicos: ['Plataforma 2D'] }, AGORA)!;
@@ -188,13 +188,57 @@ describe('casos de borda (testador)', () => {
   });
 
   it('derivarCamposLegados aceita produtos como texto JSON e limpa login/senha sem 2D Price', () => {
-    expect(derivarCamposLegados(JSON.stringify(cadastro)).servicos).toEqual(['Plataforma 2D', '2D Price']);
+    expect(derivarCamposLegados(JSON.stringify(cadastro))!.servicos).toEqual(['Plataforma 2D', '2D Price']);
     expect(derivarCamposLegados([p('Apura', 'Ativo')])).toMatchObject({ loginPrice: '', senhaPriceCifrada: '' });
   });
 
   it('produto novo sem motivo é mudança com motivoMudou=false', () => {
     expect(mudancasDeFase(cadastro, [...cadastro, p('Raptor2', 'Ativo', { motivoFase: '  ' })])).toEqual([
       { produto: 'Raptor2', de: null, para: 'Ativo', motivoMudou: false },
+    ]);
+  });
+});
+
+describe('correções da revisão', () => {
+  const LEGADO = 'alterado por versão anterior da Carteira';
+
+  it('cliente sem produtos (não migrado): nada a traduzir nem derivar', () => {
+    expect(traduzirPatchLegado(undefined, { senhaPriceCifrada: 'novo' }, AGORA)).toBeNull();
+    expect(traduzirPatchLegado('', { servicos: ['Apura'] }, AGORA)).toBeNull();
+    expect(traduzirPatchLegado(null, { servicos: ['Apura'] }, AGORA)).toBeNull();
+    expect(derivarCamposLegados(undefined)).toBeNull();
+    expect(derivarCamposLegados('')).toBeNull();
+    expect(derivarCamposLegados([])!.servicos).toEqual([]);
+  });
+
+  it('duas edições seguidas da 1.6 no mesmo produto não são barradas por falta de motivo', () => {
+    const r1 = traduzirPatchLegado([], { servicos: ['Apura'] }, AGORA)!;
+    expect(mudancasDeFase([], r1)[0]).toMatchObject({ para: 'Ativo', motivoMudou: true });
+    const r2 = traduzirPatchLegado(r1, { servicos: [] }, '2026-10-30T12:05:00.000Z')!;
+    expect(mudancasDeFase(r1, r2)).toEqual([{ produto: 'Apura', de: 'Ativo', para: 'Cancelado', motivoMudou: true }]);
+    const r3 = traduzirPatchLegado(r2, { servicos: ['Apura'] }, '2026-10-30T12:10:00.000Z')!;
+    expect(mudancasDeFase(r2, r3)[0]).toMatchObject({ de: 'Cancelado', para: 'Ativo', motivoMudou: true });
+    // Fora do motivo da 1.6, motivo repetido continua barrado.
+    expect(mudancasDeFase([p('Apura', 'Ativo', { motivoFase: LEGADO })], [p('Apura', 'Suspenso', { motivoFase: LEGADO })])[0].motivoMudou).toBe(false);
+  });
+
+  it('produto gravado com nome antigo recebendo patch da 1.6 com o mesmo nome: nenhuma mudança', () => {
+    const atuais = [p('Monitoria', 'Ativo', { link: 'L' })];
+    const r = traduzirPatchLegado(atuais, { servicos: ['Monitoria'], linksServicos: { Monitoria: 'L' } }, AGORA)!;
+    expect(r).toEqual([{ ...atuais[0], produto: 'Plataforma 2D' }]);
+    expect(mudancasDeFase(atuais, r)).toEqual([]);
+    const d = derivarCamposLegados([p('Monitoria', 'Ativo'), p('Plataforma 2D', 'Ativo')])!;
+    expect(d.servicos).toEqual(['Plataforma 2D']);
+  });
+
+  it('cliente sem createdAt: faseDesde vazio, sem carência a partir de agora', () => {
+    const r = produtosDeLegado({ servicos: ['Apura'] }, { agora: AGORA, motivo: 'm' });
+    expect(r[0].faseDesde).toBe('');
+  });
+
+  it('produto removido da lista é mudança sem motivo', () => {
+    expect(mudancasDeFase([p('Apura', 'Ativo'), p('Raptor', 'Suspenso')], [p('Apura', 'Ativo')])).toEqual([
+      { produto: 'Raptor', de: 'Suspenso', para: null, motivoMudou: false },
     ]);
   });
 });

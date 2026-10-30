@@ -58,8 +58,29 @@ function linksRenomeados(raw) {
   return out;
 }
 
+/** `produtos` ausente (cliente ainda não migrado) ≠ lista vazia: sem a coluna,
+ * os campos antigos continuam sendo a fonte e nada deve ser derivado/traduzido. */
+const ausente = (x) => x == null || (typeof x === 'string' && !x.trim());
+
+/** Lista gravada com o nome já oficial e sem repetição — a ficha pode ter
+ * gravado "Monitoria" antes da migração renomear a categoria. Na repetição,
+ * fica o item Ativo (é o que a cadência enxerga). */
+function normalizar(raw) {
+  const out = [];
+  for (const p of listaJSON(raw)) {
+    if (!p || typeof p !== 'object') continue;
+    const item = { ...p, produto: renomearProduto(p.produto) };
+    const i = out.findIndex((x) => x.produto === item.produto);
+    if (i < 0) out.push(item);
+    else if (out[i].fase !== 'Ativo' && item.fase === 'Ativo') out[i] = item;
+  }
+  return out;
+}
+
+/** `null` quando `produtos` está ausente: o chamador não sobrescreve nada. */
 function derivarCamposLegados(produtos) {
-  const lista = listaJSON(produtos);
+  if (ausente(produtos)) return null;
+  const lista = normalizar(produtos);
   const ativos = lista.filter((p) => p.fase === 'Ativo');
   const linksServicos = {};
   for (const p of lista) if (p.link) linksServicos[p.produto] = p.link;
@@ -78,17 +99,19 @@ function derivarCamposLegados(produtos) {
 /**
  * Monta `produtos` a partir do formato antigo — usado pela migração e pela
  * leitura de cliente ainda não migrado (só em memória). `faseDesde` padrão =
- * `createdAt`, para o relógio "nunca atendido" continuar idêntico ao de hoje.
+ * `createdAt`, para o relógio "nunca atendido" continuar idêntico ao de hoje;
+ * sem `createdAt` fica '' (desconhecido), nunca `agora` — senão o cliente sem
+ * cadastro conhecido ganharia carência que hoje não tem.
  */
 function produtosDeLegado(cliente, opts) {
-  const { agora, faseInicial, desde, motivo } = opts;
+  const { faseInicial, desde, motivo } = opts;
   const independentes = new Set(nomesRenomeados(cliente.servicosIndependentes));
   const links = linksRenomeados(cliente.linksServicos);
   return nomesRenomeados(cliente.servicos).map((produto) => {
     const item = {
       produto,
       fase: faseInicial ? faseInicial(produto) : 'Ativo',
-      faseDesde: (desde && desde(produto)) || cliente.createdAt || agora,
+      faseDesde: (desde && desde(produto)) || cliente.createdAt || '',
       motivoFase: motivo,
       independente: independentes.has(produto),
     };
@@ -109,13 +132,15 @@ const CAMPOS_LEGADOS = ['servicos', 'servicosIndependentes', 'linksServicos', 'l
  * mudança em `produtos`: aparece em `servicos` → Ativo; era Ativo e sumiu →
  * Cancelado. Em breve/Suspenso/Cancelado não estão no `servicos` derivado,
  * então "sumir" dali não significa nada — não são tocados.
+ * Cliente ainda sem `produtos` → `null`: os campos antigos seguem sendo a
+ * fonte, o patch grava como hoje.
  * Retirar quando `dados/maquinas/*.log` mostrar todas as máquinas na 1.7+.
  */
 function traduzirPatchLegado(produtosAtuais, patch, agora) {
-  if (!patch || 'produtos' in patch) return null;
+  if (!patch || 'produtos' in patch || ausente(produtosAtuais)) return null;
   if (!CAMPOS_LEGADOS.some((c) => c in patch)) return null;
 
-  let lista = listaJSON(produtosAtuais).map((p) => ({ ...p }));
+  let lista = normalizar(produtosAtuais);
   const mudarFase = (p, fase) => Object.assign(p, { fase, faseDesde: agora, motivoFase: MOTIVO_VERSAO_ANTERIOR });
 
   if ('servicos' in patch) {
@@ -153,20 +178,26 @@ function traduzirPatchLegado(produtosAtuais, patch, agora) {
 
 /** Fases que mudaram de `antes` para `depois`; `motivoMudou=false` = trocou a
  * fase sem informar motivo novo (o domínio recusa com 400). Produto novo
- * conta como mudança a partir de `null`. */
+ * conta como mudança a partir de `null`; produto removido, como mudança para
+ * `null` sem motivo (tirar produto é Cancelado com motivo, não apagar a linha).
+ * O motivo fixo da 1.6 se repete a cada edição: ali vale o `faseDesde` novo. */
 function mudancasDeFase(antes, depois) {
-  const anteriores = listaJSON(antes);
+  const anteriores = normalizar(antes);
+  const atuais = normalizar(depois);
   const out = [];
-  for (const p of listaJSON(depois)) {
+  for (const p of atuais) {
     const a = anteriores.find((x) => x.produto === p.produto);
     if (a && a.fase === p.fase) continue;
     const motivo = String(p.motivoFase || '').trim();
-    out.push({
-      produto: p.produto,
-      de: a ? a.fase : null,
-      para: p.fase,
-      motivoMudou: Boolean(motivo) && (!a || motivo !== String(a.motivoFase || '').trim()),
-    });
+    const novo = !a
+      || motivo !== String(a.motivoFase || '').trim()
+      || (motivo === MOTIVO_VERSAO_ANTERIOR && p.faseDesde !== a.faseDesde);
+    out.push({ produto: p.produto, de: a ? a.fase : null, para: p.fase, motivoMudou: Boolean(motivo) && novo });
+  }
+  for (const a of anteriores) {
+    if (!atuais.some((x) => x.produto === a.produto)) {
+      out.push({ produto: a.produto, de: a.fase, para: null, motivoMudou: false });
+    }
   }
   return out;
 }
