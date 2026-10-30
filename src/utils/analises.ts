@@ -98,9 +98,10 @@ const DO_CLIENTE = new Set<string>(['cliente_cancelou', 'cliente_ausente']);
  * cancelou. Só o lado do cliente vira ranking; o que nós cancelamos e o
  * legado sem motivo aparecem na quebra, e lançamento errado sai da conta.
  */
-export function cancelamentosPorAtendimento(ativos: Cliente[], agenda: EventoAgenda[], agora: Date, modo: ModoContagem = 'reunioes'): Cancelamentos {
+/** `clientes` = os do monitor em qualquer situação de cadastro: cancelamento é fato do mês. */
+export function cancelamentosPorAtendimento(clientes: Cliente[], agenda: EventoAgenda[], agora: Date, modo: ModoContagem = 'reunioes'): Cancelamentos {
   const inicio = startOfMonth(agora);
-  const nomes = new Map(ativos.map((c) => [c.id, c.empresa]));
+  const nomes = new Map(clientes.map((c) => [c.id, c.empresa]));
   const por = new Map<string, CancelamentoAtendimento>();
   const porCategoria: Record<CategoriaContada, number> = { cliente_cancelou: 0, cliente_ausente: 0, nos_cancelamos: 0, sem_categoria: 0 };
   let doCliente = 0, comDesfecho = 0, lancamentosErrados = 0;

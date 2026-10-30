@@ -140,16 +140,23 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   );
   // Variantes só com o filtro de Monitor (sem o de Tipo de evento) — pros
   // cards que precisam de todos os tipos de evento/ação de um monitor
-  // (AtendimentoCard, RecuperadosCard), não só do subconjunto que
-  // `agendaAtiva` respeita quando o filtro de Tipo de evento também está ativo.
+  // (Reuniões por dia, AtendimentoCard, RecuperadosCard).
+  // Volume é fato passado: o que o cliente fez no mês conta em QUALQUER situação
+  // de cadastro. Filtrar por cliente ativo HOJE fazia suspender um cliente apagar
+  // as reuniões dele, inclusive de meses fechados (mesma regra de `reunioesAtivas`).
+  const clientesDoMonitor = useMemo(
+    () => clientes.filter((c) => filtroMonitor === 'Todos' || c.monitor === filtroMonitor),
+    [clientes, filtroMonitor]
+  );
   const agendaPorMonitor = useMemo(
-    () => agenda.filter((a) => ativosIds.has(a.clientId)),
-    [agenda, ativosIds]
+    () => agenda.filter((a) => filtroMonitor === 'Todos' || (a.monitores ?? []).includes(filtroMonitor)),
+    [agenda, filtroMonitor]
   );
-  const acoesPorMonitor = useMemo(
-    () => acoes.filter((a) => ativosIds.has(a.clientId)),
-    [acoes, ativosIds]
-  );
+  const acoesPorMonitor = useMemo(() => {
+    if (filtroMonitor === 'Todos') return acoes;
+    const ids = new Set(clientesDoMonitor.map((c) => c.id));
+    return acoes.filter((a) => ids.has(a.clientId));
+  }, [acoes, clientesDoMonitor, filtroMonitor]);
 
   // Indicadores de prazo (Ritmo, Cobertura por Serviço, Cobertura, Sem
   // acompanhamento) — UMA função para o mês escolhido e para a mesma data um mês
@@ -555,7 +562,8 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   // --- Análises ---
   // Difíceis de marcar (janela própria, terminando no mês escolhido) e quem cancela (mês de referência).
   const dificeis = useMemo(() => dificeisDeMarcar(ativosNoPeriodo, agenda, acoes, dataReferencia, mesesDificeis), [ativosNoPeriodo, agenda, acoes, dataReferencia, mesesDificeis]);
-  const cancelamentos = useMemo(() => cancelamentosPorAtendimento(ativosNoPeriodo, agenda, dataReferencia, modoContagem), [ativosNoPeriodo, agenda, dataReferencia, modoContagem]);
+  // Cancelamento também é volume do mês: conta mesmo se o cliente foi suspenso depois.
+  const cancelamentos = useMemo(() => cancelamentosPorAtendimento(clientesDoMonitor, agenda, dataReferencia, modoContagem), [clientesDoMonitor, agenda, dataReferencia, modoContagem]);
   const agendaDiaria = useMemo(() => reunioesPorDia(agendaPorMonitor, periodo, new Date(), modoContagem), [agendaPorMonitor, periodo, modoContagem]);
 
   // Reuniões nas entregas: das entregas concluídas no mês, quantas foram reunião.
