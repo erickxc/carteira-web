@@ -124,9 +124,8 @@ describe('sincronizarPriceDoDW — bordas (testador)', () => {
     expect(c.produtos[0].login).toBe('12.345.678/0001-99');
   });
 
-  // BUG (testador, Task 5): a derivação grava loginPrice = '' (item sem login) e o
-  // CNPJ some. `it.fails` até corrigir — quando passar a falhar, trocar por `it`.
-  it.fails('item 2D Price sem login cai no loginPrice e não apaga o loginPrice ao gravar', async () => {
+  // A derivação faz loginPrice = item.login: sem copiar o CNPJ pro item, ele sumiria.
+  it('item 2D Price sem login cai no loginPrice e não apaga o loginPrice ao gravar', async () => {
     const { repo, decifrar, consultados } = await rodar([{
       id: 'c7', empresa: 'F', loginPrice: CNPJ,
       produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-01-01', motivoFase: 'm' }],
@@ -149,6 +148,44 @@ describe('sincronizarPriceDoDW — bordas (testador)', () => {
     const c = repo.get('Clientes')[0];
     expect(c.produtos[0].senhaCifrada).toBe('antiga');
     expect(c.produtos).toHaveLength(1);
+  });
+
+  it('edição feita durante a consulta ao DW não é desfeita', async () => {
+    const { repoMemoria } = require('../dominio/repo.cjs');
+    const { decifrar } = require('../crypto.cjs');
+    const { sincronizarPriceDoDW } = require('./sincronizarPrice.cjs');
+    const repo = repoMemoria({ Clientes: [{
+      id: 'c10', empresa: 'H',
+      produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-01-01', motivoFase: 'm', login: CNPJ }],
+    }] });
+    await sincronizarPriceDoDW({ repo, configurado: true, buscarDadosPrice: async () => {
+      // Fila aplica uma mudança de fase enquanto o DW responde.
+      repo.update('Clientes', 'c10', { produtos: [
+        { produto: '2D Price', fase: 'Suspenso', faseDesde: '2026-10-30', motivoFase: 'pausa', login: CNPJ },
+        { produto: 'Plataforma 2D', fase: 'Ativo', faseDesde: '2026-10-30', motivoFase: 'novo' },
+      ] });
+      return new Map([[CNPJ, { senha: 'nova' }]]);
+    } });
+    const c = repo.get('Clientes')[0];
+    expect(c.produtos).toHaveLength(2);
+    expect(c.produtos[0].fase).toBe('Suspenso');
+    expect(decifrar(c.produtos[0].senhaCifrada)).toBe('nova');
+  });
+
+  it('login trocado durante a consulta: não grava a senha do CNPJ antigo', async () => {
+    const { repoMemoria } = require('../dominio/repo.cjs');
+    const { sincronizarPriceDoDW } = require('./sincronizarPrice.cjs');
+    const repo = repoMemoria({ Clientes: [{
+      id: 'c11', empresa: 'I',
+      produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-01-01', motivoFase: 'm', login: CNPJ, senhaCifrada: 'antiga' }],
+    }] });
+    await sincronizarPriceDoDW({ repo, configurado: true, buscarDadosPrice: async () => {
+      repo.update('Clientes', 'c11', { produtos: [
+        { produto: '2D Price', fase: 'Ativo', faseDesde: '2026-01-01', motivoFase: 'm', login: CNPJ2, senhaCifrada: 'antiga' },
+      ] });
+      return new Map([[CNPJ, { senha: 'nova' }]]);
+    } });
+    expect(repo.get('Clientes')[0].produtos[0].senhaCifrada).toBe('antiga');
   });
 
   it('sem DW configurado não consulta nem grava', async () => {

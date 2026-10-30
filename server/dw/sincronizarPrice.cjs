@@ -56,6 +56,28 @@ function itemPrice(cliente) {
   return listaJSON(cliente.produtos).find((p) => p && eh2DPrice(p.produto)) || null;
 }
 
+function cnpjDe(cliente) {
+  const price = itemPrice(cliente);
+  return ((price && price.login) || cliente.loginPrice || '').replace(/\D/g, '');
+}
+
+/**
+ * Troca só a senha — nunca cria produto nem muda fase (regra 2). Se o login
+ * mudou desde a consulta, não grava a senha de outro CNPJ. Item 2D Price sem
+ * login (CNPJ veio do `loginPrice`) recebe esse login: a derivação faz
+ * `loginPrice = item.login`, e sem isso o CNPJ sumiria do cliente.
+ */
+function comSenhaPrice(row, senhaCifrada, cnpjDigitos) {
+  if (!senhaCifrada || cnpjDe(row) !== cnpjDigitos) return row;
+  if (!itemPrice(row)) return { ...row, senhaPriceCifrada: senhaCifrada };
+  return {
+    ...row,
+    produtos: listaJSON(row.produtos).map((p) => (p && eh2DPrice(p.produto)
+      ? { ...p, senhaCifrada, login: p.login || row.loginPrice }
+      : p)),
+  };
+}
+
 /** `deps` só existe pra teste (repo em memória, DW falso). */
 async function sincronizarPriceDoDW(deps = {}) {
   const repo = deps.repo || repoPadrao;
@@ -65,10 +87,7 @@ async function sincronizarPriceDoDW(deps = {}) {
 
   const clientes = repo.get('Clientes');
   const comCnpj = clientes
-    .map((c) => {
-      const price = itemPrice(c);
-      return { cliente: c, cnpjDigitos: ((price && price.login) || c.loginPrice || '').replace(/\D/g, '') };
-    })
+    .map((c) => ({ cliente: c, cnpjDigitos: cnpjDe(c) }))
     .filter((x) => x.cnpjDigitos.length === 14);
 
   if (comCnpj.length === 0) return { rodou: true, atualizados: 0, semCorrespondencia: 0 };
@@ -87,18 +106,6 @@ async function sincronizarPriceDoDW(deps = {}) {
     }
 
     const patch = {};
-
-    if (dados.senha) {
-      const senhaCifrada = cifrar(dados.senha);
-      // Só troca a senha do item existente — nunca cria produto nem muda fase
-      // (regra 2 acima).
-      if (itemPrice(cliente)) {
-        patch.produtos = listaJSON(cliente.produtos).map((p) => (p && eh2DPrice(p.produto) ? { ...p, senhaCifrada } : p));
-      } else {
-        patch.senhaPriceCifrada = senhaCifrada;
-      }
-    }
-
     if (!cliente.local) {
       const mapeado = MAPA_SEGMENTO[normalizar(dados.segmento)];
       if (mapeado) patch.local = mapeado;
@@ -107,12 +114,14 @@ async function sincronizarPriceDoDW(deps = {}) {
       const mapeado = MAPA_LINHA[normalizar(dados.segmentoHarmonizacao)];
       if (mapeado) patch.linha = mapeado;
     }
+    const senhaCifrada = dados.senha ? cifrar(dados.senha) : null;
+    if (!senhaCifrada && Object.keys(patch).length === 0) continue;
 
-    if (Object.keys(patch).length > 0) {
-      // `syncClienteColumns` rederiva `senhaPriceCifrada` do item 2D Price.
-      repo.update('Clientes', cliente.id, patch, syncClienteColumns);
-      atualizados++;
-    }
+    // Aplica sobre a linha ATUAL do banco (o transform recebe a linha relida),
+    // não sobre `cliente`, lido antes do `await` ao DW: gravar `produtos` da
+    // leitura antiga desfaria fase/login alterados nesse meio-tempo (fila).
+    repo.update('Clientes', cliente.id, patch, (row) => syncClienteColumns(comSenhaPrice(row, senhaCifrada, cnpjDigitos)));
+    atualizados++;
   }
 
   return { rodou: true, atualizados, semCorrespondencia };
