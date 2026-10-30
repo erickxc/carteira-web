@@ -1,6 +1,6 @@
 /**
  * Cliente Postgres pro `DW_PLATAFORMA` — banco de PRODUÇÃO de outro sistema
- * (não desta Carteira), único consumidor: `sincronizarPrice.cjs`.
+ * (não desta Carteira). Consumidores: `sincronizarPrice.cjs` e `retratoProdutos.cjs`.
  *
  * SOMENTE LEITURA, sem exceção: nenhuma função aqui roda INSERT/UPDATE/DELETE
  * — é dado de outro sistema, mexer nele está fora de escopo (e fora de
@@ -64,4 +64,14 @@ async function buscarDadosPrice(cnpjsDigitos) {
   return resultado;
 }
 
-module.exports = { buscarDadosPrice };
+/** Colunas de produto (S/N) de todas as lojas do `parametro_bi` — base do
+ *  retrato "No DW agora" (`retratoProdutos.cjs`). */
+async function buscarProdutosParametroBi() {
+  const { rows } = await conectar().query(
+    "SELECT regexp_replace(cnpj, '[^0-9]', '', 'g') AS cnpj, "
+    + 'monitoria, controladoria, apura, alcance, nexus, optimarco, precificar FROM parametro_bi',
+  );
+  return rows;
+}
+
+module.exports = { buscarDadosPrice, buscarProdutosParametroBi };

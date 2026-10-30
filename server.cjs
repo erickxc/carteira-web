@@ -4,7 +4,7 @@ const cron = require('node-cron');
 const fs = require('fs');
 const path = require('path');
 
-const { HOST, PORT, DATA_DIR, DB_FILE, SQLITE_FILE } = require('./server/config.cjs');
+const { HOST, PORT, DATA_DIR, DB_FILE, SQLITE_FILE, DW_PLATAFORMA_CONFIGURADO } = require('./server/config.cjs');
 const { APP_MODE, isServer, isClient } = require('./server/modo.cjs');
 const { initDbSqlite } = require('./server/dbSqlite.cjs');
 const { backupDiario } = require('./server/backup.cjs');
@@ -16,6 +16,7 @@ const { materializarTudo } = require('./server/agendaSeries.cjs');
 const { iniciarSincronizacaoPeriodica: iniciarSyncCeoAgenda } = require('./server/ceoAgenda.cjs');
 const { rodarCicloComSnapshot } = require('./server/fila/controller.cjs');
 const { sincronizarPriceDoDW } = require('./server/dw/sincronizarPrice.cjs');
+const { gerarRetrato } = require('./server/dw/retratoProdutos.cjs');
 const { gerarAnalisesPendentes } = require('./server/ia/analisesAutomaticas.cjs');
 const { consolidarAgilIniciativas } = require('./server/scripts/consolidarAgilIniciativas.cjs');
 
@@ -190,10 +191,22 @@ if (isServer) {
   cron.schedule('0 */6 * * *', () => rodarSincronizacaoPrice('cron 6h'));
 }
 
+// Retrato "No DW agora" (produtos marcados no `parametro_bi`, só leitura) —
+// gravado em `dados/dw-produtos.json` pras máquinas client lerem
+// (`server/dw/retratoProdutos.cjs`). Só na servidora e com o DW configurado.
+function rodarRetratoDw(origem) {
+  gerarRetrato().catch((err) => console.warn(`Falha ao gerar o retrato de produtos do DW (${origem}):`, err.message));
+}
+if (isServer && DW_PLATAFORMA_CONFIGURADO) {
+  rodarRetratoDw('boot');
+  cron.schedule('30 4 * * *', () => rodarRetratoDw('cron diário'));
+}
+
 registerUploads(app); // /uploads (estático) + /api/uploads (CRUD)
 app.use('/api/clients', require('./server/routes/clients.cjs'));
 app.use('/api/status-historico', require('./server/routes/statusHistorico.cjs'));
 app.use('/api/produtos-historico', require('./server/routes/produtosHistorico.cjs'));
+app.use('/api/dw-produtos', require('./server/routes/dwProdutos.cjs'));
 // Precisa vir ANTES de '/api/agenda' — senão o router de agenda (que tem
 // PUT '/:id') capturaria '/api/agenda/series/x' tratando "series" como id.
 app.use('/api/agenda/series', require('./server/routes/agendaSeries.cjs'));

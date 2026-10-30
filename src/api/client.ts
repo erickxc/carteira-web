@@ -1,4 +1,5 @@
 import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilCampoPersonalizado, AgilColuna, AgilComentario, AgilConexao, AgilFrente, AgilHistoricoItem, AgilSwimlane, AgilSubtarefa, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, LojaCadastro, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilConexao, NovaAgilFrente, NovaAgilSubtarefa, NovaAgilSwimlane, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilCampoPersonalizado, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoClienteTela, ProdutoHistoricoItem, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao, StatusHistoricoItem } from '../types';
+import type { RetratoDw } from '../utils/produtosNoDw';
 
 const PRE_ANALISE_VAZIA: PreAnalise = { orientacoes: [], clientesGeral: '', produtosGeral: '' };
 function parsePreAnalise(raw: unknown): PreAnalise {
@@ -485,6 +486,10 @@ export const buscarAnalisesIA = () => request<AnaliseIA[]>('/ia/analises');
 export const buscarHistoricoAnalisesIA = () => request<AnaliseIA[]>('/ia/analises/historico');
 export const listarStatusHistorico = () => request<StatusHistoricoItem[]>('/status-historico');
 export const listarProdutosHistorico = () => request<ProdutoHistoricoItem[]>('/produtos-historico');
+/** Retrato "No DW agora" (`null` = DW ainda não lido). */
+export const buscarRetratoDw = () => request<RetratoDw | null>('/dw-produtos');
+/** Força nova leitura do DW — só a máquina servidora consegue (409 nas demais). */
+export const atualizarRetratoDw = () => request<RetratoDw>('/dw-produtos/atualizar', { method: 'POST' });
 
 export interface MensagemChatIA {
   role: 'user' | 'assistant';
