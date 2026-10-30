@@ -18,6 +18,9 @@ interface AnaliseIACardProps {
    *  botão sem perder o hover, interação ruim dentro de algo que já fecha
    *  sozinho): sem moldura, fatores/sugestão sempre visíveis. */
   variante?: 'padrao' | 'popover';
+  /** `true` no bloco do painel da ficha: só risco + parágrafo + botão, sem colapso
+   *  e sem Card próprio (o bloco já é o card; evita caixa dentro de caixa). */
+  compacto?: boolean;
 }
 
 /**
@@ -38,7 +41,7 @@ interface AnaliseIACardProps {
  * "texto cortado"; estreito + quebra de linha resolve sem truncar nada.
  * Fatores/sugestão de pauta (o conteúdo mais longo) ficam atrás de "Ver mais".
  */
-export function AnaliseIACard({ clienteId, variante = 'padrao' }: AnaliseIACardProps) {
+export function AnaliseIACard({ clienteId, variante = 'padrao', compacto = false }: AnaliseIACardProps) {
   const navigate = useNavigate();
   // `undefined` até a busca deste `clienteId` terminar — evita um segundo
   // estado boolean de loading só pra isso.
@@ -76,7 +79,7 @@ export function AnaliseIACard({ clienteId, variante = 'padrao' }: AnaliseIACardP
               <Bot size={14} className="text-text-muted shrink-0" />
               <Badge variant={RISCO_VARIANT[analise.nivelRisco]}>{RISCO_LABEL[analise.nivelRisco]}</Badge>
             </div>
-            {temDetalhe && !popover && (
+            {temDetalhe && !popover && !compacto && (
               <Button variant="secondary" size="icon" onClick={() => setExpandido((e) => !e)} title={expandido ? 'Ver menos' : 'Ver mais'} aria-label={expandido ? 'Ver menos da análise' : 'Ver mais da análise'} style={{ flexShrink: 0 }}>
                 {expandido ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </Button>
@@ -119,6 +122,7 @@ export function AnaliseIACard({ clienteId, variante = 'padrao' }: AnaliseIACardP
   );
 
   if (popover) return <div style={{ minWidth: 260, maxWidth: 340 }}>{conteudo}</div>;
+  if (compacto) return conteudo;
 
   return (
     <Card flat style={{ padding: '0.85rem 1rem' }}>

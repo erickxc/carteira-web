@@ -21,6 +21,20 @@ const RELOGIOS = [
 // Mesma chave de `proximos` em useDashboardData: a data é gravada à meia-noite, quem desempata é a hora.
 const chaveOrdem = (a: EventoAgenda) => `${format(parseISO(a.date), 'yyyy-MM-dd')} ${a.time || '00:00'}`;
 
+const primeiraLinha = (texto: string) => texto.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
+
+/**
+ * Uma linha sobre o que foi conversado. A ata gerada começa com o título "ATA DE
+ * REUNIÃO" e o cabeçalho: a linha que diz algo é a da seção "1. RESUMO" (`src/utils/ata.ts`).
+ */
+export function resumoDaConversa(evento: EventoAgenda): string {
+  if (evento.resumo?.trim()) return primeiraLinha(evento.resumo);
+  const ata = evento.ata ?? '';
+  const secao = ata.match(/^1\. RESUMO[ \t]*\r?\n[ \t]*(\S.*)$/m);
+  if (!secao) return primeiraLinha(ata);
+  return secao[1].includes('(a preencher)') ? '' : secao[1].trim();
+}
+
 /** Painel da ficha: nenhuma conta de cadência aqui, tudo sai do motor da fila. */
 export function resumoFicha(
   cliente: Cliente,

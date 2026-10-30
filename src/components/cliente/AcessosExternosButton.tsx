@@ -69,21 +69,14 @@ function Icone({ opcao }: { opcao: AcessoOpcao }) {
 }
 
 /**
- * Botão de acesso externo no cabeçalho do cadastro do cliente — uma opção por
- * PRODUTO não cancelado com link ou senha salvos (`cliente.produtos`, 1.7.0).
- * O 2D Price com senha não abre direto: mostra uma animação (`AbrirPriceModal`,
- * puramente visual) e envia o login de verdade numa aba nova. Os demais
- * produtos com senha copiam a senha e abrem o link. Sem nenhum acesso
- * cadastrado, o botão nem aparece.
+ * Opções de acesso do cliente + a sequência de abrir cada uma. É um hook, e não
+ * parte da lista, porque o dropdown desmonta a lista ao fechar no clique: com o
+ * estado lá dentro, a animação do Price e o modal manual morreriam junto.
  */
-export function AcessosExternosButton({ cliente, compacto = false }: AcessosExternosButtonProps) {
-  const [open, setOpen] = useState(false);
-  const [rect, setRect] = useState<DOMRect | null>(null);
+function useAcessosCliente(cliente: Cliente) {
   const [priceState, setPriceState] = useState<PriceModalState | null>(null);
   const [acessoManual, setAcessoManual] = useState<AcessoManual | null>(null);
   const nomeJanelaPrice = `price-2d-${cliente.id}`;
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
 
   // Token da execução ATUAL da sequência do Price — não um "cancelado"
   // boolean (isso já causou bug real: um useEffect que resetava um ref desses
@@ -118,25 +111,6 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
       .filter(([nome]) => !(cliente.produtos ?? []).some((p) => renomearProduto(p.produto) === nome))
       .map(([label, url]) => ({ label, url })),
   ];
-
-  useEffect(() => {
-    if (!open) return;
-    function onDoc(e: MouseEvent) {
-      const t = e.target as Node;
-      if (!wrapRef.current?.contains(t) && !popRef.current?.contains(t)) setOpen(false);
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onDoc);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open]);
-
-  if (opcoes.length === 0) return compacto ? <span className="text-text-muted">—</span> : null;
 
   /**
    * Sequência inteira do Price: busca credencial → anima → envia o login de
@@ -243,13 +217,9 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
     if (o.credencialDe) void credencialProduto(o.credencialDe, o.url);
     else if (o.url) window.open(o.url, '_blank', 'noopener,noreferrer');
     else void abrirPrice();
-    setOpen(false);
   }
 
-  const estiloCompacto = compacto ? { padding: '0.28rem 0.45rem' } : undefined;
-  const rotuloGrupo = opcoes.some((o) => o.label === PRICE_LABEL || o.credencialDe) ? 'Acessos' : 'Power BI';
-
-  const modalPrice = (
+  const modais = (
     <>
       {priceState && (
         <AbrirPriceModal
@@ -265,15 +235,80 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
     </>
   );
 
+  return { opcoes, abrir, modais };
+}
+
+/** Acessos à vista, sem dropdown: bloco "Contatos e acessos" da ficha. */
+export function ListaAcessos({ cliente }: { cliente: Cliente }) {
+  const { opcoes, abrir, modais } = useAcessosCliente(cliente);
+
+  if (opcoes.length === 0) return <p className="text-[0.82rem] text-text-muted" style={{ margin: 0 }}>Nenhum acesso cadastrado</p>;
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-1.5">
+        {opcoes.map((o) => (
+          <Button key={o.label} variant="secondary" size="sm" onClick={() => abrir(o)} title={`Abrir ${o.label}`}>
+            <Icone opcao={o} /> {o.label}
+          </Button>
+        ))}
+      </div>
+      {modais}
+    </>
+  );
+}
+
+/**
+ * Botão de acesso externo no cabeçalho do cadastro do cliente — uma opção por
+ * PRODUTO não cancelado com link ou senha salvos (`cliente.produtos`, 1.7.0).
+ * O 2D Price com senha não abre direto: mostra uma animação (`AbrirPriceModal`,
+ * puramente visual) e envia o login de verdade numa aba nova. Os demais
+ * produtos com senha copiam a senha e abrem o link. Sem nenhum acesso
+ * cadastrado, o botão nem aparece.
+ */
+export function AcessosExternosButton({ cliente, compacto = false }: AcessosExternosButtonProps) {
+  const { opcoes, abrir, modais } = useAcessosCliente(cliente);
+  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      const t = e.target as Node;
+      if (!wrapRef.current?.contains(t) && !popRef.current?.contains(t)) setOpen(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  if (opcoes.length === 0) return compacto ? <span className="text-text-muted">—</span> : null;
+
+  function abrirEFechar(o: AcessoOpcao) {
+    abrir(o);
+    setOpen(false);
+  }
+
+  const estiloCompacto = compacto ? { padding: '0.28rem 0.45rem' } : undefined;
+  const rotuloGrupo = opcoes.some((o) => o.label === PRICE_LABEL || o.credencialDe) ? 'Acessos' : 'Power BI';
+
   // Um único acesso cadastrado: abre direto, sem popover — menos clique no caso comum.
   if (opcoes.length === 1) {
     const [unica] = opcoes;
     return (
       <>
-        <Button variant="secondary" onClick={() => abrir(unica)} title={`Abrir ${unica.label}`} style={estiloCompacto}>
+        <Button variant="secondary" onClick={() => abrirEFechar(unica)} title={`Abrir ${unica.label}`} style={estiloCompacto}>
           <Icone opcao={unica} /> {!compacto && unica.label}
         </Button>
-        {modalPrice}
+        {modais}
       </>
     );
   }
@@ -301,14 +336,14 @@ export function AcessosExternosButton({ cliente, compacto = false }: AcessosExte
           style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { largura: rect.width }), minWidth: rect.width, overflowY: 'auto' }}
         >
           {opcoes.map((o) => (
-            <button type="button" key={o.label} role="option" onClick={() => abrir(o)} className="filter-pop-item">
+            <button type="button" key={o.label} role="option" onClick={() => abrirEFechar(o)} className="filter-pop-item">
               <Icone opcao={o} /> {o.label}
             </button>
           ))}
         </div>,
         document.body
       )}
-      {modalPrice}
+      {modais}
     </div>
   );
 }
