@@ -29,6 +29,9 @@ const COLUNAS = {
   precificar: '2D Price',
 };
 
+// A Receita leva minutos (700 ms por CNPJ) e muda pouco: cada CNPJ, uma vez por semana.
+const IDADE_RECONSULTA_MS = 7 * 24 * 60 * 60 * 1000;
+
 const digitos = (v) => String(v || '').replace(/\D/g, '');
 
 /**
@@ -107,12 +110,14 @@ function receitaGravada() {
   }
 }
 
-/** Situação na Receita das lojas do cadastro, uma por vez (a BrasilAPI limita). */
-async function consultarLojas(consultarReceita, repo, pausaMs, agora) {
+/** Situação na Receita das lojas do cadastro, uma por vez (a BrasilAPI limita).
+ *  Pula quem foi consultado há menos de 7 dias; quem falhou não tem data e tenta de novo. */
+async function consultarLojas(consultarReceita, repo, pausaMs, agora, gravada) {
   const cnpjs = new Set(repo.get('Clientes')
     .flatMap((c) => listaJSON(c.lojasCadastro))
     .map((l) => digitos(l?.cnpj))
-    .filter((c) => c.length === 14));
+    .filter((c) => c.length === 14)
+    .filter((c) => !(Date.parse(agora) - Date.parse(gravada[c]?.consultadoEm) < IDADE_RECONSULTA_MS)));
   const resultado = {};
   let primeira = true;
   for (const cnpj of cnpjs) {
@@ -126,17 +131,18 @@ async function consultarLojas(consultarReceita, repo, pausaMs, agora) {
 
 /**
  * Lê o DW e grava o retrato (tmp+rename: o arquivo mora no OneDrive). A Receita
- * é semanal: só com `consultarReceita` (função de `receitaCnpj.cjs`); sem ela,
- * a situação já gravada segue como está.
+ * é semanal por CNPJ: só com `consultarReceita` (função de `receitaCnpj.cjs`);
+ * sem ela, a situação já gravada segue como está.
  */
 async function gerarRetrato({ buscar, buscarFiscais, consultarReceita, repo, pausaMs = 700, agora = new Date().toISOString() } = {}) {
   const buscarLinhas = buscar || require('./dwPlataforma.cjs').buscarProdutosParametroBi;
   const lerFiscais = buscarFiscais || require('./dwPlataforma.cjs').buscarDadosFiscaisLojas;
   const [linhas, fiscais] = await Promise.all([buscarLinhas(), lerFiscais()]);
+  const receitaAnterior = receitaGravada();
   const receitaNova = consultarReceita
-    ? await consultarLojas(consultarReceita, repo || require('../dominio/repo.cjs').repoPlanilha(), pausaMs, agora)
+    ? await consultarLojas(consultarReceita, repo || require('../dominio/repo.cjs').repoPlanilha(), pausaMs, agora, receitaAnterior)
     : {};
-  const retrato = montarRetrato(linhas, agora, { fiscais, receitaAnterior: receitaGravada(), receitaNova });
+  const retrato = montarRetrato(linhas, agora, { fiscais, receitaAnterior, receitaNova });
   fs.mkdirSync(path.dirname(ARQUIVO), { recursive: true });
   const tmp = `${ARQUIVO}.${process.pid}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(retrato));

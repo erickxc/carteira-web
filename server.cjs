@@ -201,10 +201,10 @@ if (isServer) {
 // Retrato "No DW agora" (produtos marcados no `parametro_bi`, só leitura) —
 // gravado em `dados/dw-produtos.json` pras máquinas client lerem
 // (`server/dw/retratoProdutos.cjs`). Só na servidora e com o DW configurado.
-// Situação na Receita só aos domingos: leva minutos (700 ms por CNPJ) e muda pouco.
+// Situação na Receita por idade da consulta (7 dias, em `retratoProdutos.cjs`): a
+// servidora não fica ligada aos domingos nem às 4h30, então dia marcado nunca rodava.
 function rodarRetratoDw(origem) {
-  const consultarReceita = new Date().getDay() === 0 ? consultarSituacao : undefined;
-  gerarRetrato({ consultarReceita }).catch((err) => console.warn(`Falha ao gerar o retrato de produtos do DW (${origem}):`, err.message));
+  gerarRetrato({ consultarReceita: consultarSituacao }).catch((err) => console.warn(`Falha ao gerar o retrato de produtos do DW (${origem}):`, err.message));
 }
 if (isServer && DW_PLATAFORMA_CONFIGURADO) {
   rodarRetratoDw('boot');

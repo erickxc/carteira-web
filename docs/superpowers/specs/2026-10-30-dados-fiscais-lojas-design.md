@@ -29,7 +29,7 @@ Nada vai para a tabela `Clientes`. Os dados entram no **mesmo retrato por CNPJ q
 ```
 
 - Parte DW: gerada no boot e no cron diário da máquina servidora (mesmo gatilho do retrato de produtos), só com `DW_PLATAFORMA_CONFIGURADO`.
-- Parte Receita: semanal (domingo), só para CNPJs das `lojasCadastro`; 700 ms entre consultas; falha de um CNPJ mantém o valor anterior. Gravação atômica (tmp + rename), como o retrato de produtos.
+- Parte Receita: semanal por idade (CNPJ consultado há 7+ dias ou nunca; a máquina não fica ligada no domingo, então dia fixo nunca rodaria), só para CNPJs das `lojasCadastro`; 700 ms entre consultas; falha de um CNPJ mantém o valor anterior. Gravação atômica (tmp + rename), como o retrato de produtos.
 - Por que arquivo e não `Clientes`: o DW/Receita continuam sendo a fonte, e máquina em versão antiga não apaga o dado ao salvar cliente (o `normalizarLojas` da 1.6 descarta campos extras das lojas).
 - Leitura: a mesma rota do retrato de produtos da 1.7 (lê o arquivo; vale em servidor e cliente). Front junta por CNPJ.
 

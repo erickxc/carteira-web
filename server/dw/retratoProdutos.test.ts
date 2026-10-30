@@ -181,7 +181,7 @@ describe('montarRetrato — dados fiscais', () => {
 describe('gerarRetrato — parte da Receita', () => {
   const buscar = async () => [linha(A, []), linha(B, [])];
 
-  it('só consulta quando pedido: o ciclo diário mantém a situação já gravada', async () => {
+  it('sem consultarReceita não consulta: mantém a situação já gravada', async () => {
     const { gerarRetrato } = require('./retratoProdutos.cjs');
     const consultar = async () => ({ situacao: 'ATIVA', desde: '2005-11-03' });
     const repo = { get: () => [{ lojasCadastro: [{ cnpj: A }] }] };
@@ -214,6 +214,36 @@ describe('gerarRetrato — parte da Receita', () => {
 
     const r2 = await gerarRetrato({ buscar, buscarFiscais: semFiscais, consultarReceita: async () => null, repo, pausaMs: 0, agora: 'd2' });
     expect(r2.porCnpj[A].receita.consultadoEm).toBe('d1');
+  });
+
+  it('semanal por idade: pula CNPJ consultado há menos de 7 dias; reconsulta o antigo e o que falhou', async () => {
+    const { gerarRetrato } = require('./retratoProdutos.cjs');
+    const pedidos: string[] = [];
+    const responde = (falha: string) => async (cnpj: string) => {
+      pedidos.push(cnpj);
+      return cnpj === falha ? null : { situacao: 'ATIVA', desde: 'd' };
+    };
+    const repo = { get: () => [{ lojasCadastro: [{ cnpj: A }, { cnpj: B }] }] };
+    const gerar = (agora: string, falha = '') => gerarRetrato({ buscar, buscarFiscais: semFiscais, consultarReceita: responde(falha), repo, pausaMs: 0, agora });
+
+    await gerar('2026-10-01T12:00:00.000Z', B);
+    expect(pedidos).toEqual([A, B]);
+
+    // Dia seguinte (reinício ou cron): A está recente, só B, que falhou, tenta de novo.
+    pedidos.length = 0;
+    await gerar('2026-10-02T12:00:00.000Z');
+    expect(pedidos).toEqual([B]);
+
+    // Quase 7 dias depois da consulta de A: ainda não.
+    pedidos.length = 0;
+    await gerar('2026-10-08T11:59:00.000Z');
+    expect(pedidos).toEqual([]);
+
+    // Completou 7 dias: A volta, B (consultado em 02/10) ainda não.
+    const r = await gerar('2026-10-08T12:00:00.000Z');
+    expect(pedidos).toEqual([A]);
+    expect(r.porCnpj[A].receita.consultadoEm).toBe('2026-10-08T12:00:00.000Z');
+    expect(r.porCnpj[B].receita.consultadoEm).toBe('2026-10-02T12:00:00.000Z');
   });
 
   it('retrato anterior corrompido não trava a rotina pra sempre', async () => {
