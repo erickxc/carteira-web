@@ -141,7 +141,7 @@ export function ContatosCard({
             <Input tone="modal" name="nome" autoComplete="off" placeholder="Nome" value={contatoNome} onChange={(e) => setContatoNome(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />
           </div>
           <div style={{ flex: '1 1 140px' }}>
-            <Input tone="modal" name="cargo" autoComplete="off" placeholder="Cargo" value={contatoCargo} onChange={(e) => setContatoCargo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />
+            <Input tone="modal" name="cargo" autoComplete="off" placeholder="Cargo ou setor" value={contatoCargo} onChange={(e) => setContatoCargo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />
           </div>
           <div style={{ flex: '1 1 140px' }}>
             <Input tone="modal" name="telefone" type="tel" inputMode="tel" autoComplete="off" placeholder="Telefone (DDD + número)" value={contatoTelefone} onChange={(e) => setContatoTelefone(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onAdicionar()} />

@@ -11,6 +11,7 @@ const CORES_CONHECIDAS: Record<string, string> = {
   'Contato': 'var(--tipo-contato)',
   'Relatório': 'var(--tipo-relatorio)',
   'Ligação': 'var(--tipo-ligacao)',
+  'Solicitação': 'var(--tipo-solicitacao)',
 };
 
 const PALETA_RESERVA = ['var(--tipo-reserva-1)', 'var(--tipo-reserva-2)', 'var(--tipo-reserva-3)', 'var(--tipo-reserva-4)'];

@@ -8,7 +8,7 @@ import { useCarteira } from '../context/CarteiraContext';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { toastError, toastSuccess } from '../utils/toast';
-import { comPrecificacaoDoGrupo } from '../utils/cadenciaServico';
+import { comPrecificacaoDoGrupo, ehSolicitacao } from '../utils/cadenciaServico';
 import { passaFiltroProduto, servicosDaImportacao } from '../utils/produtosTela';
 import { FASES, renomearProduto } from 'carteira-shared/produtos.cjs';
 import { confirmDialog } from '../utils/confirmDialog';
@@ -232,7 +232,7 @@ export default function ClientesPage() {
     // Inclui a precificação do grupo salva numa loja-irmã.
     comPrecificacaoDoGrupo(agenda, clientes).forEach((a) => {
       const d = parseISO(a.date);
-      if (isNaN(d.getTime())) return;
+      if (isNaN(d.getTime()) || ehSolicitacao(a)) return;
       if (cancelado(a)) { marcarUltimo(a, d); return; }
       if (!concluido(a) && differenceInCalendarDays(d, hoje) >= 0) {
         const atual = proximoMap.get(a.clientId);

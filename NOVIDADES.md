@@ -16,6 +16,18 @@ teste, ajuste interno), não entra aqui.
 - Produto que o cliente contrata depois não nasce mais atrasado: o prazo conta a partir de quando ele ficou Ativo.
 - O monitorIA enxerga os produtos de cada cliente e muda a fase depois que você confirmar.
 
+## 1.6.20
+
+- Ficha da reunião nova: abas Agendamento e Registro, com tipo, cliente e status no título.
+- Solicitação: pedidos de reunião do Hub agora têm tipo e cor próprios e ficam fora de todas as contas.
+- Na Solicitação, fale com o cliente pelo WhatsApp, ajuste os dados e clique em Aprovar (vira reunião) ou Recusar.
+- O setor do contato aparece ao lado do WhatsApp (campo "Cargo ou setor").
+
+## 1.6.19
+
+- A Cobertura dos Atendimentos não conta mais cliente só por ter produto sem prazo (Controladoria, Apura, OptiMarco...): só Monitoria e Precificação que dependem de reunião.
+- O monitorIA segue a mesma regra e não trata esses produtos como pendência de reunião.
+
 ## 1.6.18
 
 - Novo botão **Unir atendimentos** na Carteira: escolha o atendimento e marque as lojas que fazem parte dele (ex.: Altese Penha com CD e EC). As vendas passam a somar as lojas marcadas.

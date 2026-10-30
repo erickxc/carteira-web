@@ -18,6 +18,7 @@ import { ghostsByDay, registrarRemarcacao } from '../utils/reagendamento';
 import { sugerirAgenda, type SugestaoSlot } from '../utils/sugestaoAgenda';
 import { gerarAta } from '../utils/ata';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { ehSolicitacao } from '../utils/cadenciaServico';
 import { Button, Card, Tabs } from '../ui';
 import type { EventoAgenda, EventoCeo } from '../types';
 
@@ -98,7 +99,8 @@ export default function AgendaPage() {
       return (filtroMonitor === 'Todos' || monitoresDoEvento.includes(filtroMonitor)) &&
         (fMonitores.length === 0 || monitoresDoEvento.some((m) => fMonitores.includes(m))) &&
         // No modo revisão, o filtro Tipo não vale: contato sem serviço também precisa aparecer.
-        (soSemServico ? semServico : (fTipos.length === 0 || fTipos.includes(a.type))) &&
+        // Solicitação aguardando aprovação aparece com qualquer tipo marcado: é pedido à espera de resposta.
+        (soSemServico ? semServico : (fTipos.length === 0 || fTipos.includes(a.type) || (ehSolicitacao(a) && !/cancel/i.test(a.status || '')))) &&
         (mostrarCancelados || !/cancel|reagend/i.test(a.status || ''));
     }),
     [agenda, filtroMonitor, fMonitores, fTipos, mostrarCancelados, monitorPorCliente, soSemServico]

@@ -82,6 +82,7 @@
   --tipo-contato: #8aa3ad;                /* Slate Grey clareado */
   --tipo-relatorio: #b08ae0;              /* Violeta (1.6.5): o caramelo anterior se confundia com o dourado de Reunião */
   --tipo-ligacao: #7cc3b4;                /* Teal — telefonema */
+  --tipo-solicitacao: #d98a45;            /* Laranja — pedido ainda não aprovado */
   /* Reserva: tipos novos/desconhecidos caem aqui via hash determinístico.
      Paleta da 2D (dourado, laranja, azul claro, tinta neutra) — SEM vermelho:
      `--danger` estava aqui e pintava serviço/tipo de evento de vermelho, que
@@ -191,6 +192,7 @@
   --tipo-contato: #4f6b76;
   --tipo-relatorio: #623f9e;
   --tipo-ligacao: #2f8f7e;
+  --tipo-solicitacao: #b06a22;
   /* No tema claro os tons vivos escurecem pra manter contraste sobre fundo
      claro (mesmo critério dos outros `--tipo-*` acima). */
   --tipo-reserva-2: #b06a22;              /* laranja escurecido */
@@ -1102,7 +1104,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 
 .modal-header h2 { margin: 0; font-size: 1.05rem; font-weight: 600; }
 .modal-body { padding: 1.35rem; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
-.modal-footer { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 0.9rem 1.35rem; border-top: 1px solid var(--border); background: var(--bg); }
+.modal-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.6rem; padding: 0.9rem 1.35rem; border-top: 1px solid var(--border); background: var(--bg); }
 
 /* Scrollbar: sem regra própria aqui — o estilo global (topo do arquivo) já
    cobre modal, dropdown e todo o resto com a mesma barra. */
