@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Download, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Download, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { toastError, toastInfo } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
@@ -27,8 +27,8 @@ const CADENCIA_SECOES: { titulo: string; campos: { chave: keyof Cadencias; label
   {
     titulo: 'Prazos dos serviços',
     campos: [
-      { chave: 'monitoria_dias', label: 'Monitoria', ajuda: 'Zera com reunião ou relatório concluído com Monitoria.', detalhe: 'Prazo de Monitoria. Zera com reunião ou relatório CONCLUÍDO com Monitoria marcado (ou Ação de relatório). Passou disso, o atendimento fica fora do prazo.' },
-      { chave: 'price_dias', label: 'Price', ajuda: 'Zera com precificação ou reunião/relatório com Price.', detalhe: 'Prazo de Price (padrão 15). Zera com precificação, ou reunião/relatório com Price marcado, CONCLUÍDOS (ou Ação de price). Passou disso, o atendimento fica fora do prazo.' },
+      { chave: 'monitoria_dias', label: 'Plataforma 2D', ajuda: 'Zera com reunião ou relatório concluído com Plataforma 2D.', detalhe: 'Prazo de Plataforma 2D. Zera com reunião ou relatório CONCLUÍDO com Plataforma 2D marcada (ou Ação de relatório). Passou disso, o atendimento fica fora do prazo.' },
+      { chave: 'price_dias', label: '2D Price', ajuda: 'Zera com precificação ou reunião/relatório com 2D Price.', detalhe: 'Prazo de 2D Price (padrão 15). Zera com precificação, ou reunião/relatório com 2D Price marcado, CONCLUÍDOS (ou Ação de price). Passou disso, o atendimento fica fora do prazo.' },
     ],
   },
   {
@@ -281,6 +281,15 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
     await atualizarCategoria(cat.id, cat.valor, { cor: cor || null });
   }
 
+  /** Regrava `ordem` da lista inteira, não só das duas trocadas: categoria criada
+   *  depois de uma exclusão pode repetir número (`ordem` = quantidade na criação),
+   *  e trocar dois iguais não mudaria nada. */
+  async function mover(indice: number, delta: number) {
+    const nova = [...itens];
+    [nova[indice], nova[indice + delta]] = [nova[indice + delta], nova[indice]];
+    await Promise.all(nova.map((cat, ordem) => (cat.ordem === ordem ? null : atualizarCategoria(cat.id, cat.valor, { ordem }))));
+  }
+
   async function excluir(id: string, valor: string) {
     const uso = contarUso(valor);
     const impacto = uso > 0
@@ -304,7 +313,7 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
         {itens.length === 0 && <div className="empty-state">Nenhum item.</div>}
-        {itens.map((cat) => (
+        {itens.map((cat, indice) => (
           <div key={cat.id} style={{ padding: '0.5rem 0.65rem', borderRadius: 'var(--radius-sm)', background: 'var(--card-hover)', border: '1px solid var(--border)' }}>
             {editandoId === cat.id ? (
               <div className="flex-between">
@@ -333,6 +342,12 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
                     {cat.valor}
                   </span>
                   <div className="flex-row">
+                    {tipo === 'servico' && (
+                      <>
+                        <Button variant="secondary" size="icon" disabled={indice === 0} onClick={() => mover(indice, -1)} title="Subir" aria-label={`Subir ${cat.valor}`}><ChevronUp size={13} /></Button>
+                        <Button variant="secondary" size="icon" disabled={indice === itens.length - 1} onClick={() => mover(indice, 1)} title="Descer" aria-label={`Descer ${cat.valor}`}><ChevronDown size={13} /></Button>
+                      </>
+                    )}
                     <Button
                       variant="secondary"
                       size="icon"

@@ -20,7 +20,7 @@ interface ServicosCardProps {
   onAbrirCliente: (id: string) => void;
 }
 
-const REGRA = 'Conta só quem tem prazo do serviço (contratado e não independente): Monitoria 30 dias, Price 15. Um atendimento com os dois serviços aparece nas duas linhas.';
+const REGRA = 'Conta só quem tem prazo do serviço (contratado e não independente): Plataforma 2D 30 dias, 2D Price 15. Um atendimento com os dois serviços aparece nas duas linhas.';
 
 /** "Cobertura por Serviço" — dos atendimentos com prazo de cada serviço, quantos estão no prazo. */
 export function ServicosCard({ servicosDist, rotuloAnterior, grupos, linhas, onAbrirCliente }: ServicosCardProps) {

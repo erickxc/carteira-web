@@ -38,7 +38,7 @@ export function RegistroContatoModal({ clienteId, onClose }: RegistroContatoModa
     return filtrados.length > 0 ? filtrados : ['Contato'];
   }, [opcoesPorTipo]);
 
-  // Só serviços com prazo (Monitoria/Precificação), igual ao formulário de evento.
+  // Só produtos com prazo (Plataforma 2D/2D Price): contato é registro rápido, não trata os demais.
   const servicoOpcoes = opcoesPorTipo('servico').filter(ehServicoDeReuniao);
   const monitorOpcoes = opcoesPorTipo('monitor');
 

@@ -5,7 +5,8 @@ import { useCarteira } from '../context/CarteiraContext';
 import { gerarAta } from '../utils/ata';
 import { limparStreamAtaIA } from '../utils/limparStreamAtaIA';
 import { registrarRemarcacao } from '../utils/reagendamento';
-import { eh2DPrice, ehServicoDeReuniao, servicoPadraoDoEvento } from '../utils/cadenciaServico';
+import { eh2DPrice, ehPlataforma2D, servicoPadraoDoEvento } from '../utils/cadenciaServico';
+import { opcoesProdutoEvento } from '../utils/produtosTela';
 import { gerarAtaPdf } from '../utils/ataPdf';
 import {
   gerarAtaComIAStream, buscarCatalogoAlvos,
@@ -61,9 +62,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const { clientes, agenda, criarEvento, atualizarEvento, enviarAnexoEvento, removerAnexoEvento, criarLembrete, criarAgendaSerie, opcoesPorTipo } = useCarteira();
   const tipoOpcoes = opcoesPorTipo('tipo_evento');
   const statusOpcoes = opcoesPorTipo('status_evento');
-  // "Serviços tratados" de um evento é só Monitoria/Precificação — os outros
-  // serviços do cadastro são informacionais (ver `ehServicoDeReuniao`).
-  const servicoOpcoes = opcoesPorTipo('servico').filter(ehServicoDeReuniao);
+  const produtoCategorias = opcoesPorTipo('servico');
   const monitorOpcoes = opcoesPorTipo('monitor');
   const salaOpcoes = opcoesPorTipo('sala');
   const editando = !!initial;
@@ -105,16 +104,18 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     setMonitores(doCliente ? [doCliente] : []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
-  // Filtra também o que já estava GRAVADO: um serviço informacional marcado
-  // antes desta regra ficaria invisível nos chips e seria regravado a cada
-  // Salvar (mesma armadilha do monitor fora do cadastro).
-  // Serviço é obrigatório em todo tipo. Enquanto a pessoa não mexer nos chips
+  // Produto é obrigatório em todo tipo. Enquanto a pessoa não mexer nos chips
   // (`servicosEscolhidos` null), vale a sugestão dedutível (Precificação →
-  // Price, Relatório → Monitoria, cliente com um serviço só) — inclusive ao
-  // editar evento antigo sem serviço. Cliente com Monitoria e Price: vazio.
-  const servicosGravados = (initial?.servicos ?? []).filter(ehServicoDeReuniao);
+  // 2D Price, Relatório → Plataforma 2D, cliente com um só) — inclusive ao
+  // editar evento antigo sem produto. Cliente com os dois: vazio. Só Plataforma
+  // 2D/2D Price zeram relógio; marcar outro produto registra o que foi tratado.
+  const servicosGravados = initial?.servicos ?? [];
   const [servicosEscolhidos, setServicosEscolhidos] = useState<string[] | null>(servicosGravados.length > 0 ? servicosGravados : null);
-  const servicos = servicosEscolhidos ?? servicoPadraoDoEvento({ type }, clientes.find((c) => c.id === clientId)) ?? [];
+  const clienteDoForm = clientes.find((c) => c.id === clientId);
+  const servicos = servicosEscolhidos ?? servicoPadraoDoEvento({ type }, clienteDoForm) ?? [];
+  const [verTodosProdutos, setVerTodosProdutos] = useState(false);
+  const servicoOpcoes = opcoesProdutoEvento(produtoCategorias, clienteDoForm, servicos, verTodosProdutos);
+  const haMaisProdutos = opcoesProdutoEvento(produtoCategorias, clienteDoForm, servicos, true).length > servicoOpcoes.length;
   const [sala, setSala] = useState(initial?.sala ?? '');
   const [priceSoDaLoja, setPriceSoDaLoja] = useState(initial?.escopoPrice === 'loja');
   // Contato/Ligação criados aqui são, por definição, iniciativa nossa (quem
@@ -161,10 +162,10 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   // leve, sem ata/resumo) — decisão do usuário, não duplica no serviço
   // "Precificação" de dentro de uma Reunião.
   const ehPrecificacaoTipo = /precific/i.test(type);
-  // Tabela "Produtos — Situação" só quando Monitoria está marcada como serviço
+  // Tabela "Produtos — Situação" só quando Plataforma 2D está marcada como produto
   // tratado numa Reunião — cliente segmentado (rede/grupo) ganha a coluna
   // extra "Cliente" (cada loja tem clientes finais próprios).
-  const ehMonitoriaServico = !modoSimples && servicos.some((s) => /monitoria/i.test(s));
+  const ehMonitoriaServico = !modoSimples && servicos.some(ehPlataforma2D);
   // Registro da Monitoria unificado: aparece tanto pro serviço Monitoria
   // (modos livres) quanto pro tipo Precificação (travado em "produto").
   const ehRegistroSituacao = ehMonitoriaServico || ehPrecificacaoTipo;
@@ -357,7 +358,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     if (!modoSimples && !subject.trim()) { toastError('Informe a descrição da reunião.'); return; }
     // Reunião sem serviço tratado marcado cai no fallback genérico "Reunião"
     // nos cards da Agenda (semana/mês) — obrigatório pra sempre saber o que foi tratado.
-    if (servicos.length === 0) { toastError('Marque ao menos um serviço (Monitoria ou Precificação).'); return; }
+    if (servicos.length === 0) { toastError('Marque ao menos um produto (Plataforma 2D ou 2D Price).'); return; }
     const statusFinalPre = statusOverride ?? status;
     const motivoFinal = motivoOverride ?? motivo;
     const categoriaFinal = categoriaOverride || motivoCategoria || undefined;
@@ -741,14 +742,19 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                 também no modo enxuto (follow-up do contato), só em criação. */}
             {!editando && <RecorrenciaFields rec={rec} baseData={dataValida ? dataSegura : null} />}
 
-            <Field as="div" label="Serviços tratados *">
+            <Field as="div" label="Produtos tratados *">
               {servicoOpcoes.length === 0 ? (
-                <p className="text-text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>Nenhum serviço cadastrado — adicione em Configurações.</p>
+                <p className="text-text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>Nenhum produto cadastrado — adicione em Configurações.</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {servicoOpcoes.map((s) => (
                     <Chip variant="toggle" key={s} active={servicos.includes(s)} onClick={() => toggleServico(s)}>{s}</Chip>
                   ))}
+                  {(verTodosProdutos || haMaisProdutos) && (
+                    <Button variant="ghost" onClick={() => setVerTodosProdutos((v) => !v)}>
+                      {verTodosProdutos ? 'Só os ativos do cliente' : 'Ver todos'}
+                    </Button>
+                  )}
                 </div>
               )}
               {mostrarEscopoPrice && (

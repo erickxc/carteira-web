@@ -592,7 +592,7 @@ const MODELOS_SEED = [
 
 // Seed inicial das categorias (a partir dos valores reais já existentes no banco).
 const CATEGORIAS_SEED = [
-  ['servico', ['Monitoria', 'Precificação', 'Controladoria', 'OptiMarco', 'AutoTech', 'Book Fiscal', 'Raptor', 'Protocolo GPS']],
+  ['servico', ['Plataforma 2D', 'Controladoria', 'Apura', '2D Alcance', '2D Nexus', 'OptiMarco', '2D Price', 'Protocolo GPS', 'Raptor']],
   ['tipo_evento', ['Reunião', 'Contato', 'Relatório', 'Ligação', 'Precificação']],
   ['status_cliente', ['Regular', 'Suspenso', 'Problemas Externos', 'Gratuidade', 'Atendido pelo Marco', 'Férias']],
   ['status_evento', ['Agendado', 'Pendente', 'Concluído', 'Cancelado', 'Realizado', 'Reagendado']],

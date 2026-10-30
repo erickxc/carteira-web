@@ -323,20 +323,20 @@ const ehEntrega = (a) => /reuni|relat|precific/i.test(a.type || '') && ehConclui
 
 /**
  * Serviço que dá pra afirmar sem perguntar, para evento sem serviço marcado:
- * Precificação → o serviço de Price do cliente; Relatório → Monitoria (mesma
- * regra da Ação de relatório); demais tipos → o único entre Monitoria/Price que
+ * Precificação → o 2D Price do cliente; Relatório → Plataforma 2D (mesma
+ * regra da Ação de relatório); demais tipos → o único entre os dois que
  * o cliente contrata. `null` quando é ambíguo (contrata os dois) ou não há
  * base: quem decide aí é uma pessoa. Usado pelo formulário (sugestão), pelo
  * backend (eventos criados sem formulário) e pelo preenchimento do legado.
- * Devolve os nomes como estão no cadastro (ex.: "Precificação").
+ * Devolve o nome como está no cliente; se ele não tem o produto, o nome oficial.
  */
 function servicoPadraoDoEvento(evento, cliente) {
   const contratados = listaJSON(cliente?.servicos);
   const monitoria = contratados.find(ehPlataforma2D);
   const price = contratados.find(eh2DPrice);
   const tipo = evento?.type || '';
-  if (/precific/i.test(tipo)) return [price || 'Precificação'];
-  if (/relat/i.test(tipo)) return [monitoria || 'Monitoria'];
+  if (/precific/i.test(tipo)) return [price || '2D Price'];
+  if (/relat/i.test(tipo)) return [monitoria || 'Plataforma 2D'];
   if (monitoria && !price) return [monitoria];
   if (price && !monitoria) return [price];
   return null;

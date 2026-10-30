@@ -7,9 +7,10 @@ import { Bot, ChevronDown, ChevronRight, ChevronUp, Combine, FileUp, LayoutDashb
 import { useCarteira } from '../context/CarteiraContext';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
-import { truthy } from '../utils/formatters';
 import { toastError, toastSuccess } from '../utils/toast';
 import { comPrecificacaoDoGrupo } from '../utils/cadenciaServico';
+import { passaFiltroProduto, servicosDaImportacao } from '../utils/produtosTela';
+import { FASES, renomearProduto } from 'carteira-shared/produtos.cjs';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
 import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
@@ -158,6 +159,7 @@ export default function ClientesPage() {
   const [fMonitores, setFMonitores] = usePersistedState<string[]>('filtro:clientes:monitores', []);
   const [fTipoAnalise, setFTipoAnalise] = usePersistedState<string>('filtro:clientes:analise', 'Todos');
   const [fServicos, setFServicos] = usePersistedState<string[]>('filtro:clientes:servicos', []);
+  const [fFaseProduto, setFFaseProduto] = usePersistedState<string>('filtro:clientes:faseProduto', 'Ativo');
   const [fEstado, setFEstado] = usePersistedState<string>('filtro:clientes:estado:v2', 'Ativo');
   const [fStatus, setFStatus] = usePersistedState<string>('filtro:clientes:status:v2', 'Todos');
   const [fPeriodo, setFPeriodo] = usePersistedState<string>('filtro:clientes:periodo', 'Todos');
@@ -265,11 +267,11 @@ export default function ClientesPage() {
 
   const filtrosAtivos =
     !!debouncedSearch.trim() || fMonitores.length > 0 || fTipoAnalise !== 'Todos' ||
-    fServicos.length > 0 || fEstado !== 'Todos' && fEstado !== 'Ativo' || fStatus !== 'Todos' || fPeriodo !== 'Todos' ||
+    fServicos.length > 0 || fFaseProduto !== 'Ativo' || fEstado !== 'Todos' && fEstado !== 'Ativo' || fStatus !== 'Todos' || fPeriodo !== 'Todos' ||
     fRisco !== 'Todos' || fSegmento !== 'Todos' || fLinha !== 'Todos';
 
   function limparFiltros() {
-    setSearch(''); setFMonitores([]); setFTipoAnalise('Todos'); setFServicos([]); setFEstado('Ativo'); setFStatus('Todos'); setFPeriodo('Todos');
+    setSearch(''); setFMonitores([]); setFTipoAnalise('Todos'); setFServicos([]); setFFaseProduto('Ativo'); setFEstado('Ativo'); setFStatus('Todos'); setFPeriodo('Todos');
     setFRisco('Todos'); setFSegmento('Todos'); setFLinha('Todos');
   }
 
@@ -328,7 +330,7 @@ export default function ClientesPage() {
       .filter((c) => filtroMonitor === 'Todos' || c.monitor === filtroMonitor)
       .filter((c) => fMonitores.length === 0 || fMonitores.includes(c.monitor))
       .filter((c) => fTipoAnalise === 'Todos' || (c.tipoAnalise ?? 'unitaria') === fTipoAnalise)
-      .filter((c) => fServicos.length === 0 || fServicos.some((s) => (c.servicos ?? []).includes(s)))
+      .filter((c) => passaFiltroProduto(c, fServicos, fFaseProduto))
       .filter((c) => {
         if (fRisco === 'Todos') return true;
         const nivel = analisesPorCliente.get(c.id)?.nivelRisco;
@@ -351,7 +353,7 @@ export default function ClientesPage() {
         return sortDir === 'asc' ? r : -r;
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientes, debouncedSearch, filtroMonitor, fMonitores, fTipoAnalise, fServicos, fRisco, fSegmento, fLinha, fEstado, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir, analisesPorCliente]);
+  }, [clientes, debouncedSearch, filtroMonitor, fMonitores, fTipoAnalise, fServicos, fFaseProduto, fRisco, fSegmento, fLinha, fEstado, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir, analisesPorCliente]);
 
   // Lojas da mesma rede (`Cliente.grupo`, ex.: "Altese - Recreio + Barra" e
   // "Altese - GM, Ford, Fiat, VW") viram um bloco recolhível na tabela — cada
@@ -395,9 +397,7 @@ export default function ClientesPage() {
 
     const parsed: NovoCliente[] = rows
       .map((row) => {
-        const servicos: string[] = [];
-        if (truthy(row.Monitoria ?? row.monitoria)) servicos.push('Monitoria');
-        if (truthy(row.Price ?? row.price ?? row.Precificacao ?? row.Precificação)) servicos.push('Precificação');
+        const servicos = servicosDaImportacao(row, servicoOpcoes);
         return {
           empresa: String(row.Empresa ?? row.empresa ?? '').trim(),
           monitor: String(row.Monitor ?? row.monitor ?? '').trim(),
@@ -670,11 +670,19 @@ export default function ClientesPage() {
           />
 
           <Dropdown
-            label="Serviços"
+            label="Produtos"
             multiple
             options={servicoOpcoes.map((s) => ({ value: s, label: s }))}
-            value={fServicos}
+            // Filtro salvo com o nome de antes da 1.7 aparece marcado na opção de hoje.
+            value={fServicos.map((s) => servicoOpcoes.find((o) => renomearProduto(o) === renomearProduto(s)) ?? s)}
             onChange={(v) => setFServicos(v as string[])}
+          />
+
+          <Dropdown
+            label="Fase: ativo"
+            options={['Todas', ...FASES].map((f) => ({ value: f, label: `Fase: ${f.toLowerCase()}` }))}
+            value={fFaseProduto}
+            onChange={(v) => setFFaseProduto(v as string)}
           />
 
           <Dropdown
@@ -765,7 +773,7 @@ export default function ClientesPage() {
                 <tr>
                   <Th sortable onClick={() => ordenarPor('empresa')}>Empresa{seta('empresa')}</Th>
                   <Th sortable onClick={() => ordenarPor('monitor')}>Monitor{seta('monitor')}</Th>
-                  <Th sortable onClick={() => ordenarPor('servicos')}>Serviços{seta('servicos')}</Th>
+                  <Th sortable onClick={() => ordenarPor('servicos')}>Produtos{seta('servicos')}</Th>
                   <Th style={{ textAlign: 'center' }} title="Links de Power BI cadastrados no cliente">Links</Th>
                   <Th sortable onClick={() => ordenarPor('risco')} style={{ textAlign: 'center' }} title="Análise do monitorIA (risco + resumo) deste cliente">monitorIA{seta('risco')}</Th>
                   <Th sortable onClick={() => ordenarPor('status')}>Situação{seta('status')}</Th>

@@ -2,7 +2,7 @@ import { Card, Td, Th } from '../../ui';
 import { InfoComoConta } from './Comparacao';
 import { rotuloModo, type CargaMonitor, type ModoContagem } from '../../utils/analises';
 
-const REGRA = 'Carteira = atendimentos ativos com o monitor no cadastro. Atrasados = com algum prazo de Monitoria ou Price vencido ou nunca entregue, hoje (o atrasado nos dois conta 1 no total). Aguardando = atrasados que já tiveram contato na janela de recontato: esperando o cliente. Produção do mês = quem fez (monitor do evento), em qualquer cliente. Reuniões por serviço: Price inclui precificações concluídas.';
+const REGRA = 'Carteira = atendimentos ativos com o monitor no cadastro. Atrasados = com algum prazo de Plataforma 2D ou 2D Price vencido ou nunca entregue, hoje (o atrasado nos dois conta 1 no total). Aguardando = atrasados que já tiveram contato na janela de recontato: esperando o cliente. Produção do mês = quem fez (monitor do evento), em qualquer cliente. Reuniões por serviço: Price inclui precificações concluídas.';
 
 const vermelho = (n: number) => (n > 0 ? { color: 'var(--danger)' } : undefined);
 
@@ -35,13 +35,13 @@ export function CargaMonitorCard({ linhas, mes, modo }: { linhas: CargaMonitor[]
                 <Td className="text-right">
                   <strong className="carga-num" style={vermelho(l.atrasados)}>{l.atrasados}</strong>
                   <span className="carga-sub-linha">
-                    {l.atrasadosMonitoria} Monit. · {l.atrasadosPrice} Price
+                    Plataforma {l.atrasadosMonitoria} · 2D Price {l.atrasadosPrice}
                     {l.aguardandoRetorno > 0 && <> · <span style={{ color: 'var(--warning)' }}>{l.aguardandoRetorno} aguardando</span></>}
                   </span>
                 </Td>
                 <Td className="text-right">
                   <strong className="carga-num">{l.reunioes}</strong>
-                  <span className="carga-sub-linha">{l.monitoria} Monit. · {l.price} Price</span>
+                  <span className="carga-sub-linha">Plataforma {l.monitoria} · 2D Price {l.price}</span>
                 </Td>
                 <Td className="text-right">{l.relatorios}</Td>
                 <Td className="text-right" style={vermelho(l.canceladas)}>{l.canceladas}</Td>

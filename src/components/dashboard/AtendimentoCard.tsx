@@ -10,7 +10,7 @@ import { LineChart } from '../LineChart';
 import { dentroDaJanela, type Janela } from '../../utils/periodo';
 import { Card, Chip } from '../../ui';
 import { rotuloModo, type ModoContagem } from '../../utils/analises';
-import { eh2DPrice, ehPlataforma2D } from '../../utils/cadenciaServico';
+import { eh2DPrice, ehPlataforma2D, type ServicoCad } from '../../utils/cadenciaServico';
 import type { Acao, EventoAgenda } from '../../types';
 import { corDeTexto } from '../../utils/corTexto';
 
@@ -32,21 +32,21 @@ const CORES = {
   canceladas: 'var(--danger)',
 };
 /** Ciclo (entre reuniões, retomar contato) usa 90 dias: no mês a amostra é de 1 a 5 casos. */
-type FiltroServico = 'Todos' | 'Monitoria' | 'Price';
+type FiltroServico = 'Todos' | ServicoCad;
 const FILTROS: { key: FiltroServico; label: string }[] = [
-  { key: 'Todos', label: 'Geral' }, { key: 'Monitoria', label: 'Monitoria' }, { key: 'Price', label: 'Precificação' },
+  { key: 'Todos', label: 'Geral' }, { key: 'Plataforma 2D', label: 'Plataforma 2D' }, { key: '2D Price', label: '2D Price' },
 ];
-/** Evento do serviço: pelo serviço marcado; precificação avulsa é sempre Price. */
+/** Evento do serviço: pelo serviço marcado; precificação avulsa é sempre 2D Price. */
 function doServico(e: EventoAgenda, f: FiltroServico): boolean {
   if (f === 'Todos') return true;
   const servicos = e.servicos ?? [];
-  return f === 'Price' ? servicos.some(eh2DPrice) || /precific/i.test(e.type || '') : servicos.some(ehPlataforma2D);
+  return f === '2D Price' ? servicos.some(eh2DPrice) || /precific/i.test(e.type || '') : servicos.some(ehPlataforma2D);
 }
 /** Ação do serviço: pelo serviço informado (ação sem serviço só entra em "Geral"). */
 function acaoDoServico(a: Acao, f: FiltroServico): boolean {
   if (f === 'Todos') return true;
   const servico = a.servico || '';
-  return f === 'Price' ? a.tipo === 'price' || eh2DPrice(servico) : ehPlataforma2D(servico);
+  return f === '2D Price' ? a.tipo === 'price' || eh2DPrice(servico) : ehPlataforma2D(servico);
 }
 const DIAS_CICLO = 90;
 

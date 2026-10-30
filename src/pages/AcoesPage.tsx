@@ -14,7 +14,7 @@ import { Grupo } from '../components/acoes/Grupo';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
-import { buildFilaCadencia, classificarCadencia, comPrecificacaoDoGrupo, eh2DPrice, ehPlataforma2D, type FilaCadItem } from '../utils/cadenciaServico';
+import { buildFilaCadencia, classificarCadencia, comPrecificacaoDoGrupo, eh2DPrice, ehPlataforma2D, filtroServicoSalvo, type FilaCadItem } from '../utils/cadenciaServico';
 import { confirmDialog } from '../utils/confirmDialog';
 import { eventoStatusBadge, isAtendidoMarco } from '../utils/badges';
 import { aguardandoRetorno, ordenarPorProximidade, type Item } from '../utils/acoesHelpers';
@@ -57,7 +57,9 @@ export default function AcoesPage() {
   const { value: acCliente, debounced: debouncedAcCliente, setValue: setAcCliente } = useSearchFilter();
   const [acMonitores, setAcMonitores] = usePersistedState<string[]>('filtro:acoes:acMonitores', []);
   const [acLocais, setAcLocais] = usePersistedState<string[]>('filtro:acoes:acLocais', []);
-  const [acProduto, setAcProduto] = usePersistedState<'Todos' | 'Monitoria' | 'Price'>('filtro:acoes:acProduto', 'Monitoria');
+  const [acProdutoSalvo, setAcProduto] = usePersistedState<string>('filtro:acoes:acProduto', 'Plataforma 2D');
+  // O navegador pode ter guardado o nome de antes da 1.7 ("Monitoria"/"Price").
+  const acProduto = filtroServicoSalvo(acProdutoSalvo);
   const [acOrd, setAcOrd] = usePersistedState('filtro:acoes:acOrd', 'contato-recente');
 
   const nomeCliente = (id: string) => clientes.find((c) => c.id === id)?.empresa ?? '—';
@@ -175,8 +177,8 @@ export default function AcoesPage() {
   const produtos = (c: Cliente) => {
     const out: string[] = [];
     const has = (eh: (nome: string) => boolean, f: keyof Cliente) => (c.servicos ?? []).some(eh) || Boolean(c[f]);
-    if (has(ehPlataforma2D, 'monitoria')) out.push('Monitoria');
-    if (has(eh2DPrice, 'price')) out.push('Price');
+    if (has(ehPlataforma2D, 'monitoria')) out.push('Plataforma 2D');
+    if (has(eh2DPrice, 'price')) out.push('2D Price');
     return out;
   };
 
@@ -323,12 +325,12 @@ export default function AcoesPage() {
                 Em dia
               </Chip>
               <InfoComoConta texto={visaoAcompanhamento === 'emdia'
-                ? `Dentro da cadência (Monitoria ${cadencias.monitoria_dias}d · Price ${cadencias.price_dias}d): ninguém precisa de ação agora; organizado por quem vence primeiro.`
-                : `Fila por cadência por serviço (Monitoria ${cadencias.monitoria_dias}d · Price ${cadencias.price_dias}d): quem está vencido, vencendo ou nunca atendido, sem compromisso marcado que cubra. Do mais atrasado para o menos.`} />
+                ? `Dentro da cadência (Plataforma 2D ${cadencias.monitoria_dias}d · 2D Price ${cadencias.price_dias}d): ninguém precisa de ação agora; organizado por quem vence primeiro.`
+                : `Fila por cadência por serviço (Plataforma 2D ${cadencias.monitoria_dias}d · 2D Price ${cadencias.price_dias}d): quem está vencido, vencendo ou nunca atendido, sem compromisso marcado que cubra. Do mais atrasado para o menos.`} />
             </div>
             <Tabs className="tabs-sub acoes-servico">
-              <button className={`tab${acProduto === 'Monitoria' ? ' is-active' : ''}`} onClick={() => setAcProduto('Monitoria')}>Monitoria</button>
-              <button className={`tab${acProduto === 'Price' ? ' is-active' : ''}`} onClick={() => setAcProduto('Price')}>Price</button>
+              <button className={`tab${acProduto === 'Plataforma 2D' ? ' is-active' : ''}`} onClick={() => setAcProduto('Plataforma 2D')}>Plataforma 2D</button>
+              <button className={`tab${acProduto === '2D Price' ? ' is-active' : ''}`} onClick={() => setAcProduto('2D Price')}>2D Price</button>
               <button className={`tab${acProduto === 'Todos' ? ' is-active' : ''}`} onClick={() => setAcProduto('Todos')}>Todos</button>
             </Tabs>
           </div>

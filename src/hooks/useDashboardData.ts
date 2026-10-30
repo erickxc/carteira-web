@@ -12,7 +12,7 @@ import { usePersistedState } from './usePersistedState';
 import { isClienteAtivo } from '../utils/formatters';
 import { clienteStatusCor, riscoIACor } from '../utils/badges';
 import {
-  buildFilaCadencia, comPrecificacaoDoGrupo, ehEntrega, ehServicoDeReuniao, filtroServicoSalvo, itensVencendo, type ServicoCad,
+  buildFilaCadencia, comPrecificacaoDoGrupo, ehEntrega, ehServicoDeReuniao, filtroServicoSalvo, itensVencendo,
 } from '../utils/cadenciaServico';
 import { mesesComDados } from '../utils/periodo';
 import { calcularIndicadoresPrazo, LIMIAR_SEM_ACOMPANHAMENTO_DIAS, recortarAte } from '../utils/indicadoresPrazo';
@@ -297,12 +297,11 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   // (contratado e não independente), quantos estão no prazo. Vem de
   // `calcularIndicadoresPrazo` (mesma regra do Ritmo e do agente).
   const { servicosDist, totalAtendidos } = useMemo(() => {
-    const rotulo: Record<ServicoCad, string> = { 'Plataforma 2D': 'Monitoria', '2D Price': 'Price' };
     const dist = prazo.porServico.map((atual) => {
       const antes = prazoAnterior.porServico.find((x) => x.servico === atual.servico)!;
       return {
         servico: atual.servico,
-        label: rotulo[atual.servico],
+        label: atual.servico,
         n: atual.cobertos.length,
         base: atual.cobertos.length + atual.descobertos.length,
         anterior: { n: antes.cobertos.length, base: antes.cobertos.length + antes.descobertos.length },

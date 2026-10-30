@@ -103,6 +103,15 @@ describe('resolverOpcao', () => {
     expect(() => resolverOpcao(comAmbiguidade, 'monitor', 'erick', 'monitor')).toThrow(/ambíguo/);
   });
 
+  it('produto casa pelo nome oficial, com a categoria migrada ou não', () => {
+    const antes = repoMemoria({ Categorias: CATEGORIAS });
+    expect(resolverOpcao(antes, 'servico', 'Plataforma 2D', 'x')).toBe('Monitoria');
+    expect(resolverOpcao(antes, 'servico', '2D Price', 'x')).toBe('Precificação');
+    const depois = repoMemoria({ Categorias: [{ id: '4', tipo: 'servico', valor: 'Plataforma 2D' }, { id: '5', tipo: 'servico', valor: '2D Price' }] });
+    expect(resolverOpcao(depois, 'servico', 'Monitoria', 'x')).toBe('Plataforma 2D');
+    expect(resolverOpcao(depois, 'servico', 'Precificação', 'x')).toBe('2D Price');
+  });
+
   it('categoria sem nenhuma opção cadastrada não trava — devolve o valor como veio', () => {
     const semCategoria = repoMemoria({ Categorias: [] });
     expect(resolverOpcao(semCategoria, 'monitor', 'Qualquer', 'monitor')).toBe('Qualquer');

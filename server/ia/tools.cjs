@@ -17,6 +17,7 @@ const {
  *  loja-irmã (cópia com `doGrupo`; o `id` real é `doGrupo.origemId`). */
 const agendaPorAtendimento = (repo) => comPrecificacaoDoGrupo(repo.get('Agenda'), repo.get('Clientes'));
 const { servicoPadraoDoEvento, categoriaCancelamento } = require('../../shared/cadenciaServico.cjs');
+const { renomearProduto } = require('../../shared/produtos.cjs');
 const { sugerirAgenda } = require('../dominio/sugestaoAgenda.cjs');
 const { getCache: getCacheCeoAgenda } = require('../ceoAgenda.cjs');
 const { CADENCIAS_SEED, UPLOADS_DIR } = require('../config.cjs');
@@ -55,6 +56,11 @@ function resolverOpcao(repo, tipo, valor, campo) {
 
   const exato = opcoes.find((o) => semAcento(o) === alvo);
   if (exato) return exato;
+
+  // Produto: "Monitoria" e "Plataforma 2D" são o mesmo, em qualquer sentido — o modelo
+  // e a sugestão automática podem usar um nome e a categoria (migrada ou não) o outro.
+  const mesmoProduto = tipo === 'servico' && opcoes.find((o) => renomearProduto(o) === renomearProduto(valor));
+  if (mesmoProduto) return mesmoProduto;
 
   const parciais = opcoes.filter((o) => semAcento(o).startsWith(alvo) || semAcento(o).includes(alvo));
   if (parciais.length === 1) return parciais[0];
@@ -727,7 +733,7 @@ function criarEvento(repo, args) {
   // ver o comentário lá sobre o "Erick" que virou campo vazio na tela.
   const type = resolverOpcao(repo, 'tipo_evento', args.type, 'criar_evento: type');
   // Serviço é obrigatório em todo evento. Sem ele, usa o dedutível do cliente
-  // (Precificação → Price, Relatório → Monitoria, cliente com um serviço só);
+  // (Precificação → 2D Price, Relatório → Plataforma 2D, cliente com um só);
   // se for ambíguo, erra pedindo o serviço em vez de gravar vazio.
   const servicosPedidos = listaJSON(args.servicos).length ? args.servicos : servicoPadraoDoEvento({ type }, cliente);
   if (!servicosPedidos) {
@@ -1814,7 +1820,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_registros_produto',
-    description: 'Devolve os registros brutos de produto/situação (serviço Monitoria) e produto/margem (Precificação) das reuniões mais recentes de um cliente — use quando o usuário perguntar algo específico sobre produto, margem ou situação que o resumo do dossiê pode não detalhar (ex.: "o que foi precificado na última reunião da Gomec", "quais produtos caíram nos últimos meses").',
+    description: 'Devolve os registros brutos de produto/situação (reunião com Plataforma 2D) e produto/margem (Precificação) das reuniões mais recentes de um cliente — use quando o usuário perguntar algo específico sobre produto, margem ou situação que o resumo do dossiê pode não detalhar (ex.: "o que foi precificado na última reunião da Gomec", "quais produtos caíram nos últimos meses").',
     parameters: { type: 'object', properties: { clientId: { type: 'string' } }, required: ['clientId'] },
     executar: buscarRegistrosProduto,
   },
@@ -1845,7 +1851,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_vencendo',
-    description: 'Mesmo cálculo do card "Vencendo" da Visão Geral. "itens" = prazos de Monitoria (30 dias) ou Price (15 dias) que AINDA VÃO VENCER dentro de "dias" (NÃO estão vencidos). "vencidos" = prazos que JÁ VENCERAM nos últimos 15 dias sem nada marcado (aba Vencidos do card) — use este para "quem está vencido/atrasado". Janela de "itens" (padrão 5, pode pedir qualquer janela até 60 — "semana que vem" é uns 12-14 dias a partir de hoje, calcule pelo dia da semana atual) e sem reunião futura marcada. Relatório não tem prazo próprio: relatório concluído com Monitoria zera a Monitoria. A lista é por SERVIÇO (um atendimento com 2 serviços vencendo aparece 2x).',
+    description: 'Mesmo cálculo do card "Vencendo" da Visão Geral. "itens" = prazos de Plataforma 2D (30 dias) ou 2D Price (15 dias) que AINDA VÃO VENCER dentro de "dias" (NÃO estão vencidos). "vencidos" = prazos que JÁ VENCERAM nos últimos 15 dias sem nada marcado (aba Vencidos do card) — use este para "quem está vencido/atrasado". Janela de "itens" (padrão 5, pode pedir qualquer janela até 60 — "semana que vem" é uns 12-14 dias a partir de hoje, calcule pelo dia da semana atual) e sem reunião futura marcada. Relatório não tem prazo próprio: relatório concluído com Monitoria zera a Monitoria. A lista é por SERVIÇO (um atendimento com 2 serviços vencendo aparece 2x).',
     parameters: {
       type: 'object',
       properties: {
@@ -1862,7 +1868,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_cobertura_servicos',
-    description: 'Mesmo cálculo do card "Cobertura por Serviço" da Visão Geral — dos atendimentos que têm prazo de cada serviço (contratado e não independente), quantos estão no prazo (Monitoria 30 dias, Price 15 dias; só entrega concluída do serviço zera o prazo). "contrataram" = base com prazo. Diferente de buscar_cobertura (entrega concluída nos últimos 2 meses, sem olhar serviço). Devolve a lista de quem está fora do prazo.',
+    description: 'Mesmo cálculo do card "Cobertura por Serviço" da Visão Geral — dos atendimentos que têm prazo de cada serviço (contratado e não independente), quantos estão no prazo (Plataforma 2D 30 dias, 2D Price 15 dias; só entrega concluída do serviço zera o prazo). "contrataram" = base com prazo. Diferente de buscar_cobertura (entrega concluída nos últimos 2 meses, sem olhar serviço). Devolve a lista de quem está fora do prazo.',
     parameters: { type: 'object', properties: {} },
     executar: buscarCoberturaServicosTool,
   },
@@ -2018,7 +2024,7 @@ const FERRAMENTAS = [
         time: { type: 'string', description: 'Hora local HH:mm (ex.: "14:30"). Sem isso, uma Reunião é criada sem checagem de conflito de horário.' },
         subject: { type: 'string' },
         description: { type: 'string' },
-        servicos: { type: 'array', items: { type: 'string' }, description: 'Serviços tratados no evento, exatamente como cadastrados (ex.: "Monitoria"). OBRIGATÓRIO em todo tipo, inclusive contato e ligação — só pode omitir quando o cliente contrata um único serviço (ou para Precificação/Relatório, que têm serviço definido pelo tipo); se o cliente tem Monitoria e Price, pergunte ao usuário.' },
+        servicos: { type: 'array', items: { type: 'string' }, description: 'Serviços tratados no evento, exatamente como cadastrados (ex.: "Plataforma 2D"). OBRIGATÓRIO em todo tipo, inclusive contato e ligação — só pode omitir quando o cliente contrata um único serviço (ou para Precificação/Relatório, que têm serviço definido pelo tipo); se o cliente tem Plataforma 2D e 2D Price, pergunte ao usuário.' },
         monitores: { type: 'array', items: { type: 'string' }, description: 'Nome COMPLETO do monitor, como cadastrado (ex.: "Erick Cardoso", não "Erick").' },
         sala: { type: 'string', description: 'Sala, como cadastrada.' },
         status: { type: 'string', description: 'Status do evento, como cadastrado (ex.: "Agendado", "Pendente"). Padrão "Agendado". Se o usuário pedir um status que não existe no cadastro, a ferramenta erra com a lista válida — NÃO diga que criou com esse status.' },
@@ -2089,7 +2095,7 @@ const FERRAMENTAS = [
         tipo: { type: 'string', enum: ['contato', 'reuniao', 'relatorio', 'price'] },
         data: { type: 'string', description: 'AAAA-MM-DD. Ausente = hoje.' },
         resultado: { type: 'string', enum: ['sucesso', 'sem_sucesso'], description: 'Só pra ação já realizada (data hoje/passado). Ignorado se "data" for futura (vira status "programado" automaticamente).' },
-        servico: { type: 'string', description: 'Serviço a que a ação se refere, como cadastrado (ex.: "Monitoria").' },
+        servico: { type: 'string', description: 'Serviço a que a ação se refere, como cadastrado (ex.: "Plataforma 2D").' },
         monitor: { type: 'string', description: 'Monitor responsável, como cadastrado.' },
         notes: { type: 'string' },
       },

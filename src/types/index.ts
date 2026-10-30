@@ -9,7 +9,7 @@ export type ProdutoClienteTela = Omit<ProdutoCliente, 'senhaCifrada'> & { temSen
 export type CategoriaTipo = 'servico' | 'tipo_evento' | 'status_cliente' | 'status_evento' | 'monitor' | 'tipo_lembrete' | 'sala' | 'prioridade_tarefa' | 'local_cliente' | 'grupo_referencia' | 'linha_cliente';
 
 export const CATEGORIA_TIPO_LABEL: Record<CategoriaTipo, string> = {
-  servico: 'Serviços',
+  servico: 'Produtos',
   tipo_evento: 'Tipos de evento',
   status_cliente: 'Status de cliente',
   status_evento: 'Status de evento',
@@ -38,6 +38,8 @@ export interface ExtraLinkServico {
    *  Serviços da tabela de clientes, pra distinguir visualmente cada serviço
    *  sem precisar ler o texto. `null` volta pro fallback automático. */
   cor?: string | null;
+  /** Posição na lista (Configurações → Produtos, reordenável). */
+  ordem?: number;
 }
 
 export interface Categoria {
@@ -622,7 +624,7 @@ export const ACAO_TIPO_LABEL: Record<AcaoTipo, string> = {
   contato: 'Contato',
   reuniao: 'Reunião',
   relatorio: 'Relatório',
-  price: 'Price',
+  price: '2D Price',
 };
 
 /** Registro persistido de uma recomendação já tratada (programada/concluída/dispensada). */

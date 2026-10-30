@@ -91,7 +91,7 @@ export default function CarteiraDashboardPage() {
           value={formatar1.format(d.mediaServicosPorCliente)}
           icon={Layers}
           comparacao={<p className="kpi-comparacao is-neutra">em {rotuloData}: {formatar1.format(d.mediaServicosAnterior)}</p>}
-          comoConta="Média de Monitoria e Price contratados. Protocolo GPS, OptiMarco e outros ficam fora."
+          comoConta="Média de Plataforma 2D e 2D Price contratados. Protocolo GPS, OptiMarco e outros ficam fora."
         />
       </div>
 
