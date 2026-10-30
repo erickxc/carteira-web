@@ -514,11 +514,16 @@ function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(),
     const evsPrice = porClienteGrupo.get(c.id) ?? [];
     const acoesPrice = [c.id, ...irmas(c)].flatMap((id) => acoesPricePorCliente.get(id) ?? []);
     const todosRelogios = [];
-    if (temServico(c, RE_PLATAFORMA_2D, 'monitoria') && !ehIndependente(c, RE_PLATAFORMA_2D)) {
-      todosRelogios.push(calcularRelogio('Plataforma 2D', evs, ehToqueMonitoria, monDias, now, inicioDoPrazo(c, ehPlataforma2D), JANELA_VENCENDO, acoesRelatorioPorCliente.get(c.id) ?? []));
+    // Prazo que começa depois de `now` (produto ganho depois da data consultada,
+    // ou `faseDesde` digitado no futuro): o produto ainda não existia — sem relógio,
+    // senão um mês passado contaria como "em dia" um serviço que o cliente não tinha.
+    const inicioMon = inicioDoPrazo(c, ehPlataforma2D);
+    const inicioPrice = inicioDoPrazo(c, eh2DPrice);
+    if (temServico(c, RE_PLATAFORMA_2D, 'monitoria') && !ehIndependente(c, RE_PLATAFORMA_2D) && !(differenceInCalendarDays(inicioMon, now) > 0)) {
+      todosRelogios.push(calcularRelogio('Plataforma 2D', evs, ehToqueMonitoria, monDias, now, inicioMon, JANELA_VENCENDO, acoesRelatorioPorCliente.get(c.id) ?? []));
     }
-    if (temServico(c, RE_2D_PRICE, 'price') && !ehIndependente(c, RE_2D_PRICE)) {
-      todosRelogios.push(calcularRelogio('2D Price', evsPrice, ehToquePrice, priceDias, now, inicioDoPrazo(c, eh2DPrice), JANELA_VENCENDO, acoesPrice));
+    if (temServico(c, RE_2D_PRICE, 'price') && !ehIndependente(c, RE_2D_PRICE) && !(differenceInCalendarDays(inicioPrice, now) > 0)) {
+      todosRelogios.push(calcularRelogio('2D Price', evsPrice, ehToquePrice, priceDias, now, inicioPrice, JANELA_VENCENDO, acoesPrice));
     }
     // Recorte por serviço ANTES de derivar score/precisaAcao: tudo o que vem
     // depois (ordenação, agrupamento por severidade, contagem de "precisam de

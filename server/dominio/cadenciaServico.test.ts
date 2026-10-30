@@ -401,6 +401,13 @@ describe('buildFilaCadencia — Plataforma 2D / 2D Price e faseDesde', () => {
     expect(r?.atrasoReal).toBe(159 - 15);
   });
 
+  it('faseDesde depois da data consultada: produto ainda não existia, sem relógio', () => {
+    const c = { ...base, servicos: ['Plataforma 2D', '2D Price'], produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-10-30T00:00:00' }] };
+    const fila = cadencia.buildFilaCadencia([c], [], [], { price_dias: 15 }, new Date('2026-09-30T12:00:00'));
+    expect(relogio(fila, '2D Price')).toBeUndefined();
+    expect(relogio(fila, 'Plataforma 2D')).toBeDefined();
+  });
+
   it('faseDesde anterior ao cadastro não antecipa o prazo', () => {
     const c = { ...base, servicos: ['2D Price'], produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2025-01-01T00:00:00' }] };
     expect(relogio(cadencia.buildFilaCadencia([c], [], [], { price_dias: 15 }, AGORA), '2D Price')?.atrasoReal).toBe(159 - 15);
