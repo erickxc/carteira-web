@@ -149,3 +149,48 @@ Página nova, de cima para baixo: botão Voltar → `CabecalhoFicha` → `Painel
 - [ ] **Step 1:** `npm run start:dev`; prints Playwright (tema via `localStorage.tema` = `claro`/`escuro`, sessão `sessao:equipe` = `admin`) de: cliente com rede (Altese - GM…), cliente sem rede, cliente sem nenhuma reunião — claro, escuro e 390px. Conferir os 5 itens do Review Focus, inclusive navegar para a ficha irmã pela aba Lojas.
 - [ ] **Step 2:** Mostrar os prints ao usuário antes de qualquer publicação.
 - [ ] **Step 3:** Atualizar `CLAUDE.md` e `NOVIDADES.md`; `git commit -m "docs: ficha do cliente de consulta"`.
+
+---
+
+## Parte 2 — Dados fiscais das lojas
+
+**Spec:** `docs/superpowers/specs/2026-10-30-dados-fiscais-lojas-design.md`. Executar depois da Task 5 (a aba Lojas existe). Restrição extra: nenhuma consulta ao DW pode ler `certificado_senha`, `certificado_nome` ou `apura_usuarios.senha`; nada é gravado no DW.
+
+### Task 7: Retrato fiscal das lojas (servidor)
+
+**Files:**
+- Modify: `server/dw/dwPlataforma.cjs` — `buscarDadosFiscaisLojas(): Promise<{ empresas, grupos, apura }>` (3 consultas com colunas explícitas da spec)
+- Create: `server/dw/retratoLojas.cjs` — `montarRetratoLojas(dw, receitaAnterior, receitaNova, geradoEm)` (puro), `gerarRetratoLojas({ consultarReceita })`, `lerRetratoLojas()`; `ARQUIVO = DATA_DIR/dw-lojas.json`, gravação tmp+rename (copiar o padrão de `retratoProdutos.cjs`)
+- Create: `server/dw/receitaCnpj.cjs` — `consultarSituacao(cnpj): Promise<{ situacao, desde } | null>` (BrasilAPI com `User-Agent: Mozilla/5.0 Carteira2D`; 429 → espera 5 s e tenta até 5x; erro → null)
+- Modify: `server.cjs` (boot + cron diário junto do retrato de produtos; parte Receita só aos domingos, no bloco `isServer`), rota `GET /api/dw-lojas` (lê arquivo; `{ geradoEm: null, porCnpj: {} }` se não existir), `src/api/client.ts` (`buscarDwLojas()`), `src/types/index.ts` (`RetratoLojas`)
+- Test: `server/dw/retratoLojas.test.ts`
+
+- [ ] **Step 1: Testes** — junta empresas por CNPJ só dígitos; grupo fiscal pela raiz de 8 dígitos (raiz inativa ignorada); Apura = maior `ultimo_login_em` e contagem de ativos; Receita nova `null` mantém a anterior; texto das consultas de `dwPlataforma.cjs` não contém `senha` nem `certificado_nome`. Isolar `ONEDRIVE_ROOT`/`SQLITE_DIR` e `require` fresco (regra do CLAUDE.md); nunca subir `server.cjs`.
+- [ ] **Step 2:** rodar → FAIL; implementar; rodar → PASS.
+- [ ] **Step 3:** `git commit -m "feat(dw): retrato fiscal das lojas (certificado, contato, grupo fiscal, Apura, situação CNPJ)"`
+
+### Task 8: Coluna "Vencimento Cert." e aba Lojas
+
+**Files:**
+- Create: `src/utils/vencimentoCert.ts` + teste — `vencimentoCert(data: string | null, hoje?: Date): { texto: string; nivel: 'vencido' | 'perto' | 'ok' | 'sem' }` (perto = ≤ 60 dias; data com `parse` do date-fns)
+- Modify: `src/pages/ClientesPage.tsx` (coluna "Vencimento Cert." por linha de loja, só com `lerSessao()` em `fiscal`/`admin`), `src/components/cliente/LojasFicha.tsx` (situação CNPJ, certificado, telefone, e-mail, grupo fiscal por loja), `src/components/cliente/PainelFicha.tsx` (linha "Apura — último acesso" no bloco Contatos e acessos)
+
+- [ ] **Step 1: Testes de `vencimentoCert`** — ontem → `vencido`; hoje → `perto`; +60 d → `perto`; +61 d → `ok`; `null` → `{ texto: '—', nivel: 'sem' }`.
+- [ ] **Step 2:** rodar → FAIL; implementar; rodar → PASS; telas; `npx tsc -b` e lint limpos.
+- [ ] **Step 3:** `git commit -m "feat(carteira): vencimento do certificado e dados fiscais das lojas"`
+
+### Task 9: monitorIA — dados fiscais e alerta de certificado
+
+**Files:**
+- Modify: `server/ia/tools.cjs` (lojas da identidade do cliente ganham `situacaoCnpj`, `certificadoValidade`, `grupoFiscal`, `apuraUltimoAcesso` lidos de `lerRetratoLojas()`; descrição de `buscar_clientes` cita os campos), `server/ia/alertas.cjs` (tipo `certificado` — vencido ou ≤ 30 dias, um cartão por cliente listando as lojas, `pergunta` pronta), `src/pages/AssistenteIAPage.tsx` (ou onde os alertas são listados: esconder tipo `certificado` fora de `fiscal`/`admin`)
+- Test: `server/ia/alertas.test.ts` (ou o arquivo de teste de alertas existente)
+
+- [ ] **Step 1: Testes** — loja vencida gera cartão; 30 dias gera; 31 não gera; cliente sem retrato não gera; duas lojas vencidas do mesmo cliente = um cartão. `toolsSchema.test.ts` verde.
+- [ ] **Step 2:** rodar → FAIL; implementar; rodar → PASS.
+- [ ] **Step 3:** `git commit -m "feat(ia): dados fiscais das lojas e alerta de certificado vencendo"`
+
+### Task 10: Verificação e docs
+
+- [ ] **Step 1:** Rodar `gerarRetratoLojas` contra o DW real **numa pasta temporária** (sobrescrever `ONEDRIVE_ROOT`), conferir contagens (113 empresas; 13 certificados vencidos em 30/10/2026) e que nenhuma senha está no JSON (`grep -i senha` vazio).
+- [ ] **Step 2:** Prints (claro/escuro/celular) da Carteira com a coluna (sessão `fiscal` e `negocios`), da aba Lojas e do alerta; mostrar ao usuário.
+- [ ] **Step 3:** `CLAUDE.md` (seção nova curta: retrato `dw-lojas.json`, fontes, o que nunca é lido) e `NOVIDADES.md`; `npm run build` e `npm test` verdes; commit `docs: dados fiscais das lojas`.
