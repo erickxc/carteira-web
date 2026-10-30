@@ -8,6 +8,11 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.6.17
+
+- Na Visão Geral, reuniões, relatórios, ações e cancelamentos de um cliente continuam contando no mês em que aconteceram, mesmo que ele seja suspenso ou fique inativo depois. Antes sumiam dos cards Reuniões por dia, Atendimento e Cancelamentos.
+- Análise de vendas (Alvos) muito mais rápida: a ficha do cliente e as perguntas de vendas ao monitorIA não travam mais a Carteira por quase um minuto.
+
 ## 1.6.16
 
 - O card **Onde vai o esforço** virou **Difíceis de marcar**: mostra quem mais exigiu tentativa de contato para cada reunião ou precificação feita.
