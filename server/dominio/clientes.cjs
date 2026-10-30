@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { syncClienteColumns } = require('../db.cjs');
 const { gerarRelatoriosPendentes } = require('../relatoriosAutomaticos.cjs');
 const { sincronizarSemQuebrar } = require('./statusHistorico.cjs');
-const { sincronizarSemQuebrar: sincronizarProdutosHistorico } = require('./produtosHistorico.cjs');
+const { sincronizarSemQuebrar: sincronizarProdutosHistorico, gravarLinhaBase } = require('./produtosHistorico.cjs');
 const { listaJSON } = require('../../shared/cadenciaServico.cjs');
 const {
   PRODUTOS_OFICIAIS, FASES, renomearProduto, produtosDeLegado, traduzirPatchLegado, mudancasDeFase,
@@ -140,6 +140,12 @@ function atualizar(repo, id, patch, opts = {}) {
   const atual = repo.get('Clientes').find((c) => String(c.id) === String(id));
   if (!atual) return null;
   patch = prepararPatchProdutos(repo, atual, patch);
+  const naoMigrado = atual.produtos == null || (typeof atual.produtos === 'string' && !atual.produtos.trim());
+  if (efeitosExternos && naoMigrado && 'produtos' in patch) {
+    try { gravarLinhaBase(repo, atual, produtosDoCliente(atual)); } catch (err) {
+      console.warn('Falha ao gravar linha-base de ProdutosHistorico:', err.message);
+    }
+  }
   const updated = repo.update('Clientes', id, patch, syncClienteColumns);
   if (updated && efeitosExternos && 'relatorioCadencia' in patch) {
     gerarRelatorioSeConfigurado(id, updated.relatorioCadencia);

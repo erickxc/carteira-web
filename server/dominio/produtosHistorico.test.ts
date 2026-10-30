@@ -85,6 +85,22 @@ describe('dominio/produtosHistorico: gancho em clientes.criar/atualizar', () => 
     expect(repo.get('ProdutosHistorico')).toHaveLength(0);
   });
 
+  it('cliente não migrado: 1ª edição na tela 1.7 grava antes a linha-base Ativo desde o cadastro', () => {
+    const repo = repoMemoria({
+      Clientes: [{ id: 'c1', empresa: 'T', createdAt: '2026-05-01T00:00:00.000Z', servicos: ['Monitoria', 'Precificação'] }],
+      ProdutosHistorico: [], StatusHistorico: [], Categorias: [],
+    });
+    clientesDominio.atualizar(repo, 'c1', { produtos: [
+      prod('Plataforma 2D', 'Ativo', { faseDesde: '2026-05-01T00:00:00.000Z' }),
+      prod('2D Price', 'Cancelado', { motivoFase: 'saiu' }),
+    ] });
+    const price = repo.get('ProdutosHistorico').filter((l: { produto: string }) => l.produto === '2D Price');
+    expect(price).toHaveLength(2);
+    expect(price[0]).toMatchObject({ fase: 'Ativo', mudouEm: '2026-05-01T00:00:00.000Z' });
+    expect(price[1]).toMatchObject({ fase: 'Cancelado', motivo: 'saiu' });
+    expect(price[1].mudouEm > '2026-10-01').toBe(true);
+  });
+
   it('patch sem produtos nem campo legado não grava histórico', () => {
     const repo = base([prod('2D Price', 'Ativo')]);
     clientesDominio.atualizar(repo, 'c1', { observacao: 'x' });

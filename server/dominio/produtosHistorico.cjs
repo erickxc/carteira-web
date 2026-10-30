@@ -20,8 +20,8 @@ const DESDE_SEMPRE = '1970-01-01T00:00:00.000Z';
 
 const chave = (clientId, produto) => `${clientId}|${renomearProduto(produto)}`;
 
-function sincronizar(repo, agora = new Date()) {
-  const clientes = repo.get('Clientes');
+/** `pares` = [{ cliente, produtos }]; grava o que mudou desde a última linha. */
+function gravar(repo, pares, agora) {
   const historico = repo.get('ProdutosHistorico');
 
   const ultimo = new Map();
@@ -32,9 +32,8 @@ function sincronizar(repo, agora = new Date()) {
   }
 
   const novos = [];
-  for (const c of clientes) {
-    if (c.produtos == null || c.produtos === '') continue;
-    for (const p of listaJSON(c.produtos)) {
+  for (const { cliente: c, produtos } of pares) {
+    for (const p of listaJSON(produtos)) {
       if (!p || !p.produto) continue;
       const u = ultimo.get(chave(c.id, p.produto));
       if (u && u.fase === p.fase) continue;
@@ -53,6 +52,24 @@ function sincronizar(repo, agora = new Date()) {
   return novos.length;
 }
 
+function sincronizar(repo, agora = new Date()) {
+  const pares = repo.get('Clientes')
+    .filter((c) => c.produtos != null && c.produtos !== '')
+    .map((c) => ({ cliente: c, produtos: c.produtos }));
+  return gravar(repo, pares, agora);
+}
+
+/**
+ * Cliente não migrado editado pela tela 1.7: antes de gravar, registra a
+ * linha-base dos produtos como estavam (`produtosDoCliente`, Ativo desde
+ * `createdAt`) — senão a 1ª linha já seria a fase nova com `mudouEm` = agora e
+ * os meses em que o produto estava Ativo sumiriam. Só aqui, nunca no boot: lá
+ * a migração define `faseDesde` própria (Price vindo do DW em 30/10).
+ */
+function gravarLinhaBase(repo, cliente, produtos, agora = new Date()) {
+  return gravar(repo, [{ cliente, produtos }], agora);
+}
+
 function sincronizarSemQuebrar(repo, origem) {
   try {
     const n = sincronizar(repo);
@@ -62,4 +79,4 @@ function sincronizarSemQuebrar(repo, origem) {
   }
 }
 
-module.exports = { sincronizar, sincronizarSemQuebrar };
+module.exports = { sincronizar, sincronizarSemQuebrar, gravarLinhaBase };
