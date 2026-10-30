@@ -35,14 +35,14 @@ const Vazio = ({ children }: { children: ReactNode }) => (
 );
 
 /** A cor vai no próprio número (design 1.6). Token `-fg`: o vivo não passa AA no tema claro. */
-function ValorPrazo({ prazo }: { prazo: ResumoFicha['prazos'][number] }) {
-  if (prazo.independente) return <span className="text-text-muted">independente</span>;
+export function ValorPrazo({ prazo, curto }: { prazo: ResumoFicha['prazos'][number]; curto?: boolean }) {
+  if (prazo.independente) return <span className="text-text-muted">{curto ? 'indep.' : 'independente'}</span>;
   // 'nunca' vem antes de qualquer conta: sem data de cadastro o atraso é negativo.
-  if (prazo.status === 'nunca') return <span className="text-[color:var(--danger-fg)] font-semibold">nunca atendido</span>;
+  if (prazo.status === 'nunca') return <span className="text-[color:var(--danger-fg)] font-semibold">{curto ? 'nunca' : 'nunca atendido'}</span>;
   const atraso = prazo.atraso ?? 0;
   if (prazo.status === 'vencido') return <span className="text-[color:var(--danger-fg)] font-semibold">+{atraso} d</span>;
   const cor = prazo.status === 'vencendo' ? 'text-[color:var(--warning-fg)]' : 'text-[color:var(--success-fg)]';
-  return <span className={`${cor} font-semibold`}>{atraso === 0 ? 'vence hoje' : `${-atraso} d`}</span>;
+  return <span className={`${cor} font-semibold`}>{atraso === 0 ? (curto ? 'hoje' : 'vence hoje') : `${-atraso} d`}</span>;
 }
 
 function LinhaReuniao({ rotulo, children }: { rotulo: string; children: ReactNode }) {

@@ -42,6 +42,16 @@ export function resumoDaConversa(evento: EventoAgenda): string {
   return TITULO_DA_ATA.test(primeira) ? '' : primeira;
 }
 
+/** Prazos de um cliente a partir dos relógios da fila: mesmo número na ficha e na lista da Carteira. */
+export function prazosDoCliente(cliente: Cliente, relogios: RelogioServico[]): ResumoFicha['prazos'] {
+  return RELOGIOS.flatMap(({ servico, eh }): ResumoFicha['prazos'] => {
+    if ((cliente.servicosIndependentes ?? []).some((s) => eh(s))) return [{ servico, independente: true, atraso: null, status: null, proximo: null }];
+    const r = relogios.find((x) => x.servico === servico);
+    // `atrasoReal`, não `atraso`: com reunião marcada, `atraso` vira um peso de ordenação da fila (-100000).
+    return r ? [{ servico, independente: false, atraso: r.atrasoReal, status: r.statusReal, proximo: r.proximo }] : [];
+  });
+}
+
 /** Painel da ficha: nenhuma conta de cadência aqui, tudo sai do motor da fila. */
 export function resumoFicha(
   cliente: Cliente,
@@ -57,12 +67,7 @@ export function resumoFicha(
   // um prazo diferente do da fila.
   const relogios = buildFilaCadencia(clientes, agendaGrupo, acoes, cadencias, hoje).find((f) => f.cliente.id === cliente.id)?.relogios ?? [];
 
-  const prazos = RELOGIOS.flatMap(({ servico, eh }): ResumoFicha['prazos'] => {
-    if ((cliente.servicosIndependentes ?? []).some((s) => eh(s))) return [{ servico, independente: true, atraso: null, status: null, proximo: null }];
-    const r = relogios.find((x) => x.servico === servico);
-    // `atrasoReal`, não `atraso`: com reunião marcada, `atraso` vira um peso de ordenação da fila (-100000).
-    return r ? [{ servico, independente: false, atraso: r.atrasoReal, status: r.statusReal, proximo: r.proximo }] : [];
-  });
+  const prazos = prazosDoCliente(cliente, relogios);
 
   const doCliente = agendaGrupo.filter((a) => a.clientId === cliente.id);
   const diasAte = (a: EventoAgenda) => differenceInCalendarDays(parseISO(a.date), hoje);

@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
 import { differenceInCalendarDays, format, isValid, parseISO } from 'date-fns';
-import { Bell, CalendarPlus, FileSpreadsheet, MoreHorizontal, Pencil, PhoneIncoming, Trash2 } from 'lucide-react';
+import { Bell, CalendarPlus, FileSpreadsheet, Pencil, PhoneIncoming, Trash2 } from 'lucide-react';
 import { Button, Card } from '../../ui';
+import { MenuMais } from '../MenuMais';
 import type { Cliente } from '../../types';
 
 interface CabecalhoFichaProps {
@@ -17,25 +17,6 @@ interface CabecalhoFichaProps {
 
 /** Topo da ficha: quem é o cliente em texto (sem pílula nem ponto colorido) e o que dá para fazer. */
 export function CabecalhoFicha({ cliente, onNovoEvento, onLembrete, onContatoCliente, onEditar, onRelatorios, onExcluir }: CabecalhoFichaProps) {
-  const [menuAberto, setMenuAberto] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuAberto) return;
-    function onDoc(e: MouseEvent) {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuAberto(false);
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setMenuAberto(false);
-    }
-    document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onDoc);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [menuAberto]);
-
   // Mesma regra de `isClienteAtivo`: o dia escolhido ainda é de pausa.
   const pausaAte = parseISO(cliente.pausadoAte ?? '');
   const pausa = isValid(pausaAte) && differenceInCalendarDays(pausaAte, new Date()) >= 0 && `Pausado até ${format(pausaAte, 'dd/MM')}`;
@@ -53,21 +34,10 @@ export function CabecalhoFicha({ cliente, onNovoEvento, onLembrete, onContatoCli
           <Button variant="secondary" onClick={onLembrete}><Bell size={15} /> Lembrete</Button>
           <Button variant="secondary" onClick={onContatoCliente} title="Registrar que o cliente entrou em contato"><PhoneIncoming size={15} /> Cliente entrou em contato</Button>
           <Button variant="secondary" onClick={onEditar}><Pencil size={15} /> Editar cadastro</Button>
-          <div ref={menuRef} className="relative">
-            <Button variant="secondary" size="icon" onClick={() => setMenuAberto((v) => !v)} aria-label="Mais ações" aria-haspopup="menu" aria-expanded={menuAberto}>
-              <MoreHorizontal size={15} />
-            </Button>
-            {menuAberto && (
-              <div role="menu" className="filter-pop absolute right-0 top-[calc(100%+4px)]">
-                <button type="button" role="menuitem" className="filter-pop-item" onClick={() => { setMenuAberto(false); onRelatorios(); }}>
-                  <FileSpreadsheet size={14} /> Relatórios
-                </button>
-                <button type="button" role="menuitem" className="filter-pop-item" style={{ color: 'var(--danger-fg)' }} onClick={() => { setMenuAberto(false); onExcluir(); }}>
-                  <Trash2 size={14} /> Excluir
-                </button>
-              </div>
-            )}
-          </div>
+          <MenuMais itens={[
+            { rotulo: <><FileSpreadsheet size={14} /> Relatórios</>, onClick: onRelatorios },
+            { rotulo: <><Trash2 size={14} /> Excluir</>, onClick: onExcluir, perigo: true },
+          ]} />
         </div>
       </div>
     </Card>

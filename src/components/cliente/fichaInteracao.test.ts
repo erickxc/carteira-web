@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { AcessosExternosButton, ListaAcessos } from './AcessosExternosButton';
 import { AnaliseIACard } from './AnaliseIACard';
 import { CabecalhoFicha } from './CabecalhoFicha';
+import { MenuMais } from '../MenuMais';
 import { PainelFicha } from './PainelFicha';
 import type { ContatoVisivel } from '../../utils/contatos';
 import type { AnaliseIA, Cliente } from '../../types';
@@ -75,7 +76,9 @@ describe('CabecalhoFicha: cada ação chama o callback certo', () => {
     const fechar = vi.fn();
     h.setter = fechar;
     const cb = callbacks();
-    clicar(CabecalhoFicha({ cliente, ...cb }), rotulo);
+    // O menu é um componente próprio (`MenuMais`): sem DOM, é preciso chamá-lo com os itens do cabeçalho.
+    const menu = elementos(CabecalhoFicha({ cliente, ...cb })).find((e) => (e.props as { itens?: unknown }).itens)!;
+    clicar(MenuMais(menu.props as unknown as Parameters<typeof MenuMais>[0]), rotulo);
     soChamou(cb, nome);
     expect(fechar).toHaveBeenCalledWith(false);
   });

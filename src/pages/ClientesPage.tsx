@@ -1,31 +1,32 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { createPortal } from 'react-dom';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
 import * as XLSX from 'xlsx';
 import { Link, useNavigate } from 'react-router-dom';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { Bot, ChevronDown, ChevronRight, ChevronUp, Combine, FileUp, LayoutDashboard, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, Combine, FileUp, LayoutDashboard, Plus, Search, TriangleAlert, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { toastError, toastSuccess } from '../utils/toast';
-import { comPrecificacaoDoGrupo, ehSolicitacao } from '../utils/cadenciaServico';
+import { buildFilaCadencia, comPrecificacaoDoGrupo, ehSolicitacao } from '../utils/cadenciaServico';
+import { prazosDoCliente, type ResumoFicha } from '../utils/resumoFicha';
 import { passaFiltroProduto, servicosDaImportacao } from '../utils/produtosTela';
 import { FASES, renomearProduto } from 'carteira-shared/produtos.cjs';
-import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
 import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
 import { UnirAtendimentosModal } from '../components/alvos/UnirAtendimentosModal';
-import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
-import { AcessosExternosButton } from '../components/cliente/AcessosExternosButton';
+import { ValorPrazo } from '../components/cliente/PainelFicha';
+import { MenuMais } from '../components/MenuMais';
 import { buscarAnalisesIA } from '../api/client';
-import { calcularPosicaoPopover } from '../utils/popoverPosicao';
 import { agruparPorGrupo, contarLojasFisicas, type LinhaTabela } from '../utils/gruposLojas';
 import { Dropdown } from '../components/Dropdown';
-import { Badge, Button, Card, Td, Th } from '../ui';
-import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type AnaliseIA, type Cliente, type EventoAgenda, type LojaCadastro, type NovoCliente } from '../types';
+import { Button, Card, Td, Th } from '../ui';
+import { CLIENTE_ESTADO_OPCOES, CLIENTE_STATUS_OPCOES, TIPO_ANALISE_LABEL, type AnaliseIA, type Cliente, type EventoAgenda, type NovoCliente } from '../types';
 import { formatarCNPJ } from '../utils/cnpj';
 
-type SortCol = 'empresa' | 'monitor' | 'servicos' | 'analise' | 'risco' | 'estado' | 'status' | 'ultimaReuniao' | 'proximo' | 'ultimoContato' | 'diasSemContato';
+type SortCol = 'urgencia' | 'empresa' | 'monitor' | 'plataforma' | 'price' | 'ultimoContato' | 'proximo' | 'risco';
+
+/** Começam do maior para o menor: o primeiro clique traz o mais atrasado, o mais recente, o maior risco. */
+const COMECA_DECRESCENTE: SortCol[] = ['plataforma', 'price', 'ultimoContato', 'risco'];
 
 const PERIODOS = [
   { valor: 'Todos', label: 'Últ. reunião: todas' },
@@ -35,123 +36,26 @@ const PERIODOS = [
   { valor: '60', label: 'Sem reunião +60d' },
 ];
 
-/**
- * Célula "Serviços" da tabela: no máximo 2 badges visíveis + "+N" quando há
- * mais — a lista completa (Monitoria/Precificação e os "outros serviços" que
- * não entram na cadência) aparece num popover ao passar o mouse no "+N", sem
- * precisar clicar. Evita que um cliente com 5-6 serviços contratados alargue
- * a linha inteira da tabela.
- */
-/** Serviço em texto puro: nem pílula com fundo pastel nem ponto colorido ao
- *  lado (os dois rejeitados pelo usuário). `corConfigurada` segue aceita
- *  pelos chamadores, mas a tabela não pinta mais o serviço. */
-function BadgeServico({ servico }: { servico: string; corConfigurada?: string }) {
-  return <span className="text-text-primary" style={{ fontSize: '0.8rem', fontWeight: 500 }}>{servico}</span>;
-}
-
-function ServicosCell({ servicos, corPorServico }: { servicos: string[]; corPorServico: Map<string, string> }) {
-  const [open, setOpen] = useState(false);
-  const [rect, setRect] = useState<DOMRect | null>(null);
-  const ref = useRef<HTMLSpanElement>(null);
-
-  if (servicos.length === 0) return <span className="text-text-muted">—</span>;
-
-  const visiveis = servicos.slice(0, 2);
-  const resto = servicos.slice(2);
-
-  return (
-    // Um serviço por linha (sem ponto nem pílula desde a 1.6, a separação vem
-    // da quebra de linha); o "+N" fica junto do último visível.
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
-      {visiveis.map((s, i) => (
-        <span key={s} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
-          <BadgeServico servico={s} corConfigurada={corPorServico.get(s)} />
-          {i === visiveis.length - 1 && resto.length > 0 && (
-            <span
-              ref={ref}
-              onMouseEnter={() => { setRect(ref.current?.getBoundingClientRect() ?? null); setOpen(true); }}
-              onMouseLeave={() => setOpen(false)}
-              style={{ display: 'inline-block' }}
-            >
-              <Badge variant="muted" style={{ cursor: 'default' }}>+{resto.length}</Badge>
-              {open && rect && createPortal(
-                <div
-                  className="filter-pop"
-                  style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { alturaEstimativa: 150 }), display: 'flex', flexDirection: 'column', gap: 5, padding: '8px 10px', overflowY: 'auto' }}
-                >
-                  {resto.map((s) => <BadgeServico key={s} servico={s} corConfigurada={corPorServico.get(s)} />)}
-                </div>,
-                document.body
-              )}
-            </span>
-          )}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-/** Cor do círculo por nível de risco — mesma paleta semântica dos badges
- *  (verde/amarelo/vermelho); sem análise ainda = contorno neutro, não cor
- *  nenhuma (evita sugerir "baixo risco" pra quem simplesmente não foi
- *  analisado ainda). */
-const COR_RISCO: Record<AnaliseIA['nivelRisco'], string> = {
-  baixo: 'var(--success)',
-  medio: 'var(--warning)',
-  alto: 'var(--danger)',
+const RISCO: Record<AnaliseIA['nivelRisco'], { texto: string; cor: string }> = {
+  alto: { texto: 'alto', cor: 'var(--danger-fg)' },
+  medio: { texto: 'médio', cor: 'var(--warning-fg)' },
+  baixo: { texto: 'baixo', cor: 'var(--text-secondary)' },
 };
 
-/**
- * Célula "IA" da tabela: o ícone já vem com um círculo colorido pelo nível
- * de risco (verde/amarelo/vermelho) da última análise automática — dá pra
- * escanear a carteira toda sem passar o mouse em cada linha. O dossiê
- * completo (resumo + fatores) continua aparecendo num popover ao hover, sem
- * precisar clicar em botão nenhum.
- *
- * Posicionamento "inteligente": abre pra CIMA quando não há espaço embaixo
- * (linha perto do fim da tabela/tela) — calculado na hora de abrir, com o
- * espaço disponível de cada lado, não sempre para baixo. `maxHeight` com
- * rolagem própria é a rede de segurança pro caso de um dossiê muito longo
- * (muitos fatores) mesmo assim não estourar a tela.
- */
-function AnaliseIACell({ clienteId, risco }: { clienteId: string; risco?: AnaliseIA['nivelRisco'] }) {
-  const [open, setOpen] = useState(false);
-  const [rect, setRect] = useState<DOMRect | null>(null);
-  const ref = useRef<HTMLSpanElement>(null);
+function CelulaPrazo({ prazos, servico }: { prazos: ResumoFicha['prazos']; servico: string }) {
+  const prazo = prazos.find((p) => p.servico === servico);
+  return prazo ? <ValorPrazo prazo={prazo} curto /> : <span className="text-text-muted">—</span>;
+}
 
-  const cor = risco ? COR_RISCO[risco] : 'var(--border-strong)';
-
-  return (
-    <span
-      ref={ref}
-      onMouseEnter={() => { setRect(ref.current?.getBoundingClientRect() ?? null); setOpen(true); }}
-      onMouseLeave={() => setOpen(false)}
-      style={{ display: 'inline-flex' }}
-      title={risco ? `Risco ${risco === 'medio' ? 'médio' : risco}` : 'Ainda não analisado'}
-    >
-      <span
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 24, height: 24, borderRadius: '50%', border: `1.5px solid ${cor}`,
-        }}
-      >
-        <Bot size={13} style={{ color: cor }} />
-      </span>
-      {open && rect && createPortal(
-        <div
-          className="filter-pop"
-          style={{ position: 'fixed', ...calcularPosicaoPopover(rect, { largura: 300, alinhar: 'right', alturaEstimativa: 320 }), overflowY: 'auto', padding: 8 }}
-        >
-          <AnaliseIACard clienteId={clienteId} variante="popover" />
-        </div>,
-        document.body
-      )}
-    </span>
-  );
+/** Situação fora do normal, junto do nome. Regular e ativo não dizem nada: não ocupam a linha. */
+function SituacaoFora({ cliente }: { cliente: Cliente }) {
+  if ((cliente.estado || 'Ativo') !== 'Ativo') return <span className="font-medium text-[color:var(--danger-fg)]">Inativo</span>;
+  if (cliente.status && !/^(regular|ativo)$/i.test(cliente.status)) return <span className="text-text-muted">{cliente.status}</span>;
+  return null;
 }
 
 export default function ClientesPage() {
-  const { clientes, agenda, cadencias, removerCliente, criarClientesEmLote, opcoesPorTipo, categoriasPorTipo, filtroMonitor } = useCarteira();
+  const { clientes, agenda, acoes, cadencias, criarClientesEmLote, opcoesPorTipo, filtroMonitor } = useCarteira();
   const navigate = useNavigate();
   const hoje = new Date();
 
@@ -170,8 +74,12 @@ export default function ClientesPage() {
   const [fSegmento, setFSegmento] = usePersistedState<string>('filtro:clientes:segmento', 'Todos');
   const [fLinha, setFLinha] = usePersistedState<string>('filtro:clientes:linha', 'Todos');
   const [outrosFiltrosAbertos, setOutrosFiltrosAbertos] = useState(false);
-  const [sortBy, setSortBy] = usePersistedState<SortCol>('filtro:clientes:sortBy', 'empresa');
-  const [sortDir, setSortDir] = usePersistedState<'asc' | 'desc'>('filtro:clientes:sortDir', 'asc');
+  const [alvosAberto, setAlvosAberto] = usePersistedState('alvos:painel:aberto', false);
+  const [pendenciasAlvos, setPendenciasAlvos] = useState(0);
+  const informarPendencias = useCallback((n: number) => setPendenciasAlvos(n), []);
+  // v2: a lista abre com quem precisa de atenção primeiro, não por nome.
+  const [sortBy, setSortBy] = usePersistedState<SortCol>('filtro:clientes:sortBy:v2', 'urgencia');
+  const [sortDir, setSortDir] = usePersistedState<'asc' | 'desc'>('filtro:clientes:sortDir:v2', 'asc');
   const [modalState, setModalState] = useState<{ editing: Cliente | null } | null>(null);
   const [unindo, setUnindo] = useState(false);
   // Remonta o painel dos Dados Alvos depois de unir atendimentos — ele guarda o próprio estado.
@@ -189,6 +97,17 @@ export default function ClientesPage() {
       .catch(() => { /* coluna cai pra "sem análise" em todo mundo — não é crítico pra tela funcionar */ });
     return () => { cancelado = true; };
   }, []);
+
+  // Uma fila só para a tela inteira: mesma ordem e mesmos prazos da tela de Ações e da ficha.
+  const { ordemFila, prazosPorCliente } = useMemo(() => {
+    const fila = buildFilaCadencia(clientes, comPrecificacaoDoGrupo(agenda, clientes), acoes, cadencias, hoje);
+    const relogios = new Map(fila.map((f) => [f.cliente.id, f.relogios]));
+    return {
+      ordemFila: new Map(fila.map((f, i) => [f.cliente.id, i])),
+      prazosPorCliente: new Map(clientes.map((c) => [c.id, prazosDoCliente(c, relogios.get(c.id) ?? [])])),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientes, agenda, acoes, cadencias]);
 
   // Última reunião por cliente (reunião mais recente que JÁ ACONTECEU). SÓ
   // conta eventos do tipo Reunião — Contato/Relatório são eventos de agenda
@@ -212,33 +131,25 @@ export default function ClientesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agenda]);
 
-  // Próximo agendamento (ainda vai acontecer) e último contato (já aconteceu)
-  // por cliente — mais amplo que "Última reunião" acima, que só considera
-  // eventos do tipo Reunião. A separação usa STATUS, não só a data: um evento
-  // de hoje já marcado Concluído é último contato, não "próximo" (já foi
-  // tratado por data ontem/hoje e ficava preso em próximo agendamento até o
-  // dia virar). Cancelado/Reagendado nunca é "próximo" (evento morto), mas
-  // CONTA como último contato: cancelar/reagendar sempre envolveu falar com
-  // o cliente — motivo é obrigatório nos dois casos (ver `EventFormModal`).
+  // Próxima reunião e última conversa, com o mesmo critério do painel da ficha
+  // (`resumoFicha`): a lista e a ficha nunca mostram datas diferentes. Relatório
+  // não é "próxima" (envio programado), e cancelado/reagendado não conta nas duas.
   const { proximoAgendamento, ultimoContato } = useMemo(() => {
     const proximoMap = new Map<string, EventoAgenda>();
     const ultimoMap = new Map<string, EventoAgenda>();
     const concluido = (a: EventoAgenda) => /conclu|realiz/i.test(a.status || '');
     const cancelado = (a: EventoAgenda) => /cancel|reagend/i.test(a.status || '');
-    const marcarUltimo = (a: EventoAgenda, d: Date) => {
-      const atual = ultimoMap.get(a.clientId);
-      if (!atual || d > parseISO(atual.date)) ultimoMap.set(a.clientId, a);
-    };
     // Inclui a precificação do grupo salva numa loja-irmã.
     comPrecificacaoDoGrupo(agenda, clientes).forEach((a) => {
       const d = parseISO(a.date);
-      if (isNaN(d.getTime()) || ehSolicitacao(a)) return;
-      if (cancelado(a)) { marcarUltimo(a, d); return; }
-      if (!concluido(a) && differenceInCalendarDays(d, hoje) >= 0) {
+      if (isNaN(d.getTime()) || ehSolicitacao(a) || cancelado(a)) return;
+      const dias = differenceInCalendarDays(d, hoje);
+      if (concluido(a)) {
+        const atual = ultimoMap.get(a.clientId);
+        if (dias <= 0 && (!atual || d > parseISO(atual.date))) ultimoMap.set(a.clientId, a);
+      } else if (dias >= 0 && !/relat/i.test(a.type || '')) {
         const atual = proximoMap.get(a.clientId);
         if (!atual || d < parseISO(atual.date)) proximoMap.set(a.clientId, a);
-      } else {
-        marcarUltimo(a, d);
       }
     });
     return { proximoAgendamento: proximoMap, ultimoContato: ultimoMap };
@@ -256,19 +167,17 @@ export default function ClientesPage() {
   // que ninguém usa ainda poluindo o filtro.
   const segmentoOpcoes = useMemo(() => [...new Set(clientes.map((c) => c.local).filter(Boolean) as string[])].sort(), [clientes]);
   const linhaOpcoes = useMemo(() => [...new Set(clientes.map((c) => c.linha).filter(Boolean) as string[])].sort(), [clientes]);
-  // Cor de referência por serviço (Configurações → Categorias → Serviço) —
-  // pra colorir os badges da coluna Serviços sem cada célula precisar
-  // filtrar a lista de categorias por conta própria.
-  const corPorServico = useMemo(
-    () => new Map(categoriasPorTipo('servico').filter((c) => c.cor).map((c) => [c.valor, c.cor as string])),
-    [categoriasPorTipo]
-  );
   const statusOpcoes = useMemo(() => ['Todos', ...CLIENTE_STATUS_OPCOES], []);
 
   const filtrosAtivos =
     !!debouncedSearch.trim() || fMonitores.length > 0 || fTipoAnalise !== 'Todos' ||
     fServicos.length > 0 || fFaseProduto !== 'Ativo' || fEstado !== 'Todos' && fEstado !== 'Ativo' || fStatus !== 'Todos' || fPeriodo !== 'Todos' ||
     fRisco !== 'Todos' || fSegmento !== 'Todos' || fLinha !== 'Todos';
+  // Quantos filtros ativos estão recolhidos em "Mais filtros".
+  const qtdMaisFiltros = [
+    fTipoAnalise !== 'Todos', fServicos.length > 0, fFaseProduto !== 'Ativo', fStatus !== 'Todos', fPeriodo !== 'Todos',
+    fRisco !== 'Todos', fSegmento !== 'Todos', fLinha !== 'Todos',
+  ].filter(Boolean).length;
 
   function limparFiltros() {
     setSearch(''); setFMonitores([]); setFTipoAnalise('Todos'); setFServicos([]); setFFaseProduto('Ativo'); setFEstado('Ativo'); setFStatus('Todos'); setFPeriodo('Todos');
@@ -277,21 +186,23 @@ export default function ClientesPage() {
 
   // Valor comparável de cada coluna, pra ordenação por clique no cabeçalho.
   function valorOrdenacao(c: Cliente, col: SortCol): string | number {
+    // Atraso comparável: quem nunca foi atendido é o pior caso; independente ou sem o produto vem por último.
+    const atrasoDe = (servico: string) => {
+      const prazo = prazosPorCliente.get(c.id)?.find((p) => p.servico === servico);
+      if (!prazo || prazo.independente) return -Infinity;
+      return prazo.status === 'nunca' ? Infinity : prazo.atraso ?? -Infinity;
+    };
     switch (col) {
+      case 'urgencia': return ordemFila.get(c.id) ?? Infinity; // fora da fila (inativo, pausado) vai para o fim
       case 'empresa': return c.empresa.toLowerCase();
       case 'monitor': return (c.monitor || '').toLowerCase();
-      case 'servicos': return (c.servicos ?? []).join(', ').toLowerCase();
-      case 'analise': return c.tipoAnalise === 'segmentado' || !!c.grupo ? 1 : 0;
+      case 'plataforma': return atrasoDe('Plataforma 2D');
+      case 'price': return atrasoDe('2D Price');
       case 'risco': {
         const nivel = analisesPorCliente.get(c.id)?.nivelRisco;
-        // Sem análise fica no início (mais baixo que "baixo") — não é risco
-        // baixo de verdade, é ausência de informação, e não deve se misturar
-        // com quem foi analisado e está OK.
+        // Sem análise fica abaixo de "baixo": é ausência de informação, não risco baixo.
         return nivel === 'alto' ? 3 : nivel === 'medio' ? 2 : nivel === 'baixo' ? 1 : 0;
       }
-      case 'estado': return (c.estado || '').toLowerCase();
-      case 'status': return (c.status || '').toLowerCase();
-      case 'ultimaReuniao': return ultimaReuniao.get(c.id)?.getTime() ?? -Infinity;
       case 'proximo': {
         const p = proximoAgendamento.get(c.id);
         return p ? parseISO(p.date).getTime() : Infinity; // sem agendamento vai pro fim
@@ -300,16 +211,12 @@ export default function ClientesPage() {
         const u = ultimoContato.get(c.id);
         return u ? parseISO(u.date).getTime() : -Infinity;
       }
-      case 'diasSemContato': {
-        const u = ultimoContato.get(c.id);
-        return u ? differenceInCalendarDays(hoje, parseISO(u.date)) : Infinity; // nunca = sempre no fim
-      }
     }
   }
 
   function ordenarPor(col: SortCol) {
     if (sortBy === col) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setSortBy(col); setSortDir('asc'); }
+    else { setSortBy(col); setSortDir(COMECA_DECRESCENTE.includes(col) ? 'desc' : 'asc'); }
   }
   const seta = (col: SortCol) => (sortBy === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
 
@@ -348,12 +255,13 @@ export default function ClientesPage() {
       .sort((a, b) => {
         const va = valorOrdenacao(a, sortBy);
         const vb = valorOrdenacao(b, sortBy);
-        let r = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb));
+        // `===` antes da subtração: Infinity - Infinity daria NaN e bagunçaria a ordem.
+        let r = va === vb ? 0 : typeof va === 'number' && typeof vb === 'number' ? (va < vb ? -1 : 1) : String(va).localeCompare(String(vb));
         if (r === 0) r = a.empresa.localeCompare(b.empresa);
         return sortDir === 'asc' ? r : -r;
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientes, debouncedSearch, filtroMonitor, fMonitores, fTipoAnalise, fServicos, fFaseProduto, fRisco, fSegmento, fLinha, fEstado, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir, analisesPorCliente]);
+  }, [clientes, debouncedSearch, filtroMonitor, fMonitores, fTipoAnalise, fServicos, fFaseProduto, fRisco, fSegmento, fLinha, fEstado, fStatus, fPeriodo, ultimaReuniao, proximoAgendamento, ultimoContato, sortBy, sortDir, analisesPorCliente, ordemFila, prazosPorCliente]);
 
   // Lojas da mesma rede (`Cliente.grupo`, ex.: "Altese - Recreio + Barra" e
   // "Altese - GM, Ford, Fiat, VW") viram um bloco recolhível na tabela — cada
@@ -380,11 +288,6 @@ export default function ClientesPage() {
   }
   function grupoAberto(grupo: string): boolean {
     return gruposManual.get(grupo) ?? filtrosAtivos;
-  }
-
-  async function handleDelete(cliente: Cliente) {
-    if (!(await confirmDialog(`Excluir o cliente "${cliente.empresa}"? Isso também remove os eventos de agenda vinculados.`, { danger: true, confirmLabel: 'Excluir' }))) return;
-    await removerCliente(cliente.id);
   }
 
   async function handleImportFile(e: ChangeEvent<HTMLInputElement>) {
@@ -417,246 +320,232 @@ export default function ClientesPage() {
     e.target.value = '';
   }
 
-  /** Linha de um cliente — usada tanto pra cliente sem grupo quanto pra cada
-   *  loja dentro de um grupo expandido. `semLinks`: lojas que não são a
-   *  principal do grupo não editam/mostram mais link próprio (ver
-   *  `ClientFormModal`) — o botão de acessos aparece só na linha do grupo. */
+  const abrirFicha = (cliente: Cliente) => navigate(`/clientes/${cliente.id}`);
+  /** Clique na linha abre a ficha, menos quando o clique foi num link ou botão dela. */
+  const cliqueNaLinha = (cliente: Cliente) => (e: MouseEvent<HTMLTableRowElement>) => {
+    if (!(e.target as HTMLElement).closest('a, button')) abrirFicha(cliente);
+  };
+
+  /** Uma linha por atendimento. `prefixo`: a seta e o nome do bloco (rede ou atendimento com várias lojas). */
   function renderLinhaCliente(cliente: Cliente, opts?: {
     indent?: boolean;
-    semLinks?: boolean;
-    /** Mostra o botão de acessos de OUTRO cliente (a loja principal do
-     *  grupo) em vez do próprio — usado na linha-âncora de um grupo, que
-     *  pode não ser a principal (ver `renderLinhaGrupo`). */
-    acessosDe?: Cliente;
-    /** Vira a linha "cabeçalho" de um grupo — mesmas colunas de sempre (é o
-     *  que faz a ordenação por qualquer coluna continuar visível/conferível
-     *  com o grupo fechado), só com o chevron + nome do grupo antes do nome
-     *  da empresa. */
-    grupoPrefixo?: { grupo: string; qtdLojas: number; aberto: boolean; onToggle: () => void };
-    /** Linha de UMA loja física de um atendimento com várias (1.6.9): nome e
-     *  CNPJ são da loja; o resto das colunas é do atendimento, e o clique leva
-     *  ao cadastro dele, onde as lojas aparecem juntas. */
-    lojaFisica?: LojaCadastro;
-    chave?: string;
+    prefixo?: { nome: string; qtdLojas: number; aberto: boolean; onToggle: () => void };
+    /** Rede fechada: o clique na linha abre o bloco em vez de ir para uma das lojas. */
+    cliqueAbreBloco?: boolean;
   }) {
-    const ult = ultimaReuniao.get(cliente.id);
-    const prox = proximoAgendamento.get(cliente.id);
     const ultC = ultimoContato.get(cliente.id);
-    const ultCData = ultC ? parseISO(ultC.date) : null;
-    const diasSemContato = ultCData ? differenceInCalendarDays(hoje, ultCData) : null;
-    const inativo = (cliente.estado || 'Ativo') !== 'Ativo';
-    const acessos = opts?.acessosDe ?? cliente;
+    const prox = proximoAgendamento.get(cliente.id);
+    const risco = analisesPorCliente.get(cliente.id)?.nivelRisco;
+    const prazos = prazosPorCliente.get(cliente.id) ?? [];
     return (
       <tr
-        key={opts?.chave ?? cliente.id}
-        className="group [&:last-child>td]:border-b-0"
-        style={{
-          ...(opts?.grupoPrefixo ? { background: 'var(--card-hover)' } : undefined),
-        }}
+        key={cliente.id}
+        className="group cursor-pointer [&:last-child>td]:border-b-0"
+        onClick={opts?.cliqueAbreBloco && opts.prefixo ? opts.prefixo.onToggle : cliqueNaLinha(cliente)}
       >
         <Td first>
-          {opts?.grupoPrefixo ? (
-            // Linha de grupo: o nome em destaque é o do GRUPO ("Altese",
-            // "Aliança"), não o da loja-âncora — mostrar o nome completo da
-            // loja aqui (geralmente mais longo, ex.: "Altese - GM, Ford,
-            // Fiat, VW") quebrava e ficava confuso ao lado do resumo do
-            // grupo. A loja em si continua identificável pelo resto da linha
-            // (é ela quem preenche Monitor/Situação/etc.) e por inteiro
-            // quando expandido.
-            <button
-              type="button"
-              className="link-button"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}
-              onClick={opts.grupoPrefixo.onToggle}
-              aria-expanded={opts.grupoPrefixo.aberto}
-            >
-              {opts.grupoPrefixo.aberto ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-              {opts.grupoPrefixo.grupo}
-              <span className="text-text-muted" style={{ fontWeight: 400, fontSize: '0.8rem' }}>({opts.grupoPrefixo.qtdLojas})</span>
-            </button>
-          ) : (
-            <>
-              <Link
-                className="link-button"
-                style={{ fontWeight: 600, ...(opts?.indent ? { paddingLeft: '1.4rem' } : undefined) }}
-                to={`/clientes/${cliente.id}`}
+          <span className="flex items-baseline gap-2 min-w-0" style={opts?.indent ? { paddingLeft: '1.4rem' } : undefined}>
+            {opts?.prefixo ? (
+              <button
+                type="button"
+                className="link-button self-center inline-flex items-center gap-1.5 font-semibold whitespace-nowrap"
+                onClick={(e) => { e.stopPropagation(); opts.prefixo!.onToggle(); }}
+                aria-expanded={opts.prefixo.aberto}
+                aria-label={`${opts.prefixo.aberto ? 'Recolher' : 'Abrir'} ${opts.prefixo.nome}`}
               >
-                {opts?.lojaFisica ? (opts.lojaFisica.nome || cliente.empresa) : cliente.empresa}
-              </Link>
-              {/* Embaixo do nome, sem coluna nova (1.6.8): uma loja = o CNPJ dela;
-                  grupo de lojas = quantas são (o detalhe fica na ficha). */}
-              {opts?.lojaFisica ? (
-                <div className="text-text-muted tabular-nums" style={{ fontSize: '0.72rem', marginTop: 2, whiteSpace: 'nowrap', ...(opts?.indent ? { paddingLeft: '1.4rem' } : undefined) }}>
-                  {opts.lojaFisica.cnpj ? formatarCNPJ(opts.lojaFisica.cnpj) : 'sem CNPJ'}
-                </div>
-              ) : cliente.lojasCadastro && cliente.lojasCadastro.length > 0 && (
-                <div className="text-text-muted tabular-nums" style={{ fontSize: '0.72rem', marginTop: 2, whiteSpace: 'nowrap', ...(opts?.indent ? { paddingLeft: '1.4rem' } : undefined) }}>
-                  {cliente.lojasCadastro.length === 1
-                    ? (cliente.lojasCadastro[0].cnpj ? formatarCNPJ(cliente.lojasCadastro[0].cnpj) : '1 loja')
-                    : `${cliente.lojasCadastro.length} lojas`}
-                </div>
-              )}
-            </>
-          )}
-        </Td>
-        <Td className="text-text-muted">{cliente.monitor || '—'}</Td>
-        <Td>
-          <ServicosCell servicos={cliente.servicos} corPorServico={corPorServico} />
-        </Td>
-        <Td style={{ textAlign: 'center' }}>
-          {opts?.semLinks ? <span className="text-text-muted">—</span> : <AcessosExternosButton cliente={acessos} compacto />}
-        </Td>
-        <Td style={{ textAlign: 'center' }}>
-          <AnaliseIACell clienteId={cliente.id} risco={analisesPorCliente.get(cliente.id)?.nivelRisco} />
-        </Td>
-        <Td>
-          <div className="flex-row" style={{ gap: 12, flexWrap: 'wrap' }}>
-            <span className="text-text-primary" style={{ fontSize: '0.8rem', fontWeight: 500 }}>{cliente.status || '—'}</span>
-            {inativo && (
-              <span style={{ fontSize: '0.8rem', color: 'var(--danger-fg)', fontWeight: 600 }}>Inativo</span>
+                {opts.prefixo.aberto ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                {opts.prefixo.nome}
+              </button>
+            ) : (
+              <Link className="link-button font-semibold whitespace-nowrap" to={`/clientes/${cliente.id}`}>{cliente.empresa}</Link>
             )}
-          </div>
+            {opts?.prefixo && <span className="text-text-muted text-[0.78rem] whitespace-nowrap">{opts.prefixo.qtdLojas} lojas</span>}
+            <span className="text-[0.78rem] whitespace-nowrap"><SituacaoFora cliente={cliente} /></span>
+          </span>
         </Td>
-        <Td className="text-text-muted" style={{ fontSize: '0.8rem', lineHeight: 1.5 }}>
-          <div>Últ. reunião: {ult ? format(ult, 'dd/MM/yyyy') : '—'}</div>
-          <div>Próximo: {prox ? `${prox.type} · ${format(parseISO(prox.date), 'dd/MM/yyyy')}` : '—'}</div>
-          <div>Últ. contato: {ultCData ? format(ultCData, 'dd/MM/yyyy') : '—'}</div>
+        <Td className="text-text-muted whitespace-nowrap">{cliente.monitor || '—'}</Td>
+        <Td className="whitespace-nowrap"><CelulaPrazo prazos={prazos} servico="Plataforma 2D" /></Td>
+        <Td className="whitespace-nowrap"><CelulaPrazo prazos={prazos} servico="2D Price" /></Td>
+        <Td className="whitespace-nowrap">{ultC ? format(parseISO(ultC.date), 'dd/MM/yy') : <span className="text-text-muted">—</span>}</Td>
+        <Td className="whitespace-nowrap">
+          {prox ? format(parseISO(prox.date), 'dd/MM/yy') : <span className="text-text-muted">—</span>}
+          {prox && /pendente/i.test(prox.status || '') && <span className="text-text-muted text-[0.78rem]"> pendente</span>}
         </Td>
-        <Td>
-          {diasSemContato === null ? (
-            <span className="text-text-muted">—</span>
-          ) : (
-            <Badge variant={
-              diasSemContato > cadencias.reuniao_dias ? 'danger'
-                : diasSemContato > cadencias.reuniao_dias * 0.7 ? 'warning'
-                : 'muted'
-            }>
-              {diasSemContato}d
-            </Badge>
-          )}
-        </Td>
-        <Td>
-          <div className="flex-row" style={{ justifyContent: 'flex-end' }}>
-            <Button variant="secondary" size="icon" onClick={() => navigate(`/clientes/${cliente.id}`)} aria-label={`Abrir o cadastro de ${cliente.empresa}`} title="Abrir a ficha para editar o cadastro">
-              <Pencil size={15} />
-            </Button>
-            {/* Linha de loja física: excluir apagaria o ATENDIMENTO inteiro (todas
-                as lojas e o histórico), não só a loja — fica só na ficha e nas
-                linhas de atendimento. */}
-            {!opts?.lojaFisica && (
-              <Button variant="danger" size="icon" onClick={() => handleDelete(cliente)} aria-label="Excluir">
-                <Trash2 size={15} />
-              </Button>
-            )}
-          </div>
+        <Td className="whitespace-nowrap">
+          {risco ? <span className="font-medium" style={{ color: RISCO[risco].cor }}>{RISCO[risco].texto}</span> : <span className="text-text-muted">—</span>}
         </Td>
       </tr>
     );
   }
 
+  /** Loja física dentro de um atendimento aberto: só identifica a loja; os dados são do atendimento. */
+  function renderLinhasDeLojas(cliente: Cliente, nivel: number) {
+    return (cliente.lojasCadastro ?? []).map((loja, i) => (
+      <tr key={`${cliente.id}-loja-${i}`} className="group cursor-pointer [&:last-child>td]:border-b-0" onClick={cliqueNaLinha(cliente)}>
+        <Td first colSpan={7} className="text-[0.82rem]">
+          <span style={{ paddingLeft: `${nivel * 1.4}rem` }}>
+            {loja.nome || cliente.empresa}
+            <span className="text-text-muted text-[0.76rem]"> · {loja.cnpj ? formatarCNPJ(loja.cnpj) : 'sem CNPJ'}</span>
+          </span>
+        </Td>
+      </tr>
+    ));
+  }
+
   /**
-   * Cabeçalho recolhível de uma rede de lojas (`Cliente.grupo`).
-   *
-   * FECHADO: a "linha âncora" (`linha.lojas[0]`, a primeira do grupo na
-   * lista já filtrada/ordenada — ou seja, a loja que colocou o bloco inteiro
-   * nesta posição) É a linha mostrada, com TODAS as colunas normais
-   * (Monitor, Serviços, Situação, Dias sem contato etc.) — só ganha o
-   * chevron + nome do grupo antes do nome. Isso é o que faz a ordenação por
-   * qualquer coluna continuar visível/conferível com o grupo fechado (antes
-   * o cabeçalho era um resumo fixo que não mudava com a coluna ordenada —
-   * reportado pelo usuário).
-   *
-   * ABERTO: o cabeçalho vira só um título (nenhuma coluna de dado — misturar
-   * "isto é uma loja específica" com "isto é um título de seção" confundia:
-   * usuário abriu esperando ver as N lojas e só via N-1, porque a âncora já
-   * estava contada no cabeçalho). TODAS as lojas do grupo aparecem embaixo,
-   * cada uma com sua própria linha completa.
+   * Bloco recolhível. Atendimento único com várias lojas: a linha é o próprio
+   * atendimento e abrir só lista as lojas. Rede com vários atendimentos: fechada,
+   * mostra a linha do atendimento que deu a posição ao bloco (a ordenação continua
+   * conferível); aberta, vira um título com cada atendimento embaixo.
    */
   function renderLinhaGrupo(linha: Extract<LinhaTabela, { tipo: 'grupo' }>) {
     const aberto = grupoAberto(linha.grupo);
     const onToggle = () => alternarGrupo(linha.grupo);
+    const prefixo = { nome: linha.grupo, qtdLojas: contarLojasFisicas(linha.lojas), aberto, onToggle };
 
-    if (!aberto) {
-      const [ancora] = linha.lojas;
-      return renderLinhaCliente(ancora, {
-        acessosDe: linha.principal,
-        grupoPrefixo: { grupo: linha.grupo, qtdLojas: contarLojasFisicas(linha.lojas), aberto, onToggle },
-      });
+    if (linha.lojas.length === 1) {
+      return (
+        <Fragment key={`grupo-${linha.grupo}`}>
+          {renderLinhaCliente(linha.lojas[0], { prefixo })}
+          {aberto && renderLinhasDeLojas(linha.lojas[0], 1)}
+        </Fragment>
+      );
     }
+    if (!aberto) return renderLinhaCliente(linha.lojas[0], { prefixo, cliqueAbreBloco: true });
 
     return (
       <Fragment key={`grupo-${linha.grupo}`}>
-        <tr style={{ background: 'var(--card-hover)' }}>
-          <Td first colSpan={9}>
-            <button type="button" className="link-button" style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={onToggle} aria-expanded={aberto}>
-              <ChevronDown size={15} />
-              {linha.grupo}
-              <span className="text-text-muted" style={{ fontWeight: 400, fontSize: '0.8rem' }}>({contarLojasFisicas(linha.lojas)})</span>
-            </button>
+        <tr className="group cursor-pointer" onClick={onToggle}>
+          <Td first colSpan={7}>
+            <span className="inline-flex items-center gap-2">
+              <button type="button" className="link-button inline-flex items-center gap-1.5 font-semibold" onClick={(e) => { e.stopPropagation(); onToggle(); }} aria-expanded={aberto}>
+                <ChevronDown size={15} /> {linha.grupo}
+              </button>
+              <span className="text-text-muted text-[0.78rem]">{prefixo.qtdLojas} lojas</span>
+            </span>
           </Td>
         </tr>
-        {/* Uma linha por loja física (1.6.9): atendimento com várias lojas vira
-            várias linhas, todas levando ao mesmo cadastro. */}
-        {linha.lojas.flatMap((atendimento) => {
-          const fisicas = atendimento.lojasCadastro ?? [];
-          const semLinksAtendimento = atendimento.id !== linha.principal.id;
-          if (fisicas.length <= 1) return [renderLinhaCliente(atendimento, { indent: true, semLinks: semLinksAtendimento })];
-          return fisicas.map((loja, i) => renderLinhaCliente(atendimento, {
-            indent: true, semLinks: semLinksAtendimento || i > 0, lojaFisica: loja, chave: `${atendimento.id}-loja-${i}`,
-          }));
-        })}
+        {linha.lojas.map((atendimento) => (
+          <Fragment key={atendimento.id}>
+            {renderLinhaCliente(atendimento, { indent: true })}
+            {(atendimento.lojasCadastro?.length ?? 0) > 1 && renderLinhasDeLojas(atendimento, 2)}
+          </Fragment>
+        ))}
       </Fragment>
     );
   }
 
   return (
     <div className="page-container">
-      <div className="flex-between" style={{ marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      <div className="flex-between" style={{ marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 className="page-title" style={{ marginBottom: 4 }}>Carteira</h1>
+          <h1 className="page-title" style={{ marginBottom: 2 }}>Carteira</h1>
           <p className="page-subtitle" style={{ margin: 0 }}>
-            {filtrados.length} de {clientes.length} cliente(s)
+            {filtrados.length} de {clientes.length} clientes
+            {sortBy === 'urgencia' ? ' · mais urgentes primeiro' : (
+              <> · <button type="button" className="link-button" onClick={() => { setSortBy('urgencia'); setSortDir('asc'); }}>ver mais urgentes primeiro</button></>
+            )}
           </p>
         </div>
-        <div className="flex-row" style={{ gap: 10 }}>
-          <Button variant="secondary" onClick={() => navigate('/clientes/dashboard')}>
-            <LayoutDashboard size={16} /> Dashboard da Carteira
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={() => setAlvosAberto((v) => !v)} aria-expanded={alvosAberto}>
+            {pendenciasAlvos > 0 && <TriangleAlert size={15} style={{ color: 'var(--warning-fg)' }} />}
+            Dados Alvos{pendenciasAlvos > 0 && ` · ${pendenciasAlvos}`}
           </Button>
-          <Button variant="secondary" onClick={() => setUnindo(true)}>
-            <Combine size={16} /> Unir atendimentos
-          </Button>
-          <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
-            <FileUp size={16} /> Importar
-          </Button>
+          <Button variant="secondary" onClick={() => setUnindo(true)}><Combine size={15} /> Unir atendimentos</Button>
+          <MenuMais itens={[
+            { rotulo: <><LayoutDashboard size={14} /> Dashboard da Carteira</>, onClick: () => navigate('/clientes/dashboard') },
+            { rotulo: <><FileUp size={14} /> Importar planilha</>, onClick: () => fileInputRef.current?.click() },
+          ]} />
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImportFile} />
-          <Button variant="primary" onClick={() => setModalState({ editing: null })}>
-            <Plus size={16} /> Novo Cliente
-          </Button>
+          <Button variant="primary" onClick={() => setModalState({ editing: null })}><Plus size={15} /> Novo cliente</Button>
         </div>
       </div>
 
-      <PainelCadastroAlvos key={versaoVinculos} />
+      <PainelCadastroAlvos key={versaoVinculos} aberto={alvosAberto} onFechar={() => setAlvosAberto(false)} onPendencias={informarPendencias} />
 
-      {/* Barra de filtros */}
-      <Card flat className="mb-4">
-        <div className="filter-grid">
-          <label className="filter-ctl filter-search">
-            <Search size={16} />
-            <input
-              placeholder="Buscar cliente ou monitor..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </label>
-
+      {/* Filtros em uma linha: o que se usa todo dia; o resto fica em "Mais filtros". */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <label className="filter-ctl filter-search flex-1 min-w-[220px]">
+          <Search size={16} />
+          <input placeholder="Buscar cliente, loja, CNPJ ou monitor..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        </label>
+        <div className="w-[180px]">
+          <Dropdown label="Monitor" multiple options={monitorOpcoes.map((m) => ({ value: m, label: m }))} value={fMonitores} onChange={(v) => setFMonitores(v as string[])} />
+        </div>
+        <div className="w-[160px]">
           <Dropdown
-            label="Monitor"
-            multiple
-            options={monitorOpcoes.map((m) => ({ value: m, label: m }))}
-            value={fMonitores}
-            onChange={(v) => setFMonitores(v as string[])}
+            label="Situação: ativos"
+            options={['Todos', ...CLIENTE_ESTADO_OPCOES].map((e) => ({ value: e, label: e === 'Todos' ? 'Situação: todos' : e === 'Ativo' ? 'Situação: ativos' : 'Situação: inativos' }))}
+            value={fEstado}
+            onChange={(v) => setFEstado(v as string)}
           />
+        </div>
+        <Button variant="secondary" onClick={() => setOutrosFiltrosAbertos((v) => !v)} aria-expanded={outrosFiltrosAbertos}>
+          {outrosFiltrosAbertos ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          Mais filtros{qtdMaisFiltros > 0 && ` (${qtdMaisFiltros})`}
+        </Button>
+        {filtrosAtivos && (
+          <Button variant="ghost" onClick={limparFiltros}><X size={14} /> Limpar</Button>
+        )}
+      </div>
 
+      {outrosFiltrosAbertos && (
+        <div className="filter-grid mb-3">
+          <Dropdown
+            label="Produtos"
+            multiple
+            options={servicoOpcoes.map((o) => ({ value: o, label: o }))}
+            // Filtro salvo com o nome de antes da 1.7 aparece marcado na opção de hoje.
+            value={fServicos.map((f) => servicoOpcoes.find((o) => renomearProduto(o) === renomearProduto(f)) ?? f)}
+            onChange={(v) => setFServicos(v as string[])}
+          />
+          <Dropdown
+            label="Fase: ativo"
+            options={['Todas', ...FASES].map((f) => ({ value: f, label: `Fase: ${f.toLowerCase()}` }))}
+            value={fFaseProduto}
+            onChange={(v) => setFFaseProduto(v as string)}
+          />
+          <Dropdown
+            label="Status: todos"
+            options={statusOpcoes.map((o) => ({ value: o, label: o === 'Todos' ? 'Status: todos' : o }))}
+            value={fStatus}
+            onChange={(v) => setFStatus(v as string)}
+          />
+          <Dropdown
+            label="Últ. reunião: todas"
+            defaultValue="Todos"
+            options={PERIODOS.map((o) => ({ value: o.valor, label: o.label }))}
+            value={fPeriodo}
+            onChange={(v) => setFPeriodo(v as string)}
+          />
+          <Dropdown
+            label="Risco: todos"
+            defaultValue="Todos"
+            options={[
+              { value: 'Todos', label: 'Risco: todos' },
+              { value: 'baixo', label: 'Risco baixo' },
+              { value: 'medio', label: 'Risco médio' },
+              { value: 'alto', label: 'Risco alto' },
+              { value: 'sem_analise', label: 'Sem análise' },
+            ]}
+            value={fRisco}
+            onChange={(v) => setFRisco(v as string)}
+          />
+          <Dropdown
+            label="Segmento: todos"
+            defaultValue="Todos"
+            options={[{ value: 'Todos', label: 'Segmento: todos' }, ...segmentoOpcoes.map((o) => ({ value: o, label: o }))]}
+            value={fSegmento}
+            onChange={(v) => setFSegmento(v as string)}
+          />
+          <Dropdown
+            label="Linha: todas"
+            defaultValue="Todos"
+            options={[{ value: 'Todos', label: 'Linha: todas' }, ...linhaOpcoes.map((o) => ({ value: o, label: o }))]}
+            value={fLinha}
+            onChange={(v) => setFLinha(v as string)}
+          />
           <Dropdown
             label="Análise: todas"
             defaultValue="Todos"
@@ -668,131 +557,62 @@ export default function ClientesPage() {
             value={fTipoAnalise}
             onChange={(v) => setFTipoAnalise(v as string)}
           />
-
-          <Dropdown
-            label="Produtos"
-            multiple
-            options={servicoOpcoes.map((s) => ({ value: s, label: s }))}
-            // Filtro salvo com o nome de antes da 1.7 aparece marcado na opção de hoje.
-            value={fServicos.map((s) => servicoOpcoes.find((o) => renomearProduto(o) === renomearProduto(s)) ?? s)}
-            onChange={(v) => setFServicos(v as string[])}
-          />
-
-          <Dropdown
-            label="Fase: ativo"
-            options={['Todas', ...FASES].map((f) => ({ value: f, label: `Fase: ${f.toLowerCase()}` }))}
-            value={fFaseProduto}
-            onChange={(v) => setFFaseProduto(v as string)}
-          />
-
-          <Dropdown
-            label="Estado: ativos"
-            options={['Todos', ...CLIENTE_ESTADO_OPCOES].map((e) => ({ value: e, label: e === 'Todos' ? 'Estado: todos' : e }))}
-            value={fEstado}
-            onChange={(v) => setFEstado(v as string)}
-          />
-
-          <Dropdown
-            label="Status: todos"
-            options={statusOpcoes.map((s) => ({ value: s, label: s === 'Todos' ? 'Status: todos' : s }))}
-            value={fStatus}
-            onChange={(v) => setFStatus(v as string)}
-          />
-
-          <Dropdown
-            label="Últ. reunião: todas"
-            defaultValue="Todos"
-            options={PERIODOS.map((p) => ({ value: p.valor, label: p.label }))}
-            value={fPeriodo}
-            onChange={(v) => setFPeriodo(v as string)}
-          />
         </div>
+      )}
 
-        {/* Campos menos usados no dia a dia (segmento, linha, risco do
-            monitorIA) — recolhidos por padrão pra não brigar por espaço com
-            os filtros principais. */}
-        <button
-          type="button"
-          className="link-button"
-          style={{ fontSize: '0.8rem', marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-          onClick={() => setOutrosFiltrosAbertos((v) => !v)}
-        >
-          {outrosFiltrosAbertos ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-          Outros filtros{(fRisco !== 'Todos' || fSegmento !== 'Todos' || fLinha !== 'Todos') ? ' (ativo)' : ''}
-        </button>
+      {filtrados.length === 0 ? (
+        <Card flat><div className="empty-state">Nenhum cliente com esses filtros.</div></Card>
+      ) : (
+        <>
+          {/* Computador: a lista rola por dentro e o cabeçalho fica sempre à vista. */}
+          <Card flat className="hidden md:block" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="overflow-auto max-h-[calc(100vh-13.5rem)]">
+              <table className="w-full border-collapse text-[0.88rem]">
+                <thead className="sticky top-0 z-[1] bg-card">
+                  <tr>
+                    <Th sortable onClick={() => ordenarPor('empresa')}>Cliente{seta('empresa')}</Th>
+                    <Th sortable onClick={() => ordenarPor('monitor')}>Monitor{seta('monitor')}</Th>
+                    <Th sortable onClick={() => ordenarPor('plataforma')} title="Dias até vencer; + é atraso">Plataforma 2D{seta('plataforma')}</Th>
+                    <Th sortable onClick={() => ordenarPor('price')} title="Dias até vencer; + é atraso">2D Price{seta('price')}</Th>
+                    <Th sortable onClick={() => ordenarPor('ultimoContato')} title="Última entrega ou conversa concluída">Última{seta('ultimoContato')}</Th>
+                    <Th sortable onClick={() => ordenarPor('proximo')} title="Próxima reunião ou entrega marcada">Próxima{seta('proximo')}</Th>
+                    <Th sortable onClick={() => ordenarPor('risco')} title="Risco da análise do monitorIA">Risco{seta('risco')}</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {linhas.map((linha) =>
+                    linha.tipo === 'grupo'
+                      ? renderLinhaGrupo(linha)
+                      : renderLinhaCliente(linha.cliente)
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
 
-        {outrosFiltrosAbertos && (
-          <div className="filter-grid" style={{ marginTop: 10 }}>
-            <Dropdown
-              label="Segmento: todos"
-              defaultValue="Todos"
-              options={[{ value: 'Todos', label: 'Segmento: todos' }, ...segmentoOpcoes.map((s) => ({ value: s, label: s }))]}
-              value={fSegmento}
-              onChange={(v) => setFSegmento(v as string)}
-            />
-            <Dropdown
-              label="Linha: todas"
-              defaultValue="Todos"
-              options={[{ value: 'Todos', label: 'Linha: todas' }, ...linhaOpcoes.map((l) => ({ value: l, label: l }))]}
-              value={fLinha}
-              onChange={(v) => setFLinha(v as string)}
-            />
-            <Dropdown
-              label="Risco: todos"
-              defaultValue="Todos"
-              options={[
-                { value: 'Todos', label: 'Risco: todos' },
-                { value: 'baixo', label: 'Risco baixo' },
-                { value: 'medio', label: 'Risco médio' },
-                { value: 'alto', label: 'Risco alto' },
-                { value: 'sem_analise', label: 'Sem análise' },
-              ]}
-              value={fRisco}
-              onChange={(v) => setFRisco(v as string)}
-            />
-          </div>
-        )}
-
-        {filtrosAtivos && (
-          <div className="flex items-center justify-end gap-3 mt-3 pt-3 border-t border-border">
-            <span className="text-[0.8rem] text-text-muted">{filtrados.length} resultado(s)</span>
-            <Button variant="secondary" onClick={limparFiltros}>
-              <X size={15} /> Limpar filtros
-            </Button>
-          </div>
-        )}
-      </Card>
-
-      <Card flat style={{ padding: 0, overflow: 'hidden' }}>
-        {filtrados.length === 0 ? (
-          <div className="empty-state">Nenhum cliente encontrado.</div>
-        ) : (
-          <div className="overflow-auto rounded">
-            <table className="w-full border-collapse text-[0.9rem]">
-              <thead>
-                <tr>
-                  <Th sortable onClick={() => ordenarPor('empresa')}>Empresa{seta('empresa')}</Th>
-                  <Th sortable onClick={() => ordenarPor('monitor')}>Monitor{seta('monitor')}</Th>
-                  <Th sortable onClick={() => ordenarPor('servicos')}>Produtos{seta('servicos')}</Th>
-                  <Th style={{ textAlign: 'center' }} title="Links de Power BI cadastrados no cliente">Links</Th>
-                  <Th sortable onClick={() => ordenarPor('risco')} style={{ textAlign: 'center' }} title="Análise do monitorIA (risco + resumo) deste cliente">monitorIA{seta('risco')}</Th>
-                  <Th sortable onClick={() => ordenarPor('status')}>Situação{seta('status')}</Th>
-                  <Th>Cadência</Th>
-                  <Th sortable onClick={() => ordenarPor('diasSemContato')}>Dias sem contato{seta('diasSemContato')}</Th>
-                  <Th style={{ width: 96 }}></Th>
-                </tr>
-              </thead>
-              <tbody>
-                {linhas.map((linha) =>
-                  linha.tipo === 'grupo'
-                    ? renderLinhaGrupo(linha)
-                    : renderLinhaCliente(linha.cliente)
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+          {/* Celular: um cartão curto por atendimento, na mesma ordem. */}
+          <ul className="md:hidden flex flex-col gap-2">
+            {filtrados.map((c) => {
+              const prazos = prazosPorCliente.get(c.id) ?? [];
+              const prox = proximoAgendamento.get(c.id);
+              return (
+                <li key={c.id}>
+                  <Link to={`/clientes/${c.id}`} className="block rounded border border-border bg-card px-4 py-3 no-underline">
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className="font-semibold text-text-primary">{c.empresa}</span>
+                      <span className="text-[0.78rem]"><SituacaoFora cliente={c} /></span>
+                    </span>
+                    <span className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[0.82rem] text-text-muted">
+                      {prazos.map((p) => <span key={p.servico}>{p.servico}: <ValorPrazo prazo={p} curto /></span>)}
+                      <span>Próxima: {prox ? format(parseISO(prox.date), 'dd/MM') : '—'}</span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
 
       {modalState && (
         <ClientFormModal initial={modalState.editing ?? undefined} onClose={() => setModalState(null)} />

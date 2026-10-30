@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, ChevronDown, ChevronRight, Link2, MessageSquare, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Link2, MessageSquare, RefreshCw } from 'lucide-react';
 import { useCarteira } from '../../context/CarteiraContext';
-import { usePersistedState } from '../../hooks/usePersistedState';
 import {
   buscarAlertasAlvos, buscarCadastroAlvos, buscarEmpresasAlvos,
   type AlertaAlvos, type LinhaCadastroAlvos, type ResumoCadastroAlvos,
@@ -21,9 +20,8 @@ import { VincularLojaModal } from './VincularLojaModal';
  *   encontrou — mesmo formato dos alertas do monitorIA, cada um com o botão
  *   "Conversar sobre isso" levando ao chat já com a pergunta pronta.
  *
- * Painel fica RECOLHIDO por padrão (estado persistido) quando não há
- * pendência — não é pra ocupar espaço permanente numa tela que hoje não usa
- * a integração; abre sozinho quando há algo a resolver.
+ * A lista da Carteira mostra um botão com o número de pendências e abre o
+ * painel só quando pedido: ele não ocupa espaço acima da lista.
  */
 
 const ROTULO_ESTADO: Record<LinhaCadastroAlvos['estadoAlvos'], string> = {
@@ -32,16 +30,9 @@ const ROTULO_ESTADO: Record<LinhaCadastroAlvos['estadoAlvos'], string> = {
   vinculo_quebrado: 'vínculo quebrado',
 };
 
-export default function PainelCadastroAlvos() {
+export default function PainelCadastroAlvos({ aberto, onFechar, onPendencias }: { aberto: boolean; onFechar: () => void; onPendencias: (n: number) => void }) {
   const navigate = useNavigate();
   const { filtroMonitor } = useCarteira();
-  // Default ABERTO: a alternativa (fechado por padrão + auto-abrir na 1ª
-  // pendência) exigiria setState síncrono dentro de um efeito só pra "abrir
-  // sozinho quando há algo a resolver" — mais uma fonte de cascata de render
-  // pra um ganho pequeno. Começa RECOLHIDO por padrão (pedido do usuário: a
-  // Carteira abre direto na lista de clientes, não neste painel) — quem abrir
-  // fica com a preferência persistida daí em diante.
-  const [aberto, setAberto] = usePersistedState('alvos:painel:aberto', false);
   const [abaAtiva, setAbaAtiva] = useState<'cadastro' | 'alertas'>('cadastro');
 
   const [resumo, setResumo] = useState<ResumoCadastroAlvos | null>(null);
@@ -65,6 +56,7 @@ export default function PainelCadastroAlvos() {
   useEffect(() => { carregar(); }, [carregar]);
 
   const pendencias = (resumo?.sem_vinculo ?? 0) + (resumo?.vinculo_quebrado ?? 0);
+  useEffect(() => { onPendencias(pendencias + alertas.length); }, [onPendencias, pendencias, alertas.length]);
 
   function recarregar() {
     setRecarregando(true);
@@ -79,20 +71,22 @@ export default function PainelCadastroAlvos() {
   // nenhum cliente cadastrado) — não vale mostrar painel vazio permanente.
   if (resumo === null && linhas !== null && linhas.length === 0 && empresas.length === 0) return null;
 
+  if (!aberto) return null;
+
   return (
     <Card flat style={{ marginBottom: 16 }}>
       <div
         role="button"
         tabIndex={0}
-        onClick={() => setAberto(!aberto)}
+        onClick={onFechar}
         onKeyDown={(e) => {
           if (e.target !== e.currentTarget) return;
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setAberto(!aberto); }
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFechar(); }
         }}
         aria-expanded={aberto}
         className="flex items-center gap-2 w-full bg-transparent border-none cursor-pointer p-0 text-left"
       >
-        {aberto ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        <ChevronDown size={16} />
         <span className="text-[0.85rem] font-semibold text-text-primary">Integração de vendas (Dados Alvos)</span>
         {pendencias > 0 && <Badge variant="warning">{pendencias} pendência(s) de cadastro</Badge>}
         {alertas.length > 0 && <Badge variant="danger">{alertas.length} alerta(s)</Badge>}
@@ -109,7 +103,7 @@ export default function PainelCadastroAlvos() {
         </button>
       </div>
 
-      {aberto && (
+      {(
         <div className="flex flex-col gap-3 mt-3">
           <div className="flex gap-2">
             <button
