@@ -172,6 +172,11 @@ export interface Cliente {
    *  preenchido na leitura (cliente ainda não migrado: montado do formato
    *  antigo, fase Ativo). Mudar `fase` exige `motivoFase` novo (400). */
   produtos?: ProdutoClienteTela[];
+  /** ESCRITA APENAS — grava um produto só, com o merge feito no servidor sobre
+   *  a linha atual (a ficha usa isto; `produtos` é a lista inteira).
+   *  `faseAnterior` acompanha troca de fase: se a fase já mudou, o servidor
+   *  responde 409 (`null` = produto novo). */
+  produtoAlterado?: Partial<ProdutoClienteTela> & { produto: string; faseAnterior?: string | null };
   /** Login do cliente no Price (site externo de precificação) — vai junto
    *  dos outros links de acesso (`AcessosExternosButton`). A senha NUNCA
    *  chega aqui em texto puro: o backend nunca devolve `senhaPriceCifrada`

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { format, parseISO, isValid } from 'date-fns';
 import { RefreshCw } from 'lucide-react';
-import { FASES, PRODUTOS_OFICIAIS, renomearProduto } from 'carteira-shared/produtos.cjs';
+import { eh2DPrice, FASES, PRODUTOS_OFICIAIS, renomearProduto } from 'carteira-shared/produtos.cjs';
 import { useCarteira } from '../../context/CarteiraContext';
 import { atualizarRetratoDw, buscarRetratoDw } from '../../api/client';
 import { produtosNoDw, type ProdutoNoDw, type RetratoDw } from '../../utils/produtosNoDw';
@@ -14,7 +14,14 @@ import type { Cliente, ProdutoClienteTela } from '../../types';
 type Patch = Partial<Cliente>;
 
 /** Mudança de fase (ou produto novo) em edição: só grava com motivo. */
-interface EdicaoFase { produto: string; fase: string; motivo: string; novo: boolean }
+interface EdicaoFase {
+  produto: string;
+  fase: string;
+  motivo: string;
+  novo: boolean;
+  /** Fase que a pessoa viu ao abrir a edição: o servidor recusa se já mudou. */
+  de?: string;
+}
 
 const ordem = (nome: string) => {
   const i = PRODUTOS_OFICIAIS.indexOf(nome);
@@ -48,10 +55,11 @@ function divergencia(p: ProdutoClienteTela, info: ProdutoNoDw | undefined) {
 /**
  * Bloco Produtos da ficha (1.7.0): um item por produto, na ordem oficial, com
  * fase, desde quando, último motivo, "No DW agora" e o acesso (link, login,
- * senha). Toda gravação manda a lista INTEIRA de `produtos` — o servidor
- * compara com a anterior e recusa troca de fase sem motivo novo, então a tela
- * só oferece trocar fase junto com o motivo. Produto não se remove: vira
- * Cancelado (o servidor também recusa tirar da lista).
+ * senha). Cada gravação manda só o item alterado (`produtoAlterado`): sair do
+ * campo e clicar em outro logo em seguida dispara dois envios, e com a lista
+ * inteira o segundo desfaria o primeiro. O servidor recusa troca de fase sem
+ * motivo novo, então a tela só oferece trocar fase junto com o motivo. Produto
+ * não se remove: vira Cancelado.
  */
 export function ProdutosCliente({ cliente, salvar, linksEditaveis, nomePrincipal }: {
   cliente: Cliente;
@@ -80,16 +88,17 @@ export function ProdutosCliente({ cliente, salvar, linksEditaveis, nomePrincipal
   const disponiveis = [...new Set([...PRODUTOS_OFICIAIS, ...opcoesPorTipo('servico').map(renomearProduto)])]
     .filter((nome) => !tem.has(nome));
 
-  const salvarLista = (lista: ProdutoClienteTela[]) => salvar({ produtos: lista });
   const mudar = (nome: string, campos: Partial<ProdutoClienteTela>) =>
-    salvarLista(produtos.map((p) => (p.produto === nome ? { ...p, ...campos } : p)));
+    salvar({ produtoAlterado: { ...campos, produto: nome } });
 
   async function gravarEdicao() {
     if (!edicao) return;
-    const motivoFase = edicao.motivo.trim();
-    const ok = edicao.novo
-      ? await salvarLista([...produtos, { produto: edicao.produto, fase: edicao.fase, faseDesde: '', motivoFase }])
-      : await mudar(edicao.produto, { fase: edicao.fase, motivoFase, faseDesde: '' });
+    const ok = await salvar({ produtoAlterado: {
+      produto: edicao.produto,
+      fase: edicao.fase,
+      motivoFase: edicao.motivo.trim(),
+      faseAnterior: edicao.novo ? null : edicao.de,
+    } });
     if (ok) setEdicao(null);
   }
 
@@ -146,7 +155,7 @@ export function ProdutosCliente({ cliente, salvar, linksEditaveis, nomePrincipal
             </summary>
             <div style={{ padding: '10px 0 4px 14px' }}>
               <SelectField label="Fase" value={emEdicao?.fase ?? p.fase} options={opcoesFase}
-                onChange={(fase) => setEdicao(fase === p.fase ? null : { produto: p.produto, fase, motivo: '', novo: false })} />
+                onChange={(fase) => setEdicao(fase === p.fase ? null : { produto: p.produto, fase, motivo: '', novo: false, de: p.fase })} />
               {emEdicao ? editorMotivo(emEdicao) : p.motivoFase && (
                 <p className="text-text-muted" style={{ fontSize: 12, margin: '-8px 0 12px' }}>Último motivo: {p.motivoFase}</p>
               )}
@@ -176,8 +185,10 @@ export function ProdutosCliente({ cliente, salvar, linksEditaveis, nomePrincipal
                 </Field>
               </div>
               {p.temSenha && (
-                <Button variant="ghost" size="sm" style={{ marginBottom: 8 }} onClick={() => mudar(p.produto, { senha: null })}>
-                  Remover senha
+                // 2D Price: sem apagar o login, a sincronização acharia o CNPJ e traria a senha de volta do DW.
+                <Button variant="ghost" size="sm" style={{ marginBottom: 8 }}
+                  onClick={() => mudar(p.produto, eh2DPrice(p.produto) ? { senha: null, login: '' } : { senha: null })}>
+                  {eh2DPrice(p.produto) ? 'Remover login e senha' : 'Remover senha'}
                 </Button>
               )}
             </div>

@@ -188,6 +188,28 @@ describe('sincronizarPriceDoDW — bordas (testador)', () => {
     expect(repo.get('Clientes')[0].produtos[0].senhaCifrada).toBe('antiga');
   });
 
+  it('depois de "Remover login e senha" a sincronização não traz a senha de volta', async () => {
+    const { repo, consultados } = await rodar([{
+      id: 'c12', empresa: 'J', loginPrice: '', senhaPriceCifrada: '',
+      produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-01-01', motivoFase: 'm', login: '', senhaCifrada: '' }],
+    }]);
+    expect(consultados).toEqual([]);
+    const c = repo.get('Clientes')[0];
+    expect(c.produtos[0].senhaCifrada).toBe('');
+    expect(c.senhaPriceCifrada).toBe('');
+  });
+
+  it('grava os derivados com o nome vigente da categoria (antes da migração)', async () => {
+    const { repoMemoria } = require('../dominio/repo.cjs');
+    const { sincronizarPriceDoDW } = require('./sincronizarPrice.cjs');
+    const repo = repoMemoria({
+      Categorias: [{ id: 'k', tipo: 'servico', valor: 'Precificação' }],
+      Clientes: [{ id: 'c13', empresa: 'K', produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-01-01', motivoFase: 'm', login: CNPJ }] }],
+    });
+    await sincronizarPriceDoDW({ repo, configurado: true, buscarDadosPrice: async () => new Map([[CNPJ, { senha: 'nova' }]]) });
+    expect(repo.get('Clientes')[0].servicos).toEqual(['Precificação']);
+  });
+
   it('sem DW configurado não consulta nem grava', async () => {
     const { repoMemoria } = require('../dominio/repo.cjs');
     const { sincronizarPriceDoDW } = require('./sincronizarPrice.cjs');

@@ -168,7 +168,7 @@ function syncClienteColumns(cliente) {
   // dele e sobrescritos aqui — cadência, cards, monitorIA e espelho `.xlsx`
   // continuam lendo `servicos` sem saber que a fonte mudou. Sem `produtos`
   // (cliente ainda não migrado), `derivado` é null e nada muda.
-  const derivado = derivarCamposLegados(cliente.produtos) || {};
+  const derivado = derivarCamposLegados(cliente.produtos, cliente.linksServicos) || {};
   let servicos = [];
   const bruto = derivado.servicos ?? cliente.servicos;
   try {

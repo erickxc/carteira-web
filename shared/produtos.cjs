@@ -75,12 +75,19 @@ function normalizar(raw) {
   return out;
 }
 
-/** `null` quando `produtos` está ausente: o chamador não sobrescreve nada. */
-function derivarCamposLegados(produtos) {
+/**
+ * `null` quando `produtos` está ausente: o chamador não sobrescreve nada.
+ * `linksAtuais`: link de produto que o cliente não tem na lista continua em
+ * `linksServicos` — não há item onde guardá-lo, e sobrescrever apagaria a URL.
+ */
+function derivarCamposLegados(produtos, linksAtuais) {
   if (ausente(produtos)) return null;
   const lista = normalizar(produtos);
   const ativos = lista.filter((p) => p.fase === 'Ativo');
   const linksServicos = {};
+  for (const [nome, url] of Object.entries(linksRenomeados(linksAtuais))) {
+    if (!lista.some((p) => p.produto === nome)) linksServicos[nome] = url;
+  }
   for (const p of lista) if (p.link) linksServicos[p.produto] = p.link;
   const price = lista.find((p) => eh2DPrice(p.produto));
   return {
@@ -91,6 +98,26 @@ function derivarCamposLegados(produtos) {
     // login do grupo; `sincronizarPriceDoDW` acha o cliente por esse CNPJ).
     // Tirar o produto não apaga: vira Cancelado e o item continua na lista.
     ...(price ? { loginPrice: price.login || '', senhaPriceCifrada: price.senhaCifrada || '' } : {}),
+  };
+}
+
+/**
+ * Antes da migração a categoria `servico` ainda tem o nome antigo, e a 1.6 acha
+ * a Monitoria por esse nome (spec §10): os campos derivados saem com o nome
+ * VIGENTE da categoria, senão editar a ficha renomearia só aquele cliente antes
+ * da hora. `produtos` guarda sempre o nome oficial. Depois da migração, a
+ * categoria já é o nome oficial e isto não muda nada.
+ */
+function comNomesDaCategoria(cliente, categorias) {
+  if (ausente(cliente.produtos)) return cliente;
+  const vigente = (nome) => (categorias.includes(nome)
+    ? nome
+    : categorias.find((c) => renomearProduto(c) === nome) ?? nome);
+  return {
+    ...cliente,
+    servicos: listaJSON(cliente.servicos).map(vigente),
+    servicosIndependentes: listaJSON(cliente.servicosIndependentes).map(vigente),
+    linksServicos: Object.fromEntries(Object.entries(objetoJSON(cliente.linksServicos)).map(([k, v]) => [vigente(k), v])),
   };
 }
 
@@ -160,8 +187,8 @@ function traduzirPatchLegado(produtosAtuais, patch, agora) {
     for (const p of lista) if (p.fase === 'Ativo') p.independente = inds.has(p.produto);
   }
   if ('linksServicos' in patch) {
-    // ponytail: link de produto que o cliente não tem é ignorado (a 1.6 só
-    // edita link de serviço marcado); guardar exigiria produto sem fase.
+    // Link de produto que o cliente não tem não vira item (exigiria produto
+    // sem fase): fica em `linksServicos`, que `derivarCamposLegados` preserva.
     const links = linksRenomeados(patch.linksServicos);
     lista = lista.map((p) => {
       const { link: _antigo, ...resto } = p;
@@ -208,6 +235,8 @@ exports.MOTIVO_VERSAO_ANTERIOR = MOTIVO_VERSAO_ANTERIOR;
 exports.ehPlataforma2D = ehPlataforma2D;
 exports.eh2DPrice = eh2DPrice;
 exports.renomearProduto = renomearProduto;
+exports.linksRenomeados = linksRenomeados;
+exports.comNomesDaCategoria = comNomesDaCategoria;
 exports.derivarCamposLegados = derivarCamposLegados;
 exports.produtosDeLegado = produtosDeLegado;
 exports.traduzirPatchLegado = traduzirPatchLegado;

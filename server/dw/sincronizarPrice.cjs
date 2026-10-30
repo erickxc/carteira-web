@@ -31,6 +31,7 @@ const { DW_PLATAFORMA_CONFIGURADO } = require('../config.cjs');
 const { buscarDadosPrice } = require('./dwPlataforma.cjs');
 const { syncClienteColumns } = require('../db.cjs');
 const { listaJSON, eh2DPrice } = require('../../shared/cadenciaServico.cjs');
+const { comNomesDaCategoria } = require('../../shared/produtos.cjs');
 
 const repoPadrao = repoPlanilha();
 
@@ -97,6 +98,7 @@ async function sincronizarPriceDoDW(deps = {}) {
 
   let atualizados = 0;
   let semCorrespondencia = 0;
+  const categorias = repo.get('Categorias').filter((c) => c.tipo === 'servico').map((c) => c.valor);
 
   for (const { cliente, cnpjDigitos } of comCnpj) {
     const dados = dadosPorCnpj.get(cnpjDigitos);
@@ -120,7 +122,7 @@ async function sincronizarPriceDoDW(deps = {}) {
     // Aplica sobre a linha ATUAL do banco (o transform recebe a linha relida),
     // não sobre `cliente`, lido antes do `await` ao DW: gravar `produtos` da
     // leitura antiga desfaria fase/login alterados nesse meio-tempo (fila).
-    repo.update('Clientes', cliente.id, patch, (row) => syncClienteColumns(comSenhaPrice(row, senhaCifrada, cnpjDigitos)));
+    repo.update('Clientes', cliente.id, patch, (row) => comNomesDaCategoria(syncClienteColumns(comSenhaPrice(row, senhaCifrada, cnpjDigitos)), categorias));
     atualizados++;
   }
 

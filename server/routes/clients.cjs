@@ -45,6 +45,9 @@ function prepararPatchPrice(body) {
   if (Array.isArray(body.produtos)) {
     out = { ...out, produtos: body.produtos.map(cifrarSenhaProduto) };
   }
+  if (body.produtoAlterado && typeof body.produtoAlterado === 'object') {
+    out = { ...out, produtoAlterado: cifrarSenhaProduto(body.produtoAlterado) };
+  }
   if (!('senhaPrice' in out)) return out;
   const { senhaPrice, ...resto } = out;
   if (senhaPrice === null) return { ...resto, senhaPriceCifrada: '' };
@@ -61,9 +64,9 @@ function cifrarSenhaProduto(item) {
   return resto;
 }
 
-/** Erro de validação do domínio (`status: 400`) vira resposta JSON; o resto segue pro Express. */
+/** Erro de validação do domínio (400) ou conflito (409) vira resposta JSON; o resto segue pro Express. */
 function responderErroDominio(res, err) {
-  if (err && err.status === 400) return res.status(400).json({ error: err.message });
+  if (err && (err.status === 400 || err.status === 409)) return res.status(err.status).json({ error: err.message });
   throw err;
 }
 

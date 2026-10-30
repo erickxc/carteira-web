@@ -52,7 +52,13 @@ export function ehPlataforma2D(nome: string): boolean;
 export function eh2DPrice(nome: string): boolean;
 export function renomearProduto(nome: string): string;
 /** `null` quando `produtos` está ausente (cliente não migrado). */
-export function derivarCamposLegados(produtos: ProdutoCliente[] | string | null | undefined): CamposLegados | null;
+export function derivarCamposLegados(
+  produtos: ProdutoCliente[] | string | null | undefined,
+  linksAtuais?: Record<string, string> | string | null,
+): CamposLegados | null;
+/** Links com a chave no nome oficial; aceita objeto ou texto JSON. */
+export function linksRenomeados(raw: Record<string, string> | string | null | undefined): Record<string, string>;
+export function comNomesDaCategoria<T extends object>(cliente: T, categorias: string[]): T;
 export function produtosDeLegado(
   cliente: ClienteLegado,
   opts: {

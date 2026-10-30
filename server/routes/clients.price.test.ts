@@ -344,3 +344,161 @@ describe('clients: produtos (1.7)', () => {
     }
   });
 });
+
+/**
+ * Task 7 (ficha): o bloco Produtos manda SEMPRE a lista inteira que recebeu do
+ * GET (com `temSenha`, sem `senhaCifrada`), alterando só um campo. Estes casos
+ * reproduzem os cliques da tela contra a rota real.
+ */
+describe('clients: fluxos do bloco Produtos da ficha (1.7)', () => {
+  type ProdTela = { produto: string; fase: string; faseDesde: string; motivoFase: string; temSenha?: boolean; independente?: boolean; link?: string };
+  const buscar = async (url: string, id: string) =>
+    ((await (await fetch(url)).json()) as { id: string; produtos: ProdTela[]; servicos: string[]; temSenhaPrice: boolean }[])
+      .find((c) => c.id === id)!;
+  const put = (url: string, id: string, produtos: unknown) => fetch(`${url}/${id}`, { method: 'PUT', ...jsonBody({ produtos }) });
+  const revelarPrice = (url: string, id: string) => fetch(`${url}/${id}/price-credenciais/revelar`, { method: 'POST' });
+
+  it('cliente pré-migração: marcar "Independente" grava a lista sem pedir motivo e mantém a senha do Price', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const criado = await (await fetch(url, { method: 'POST', ...jsonBody({
+        empresa: 'Legado UI', servicos: ['Monitoria', 'Precificação'], loginPrice: 'lp', senhaPrice: 'sp',
+      }) })).json();
+      const tela = await buscar(url, criado.id);
+      const lista = tela.produtos.map((p) => (p.produto === 'Plataforma 2D' ? { ...p, independente: true } : p));
+      const res = await put(url, criado.id, lista);
+      expect(res.status).toBe(200);
+      const depois = await buscar(url, criado.id);
+      expect(depois.produtos.find((p) => p.produto === 'Plataforma 2D')?.independente).toBe(true);
+      expect(depois.produtos.find((p) => p.produto === '2D Price')?.temSenha).toBe(true);
+      expect(depois.temSenhaPrice).toBe(true);
+      expect(await (await revelarPrice(url, criado.id)).json()).toEqual({ loginPrice: 'lp', senhaPrice: 'sp' });
+      // faseDesde não muda por editar outro campo.
+      for (const p of depois.produtos) expect(p.faseDesde).toBe(tela.produtos.find((x) => x.produto === p.produto)!.faseDesde);
+    } finally {
+      fechar();
+    }
+  });
+
+  it('"Salvar fase" (faseDesde vazio + motivo novo) grava a fase, o motivo e uma data nova; sai de servicos', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const criado = await (await fetch(url, { method: 'POST', ...jsonBody({
+        empresa: 'Fase UI', produtos: [
+          { produto: 'Plataforma 2D', fase: 'Ativo', faseDesde: '2026-01-01T00:00:00.000Z', motivoFase: 'cadastro' },
+          { produto: 'Apura', fase: 'Ativo', faseDesde: '2026-01-01T00:00:00.000Z', motivoFase: 'cadastro' },
+        ],
+      }) })).json();
+      const antes = Date.now();
+      const tela = await buscar(url, criado.id);
+      const lista = tela.produtos.map((p) => (p.produto === 'Apura' ? { ...p, fase: 'Suspenso', motivoFase: 'cliente pediu pausa', faseDesde: '' } : p));
+      expect((await put(url, criado.id, lista)).status).toBe(200);
+      const depois = await buscar(url, criado.id);
+      const apura = depois.produtos.find((p) => p.produto === 'Apura')!;
+      expect(apura.fase).toBe('Suspenso');
+      expect(apura.motivoFase).toBe('cliente pediu pausa');
+      expect(apura.faseDesde).toBeTruthy();
+      expect(Date.parse(apura.faseDesde)).toBeGreaterThanOrEqual(antes - 1000);
+      expect(depois.produtos.find((p) => p.produto === 'Plataforma 2D')!.faseDesde).toBe('2026-01-01T00:00:00.000Z');
+      expect(depois.servicos).toEqual(['Plataforma 2D']);
+    } finally {
+      fechar();
+    }
+  });
+
+  it('"Adicionar produto" (pré-migração, faseDesde vazio) acrescenta com data de hoje sem tocar nos outros', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const criado = await (await fetch(url, { method: 'POST', ...jsonBody({
+        empresa: 'Add UI', servicos: ['Monitoria'],
+      }) })).json();
+      const tela = await buscar(url, criado.id);
+      const lista = [...tela.produtos, { produto: 'Controladoria', fase: 'Em breve', faseDesde: '', motivoFase: 'contrato assinado' }];
+      expect((await put(url, criado.id, lista)).status).toBe(200);
+      const depois = await buscar(url, criado.id);
+      expect(depois.produtos.map((p) => p.produto)).toEqual(['Plataforma 2D', 'Controladoria']);
+      const novo = depois.produtos.find((p) => p.produto === 'Controladoria')!;
+      expect(novo).toMatchObject({ fase: 'Em breve', motivoFase: 'contrato assinado' });
+      expect(novo.faseDesde).toBeTruthy();
+      // Em breve não entra na cadência.
+      expect(depois.servicos).toEqual(['Plataforma 2D']);
+    } finally {
+      fechar();
+    }
+  });
+
+  describe('produtoAlterado (é o que a ficha envia)', () => {
+    const alterar = (url: string, id: string, produtoAlterado: unknown) => fetch(`${url}/${id}`, { method: 'PUT', ...jsonBody({ produtoAlterado }) });
+    const criarCom = async (url: string, corpo: unknown) => (await fetch(url, { method: 'POST', ...jsonBody(corpo) })).json();
+    const price = { produto: '2D Price', fase: 'Ativo', faseDesde: '', motivoFase: 'x', login: 'cnpj' };
+
+    it('senha nova é cifrada, não volta na resposta e não se perde ao editar outro campo', async () => {
+      const { url, fechar } = await subirAppDeTeste();
+      try {
+        const { id } = await criarCom(url, { empresa: 'PA 1', produtos: [price] });
+        const res = await alterar(url, id, { produto: '2D Price', senha: 'segredo' });
+        const texto = await res.text();
+        expect(texto).not.toContain('segredo');
+        expect(texto).not.toContain('senhaCifrada');
+        expect(JSON.parse(texto).temSenhaPrice).toBe(true);
+        await alterar(url, id, { produto: '2D Price', independente: true });
+        expect(await (await revelarPrice(url, id)).json()).toEqual({ loginPrice: 'cnpj', senhaPrice: 'segredo' });
+      } finally {
+        fechar();
+      }
+    });
+
+    it('senha cifrada vinda do corpo é descartada', async () => {
+      const { url, fechar } = await subirAppDeTeste();
+      try {
+        const { id } = await criarCom(url, { empresa: 'PA 2', produtos: [{ ...price, senha: 'boa' }] });
+        await alterar(url, id, { produto: '2D Price', senhaCifrada: 'forjada' });
+        expect((await (await revelarPrice(url, id)).json()).senhaPrice).toBe('boa');
+      } finally {
+        fechar();
+      }
+    });
+
+    it('"Remover login e senha" zera a credencial do Price', async () => {
+      const { url, fechar } = await subirAppDeTeste();
+      try {
+        const { id } = await criarCom(url, { empresa: 'PA 3', produtos: [{ ...price, senha: 'boa' }] });
+        const r = await (await alterar(url, id, { produto: '2D Price', login: '', senha: null })).json();
+        expect(r.temSenhaPrice).toBe(false);
+        expect(r.loginPrice).toBe('');
+        expect((await revelarPrice(url, id)).status).toBe(404);
+      } finally {
+        fechar();
+      }
+    });
+
+    it('fase que já mudou em outra máquina responde 409 com mensagem', async () => {
+      const { url, fechar } = await subirAppDeTeste();
+      try {
+        const { id } = await criarCom(url, { empresa: 'PA 4', produtos: [{ ...price, fase: 'Cancelado' }] });
+        const res = await alterar(url, id, { produto: '2D Price', fase: 'Suspenso', motivoFase: 'pausa', faseAnterior: 'Ativo' });
+        expect(res.status).toBe(409);
+        expect((await res.json()).error).toContain('2D Price já está Cancelado');
+      } finally {
+        fechar();
+      }
+    });
+  });
+
+  it('definir senha do 2D Price pela ficha liga temSenhaPrice (login animado) e a rota antiga devolve login/senha', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const criado = await (await fetch(url, { method: 'POST', ...jsonBody({
+        empresa: 'Price UI', produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '', motivoFase: 'x', login: 'cnpjLogin' }],
+      }) })).json();
+      expect(criado.temSenhaPrice).toBe(false);
+      const tela = await buscar(url, criado.id);
+      const lista = tela.produtos.map((p) => ({ ...p, senha: 'novaSenha' }));
+      const resp = await (await put(url, criado.id, lista)).json();
+      expect(resp.temSenhaPrice).toBe(true);
+      expect(await (await revelarPrice(url, criado.id)).json()).toEqual({ loginPrice: 'cnpjLogin', senhaPrice: 'novaSenha' });
+    } finally {
+      fechar();
+    }
+  });
+});

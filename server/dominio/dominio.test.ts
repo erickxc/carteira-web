@@ -315,4 +315,139 @@ describe('dominio/clientes: gravações do bloco Produtos da ficha', () => {
     expect(() => clientesDominio.atualizar(repo, 'c1', { produtos: [{ ...novoPrice, motivoFase: '  ' }] }, SEM_EFEITOS))
       .toThrow('Informe o motivo da mudança de fase.');
   });
+
+  type Item = { produto: string; fase: string; motivoFase: string; faseDesde: string; link?: string; login?: string; independente?: boolean; senhaCifrada?: string };
+  const repoCom = (produtos: unknown[], extra: Record<string, unknown> = {}) =>
+    repoMemoria({ Clientes: [{ id: 'c1', empresa: 'T', createdAt: D, produtos, ...extra }] });
+  const alterar = (repo: ReturnType<typeof repoMemoria>, produtoAlterado: Record<string, unknown>) =>
+    clientesDominio.atualizar(repo, 'c1', { produtoAlterado }, SEM_EFEITOS);
+  const item = (repo: ReturnType<typeof repoMemoria>, nome: string): Item =>
+    repo.get('Clientes')[0].produtos.find((p: Item) => p.produto === nome);
+
+  describe('produtoAlterado: só o item alterado, com merge sobre a linha atual', () => {
+    it('dois envios seguidos (sair do link e clicar em Independente) mantêm os dois campos', () => {
+      const repo = repoCom([prod('Apura')]);
+      alterar(repo, { produto: 'Apura', link: 'http://novo' });
+      alterar(repo, { produto: 'Apura', independente: true });
+      expect(item(repo, 'Apura')).toMatchObject({ link: 'http://novo', independente: true, fase: 'Ativo', faseDesde: D });
+      expect('produtoAlterado' in repo.get('Clientes')[0]).toBe(false);
+    });
+
+    it('editar um produto não desfaz fase de outro, trocada por outra máquina', () => {
+      const repo = repoCom([prod('Apura'), prod('2D Price', 'Cancelado', { motivoFase: 'cliente saiu' })]);
+      const salvo = alterar(repo, { produto: 'Apura', login: 'novo' });
+      expect(item(repo, '2D Price')).toMatchObject({ fase: 'Cancelado', motivoFase: 'cliente saiu' });
+      expect(salvo.servicos).toEqual(['Apura']);
+    });
+
+    it('produto acrescentado por outra máquina não atrapalha a edição (a lista velha daria 400)', () => {
+      const repo = repoCom([prod('Apura'), prod('Raptor')]);
+      expect(alterar(repo, { produto: 'Apura', link: 'L' })?.produtos).toHaveLength(2);
+    });
+
+    it('trocar fase grava motivo e data nova; a fase de partida confere', () => {
+      const repo = repoCom([prod('Apura')]);
+      alterar(repo, { produto: 'Apura', fase: 'Suspenso', motivoFase: 'pausa', faseAnterior: 'Ativo' });
+      expect(item(repo, 'Apura')).toMatchObject({ fase: 'Suspenso', motivoFase: 'pausa' });
+      expect(item(repo, 'Apura').faseDesde).not.toBe(D);
+      expect('faseAnterior' in item(repo, 'Apura')).toBe(false);
+    });
+
+    it('fase de partida diferente da atual → 409 e nada muda', () => {
+      const repo = repoCom([prod('Apura', 'Cancelado', { motivoFase: 'cliente saiu' })]);
+      expect(() => alterar(repo, { produto: 'Apura', fase: 'Suspenso', motivoFase: 'pausa', faseAnterior: 'Ativo' }))
+        .toThrow(expect.objectContaining({ status: 409 }));
+      expect(item(repo, 'Apura').fase).toBe('Cancelado');
+    });
+
+    it('adicionar produto que outra máquina já adicionou → 409', () => {
+      const repo = repoCom([prod('Apura')]);
+      expect(() => alterar(repo, { produto: 'Apura', fase: 'Em breve', motivoFase: 'x', faseAnterior: null }))
+        .toThrow(expect.objectContaining({ status: 409 }));
+    });
+
+    it('trocar fase sem motivo novo continua 400; produto novo entra com data de hoje', () => {
+      const repo = repoCom([prod('Apura')]);
+      expect(() => alterar(repo, { produto: 'Apura', fase: 'Suspenso', faseAnterior: 'Ativo' })).toThrow('Informe o motivo da mudança de fase.');
+      alterar(repo, { produto: 'Raptor', fase: 'Em breve', motivoFase: 'contrato', faseAnterior: null });
+      expect(item(repo, 'Raptor').faseDesde).toBeTruthy();
+    });
+
+    it('cliente ainda não migrado: materializa a lista sem pedir motivo e mantém a senha do Price', () => {
+      const repo = repoMemoria({ Clientes: [{ id: 'c1', empresa: 'T', createdAt: D, servicos: ['Precificação'], loginPrice: 'L', senhaPriceCifrada: 'S' }] });
+      alterar(repo, { produto: '2D Price', link: 'http://x' });
+      expect(item(repo, '2D Price')).toMatchObject({ link: 'http://x', login: 'L', senhaCifrada: 'S', faseDesde: D });
+    });
+  });
+
+  describe('link de produto fora da lista', () => {
+    const LINKS = { Monitoria: 'http://bi', 'Protocolo GPS': 'http://gps', Apura: 'http://apura' };
+
+    it('editar o cadastro não apaga o link órfão; o de produto da lista segue o item', () => {
+      const repo = repoCom([prod('Apura', 'Ativo', { link: 'http://apura' })], { linksServicos: LINKS });
+      const salvo = alterar(repo, { produto: 'Apura', link: '' });
+      expect(salvo.linksServicos).toEqual({ 'Plataforma 2D': 'http://bi', 'Protocolo GPS': 'http://gps' });
+    });
+
+    it('cliente não migrado: a 1ª gravação mantém o órfão', () => {
+      const repo = repoMemoria({ Clientes: [{ id: 'c1', empresa: 'T', createdAt: D, servicos: ['Apura'], linksServicos: LINKS }] });
+      const salvo = alterar(repo, { produto: 'Apura', independente: true });
+      expect(salvo.linksServicos).toEqual({ 'Plataforma 2D': 'http://bi', 'Protocolo GPS': 'http://gps', Apura: 'http://apura' });
+    });
+
+    it('adicionar o produto leva o link órfão para o item', () => {
+      const repo = repoCom([prod('Apura')], { linksServicos: { 'Protocolo GPS': 'http://gps' } });
+      alterar(repo, { produto: 'Protocolo GPS', fase: 'Ativo', motivoFase: 'contratou', faseAnterior: null });
+      expect(item(repo, 'Protocolo GPS').link).toBe('http://gps');
+      expect(repo.get('Clientes')[0].linksServicos).toEqual({ 'Protocolo GPS': 'http://gps' });
+    });
+
+    it('patch da 1.6 pode trocar e tirar link órfão', () => {
+      const repo = repoCom([prod('Apura')], { linksServicos: { 'Protocolo GPS': 'http://gps' } });
+      const salvo = clientesDominio.atualizar(repo, 'c1', { linksServicos: { 'Protocolo GPS': 'http://novo' } }, SEM_EFEITOS);
+      expect(salvo.linksServicos).toEqual({ 'Protocolo GPS': 'http://novo' });
+      const limpo = clientesDominio.atualizar(repo, 'c1', { linksServicos: {} }, SEM_EFEITOS);
+      expect(limpo.linksServicos).toEqual({});
+    });
+  });
+
+  describe('antes da migração (categoria com o nome antigo)', () => {
+    const categorias = (...valores: string[]) => valores.map((valor, i) => ({ id: `k${i}`, tipo: 'servico', valor }));
+    const comCategorias = (cats: unknown[], extra: Record<string, unknown> = {}) => repoMemoria({
+      Categorias: cats as Record<string, unknown>[],
+      Clientes: [{ id: 'c1', empresa: 'T', createdAt: D, servicos: ['Monitoria', 'Precificação'], servicosIndependentes: ['Monitoria'], linksServicos: { Monitoria: 'http://bi' }, ...extra }],
+    });
+
+    it('editar a ficha não renomeia servicos: a 1.6 continua achando a Monitoria', () => {
+      const repo = comCategorias(categorias('Monitoria', 'Precificação', 'Apura'));
+      const salvo = alterar(repo, { produto: '2D Price', login: 'L' });
+      expect(salvo.servicos).toEqual(['Monitoria', 'Precificação']);
+      expect(salvo.servicosIndependentes).toEqual(['Monitoria']);
+      expect(salvo.linksServicos).toEqual({ Monitoria: 'http://bi' });
+      expect(salvo.monitoria).toBe(true);
+      expect(salvo.price).toBe(true);
+      // `produtos` guarda sempre o nome oficial.
+      expect(salvo.produtos.map((p: Item) => p.produto)).toEqual(['Plataforma 2D', '2D Price']);
+    });
+
+    it('patch seguinte de uma máquina 1.6 com o nome antigo não cancela nada', () => {
+      const repo = comCategorias(categorias('Monitoria', 'Precificação'));
+      alterar(repo, { produto: '2D Price', login: 'L' });
+      const salvo = clientesDominio.atualizar(repo, 'c1', { servicos: ['Monitoria', 'Precificação'] }, SEM_EFEITOS);
+      expect(salvo.produtos.map((p: Item) => p.fase)).toEqual(['Ativo', 'Ativo']);
+    });
+
+    it('depois de renomear a categoria, os derivados saem com o nome novo', () => {
+      const repo = comCategorias(categorias('Plataforma 2D', '2D Price'));
+      const salvo = alterar(repo, { produto: '2D Price', login: 'L' });
+      expect(salvo.servicos).toEqual(['Plataforma 2D', '2D Price']);
+      expect(salvo.linksServicos).toEqual({ 'Plataforma 2D': 'http://bi' });
+    });
+
+    it('cliente criado com produtos também sai com o nome vigente', () => {
+      const repo = repoMemoria({ Categorias: categorias('Monitoria') as Record<string, unknown>[], Clientes: [] });
+      const novo = clientesDominio.criar(repo, { empresa: 'T', produtos: [prod('Plataforma 2D')] }, SEM_EFEITOS);
+      expect(novo.servicos).toEqual(['Monitoria']);
+    });
+  });
 });
