@@ -18,7 +18,7 @@ Por **CNPJ de loja** (`Cliente.lojasCadastro[].cnpj`):
 
 ## Onde fica
 
-Nada vai para a tabela `Clientes`. O servidor grava um retrato `DATA_DIR/dw-lojas.json`:
+Nada vai para a tabela `Clientes`. Os dados entram no **mesmo retrato por CNPJ que a 1.7 já grava**, `DATA_DIR/dw-produtos.json` (`server/dw/retratoProdutos.cjs`) — um arquivo e uma rotina só (decisão do usuário: não criar um segundo JSON). Cada `porCnpj[cnpj]` ganha os campos abaixo ao lado dos produtos:
 
 ```json
 { "geradoEm": "...", "porCnpj": { "12345678000190": {
@@ -31,7 +31,7 @@ Nada vai para a tabela `Clientes`. O servidor grava um retrato `DATA_DIR/dw-loja
 - Parte DW: gerada no boot e no cron diário da máquina servidora (mesmo gatilho do retrato de produtos), só com `DW_PLATAFORMA_CONFIGURADO`.
 - Parte Receita: semanal (domingo), só para CNPJs das `lojasCadastro`; 700 ms entre consultas; falha de um CNPJ mantém o valor anterior. Gravação atômica (tmp + rename), como o retrato de produtos.
 - Por que arquivo e não `Clientes`: o DW/Receita continuam sendo a fonte, e máquina em versão antiga não apaga o dado ao salvar cliente (o `normalizarLojas` da 1.6 descarta campos extras das lojas).
-- Leitura: `GET /api/dw-lojas` (lê o arquivo; vale em servidor e cliente). Front junta por CNPJ.
+- Leitura: a mesma rota do retrato de produtos da 1.7 (lê o arquivo; vale em servidor e cliente). Front junta por CNPJ.
 
 ## Onde aparece
 
@@ -42,7 +42,7 @@ Nada vai para a tabela `Clientes`. O servidor grava um retrato `DATA_DIR/dw-loja
 
 ## Testes
 
-- `montarRetratoLojas(linhasDw, receitaAnterior, receitaNova, geradoEm)` puro: junta por CNPJ, grupo fiscal pela raiz, Apura pelo máximo, mantém Receita anterior quando a nova falhou.
+- `montarRetrato` (da 1.7) estendido, puro: junta por CNPJ, grupo fiscal pela raiz, Apura pelo máximo, mantém Receita anterior quando a nova falhou.
 - Consulta SQL: teste que a string das consultas não contém `senha` nem `certificado_nome`.
 - `vencimentoCert(data, hoje)` → `{ texto, nivel: 'vencido' | 'perto' | 'ok' | 'sem' }` com bordas (hoje, 60 e 61 dias).
 - Alerta: loja vencida, loja a 30 e a 31 dias, cliente sem dado.

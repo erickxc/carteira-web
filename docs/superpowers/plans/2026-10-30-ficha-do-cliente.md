@@ -160,14 +160,14 @@ Página nova, de cima para baixo: botão Voltar → `CabecalhoFicha` → `Painel
 
 **Files:**
 - Modify: `server/dw/dwPlataforma.cjs` — `buscarDadosFiscaisLojas(): Promise<{ empresas, grupos, apura }>` (3 consultas com colunas explícitas da spec)
-- Create: `server/dw/retratoLojas.cjs` — `montarRetratoLojas(dw, receitaAnterior, receitaNova, geradoEm)` (puro), `gerarRetratoLojas({ consultarReceita })`, `lerRetratoLojas()`; `ARQUIVO = DATA_DIR/dw-lojas.json`, gravação tmp+rename (copiar o padrão de `retratoProdutos.cjs`)
+- Modify: `server/dw/retratoProdutos.cjs` — `montarRetrato` passa a receber também os dados fiscais e a Receita (anterior/nova) e grava os campos da spec dentro de cada `porCnpj[cnpj]`, no MESMO `dw-produtos.json` (não criar arquivo novo); `gerarRetrato({ consultarReceita })` faz a parte da Receita só quando pedido
 - Create: `server/dw/receitaCnpj.cjs` — `consultarSituacao(cnpj): Promise<{ situacao, desde } | null>` (BrasilAPI com `User-Agent: Mozilla/5.0 Carteira2D`; 429 → espera 5 s e tenta até 5x; erro → null)
-- Modify: `server.cjs` (boot + cron diário junto do retrato de produtos; parte Receita só aos domingos, no bloco `isServer`), rota `GET /api/dw-lojas` (lê arquivo; `{ geradoEm: null, porCnpj: {} }` se não existir), `src/api/client.ts` (`buscarDwLojas()`), `src/types/index.ts` (`RetratoLojas`)
-- Test: `server/dw/retratoLojas.test.ts`
+- Modify: `server.cjs` (o cron diário do retrato já existe; passar `consultarReceita` só aos domingos), tipo do retrato em `src/types/index.ts`/`src/utils/produtosNoDw.ts` com os campos novos (a rota e o `buscar...` do front já vêm da 1.7)
+- Test: `server/dw/retratoProdutos.test.ts`
 
 - [ ] **Step 1: Testes** — junta empresas por CNPJ só dígitos; grupo fiscal pela raiz de 8 dígitos (raiz inativa ignorada); Apura = maior `ultimo_login_em` e contagem de ativos; Receita nova `null` mantém a anterior; texto das consultas de `dwPlataforma.cjs` não contém `senha` nem `certificado_nome`. Isolar `ONEDRIVE_ROOT`/`SQLITE_DIR` e `require` fresco (regra do CLAUDE.md); nunca subir `server.cjs`.
 - [ ] **Step 2:** rodar → FAIL; implementar; rodar → PASS.
-- [ ] **Step 3:** `git commit -m "feat(dw): retrato fiscal das lojas (certificado, contato, grupo fiscal, Apura, situação CNPJ)"`
+- [ ] **Step 3:** `git commit -m "feat(dw): dados fiscais das lojas no retrato do DW (certificado, contato, grupo fiscal, Apura, situação CNPJ)"`
 
 ### Task 8: Coluna "Vencimento Cert." e aba Lojas
 
@@ -182,7 +182,7 @@ Página nova, de cima para baixo: botão Voltar → `CabecalhoFicha` → `Painel
 ### Task 9: monitorIA — dados fiscais e alerta de certificado
 
 **Files:**
-- Modify: `server/ia/tools.cjs` (lojas da identidade do cliente ganham `situacaoCnpj`, `certificadoValidade`, `grupoFiscal`, `apuraUltimoAcesso` lidos de `lerRetratoLojas()`; descrição de `buscar_clientes` cita os campos), `server/ia/alertas.cjs` (tipo `certificado` — vencido ou ≤ 30 dias, um cartão por cliente listando as lojas, `pergunta` pronta), `src/pages/AssistenteIAPage.tsx` (ou onde os alertas são listados: esconder tipo `certificado` fora de `fiscal`/`admin`)
+- Modify: `server/ia/tools.cjs` (lojas da identidade do cliente ganham `situacaoCnpj`, `certificadoValidade`, `grupoFiscal`, `apuraUltimoAcesso` lidos de `lerRetrato()`; descrição de `buscar_clientes` cita os campos), `server/ia/alertas.cjs` (tipo `certificado` — vencido ou ≤ 30 dias, um cartão por cliente listando as lojas, `pergunta` pronta), `src/pages/AssistenteIAPage.tsx` (ou onde os alertas são listados: esconder tipo `certificado` fora de `fiscal`/`admin`)
 - Test: `server/ia/alertas.test.ts` (ou o arquivo de teste de alertas existente)
 
 - [ ] **Step 1: Testes** — loja vencida gera cartão; 30 dias gera; 31 não gera; cliente sem retrato não gera; duas lojas vencidas do mesmo cliente = um cartão. `toolsSchema.test.ts` verde.
@@ -191,6 +191,6 @@ Página nova, de cima para baixo: botão Voltar → `CabecalhoFicha` → `Painel
 
 ### Task 10: Verificação e docs
 
-- [ ] **Step 1:** Rodar `gerarRetratoLojas` contra o DW real **numa pasta temporária** (sobrescrever `ONEDRIVE_ROOT`), conferir contagens (113 empresas; 13 certificados vencidos em 30/10/2026) e que nenhuma senha está no JSON (`grep -i senha` vazio).
+- [ ] **Step 1:** Rodar `gerarRetrato` contra o DW real **numa pasta temporária** (sobrescrever `ONEDRIVE_ROOT`), conferir contagens (113 empresas; 13 certificados vencidos em 30/10/2026) e que nenhuma senha está no JSON (`grep -i senha` vazio).
 - [ ] **Step 2:** Prints (claro/escuro/celular) da Carteira com a coluna (sessão `fiscal` e `negocios`), da aba Lojas e do alerta; mostrar ao usuário.
-- [ ] **Step 3:** `CLAUDE.md` (seção nova curta: retrato `dw-lojas.json`, fontes, o que nunca é lido) e `NOVIDADES.md`; `npm run build` e `npm test` verdes; commit `docs: dados fiscais das lojas`.
+- [ ] **Step 3:** `CLAUDE.md` (seção nova curta: retrato `dw-produtos.json` com os dados fiscais, fontes, o que nunca é lido) e `NOVIDADES.md`; `npm run build` e `npm test` verdes; commit `docs: dados fiscais das lojas`.
