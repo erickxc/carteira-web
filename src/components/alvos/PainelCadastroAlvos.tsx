@@ -49,18 +49,25 @@ export default function PainelCadastroAlvos({ aberto, onFechar, onPendencias }: 
 
   const carregar = useCallback(() => Promise.all([
     buscarCadastroAlvos().then((r) => { setResumo(r.resumo); setLinhas(r.linhas); }).catch(() => { setResumo(null); setLinhas([]); }),
-    buscarAlertasAlvos().then(setAlertasBrutos).catch(() => setAlertasBrutos([])),
     buscarEmpresasAlvos().then(setEmpresas).catch(() => setEmpresas([])),
   ]), []);
 
   useEffect(() => { carregar(); }, [carregar]);
+
+  // Os alertas só quando o painel abre: o cálculo trava o servidor (13 s medidos em
+  // produção, 30/10/2026), e fazê-lo a cada entrada na Carteira parava todos os usuários.
+  const carregarAlertas = useCallback(
+    () => buscarAlertasAlvos().then(setAlertasBrutos).catch(() => setAlertasBrutos([])),
+    [],
+  );
+  useEffect(() => { if (aberto) carregarAlertas(); }, [aberto, carregarAlertas]);
 
   const pendencias = (resumo?.sem_vinculo ?? 0) + (resumo?.vinculo_quebrado ?? 0);
   useEffect(() => { onPendencias(pendencias + alertas.length); }, [onPendencias, pendencias, alertas.length]);
 
   function recarregar() {
     setRecarregando(true);
-    carregar().finally(() => setRecarregando(false));
+    Promise.all([carregar(), carregarAlertas()]).finally(() => setRecarregando(false));
   }
 
   function conversarSobre(a: AlertaAlvos) {

@@ -10,11 +10,11 @@ teste, ajuste interno), não entra aqui.
 
 ## 1.7.0
 
-- A ficha do cliente ganhou o bloco **Produtos**: cada produto tem fase (Em breve, Suspenso, Ativo, Cancelado), desde quando, link, login e senha, e mostra se está marcado no DW agora.
-- **Monitoria** agora se chama **Plataforma 2D** e **Precificação** virou **2D Price** nas telas. Os prazos continuam os mesmos, e só produto Ativo entra na cadência.
-- Mudar a fase de um produto pede o **motivo**. Meses passados da Visão Geral usam os produtos daquela época.
-- Produto que o cliente contrata depois não nasce mais atrasado: o prazo conta a partir de quando ele ficou Ativo.
-- O monitorIA enxerga os produtos de cada cliente e muda a fase depois que você confirmar.
+- **Lista da Carteira nova:** uma linha por cliente, os mais atrasados primeiro e os prazos direto na linha. E abre bem mais rápido.
+- **Ficha do cliente nova:** prazos, reuniões, análise e contatos logo no topo, e o cadastro editado de uma vez só.
+- **Produtos:** cada cliente tem seus produtos com fase (Em breve, Suspenso, Ativo, Cancelado), motivo, link e login. Monitoria agora é **Plataforma 2D** e Precificação é **2D Price**.
+- **Login por equipe:** Negócios, Fiscal e Gestão, com o nome da equipe no topo.
+- **Fiscal:** vencimento do certificado na lista, situação do CNPJ, grupo fiscal e último acesso ao Apura, com alerta de certificado vencendo.
 
 ## 1.6.20
 
