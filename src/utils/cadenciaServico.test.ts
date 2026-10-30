@@ -6,9 +6,13 @@ import {
   contatoRecenteNaoRefletido,
   rotuloRelogio,
   servicosQueDependemDeReuniao,
+  ehSolicitacao,
+  ehToqueMonitoria,
+  ehToquePrice,
   type FilaCadItem,
   type RelogioServico,
 } from './cadenciaServico';
+import { buildUltimaInteracaoMap } from './ultimaInteracao';
 import type { Acao, Cadencias, Cliente, EventoAgenda } from '../types';
 
 const CADENCIAS: Cadencias = {
@@ -440,5 +444,21 @@ describe('servicosQueDependemDeReuniao', () => {
     expect(servicosQueDependemDeReuniao({ id: 'c', servicos: ['Monitoria', 'Precificação', 'Controladoria'], servicosIndependentes: ['Monitoria', 'Precificação'] })).toEqual([]);
     expect(servicosQueDependemDeReuniao({ id: 'c', servicos: ['Controladoria', 'OptiMarco'] })).toEqual([]);
     expect(servicosQueDependemDeReuniao({ id: 'c', servicos: '["Precificação","Raptor"]' })).toEqual(['Precificação']);
+  });
+});
+
+describe('Solicitação fica fora das contas', () => {
+  const sol = { id: 's', clientId: 'a', clientName: 'a', type: 'Solicitação', status: 'Solicitado', date: '2026-10-28T03:00:00.000Z', servicos: ['Monitoria', 'Precificação'] } as unknown as EventoAgenda;
+  it('reconhece o tipo', () => {
+    expect(ehSolicitacao(sol)).toBe(true);
+    expect(ehSolicitacao({ ...sol, type: 'Reunião' })).toBe(false);
+  });
+  it('não cobre prazo mesmo com serviço marcado', () => {
+    expect(ehToqueMonitoria(sol)).toBe(false);
+    expect(ehToquePrice(sol)).toBe(false);
+  });
+  it('não vira última interação nem marcada como concluída por engano', () => {
+    const m = buildUltimaInteracaoMap([{ ...sol, status: 'Concluído' }], [], { now: new Date('2026-10-30T12:00:00.000Z') });
+    expect(m.has('a')).toBe(false);
   });
 });

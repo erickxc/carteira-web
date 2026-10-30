@@ -135,7 +135,7 @@ function buildUltimaInteracaoMap(agenda, acoes, opts = {}) {
     const cur = m.get(cid);
     if (!cur || d > cur) m.set(cid, d);
   };
-  agenda.filter((a) => ehConcluido(a) && !ignorar(a)).forEach((a) => push(a.clientId, parseISO(a.date)));
+  agenda.filter((a) => ehConcluido(a) && !ehSolicitacao(a) && !ignorar(a)).forEach((a) => push(a.clientId, parseISO(a.date)));
   acoes.filter((a) => a.status === 'concluido').forEach((a) => push(a.clientId, parseISO(a.dueAt || a.updatedAt || a.createdAt)));
   return m;
 }
@@ -167,6 +167,15 @@ function servicosQueDependemDeReuniao(c) {
   return listaJSON(c.servicos).filter((s) => /monitor|price|prec/i.test(s) && !independentes.includes(s));
 }
 
+/**
+ * Solicitação: pedido de reunião ainda não aprovado (vem do Hub). Fica fora de
+ * toda conta — não é entrega, reunião, contato, prazo nem compromisso marcado —
+ * até o monitor aprovar, quando vira Reunião.
+ */
+function ehSolicitacao(a) {
+  return /solicita/i.test(a.type || '');
+}
+
 const naoCancelado = (a) => !/cancel|reagend/i.test(a.status || '');
 
 /**
@@ -175,7 +184,7 @@ const naoCancelado = (a) => !/cancel|reagend/i.test(a.status || '');
  * do usuário (14/10/2026): o problema eram as reuniões Pendentes contando como
  * marcadas; relatório agendado conta.
  */
-const ehMarcadoConfirmado = (a) => naoCancelado(a) && !/pendente/i.test(a.status || '');
+const ehMarcadoConfirmado = (a) => naoCancelado(a) && !ehSolicitacao(a) && !/pendente/i.test(a.status || '');
 /** Evento que de fato aconteceu. "Agendado"/"Pendente" no passado não conta. */
 const ehConcluido = (a) => /conclu|realiz/i.test(a.status || '');
 
@@ -577,6 +586,7 @@ exports.buildUltimaInteracaoMap = buildUltimaInteracaoMap;
 exports.ehAvisoDeCancelamento = ehAvisoDeCancelamento;
 exports.temServico = temServico;
 exports.ehIndependente = ehIndependente;
+exports.ehSolicitacao = ehSolicitacao;
 exports.servicosQueDependemDeReuniao = servicosQueDependemDeReuniao;
 exports.naoCancelado = naoCancelado;
 exports.ehMarcadoConfirmado = ehMarcadoConfirmado;

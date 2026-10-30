@@ -137,6 +137,13 @@ const { marcarSemQuebrar: marcarAvisosDeCancelamento } = require('./server/domin
 if (isServer) {
   sincronizarStatusHistorico(repoStatusHistorico(), 'boot');
   marcarAvisosDeCancelamento(repoStatusHistorico());
+  // Pedidos do Hub gravados como Contato viram o tipo Solicitação (e a categoria passa a existir).
+  try {
+    const n = require('./server/dominio/agenda.cjs').prepararSolicitacoes(repoStatusHistorico());
+    if (n > 0) console.log(`Solicitações convertidas: ${n}`);
+  } catch (err) {
+    console.warn('Falha ao preparar solicitações:', err.message);
+  }
   cron.schedule('0 4 * * *', () => sincronizarStatusHistorico(repoStatusHistorico(), 'cron diário'));
   rodarBackup('boot');
   cron.schedule('0 5 * * *', () => rodarBackup('cron diário'));

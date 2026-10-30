@@ -65,6 +65,8 @@ export const itensVencendo = motor.itensVencendo as (
 ) => { cliente: Cliente; relogio: RelogioServico; diasParaVencer: number }[];
 
 export const relogioNoPrazo = motor.relogioNoPrazo;
+export const ehSolicitacao = motor.ehSolicitacao;
+export const ehToqueMonitoria = motor.ehToqueMonitoria as (a: EventoAgenda) => boolean;
 export const servicosQueDependemDeReuniao = motor.servicosQueDependemDeReuniao;
 export const atendimentoEmDia = motor.atendimentoEmDia as (f: { relogios: RelogioServico[] }) => boolean;
 export const ehEntrega = motor.ehEntrega as (a: EventoAgenda) => boolean;

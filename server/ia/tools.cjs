@@ -16,7 +16,7 @@ const {
 /** Agenda vista por atendimento: inclui a precificação do grupo salva numa
  *  loja-irmã (cópia com `doGrupo`; o `id` real é `doGrupo.origemId`). */
 const agendaPorAtendimento = (repo) => comPrecificacaoDoGrupo(repo.get('Agenda'), repo.get('Clientes'));
-const { servicoPadraoDoEvento, categoriaCancelamento, servicosQueDependemDeReuniao } = require('../../shared/cadenciaServico.cjs');
+const { servicoPadraoDoEvento, categoriaCancelamento, servicosQueDependemDeReuniao, ehSolicitacao } = require('../../shared/cadenciaServico.cjs');
 const { sugerirAgenda } = require('../dominio/sugestaoAgenda.cjs');
 const { getCache: getCacheCeoAgenda } = require('../ceoAgenda.cjs');
 const { CADENCIAS_SEED, UPLOADS_DIR } = require('../config.cjs');
@@ -1466,18 +1466,23 @@ function buscarProximasReunioes(repo, { dias } = {}, ctx = {}) {
   const hoje = new Date().toISOString().slice(0, 10);
   const limite = new Date(Date.now() + janela * 86400e3).toISOString().slice(0, 10);
 
-  const eventos = repo.get('Agenda')
+  const naJanela = repo.get('Agenda')
     .filter((a) => idsDoEscopo.has(String(a.clientId)))
     .filter((a) => !/conclu|realiz|cancel|reagend/i.test(a.status || ''))
     .filter((a) => { const d = String(a.date || '').slice(0, 10); return d >= hoje && d <= limite; })
-    .sort((a, b) => `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`))
+    .sort((a, b) => `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`));
+  // Solicitação é pedido não aprovado, não reunião: vem à parte, para o agente não afirmar que está marcada.
+  const solicitacoes = naJanela.filter(ehSolicitacao).map((a) => ({
+    clientId: a.clientId, empresa: a.clientName, date: dataCivilEvento(a.date), time: a.time || null, subject: a.subject || '',
+  }));
+  const eventos = naJanela.filter((a) => !ehSolicitacao(a))
     .slice(0, 40)
     .map((a) => ({
       clientId: a.clientId, empresa: a.clientName, type: a.type, date: dataCivilEvento(a.date),
       time: a.time || null, subject: a.subject || '', status: a.status, monitores: listaJSON(a.monitores),
     }));
 
-  return { janelaDias: janela, total: eventos.length, eventos };
+  return { janelaDias: janela, total: eventos.length, eventos, solicitacoes };
 }
 
 /**

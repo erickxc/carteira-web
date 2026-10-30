@@ -9,7 +9,7 @@ import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { truthy } from '../utils/formatters';
 import { toastError, toastSuccess } from '../utils/toast';
-import { comPrecificacaoDoGrupo } from '../utils/cadenciaServico';
+import { comPrecificacaoDoGrupo, ehSolicitacao } from '../utils/cadenciaServico';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
 import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
@@ -230,7 +230,7 @@ export default function ClientesPage() {
     // Inclui a precificação do grupo salva numa loja-irmã.
     comPrecificacaoDoGrupo(agenda, clientes).forEach((a) => {
       const d = parseISO(a.date);
-      if (isNaN(d.getTime())) return;
+      if (isNaN(d.getTime()) || ehSolicitacao(a)) return;
       if (cancelado(a)) { marcarUltimo(a, d); return; }
       if (!concluido(a) && differenceInCalendarDays(d, hoje) >= 0) {
         const atual = proximoMap.get(a.clientId);

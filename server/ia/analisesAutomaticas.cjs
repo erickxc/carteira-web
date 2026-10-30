@@ -170,7 +170,7 @@ async function gerarAnalisesPendentes(opts = {}) {
       const desde = analiseAnterior?.ultimoEventoAnalisadoData ? new Date(analiseAnterior.ultimoEventoAnalisadoData) : null;
 
       const eventosRelevantes = agenda
-        .filter((a) => String(a.clientId) === String(cliente.id))
+        .filter((a) => String(a.clientId) === String(cliente.id) && !/solicita/i.test(a.type || ''))
         .filter((a) => EVENTO_RELEVANTE.test(a.status || ''))
         .sort((a, b) => new Date(a.date) - new Date(b.date));
 
