@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { FERRAMENTAS } from './tools.cjs';
 
 /**
@@ -173,5 +174,21 @@ describe('schema das ferramentas x implementação', () => {
       }
       expect(falhou, `${f.name} não reclamou de clientId ausente`).toBe(true);
     }
+  });
+});
+
+describe('skill monitor-ia x FERRAMENTAS', () => {
+  const skill = readFileSync(new URL('../../.claude/skills/monitor-ia/SKILL.md', import.meta.url), 'utf8');
+
+  it('cita o total e as de escrita reais (a skill é consultada pra responder "quantas ferramentas existem")', () => {
+    const escrita = FERRAMENTAS.filter((f) => f.escreve).length;
+    expect(skill).toContain(`as ${FERRAMENTAS.length} ferramentas (${escrita} de escrita)`);
+    expect(skill).toContain(`${FERRAMENTAS.length} ferramentas (FERRAMENTAS), ${escrita} com \`escreve: true\``);
+    expect(skill).toContain(`## As ${FERRAMENTAS.length} ferramentas`);
+    expect(skill).toContain(`(${escrita} com \`escreve: true\`;`);
+  });
+
+  it('lista toda ferramenta pelo nome exato (a skill manda checar ali antes de propor ferramenta nova)', () => {
+    expect(nomes.filter((n) => !skill.includes(`\`${n}\``))).toEqual([]);
   });
 });
