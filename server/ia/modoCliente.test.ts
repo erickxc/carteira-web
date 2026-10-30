@@ -64,6 +64,7 @@ function operacoesNaFila(entity: string) {
 describe('APP_MODE=client: escrita de IA vai pra fila, nunca direto no SQLite', () => {
   let tmpOneDrive: string;
   let tmpSqlite: string;
+  const { ONEDRIVE_ROOT: raizDaSuite, SQLITE_DIR: sqliteDaSuite } = process.env;
 
   beforeEach(() => {
     // Isola as DUAS raízes: `ONEDRIVE_ROOT` porque a fila grava arquivos de
@@ -83,8 +84,9 @@ describe('APP_MODE=client: escrita de IA vai pra fila, nunca direto no SQLite', 
   afterEach(() => {
     try { require2('../dbSqlite.cjs')._fecharParaTestes(); } catch { /* já fechado */ }
     delete process.env.APP_MODE;
-    delete process.env.ONEDRIVE_ROOT;
-    delete process.env.SQLITE_DIR;
+    // Devolve a pasta da suíte: apagar faria o `recarregar` abaixo cair no OneDrive real.
+    process.env.ONEDRIVE_ROOT = raizDaSuite;
+    process.env.SQLITE_DIR = sqliteDaSuite;
     for (const dir of [tmpOneDrive, tmpSqlite]) {
       try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch { /* SO libera depois */ }
     }

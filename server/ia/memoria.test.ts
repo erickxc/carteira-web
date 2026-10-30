@@ -1,17 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { FERRAMENTAS } from './tools.cjs';
 import { repoMemoria } from '../dominio/repo.cjs';
 import { blocoMemoria, montarSystemPrompt } from './agente.cjs';
-
-// `buscar_clientes` lê o retrato do DW: isola para nunca abrir o arquivo real do OneDrive.
-await vi.hoisted(async () => {
-  const { mkdtempSync } = await import('node:fs');
-  const { tmpdir } = await import('node:os');
-  const { join } = await import('node:path');
-  const pasta = mkdtempSync(join(tmpdir(), 'carteira-memoria-'));
-  process.env.ONEDRIVE_ROOT = pasta;
-  process.env.SQLITE_DIR = pasta;
-});
 
 /**
  * Memória GERAL do agente — regras do processo que não pertencem a nenhum

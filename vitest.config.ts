@@ -6,6 +6,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
+    globalSetup: ['./vitest.pastaIsolada.mjs'],
     include: ['src/**/*.test.ts', 'server/**/*.test.ts', 'launcher/**/*.test.ts'],
   },
 });

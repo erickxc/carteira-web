@@ -2,8 +2,8 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 import { gerarAlertas } from './alertas.cjs';
 import { repoMemoria } from '../dominio/repo.cjs';
 
-// `gerarAlertas` lê o retrato do DW por padrão: sem isto, os casos abaixo que não
-// passam `retrato` leriam o arquivo real do OneDrive desta máquina.
+// Pasta própria: os casos abaixo gravam `dw-produtos.json`, e a pasta de
+// `vitest.pastaIsolada.mjs` é compartilhada com os testes que rodam em paralelo.
 const pastaIsolada = await vi.hoisted(async () => {
   const { mkdtempSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
