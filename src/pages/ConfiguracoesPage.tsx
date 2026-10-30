@@ -20,6 +20,7 @@ import UsoIACard from '../components/config/UsoIACard';
 import NotificacoesWindowsCard from '../components/config/NotificacoesWindowsCard';
 import ExtensaoAcessosCard from '../components/config/ExtensaoAcessosCard';
 import { CATEGORIA_TIPO_LABEL, SEGMENTO_LABEL, type Cadencias, type Categoria, type CategoriaTipo, type Modelo, type Segmento, type TipoLinkServico } from '../types';
+import { lerSessao } from '../equipe/sessao';
 
 const TIPOS: CategoriaTipo[] = ['servico', 'tipo_evento', 'status_cliente', 'status_evento', 'monitor', 'tipo_lembrete', 'sala', 'local_cliente', 'grupo_referencia'];
 
@@ -715,7 +716,10 @@ const SUBTITULO: Record<AbaConfig, string> = {
  * (versão, em `Sidebar.tsx`) manda quem clica.
  */
 export default function ConfiguracoesPage() {
-  const [aba, setAba] = useState<AbaConfig>('sistema');
+  // "Sistema" (atualizar, IA, autostart) só para o login de Gestão.
+  const ehAdmin = lerSessao() === 'admin';
+  const abas = ehAdmin ? ABAS : ABAS.filter((a) => a.chave !== 'sistema');
+  const [aba, setAba] = useState<AbaConfig>(abas[0].chave);
 
   return (
     <div className="page-container">
@@ -723,7 +727,7 @@ export default function ConfiguracoesPage() {
       <p className="page-subtitle">{SUBTITULO[aba]}</p>
 
       <Tabs style={{ margin: '1.25rem 0 2rem' }}>
-        {ABAS.map(({ chave, label }) => (
+        {abas.map(({ chave, label }) => (
           <button key={chave} className={`tab${aba === chave ? ' is-active' : ''}`} onClick={() => setAba(chave)}>
             {label}
           </button>

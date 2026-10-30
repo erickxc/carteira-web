@@ -594,7 +594,7 @@ const MODELOS_SEED = [
 const CATEGORIAS_SEED = [
   ['servico', ['Plataforma 2D', 'Controladoria', 'Apura', '2D Alcance', '2D Nexus', 'OptiMarco', '2D Price', 'Protocolo GPS', 'Raptor']],
   ['tipo_evento', ['Reunião', 'Contato', 'Relatório', 'Ligação', 'Precificação', 'Solicitação']],
-  ['status_cliente', ['Regular', 'Suspenso', 'Problemas Externos', 'Gratuidade', 'Atendido pelo Marco', 'Férias']],
+  ['status_cliente', ['Regular', 'Suspenso', 'Problemas Externos', 'Gratuidade', 'Férias']],
   ['status_evento', ['Agendado', 'Pendente', 'Concluído', 'Cancelado', 'Realizado', 'Reagendado']],
   ['monitor', ['Yann Cruz', 'Erick Cardoso', 'Karol Santana', 'Administrador']],
   ['tipo_lembrete', ['Contato', 'Reunião', 'Relatório', 'Alvo', 'Outro']],

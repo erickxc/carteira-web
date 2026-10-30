@@ -2241,3 +2241,18 @@ button.base-sync:hover { border-color: var(--border-strong); }
 
 /* Item da fila de Ações (wrapper animado do card): ocupa a célula inteira, como o card ocupava. */
 .fila-item { display: grid; min-width: 0; }
+
+/* Tela de login: mundo próprio, preto nos dois temas. As barras sobem uma vez ao abrir. */
+.login-tela ::selection { background: #dabb6c; color: #0b0b0d; }
+.login-tela input:-webkit-autofill,
+.login-tela input:-webkit-autofill:hover,
+.login-tela input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #fff;
+  caret-color: #dabb6c;
+  -webkit-box-shadow: 0 0 0 1000px #1a1a1c inset;
+  transition: background-color 9999s;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .login-barra { transform-origin: bottom; animation: login-barra-sobe 0.75s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+}
+@keyframes login-barra-sobe { from { transform: scaleY(0.04); } to { transform: scaleY(1); } }
