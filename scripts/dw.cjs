@@ -17,6 +17,9 @@ const path = require('path');
 const readline = require('readline');
 
 const ARQUIVO_ENV = path.join(__dirname, '..', '.env');
+// `--configurar` grava também nos .env passados por `--env <caminho>` (repetível) — o
+// servidor de produção lê o da instalação (ex.: C:\SistemaCarteira\.env), não o do projeto.
+const ENVS_EXTRAS = process.argv.flatMap((a, i) => (a === '--env' && process.argv[i + 1] ? [process.argv[i + 1]] : []));
 const CAMPOS = ['DW_PLATAFORMA_HOST', 'DW_PLATAFORMA_PORT', 'DW_PLATAFORMA_DATABASE', 'DW_PLATAFORMA_USER', 'DW_PLATAFORMA_PASSWORD'];
 const LIMITE_LINHAS = 500;
 
@@ -59,14 +62,16 @@ async function configurar() {
   }
   rl.close();
 
-  let linhas = [];
-  try { linhas = fs.readFileSync(ARQUIVO_ENV, 'utf8').split(/\r?\n/); } catch { /* cria */ }
-  for (const campo of CAMPOS) {
-    const i = linhas.findIndex((l) => l.startsWith(`${campo}=`));
-    if (i === -1) linhas.push(`${campo}=${novo[campo]}`); else linhas[i] = `${campo}=${novo[campo]}`;
+  for (const arquivo of [ARQUIVO_ENV, ...ENVS_EXTRAS]) {
+    let linhas = [];
+    try { linhas = fs.readFileSync(arquivo, 'utf8').split(/\r?\n/); } catch { /* cria */ }
+    for (const campo of CAMPOS) {
+      const i = linhas.findIndex((l) => l.startsWith(`${campo}=`));
+      if (i === -1) linhas.push(`${campo}=${novo[campo]}`); else linhas[i] = `${campo}=${novo[campo]}`;
+    }
+    fs.writeFileSync(arquivo, `${linhas.join('\n').replace(/\n+$/, '')}\n`, 'utf8');
+    console.log(`Credenciais do DW gravadas em ${arquivo}.`);
   }
-  fs.writeFileSync(ARQUIVO_ENV, `${linhas.join('\n').replace(/\n+$/, '')}\n`, 'utf8');
-  console.log(`Credenciais do DW gravadas em ${ARQUIVO_ENV} (arquivo fora do git).`);
 }
 
 async function conectar() {
@@ -100,8 +105,11 @@ async function consultar(sql) {
 async function testar() {
   const cliente = await conectar();
   try {
-    const { rows: [r] } = await cliente.query('select current_database() as banco, current_user as usuario, now() as agora');
+    const { rows: [r] } = await cliente.query(`select current_database() as banco, current_user as usuario, now() as agora,
+      (select rolsuper from pg_roles where rolname = current_user) as superusuario,
+      has_table_privilege(current_user, 'public.parametro_bi', 'INSERT,UPDATE,DELETE') as pode_escrever_parametro_bi`);
     console.log(`Conectado ao DW: banco ${r.banco}, usuário ${r.usuario}, hora do servidor ${r.agora.toISOString()}.`);
+    console.log(`Superusuário: ${r.superusuario ? 'SIM' : 'não'} · pode escrever na parametro_bi: ${r.pode_escrever_parametro_bi ? 'SIM' : 'não'}`);
   } finally {
     await cliente.end();
   }
