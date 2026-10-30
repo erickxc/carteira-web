@@ -93,3 +93,71 @@ describe('sincronizarPriceDoDW com produtos (1.7)', () => {
     expect(decifrar(c.senhaPriceCifrada)).toBe(`nova-${CNPJ}`);
   });
 });
+
+describe('sincronizarPriceDoDW — bordas (testador)', () => {
+  it('2D Price com nome antigo (Precificação) também recebe a senha no produto', async () => {
+    const { repo, decifrar } = await rodar([{
+      id: 'c4', empresa: 'C',
+      produtos: [{ produto: 'Precificação', fase: 'Ativo', faseDesde: '2026-01-01', motivoFase: 'm', login: CNPJ, senhaCifrada: 'antiga' }],
+    }]);
+    const c = repo.get('Clientes')[0];
+    expect(c.produtos).toHaveLength(1);
+    expect(decifrar(c.produtos[0].senhaCifrada)).toBe(`nova-${CNPJ}`);
+    expect(c.senhaPriceCifrada).toBe(c.produtos[0].senhaCifrada);
+  });
+
+  it('2D Price Suspenso: troca a senha mas mantém fase, faseDesde e motivo', async () => {
+    const item = { produto: '2D Price', fase: 'Suspenso', faseDesde: '2026-05-01', motivoFase: 'pausa', login: CNPJ, senhaCifrada: 'antiga' };
+    const { repo, decifrar } = await rodar([{ id: 'c5', empresa: 'D', produtos: [item] }]);
+    const p = repo.get('Clientes')[0].produtos[0];
+    expect(decifrar(p.senhaCifrada)).toBe(`nova-${CNPJ}`);
+    expect({ fase: p.fase, faseDesde: p.faseDesde, motivoFase: p.motivoFase }).toEqual({ fase: 'Suspenso', faseDesde: '2026-05-01', motivoFase: 'pausa' });
+  });
+
+  it('CNPJ do produto vence o loginPrice divergente; login do produto e legado não mudam', async () => {
+    const { repo, consultados } = await rodar([{
+      id: 'c6', empresa: 'E', loginPrice: CNPJ2,
+      produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-01-01', motivoFase: 'm', login: '12.345.678/0001-99' }],
+    }]);
+    expect(consultados[0]).toEqual([CNPJ]);
+    const c = repo.get('Clientes')[0];
+    expect(c.produtos[0].login).toBe('12.345.678/0001-99');
+  });
+
+  // BUG (testador, Task 5): a derivação grava loginPrice = '' (item sem login) e o
+  // CNPJ some. `it.fails` até corrigir — quando passar a falhar, trocar por `it`.
+  it.fails('item 2D Price sem login cai no loginPrice e não apaga o loginPrice ao gravar', async () => {
+    const { repo, decifrar, consultados } = await rodar([{
+      id: 'c7', empresa: 'F', loginPrice: CNPJ,
+      produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-01-01', motivoFase: 'm' }],
+    }]);
+    expect(consultados[0]).toEqual([CNPJ]);
+    const c = repo.get('Clientes')[0];
+    expect(decifrar(c.produtos[0].senhaCifrada)).toBe(`nova-${CNPJ}`);
+    // Se o login sumir, a próxima sincronização não acha mais o CNPJ.
+    expect((c.produtos[0].login || c.loginPrice || '').replace(/\D/g, '')).toBe(CNPJ);
+  });
+
+  it('DW sem senha: produtos ficam intactos (senha antiga preservada)', async () => {
+    const { repoMemoria } = require('../dominio/repo.cjs');
+    const { sincronizarPriceDoDW } = require('./sincronizarPrice.cjs');
+    const repo = repoMemoria({ Clientes: [{
+      id: 'c8', empresa: 'G',
+      produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-01-01', motivoFase: 'm', login: CNPJ, senhaCifrada: 'antiga' }],
+    }] });
+    await sincronizarPriceDoDW({ repo, configurado: true, buscarDadosPrice: async () => new Map([[CNPJ, { segmento: 'Moto' }]]) });
+    const c = repo.get('Clientes')[0];
+    expect(c.produtos[0].senhaCifrada).toBe('antiga');
+    expect(c.produtos).toHaveLength(1);
+  });
+
+  it('sem DW configurado não consulta nem grava', async () => {
+    const { repoMemoria } = require('../dominio/repo.cjs');
+    const { sincronizarPriceDoDW } = require('./sincronizarPrice.cjs');
+    const repo = repoMemoria({ Clientes: [{ id: 'c9', loginPrice: CNPJ }] });
+    let chamou = false;
+    const r = await sincronizarPriceDoDW({ repo, configurado: false, buscarDadosPrice: async () => { chamou = true; return new Map(); } });
+    expect(r.rodou).toBe(false);
+    expect(chamou).toBe(false);
+  });
+});
