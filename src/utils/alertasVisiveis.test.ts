@@ -12,6 +12,16 @@ describe('alertasVisiveis', () => {
     expect(alertasVisiveis([risco, cert], 'Todos', null)).toEqual([risco]);
   });
 
+  it('Negócios com só certificados pendentes fica com a lista vazia (é o que mostra "nenhum alerta")', () => {
+    expect(alertasVisiveis([cert, cert], 'Todos', 'negocios')).toEqual([]);
+  });
+
+  it('cliente sem monitor: o cartão aparece em "Todos" e some ao escolher um monitor, como os outros tipos', () => {
+    const semMonitor = { tipo: 'certificado' as const, monitor: null };
+    expect(alertasVisiveis([semMonitor], 'Todos', 'fiscal')).toEqual([semMonitor]);
+    expect(alertasVisiveis([semMonitor], 'Erick', 'fiscal')).toEqual([]);
+  });
+
   it('o filtro de monitor vale também para o certificado', () => {
     expect(alertasVisiveis([risco, cert], 'Marco', 'admin')).toEqual([]);
     expect(alertasVisiveis([risco, cert], 'Erick', 'admin')).toEqual([risco, cert]);

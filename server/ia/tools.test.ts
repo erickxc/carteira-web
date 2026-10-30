@@ -2,7 +2,7 @@ import { createRequire } from 'module';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const require = createRequire(import.meta.url);
 
@@ -282,6 +282,46 @@ describe('buscar_clientes', () => {
       expect(exec('buscar_clientes', repoComLoja())[0].lojas[0]).toEqual({ nome: 'Matriz', cnpj: '07.503.705/0001-70', endereco: 'Rua A' });
       gravarRetrato('{ corrompido');
       expect(exec('buscar_clientes', repoComLoja())[0].lojas[0].nome).toBe('Matriz');
+    });
+
+    it('Apura: null = tem usuário e nunca entrou; campo ausente = sem usuário, como a descrição promete ao modelo', () => {
+      gravarRetrato(JSON.stringify({ porCnpj: { [cnpj]: { apura: { usuarios: 1, ultimoAcesso: null } } } }));
+      const comUsuario = JSON.parse(JSON.stringify(exec('buscar_clientes', repoComLoja())))[0].lojas[0];
+      expect(comUsuario).toHaveProperty('apuraUltimoAcesso', null);
+
+      gravarRetrato(JSON.stringify({ porCnpj: { [cnpj]: { certificadoValidade: '2026-12-01' } } }));
+      const semUsuario = JSON.parse(JSON.stringify(exec('buscar_clientes', repoComLoja())))[0].lojas[0];
+      expect(semUsuario).not.toHaveProperty('apuraUltimoAcesso');
+    });
+
+    it('loja sem CNPJ, CNPJ fora do retrato e retrato sem porCnpj: sai sem dado fiscal, sem quebrar', () => {
+      const repo = repoBase({ Clientes: [clienteBase({ lojasCadastro: [{ nome: 'Sem CNPJ' }, { nome: 'Fora', cnpj: '11111111000111' }] })] });
+      const semFiscal = (l: Record<string, unknown>) => ['situacaoCnpj', 'certificadoValidade', 'grupoFiscal', 'apuraUltimoAcesso'].every((k) => l[k] === undefined);
+      gravarRetrato(JSON.stringify({ porCnpj: { [cnpj]: { certificadoValidade: '2026-12-01' } } }));
+      expect(exec('buscar_clientes', repo)[0].lojas.every(semFiscal)).toBe(true);
+      gravarRetrato(JSON.stringify({ geradoEm: 'x' }));
+      expect(exec('buscar_clientes', repo)[0].lojas.every(semFiscal)).toBe(true);
+    });
+
+    it('nem telefone, nem e-mail, nem qualquer campo a mais do retrato chega ao agente', () => {
+      gravarRetrato(JSON.stringify({ porCnpj: { [cnpj]: {
+        certificadoValidade: '2026-12-01', telefone: 'TEL-X', email: 'MAIL-X', produtos: ['PROD-X'], certificado_senha: 'SENHA-X',
+        receita: { situacao: 'ATIVA', desde: 'DESDE-X', consultadoEm: 'CONS-X' }, apura: { usuarios: 77, ultimoAcesso: null },
+      } } }));
+      const texto = JSON.stringify(exec('buscar_clientes', repoComLoja())[0].lojas);
+      expect(texto).not.toMatch(/TEL-X|MAIL-X|PROD-X|SENHA-X|DESDE-X|CONS-X|usuarios/);
+    });
+
+    it('a carteira inteira lê o arquivo do retrato uma vez só', () => {
+      gravarRetrato(JSON.stringify({ porCnpj: {} }));
+      const clientes = Array.from({ length: 20 }, (_, i) => clienteBase({ id: `c${i}`, lojasCadastro: [{ nome: 'L', cnpj }] }));
+      const espiao = vi.spyOn(fs, 'readFileSync');
+      try {
+        exec('buscar_clientes', repoBase({ Clientes: clientes }));
+        expect(espiao.mock.calls.filter(([p]) => String(p).endsWith('dw-produtos.json'))).toHaveLength(1);
+      } finally {
+        espiao.mockRestore();
+      }
     });
   });
 

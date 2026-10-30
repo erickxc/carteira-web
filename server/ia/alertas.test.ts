@@ -213,6 +213,76 @@ describe('alerta de certificado', () => {
     expect(alertas.filter((a) => a.tipo === 'certificado')).toHaveLength(3);
     expect(alertas.filter((a) => a.tipo === 'risco_sem_pauta')).toHaveLength(2);
   });
+
+  it('vence hoje ainda é "vencendo"; ontem já é "vencido" e sobe a severidade', () => {
+    const repo = base({ Clientes: [comLojas('111')] });
+    const [hoje] = certificados(repo, retratoCom({ 111: '2026-08-28' }));
+    expect(hoje).toMatchObject({ severidade: 'media', titulo: 'Pecita: certificado digital vencendo', detalhe: 'Loja 1: vence em 28/08/2026' });
+    const [ontem] = certificados(repo, retratoCom({ 111: '2026-08-27' }));
+    expect(ontem).toMatchObject({ severidade: 'alta', titulo: 'Pecita: certificado digital vencido' });
+  });
+
+  it('o limite de 30 dias é por dia do calendário, não pela hora do relógio', () => {
+    const repo = base({ Clientes: [comLojas('111')] });
+    const noDia = (agora: Date, data: string) => gerarAlertas(repo, { agora, retrato: retratoCom({ 111: data }) })
+      .filter((a: { tipo: string }) => a.tipo === 'certificado');
+    for (const agora of [new Date(2026, 7, 28, 0, 1), new Date(2026, 7, 28, 23, 59)]) {
+      expect(noDia(agora, '2026-09-27')).toHaveLength(1);
+      expect(noDia(agora, '2026-09-28')).toEqual([]);
+      expect(noDia(agora, '2026-08-28')[0].severidade).toBe('media');
+      expect(noDia(agora, '2026-08-27')[0].severidade).toBe('alta');
+    }
+  });
+
+  it('só cliente em atendimento: suspenso, "Atendido pelo Marco" e pausado não geram', () => {
+    const lojas = [{ nome: 'Matriz', cnpj: '111' }];
+    const retrato = retratoCom({ 111: '2026-08-01' });
+    for (const extra of [{ status: 'Suspenso' }, { status: 'Atendido pelo Marco' }, { pausadoAte: '2026-12-31' }]) {
+      expect(certificados(base({ Clientes: [cliente('c1', 'Pecita', { lojasCadastro: lojas, ...extra })] }), retrato)).toEqual([]);
+    }
+  });
+
+  it('cadastro torto não derruba nem inventa cartão: sem lojas, loja nula, sem CNPJ, sem nome, lojas em texto JSON', () => {
+    const retrato = retratoCom({ 111: '2026-08-01' });
+    expect(certificados(base({ Clientes: [cliente('c1', 'A')] }), retrato)).toEqual([]);
+    expect(certificados(base({ Clientes: [cliente('c1', 'A', { lojasCadastro: [null, { nome: 'Sem CNPJ' }, { nome: 'Vazio', cnpj: '' }] })] }), retrato)).toEqual([]);
+    const [semNome] = certificados(base({ Clientes: [cliente('c1', 'A', { lojasCadastro: [{ cnpj: '111' }] })] }), retrato);
+    expect(semNome.detalhe).toBe('111: vencido em 01/08/2026');
+    const [emTexto] = certificados(base({ Clientes: [cliente('c1', 'A', { lojasCadastro: JSON.stringify([{ nome: 'M', cnpj: '111' }]) })] }), retrato);
+    expect(emTexto.detalhe).toBe('M: vencido em 01/08/2026');
+  });
+
+  it('retrato do formato antigo (só produtos, ou sem porCnpj) não gera cartão nem quebra', () => {
+    const repo = base({ Clientes: [comLojas('111')] });
+    expect(certificados(repo, { geradoEm: 'x', porCnpj: { 111: { produtos: ['Apura'] } } })).toEqual([]);
+    expect(certificados(repo, { geradoEm: 'x' })).toEqual([]);
+  });
+
+  it('cliente com risco alto e certificado tem dois cartões, com ids distintos, o mais grave antes', () => {
+    const repo = base({
+      Clientes: [comLojas('111')],
+      AnalisesIA: [{ id: 'a', clientId: 'c1', nivelRisco: 'alto', resumo: '' }],
+    });
+    const alertas: { id: string; tipo: string }[] = gerarAlertas(repo, { agora: AGORA, retrato: retratoCom({ 111: '2026-09-10' }) });
+    expect(alertas.map((a) => a.tipo)).toEqual(['risco_sem_pauta', 'certificado']);
+    expect(new Set(alertas.map((a) => a.id)).size).toBe(2);
+  });
+
+  it('sem a opção `retrato`, lê o arquivo da pasta de dados; arquivo corrompido não derruba os outros alertas', () => {
+    const arquivo = path.join(pastaIsolada, 'dados', 'dw-produtos.json');
+    fs.mkdirSync(path.dirname(arquivo), { recursive: true });
+    const repo = base({
+      Clientes: [comLojas('111')],
+      AnalisesIA: [{ id: 'a', clientId: 'c1', nivelRisco: 'alto', resumo: '' }],
+    });
+    const tipos = () => gerarAlertas(repo, { agora: AGORA }).map((a: { tipo: string }) => a.tipo);
+
+    fs.writeFileSync(arquivo, JSON.stringify(retratoCom({ 111: '2026-08-01' })));
+    expect(tipos()).toContain('certificado');
+
+    fs.writeFileSync(arquivo, '{ corrompido');
+    expect(tipos()).toEqual(['risco_sem_pauta']);
+  });
 });
 
 describe('alertas que dependem do dossiê (contradição, pauta parada, padrões)', () => {

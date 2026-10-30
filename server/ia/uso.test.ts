@@ -1,7 +1,19 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { registrarUso } from './uso.cjs';
 import { conversar, registrarAcao } from './orquestrador.cjs';
 import { repoMemoria } from '../dominio/repo.cjs';
+
+// As ferramentas leem o retrato do DW: sem isto, abririam o arquivo real do OneDrive.
+const pastaIsolada = await vi.hoisted(async () => {
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const pasta = mkdtempSync(join(tmpdir(), 'carteira-uso-'));
+  process.env.ONEDRIVE_ROOT = pasta;
+  process.env.SQLITE_DIR = pasta;
+  return pasta;
+});
+afterAll(async () => (await import('node:fs')).rmSync(pastaIsolada, { recursive: true, force: true }));
 
 /**
  * Consumo de IA por pergunta. Não existe "quanto falta pra resetar a cota da
