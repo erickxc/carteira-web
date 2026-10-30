@@ -177,6 +177,33 @@ describe('dominio/clientes: produtos (1.7)', () => {
     const salvo = clientesDominio.atualizar(repo, 'c1', { produtos: legado }, SEM_EFEITOS);
     expect(salvo.servicos).toEqual(['Plataforma 2D']);
   });
+
+  it('patch legado com nomes antigos não cancela nada; Em breve continua Em breve', () => {
+    const repo = clienteCom([prod('Plataforma 2D', 'Ativo'), prod('2D Price', 'Ativo'), prod('2D Nexus', 'Em breve')]);
+    const salvo = clientesDominio.atualizar(repo, 'c1', { servicos: ['Monitoria', 'Precificação'] }, SEM_EFEITOS);
+    expect(salvo.produtos.map((p: P) => [p.produto, p.fase, p.faseDesde])).toEqual([
+      ['Plataforma 2D', 'Ativo', D], ['2D Price', 'Ativo', D], ['2D Nexus', 'Em breve', D],
+    ]);
+  });
+
+  it('reativar produto Cancelado repetindo o motivo antigo → 400', () => {
+    const repo = clienteCom([prod('Apura', 'Cancelado')]);
+    expect(() => clientesDominio.atualizar(repo, 'c1', { produtos: [prod('Apura', 'Ativo')] }, SEM_EFEITOS))
+      .toThrow('Informe o motivo da mudança de fase.');
+  });
+
+  // BUG conhecido (testador da Task 3): normalizarProdutos troca faseDesde '' por agora
+  // a cada save. Ao corrigir, trocar `it.fails` por `it`.
+  it.fails('salvar sem mudar a fase preserva faseDesde vazio (cliente sem createdAt não ganha carência)', () => {
+    // produtosDeLegado grava faseDesde '' quando não há createdAt ("nunca agora").
+    const repo = repoMemoria({
+      Clientes: [{ id: 'c1', empresa: 'T', servicos: [], produtos: [prod('Plataforma 2D', 'Ativo', { faseDesde: '' })] }],
+    });
+    const salvo = clientesDominio.atualizar(repo, 'c1', {
+      produtos: [prod('Plataforma 2D', 'Ativo', { faseDesde: '', link: 'http://novo' })],
+    }, SEM_EFEITOS);
+    expect(achar(salvo.produtos, 'Plataforma 2D')?.faseDesde).toBe('');
+  });
 });
 
 describe('dominio/agenda', () => {

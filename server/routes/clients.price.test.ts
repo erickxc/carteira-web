@@ -287,4 +287,60 @@ describe('clients: produtos (1.7)', () => {
       fechar();
     }
   });
+
+  it('senhaCifrada forjada no corpo é ignorada; senha null apaga', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const criado = await (await fetch(url, { method: 'POST', ...jsonBody({
+        empresa: 'Forja', produtos: [produto('Apura', { senhaCifrada: 'forjada' }), produto('2D Price', { senha: 'p1' })],
+      }) })).json();
+      const achar = (c: { produtos: { produto: string; temSenha: boolean }[] }, n: string) => c.produtos.find((p) => p.produto === n);
+      expect(achar(criado, 'Apura')?.temSenha).toBe(false);
+
+      // PUT com senhaCifrada forjada não troca a salva.
+      const lista = criado.produtos.map((p: { produto: string }) => (p.produto === '2D Price' ? { ...p, senhaCifrada: 'forjada' } : p));
+      expect((await fetch(`${url}/${criado.id}`, { method: 'PUT', ...jsonBody({ produtos: lista }) })).status).toBe(200);
+      const revelar = () => fetch(`${url}/${criado.id}/produtos/${encodeURIComponent('2D Price')}/credenciais/revelar`, { method: 'POST' });
+      expect((await (await revelar()).json()).senha).toBe('p1');
+
+      const apagar = criado.produtos.map((p: { produto: string }) => (p.produto === '2D Price' ? { ...p, senha: null } : p));
+      const resp = await (await fetch(`${url}/${criado.id}`, { method: 'PUT', ...jsonBody({ produtos: apagar }) })).json();
+      expect(achar(resp, '2D Price')?.temSenha).toBe(false);
+      expect(resp.temSenhaPrice).toBe(false);
+      expect((await revelar()).status).toBe(404);
+    } finally {
+      fechar();
+    }
+  });
+
+  it('POST/PUT com produto inválido → 400 em JSON, nada gravado', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const post = await fetch(url, { method: 'POST', ...jsonBody({ empresa: 'X', produtos: [produto('Inventado')] }) });
+      expect(post.status).toBe(400);
+      expect((await post.json()).error).toContain('Inventado');
+      expect(await (await fetch(url)).json()).toEqual([]);
+
+      const criado = await (await fetch(url, { method: 'POST', ...jsonBody({ empresa: 'Y', produtos: [produto('Apura')] }) })).json();
+      const put = await fetch(`${url}/${criado.id}`, { method: 'PUT', ...jsonBody({ produtos: [produto('Apura', { fase: 'Ligado', motivoFase: 'x' })] }) });
+      expect(put.status).toBe(400);
+      expect(typeof (await put.json()).error).toBe('string');
+    } finally {
+      fechar();
+    }
+  });
+
+  it('cliente pré-migração: revelar por produto aceita o nome antigo e lê o campo legado', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const criado = await (await fetch(url, { method: 'POST', ...jsonBody({
+        empresa: 'Legado2', servicos: ['Precificação'], loginPrice: 'lp', senhaPrice: 'sp',
+      }) })).json();
+      const r = await fetch(`${url}/${criado.id}/produtos/${encodeURIComponent('Precificação')}/credenciais/revelar`, { method: 'POST' });
+      expect(r.status).toBe(200);
+      expect(await r.json()).toEqual({ login: 'lp', senha: 'sp' });
+    } finally {
+      fechar();
+    }
+  });
 });
