@@ -5,6 +5,7 @@ import { Button, Card } from '../../ui';
 import { isClienteAtivo } from '../../utils/formatters';
 import { linkWhatsApp } from '../../utils/whatsapp';
 import type { ContatoVisivel } from '../../utils/contatos';
+import { apuraDoAtendimento, type RetratoDw } from '../../utils/produtosNoDw';
 import { resumoDaConversa, type ResumoFicha } from '../../utils/resumoFicha';
 import type { Cliente, Contato } from '../../types';
 import { ListaAcessos } from './AcessosExternosButton';
@@ -19,6 +20,7 @@ interface PainelFichaProps {
   contatos: ContatoVisivel[];
   onWhatsApp: (contato: Contato) => void;
   onVerContatos: () => void;
+  retrato?: RetratoDw | null;
 }
 
 function Bloco({ titulo, children }: { titulo: string; children: ReactNode }) {
@@ -55,9 +57,10 @@ function LinhaReuniao({ rotulo, children }: { rotulo: string; children: ReactNod
 }
 
 /** O que se consulta ao abrir o cliente, sem rolar. Bloco sem dado mantém a linha curta: o layout não pula. */
-export function PainelFicha({ cliente, resumo, contatos, onWhatsApp, onVerContatos }: PainelFichaProps) {
+export function PainelFicha({ cliente, resumo, contatos, onWhatsApp, onVerContatos, retrato }: PainelFichaProps) {
   const { prazos, ultima, proxima } = resumo;
   const resumoUltima = ultima ? resumoDaConversa(ultima) : '';
+  const apura = apuraDoAtendimento(cliente, retrato);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4" style={{ marginBottom: 16 }}>
@@ -126,6 +129,11 @@ export function PainelFicha({ cliente, resumo, contatos, onWhatsApp, onVerContat
             </div>
           </div>
           <ListaAcessos cliente={cliente} />
+          {apura && (
+            <div className="text-[0.82rem] text-text-muted">
+              {apura.ultimoAcesso ? `Apura — último acesso ${format(parseISO(apura.ultimoAcesso), 'dd/MM/yyyy')}` : 'Apura — nunca acessou'}
+            </div>
+          )}
         </div>
       </Bloco>
     </div>

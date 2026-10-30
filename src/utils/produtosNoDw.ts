@@ -33,6 +33,27 @@ const PRODUTOS_NO_DW = ['Plataforma 2D', 'Controladoria', 'Apura', '2D Alcance',
 const cnpjsDe = (c: Cliente) => (c.lojasCadastro ?? []).map((l) => String(l.cnpj || '').replace(/\D/g, '')).filter(Boolean);
 const chaveGrupo = (c: Cliente) => String(c.grupo || '').trim().toLowerCase();
 
+/** O que o retrato sabe de uma loja do cadastro (o CNPJ pode vir formatado). */
+export function fiscalDaLoja(retrato: RetratoDw | null | undefined, cnpj: string): LojaNoRetrato | undefined {
+  return retrato?.porCnpj[String(cnpj || '').replace(/\D/g, '')];
+}
+
+/** Vencimento de certificado mais próximo (a pior data) entre as lojas destes atendimentos. */
+export function certMaisProximo(clientes: Cliente[], retrato: RetratoDw | null | undefined): string | null {
+  const datas = clientes.flatMap(cnpjsDe).map((cnpj) => fiscalDaLoja(retrato, cnpj)?.certificadoValidade).filter((d): d is string => !!d);
+  // yyyy-MM-dd ordena como texto.
+  return datas.length ? datas.reduce((pior, d) => (d < pior ? d : pior)) : null;
+}
+
+/** Último acesso ao Apura do atendimento; `null` = nenhuma loja tem usuário ativo. */
+export function apuraDoAtendimento(cliente: Cliente, retrato: RetratoDw | null | undefined): { ultimoAcesso: string | null } | null {
+  const lojas = cnpjsDe(cliente).map((cnpj) => fiscalDaLoja(retrato, cnpj)?.apura).filter((a) => a && a.usuarios > 0);
+  if (lojas.length === 0) return null;
+  // Timestamps ISO em UTC (o servidor normaliza): ordenam como texto.
+  const acessos = lojas.map((a) => a!.ultimoAcesso).filter((d): d is string => !!d);
+  return { ultimoAcesso: acessos.length ? acessos.reduce((maior, d) => (d > maior ? d : maior)) : null };
+}
+
 /**
  * "No DW agora" da ficha: por produto, quantas lojas do atendimento o têm
  * marcado no DW. Só leitura — divergência com a fase vira aviso na tela.

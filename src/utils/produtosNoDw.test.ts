@@ -1,6 +1,40 @@
 import { describe, expect, it } from 'vitest';
 import type { Cliente } from '../types';
-import { produtosNoDw, type RetratoDw } from './produtosNoDw';
+import { apuraDoAtendimento, certMaisProximo, fiscalDaLoja, produtosNoDw, type RetratoDw } from './produtosNoDw';
+
+describe('dados fiscais por atendimento', () => {
+  const retrato: RetratoDw = {
+    geradoEm: 'x',
+    porCnpj: {
+      11: { certificadoValidade: '2027-01-10', apura: { usuarios: 1, ultimoAcesso: '2026-10-01T10:00:00.000Z' } },
+      22: { certificadoValidade: '2026-02-01', apura: { usuarios: 2, ultimoAcesso: '2026-10-28T10:00:00.000Z' } },
+      33: { certificadoValidade: null, apura: { usuarios: 1, ultimoAcesso: null } },
+    },
+  };
+  const lojas = (id: string, cnpjs: string[]) =>
+    ({ id, empresa: id, lojasCadastro: cnpjs.map((cnpj) => ({ nome: cnpj, cnpj, endereco: '' })) }) as unknown as Cliente;
+
+  it('fiscalDaLoja acha a loja com o CNPJ formatado como o cadastro guarda', () => {
+    expect(fiscalDaLoja(retrato, '1-1')?.certificadoValidade).toBe('2027-01-10');
+    expect(fiscalDaLoja(null, '11')).toBeUndefined();
+  });
+
+  it('certMaisProximo: a pior data entre as lojas, somando atendimentos da rede', () => {
+    expect(certMaisProximo([lojas('A', ['11', '22'])], retrato)).toBe('2026-02-01');
+    expect(certMaisProximo([lojas('A', ['11']), lojas('B', ['22'])], retrato)).toBe('2026-02-01');
+    // Loja sem certificado não esconde a que tem.
+    expect(certMaisProximo([lojas('A', ['33', '11'])], retrato)).toBe('2027-01-10');
+    expect(certMaisProximo([lojas('A', ['33', '44'])], retrato)).toBeNull();
+    expect(certMaisProximo([lojas('A', ['11'])], null)).toBeNull();
+  });
+
+  it('apuraDoAtendimento: o acesso mais recente; sem usuário não há o que dizer', () => {
+    expect(apuraDoAtendimento(lojas('A', ['11', '22', '33']), retrato)).toEqual({ ultimoAcesso: '2026-10-28T10:00:00.000Z' });
+    expect(apuraDoAtendimento(lojas('A', ['33']), retrato)).toEqual({ ultimoAcesso: null });
+    expect(apuraDoAtendimento(lojas('A', ['44']), retrato)).toBeNull();
+    expect(apuraDoAtendimento(lojas('A', ['11']), null)).toBeNull();
+  });
+});
 
 const loja = (cnpj: string) => ({ nome: cnpj, cnpj, endereco: '' });
 const cliente = (id: string, cnpjs: string[], grupo?: string) =>

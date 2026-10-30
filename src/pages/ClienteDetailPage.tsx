@@ -26,7 +26,8 @@ import { toastError } from '../utils/toast';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { Button, Card, Tabs, Textarea } from '../ui';
 import type { Cliente, Contato, EventoAgenda } from '../types';
-import { buscarCatalogoAlvos } from '../api/client';
+import { buscarCatalogoAlvos, buscarRetratoDw } from '../api/client';
+import type { RetratoDw } from '../utils/produtosNoDw';
 import { comPrecificacaoDoGrupo } from '../utils/cadenciaServico';
 
 /**
@@ -113,6 +114,14 @@ function FichaCliente({ id }: { id: string | undefined }) {
     if (!id) return;
     buscarCatalogoAlvos(id, true).catch(() => { /* integração opcional — falha aqui não afeta a ficha */ });
   }, [id]);
+
+  // Dados fiscais das lojas e último acesso ao Apura. Informativo: sem retrato, a ficha só não os mostra.
+  const [retrato, setRetrato] = useState<RetratoDw | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    buscarRetratoDw().then((r) => { if (vivo) setRetrato(r); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
 
   const [contatoNome, setContatoNome] = useState('');
   const [contatoCargo, setContatoCargo] = useState('');
@@ -291,7 +300,7 @@ function FichaCliente({ id }: { id: string | undefined }) {
         onRelatorios={() => setRelatoriosOpen(true)}
         onExcluir={handleExcluir}
       />
-      <PainelFicha cliente={cliente} resumo={resumo} contatos={contatos} onWhatsApp={setWaContato} onVerContatos={() => setContatosOpen(true)} />
+      <PainelFicha cliente={cliente} resumo={resumo} contatos={contatos} onWhatsApp={setWaContato} onVerContatos={() => setContatosOpen(true)} retrato={retrato} />
 
       <Tabs style={{ margin: '0 0 1rem', flexWrap: 'wrap' }}>
         {abas.map((a) => (
@@ -314,7 +323,7 @@ function FichaCliente({ id }: { id: string | undefined }) {
         />
       )}
       {aba === 'cadastro' && <CadastroCliente valor={cliente} somenteLeitura />}
-      {aba === 'lojas' && <LojasFicha cliente={cliente} lojasDoGrupo={lojasDoGrupo} />}
+      {aba === 'lojas' && <LojasFicha cliente={cliente} lojasDoGrupo={lojasDoGrupo} retrato={retrato} />}
       {/* Fica montada escondida: olhar outra aba não pode apagar o que foi digitado e não salvo. */}
       <div hidden={aba !== 'anotacoes'}><AnotacoesFicha cliente={cliente} /></div>
       {aba === 'tarefas' && <AgilTarefasCard cliente={cliente} />}

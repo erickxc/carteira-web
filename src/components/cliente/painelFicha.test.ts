@@ -4,12 +4,60 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { CabecalhoFicha } from './CabecalhoFicha';
+import { LojasFicha } from './LojasFicha';
 import { PainelFicha } from './PainelFicha';
 import { resumoDaConversa, type ResumoFicha } from '../../utils/resumoFicha';
 import type { ContatoVisivel } from '../../utils/contatos';
+import type { RetratoDw } from '../../utils/produtosNoDw';
 import type { Cliente, EventoAgenda } from '../../types';
 
 const cliente = { id: 'c1', empresa: 'Pecita', monitor: 'Erick', status: 'Regular', estado: 'Ativo', contatos: [] } as unknown as Cliente;
+
+describe('dados fiscais na ficha', () => {
+  const retrato: RetratoDw = {
+    geradoEm: 'x',
+    porCnpj: {
+      '11111111000111': {
+        certificadoValidade: '2020-01-01', telefone: '21 3333', email: 'loja@x.com',
+        grupoFiscal: { codigo: 'g1', nome: 'Grupo Sul' },
+        receita: { situacao: 'BAIXADA', desde: null, consultadoEm: 'x' },
+        apura: { usuarios: 1, ultimoAcesso: '2026-10-28T12:00:00.000Z' },
+      },
+      '22222222000122': { certificadoValidade: '2099-01-01', receita: { situacao: 'ATIVA', desde: null, consultadoEm: 'x' }, apura: { usuarios: 1, ultimoAcesso: null } },
+    },
+  };
+  const comLojas = (...cnpjs: string[]) => ({ ...cliente, lojasCadastro: cnpjs.map((cnpj) => ({ nome: `Loja ${cnpj}`, cnpj, endereco: '' })) }) as Cliente;
+  const lojas = (c: Cliente, r: RetratoDw | null) =>
+    renderToStaticMarkup(createElement(MemoryRouter, null, createElement(LojasFicha, { cliente: c, lojasDoGrupo: [], retrato: r })));
+  const painelFiscal = (c: Cliente) =>
+    renderToStaticMarkup(createElement(MemoryRouter, null, createElement(PainelFicha, { cliente: c, resumo: { prazos: [], ultima: null, proxima: null }, contatos: [], onWhatsApp: () => {}, onVerContatos: () => {}, retrato })));
+
+  it('aba Lojas: situação fora de ATIVA e certificado vencido com a cor no próprio texto', () => {
+    const html = lojas(comLojas('11111111000111'), retrato);
+    expect(html).toMatch(/--danger-fg[^>]*>BAIXADA</);
+    expect(html).toMatch(/--danger-fg[^>]*>01\/01\/2020 vencido</);
+    for (const texto of ['21 3333', 'loja@x.com', 'Grupo Sul']) expect(html).toContain(texto);
+  });
+
+  it('aba Lojas: situação ATIVA sem destaque; só mostra o campo que existe', () => {
+    const html = lojas(comLojas('22222222000122'), retrato);
+    expect(html).toContain('ATIVA');
+    expect(html).not.toContain('--danger-fg');
+    expect(html).not.toContain('Telefone');
+  });
+
+  it('aba Lojas: loja fora do retrato ou retrato ainda não lido não ganha linha fiscal', () => {
+    for (const html of [lojas(comLojas('33333333000133'), retrato), lojas(comLojas('11111111000111'), null)]) {
+      expect(html).not.toContain('Certificado');
+    }
+  });
+
+  it('bloco de acessos: último acesso ao Apura, nunca acessou, ou nada sem usuário', () => {
+    expect(painelFiscal(comLojas('11111111000111'))).toContain('Apura — último acesso 28/10/2026');
+    expect(painelFiscal(comLojas('22222222000122'))).toContain('Apura — nunca acessou');
+    expect(painelFiscal(comLojas('33333333000133'))).not.toContain('Apura');
+  });
+});
 const VAZIO: ResumoFicha = { prazos: [], ultima: null, proxima: null };
 
 const evento = (campos: Partial<EventoAgenda>) => ({

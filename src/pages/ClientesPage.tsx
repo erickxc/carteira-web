@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
 import * as XLSX from 'xlsx';
 import { Link, useNavigate } from 'react-router-dom';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
@@ -14,7 +14,11 @@ import { FASES, renomearProduto } from 'carteira-shared/produtos.cjs';
 import { ClientFormModal } from '../components/ClientFormModal';
 import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
 import { UnirAtendimentosModal } from '../components/alvos/UnirAtendimentosModal';
+import { ValorCert } from '../components/cliente/LojasFicha';
 import { ValorPrazo } from '../components/cliente/PainelFicha';
+import { buscarRetratoDw } from '../api/client';
+import { lerSessao } from '../equipe/sessao';
+import { certMaisProximo, fiscalDaLoja, type RetratoDw } from '../utils/produtosNoDw';
 import { MenuMais } from '../components/MenuMais';
 import { agruparPorGrupo, contarLojasFisicas, type LinhaTabela } from '../utils/gruposLojas';
 import { Dropdown } from '../components/Dropdown';
@@ -84,6 +88,19 @@ export default function ClientesPage() {
   // Remonta o painel dos Dados Alvos depois de unir atendimentos — ele guarda o próprio estado.
   const [versaoVinculos, setVersaoVinculos] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Vencimento do certificado é assunto do Fiscal: Negócios nem busca o retrato.
+  const sessao = lerSessao();
+  const verCert = sessao === 'fiscal' || sessao === 'admin';
+  const colunas = verCert ? 8 : 7;
+  const [retrato, setRetrato] = useState<RetratoDw | null>(null);
+  useEffect(() => {
+    if (!verCert) return;
+    let vivo = true;
+    // Informativo: sem retrato a coluna fica com "—".
+    buscarRetratoDw().then((r) => { if (vivo) setRetrato(r); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [verCert]);
 
   // As análises já vêm do contexto: a tela não busca de novo.
   const analisesPorCliente = useMemo(() => new Map(analisesIA.map((a) => [a.clientId, a])), [analisesIA]);
@@ -322,6 +339,8 @@ export default function ClientesPage() {
     prefixo?: { nome: string; qtdLojas: number; aberto: boolean; onToggle: () => void };
     /** Rede fechada: o clique na linha abre o bloco em vez de ir para uma das lojas. */
     cliqueAbreBloco?: boolean;
+    /** Rede fechada: a data é da rede toda; um certificado vencido não pode sumir atrás da linha da frente. */
+    certDe?: Cliente[];
   }) {
     const ultC = ultimoContato.get(cliente.id);
     const prox = proximoAgendamento.get(cliente.id);
@@ -364,6 +383,7 @@ export default function ClientesPage() {
         <Td className="whitespace-nowrap">
           {risco ? <span className="font-medium" style={{ color: RISCO[risco].cor }}>{RISCO[risco].texto}</span> : <span className="text-text-muted">—</span>}
         </Td>
+        {verCert && <Td className="whitespace-nowrap"><ValorCert data={certMaisProximo(opts?.certDe ?? [cliente], retrato)} /></Td>}
       </tr>
     );
   }
@@ -378,6 +398,7 @@ export default function ClientesPage() {
             <span className="text-text-muted text-[0.76rem]"> · {loja.cnpj ? formatarCNPJ(loja.cnpj) : 'sem CNPJ'}</span>
           </span>
         </Td>
+        {verCert && <Td className="whitespace-nowrap text-[0.82rem]"><ValorCert data={fiscalDaLoja(retrato, loja.cnpj)?.certificadoValidade} /></Td>}
       </tr>
     ));
   }
@@ -401,12 +422,12 @@ export default function ClientesPage() {
         </Fragment>
       );
     }
-    if (!aberto) return renderLinhaCliente(linha.lojas[0], { prefixo, cliqueAbreBloco: true });
+    if (!aberto) return renderLinhaCliente(linha.lojas[0], { prefixo, cliqueAbreBloco: true, certDe: linha.lojas });
 
     return (
       <Fragment key={`grupo-${linha.grupo}`}>
         <tr className="group cursor-pointer" onClick={onToggle}>
-          <Td first colSpan={7}>
+          <Td first colSpan={colunas}>
             <span className="inline-flex items-center gap-2">
               <button type="button" className="link-button inline-flex items-center gap-1.5 font-semibold" onClick={(e) => { e.stopPropagation(); onToggle(); }} aria-expanded={aberto}>
                 <ChevronDown size={15} /> {linha.grupo}
@@ -567,6 +588,7 @@ export default function ClientesPage() {
                     <Th sortable onClick={() => ordenarPor('ultimoContato')} title="Última entrega ou conversa concluída">Última{seta('ultimoContato')}</Th>
                     <Th sortable onClick={() => ordenarPor('proximo')} title="Próxima reunião ou entrega marcada">Próxima{seta('proximo')}</Th>
                     <Th sortable onClick={() => ordenarPor('risco')} title="Risco da análise do monitorIA">Risco{seta('risco')}</Th>
+                    {verCert && <Th title="Vencimento mais próximo entre as lojas do atendimento">Vencimento Cert.</Th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -595,6 +617,7 @@ export default function ClientesPage() {
                     <span className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[0.82rem] text-text-muted">
                       {prazos.map((p) => <span key={p.servico}>{p.servico}: <ValorPrazo prazo={p} curto /></span>)}
                       <span>Próxima: {prox ? format(parseISO(prox.date), 'dd/MM') : '—'}</span>
+                      {verCert && <span>Cert.: <ValorCert data={certMaisProximo([c], retrato)} /></span>}
                     </span>
                   </Link>
                 </li>
