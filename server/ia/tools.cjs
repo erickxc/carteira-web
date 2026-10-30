@@ -1897,7 +1897,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_proximas_reunioes',
-    description: 'Próximos eventos da AGENDA DA CARTEIRA (reunião/contato/relatório/precificação, dos clientes do monitor) — nunca a agenda pessoal do Marco (isso é buscar_agenda_ceo). Use pra "quais reuniões eu tenho marcada", "o que tenho essa semana", "minha agenda dos próximos dias". Exclui eventos já concluídos/realizados e cancelados/reagendados — só o que ainda vai acontecer.',
+    description: 'Próximos eventos da AGENDA DA CARTEIRA (reunião/contato/relatório/precificação, dos clientes do monitor) — nunca a agenda pessoal do Marco (isso é buscar_agenda_ceo). Use pra "quais reuniões eu tenho marcada", "o que tenho essa semana", "minha agenda dos próximos dias". Exclui eventos já concluídos/realizados e cancelados/reagendados — só o que ainda vai acontecer. Em `solicitacoes` vêm à parte os pedidos do cliente pelo Hub ainda sem aprovação: NÃO são reunião marcada, nunca diga que estão agendados.',
     parameters: { type: 'object', properties: { dias: { type: 'number', description: 'Janela de dias à frente (padrão 14, máx 60).' } } },
     executar: buscarProximasReunioes,
   },

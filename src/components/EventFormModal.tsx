@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { endOfWeek, format, isValid, parse, setHours, setMinutes, startOfWeek } from 'date-fns';
-import { AlertTriangle, Ban, Bot, Check, FileText, Loader2 } from 'lucide-react';
+import { AlertTriangle, Ban, Bot, Check, FileText, Loader2, MessageCircle, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { gerarAta } from '../utils/ata';
 import { limparStreamAtaIA } from '../utils/limparStreamAtaIA';
@@ -19,10 +19,14 @@ import { usePreAnalise } from './eventForm/usePreAnalise';
 import { useProdutosSituacao } from './eventForm/useProdutosSituacao';
 import { RecorrenciaFields } from './eventForm/RecorrenciaFields';
 import { AnexosField } from './eventForm/AnexosField';
-import { Badge, Button, Chip, Field, Input, SecaoLabel, Textarea } from '../ui';
+import { Badge, Button, Chip, Field, Input, Tabs, Textarea } from '../ui';
 import { ReuniaoMonitorIA } from './agenda/ReuniaoMonitorIA';
 import { SelectField } from './SelectField';
-import { CATEGORIA_CANCELAMENTO_LABEL, ORIGEM_LABEL, type EventoAgenda, type OrigemEvento, type ProdutoSituacaoItem } from '../types';
+import { Dropdown } from './Dropdown';
+import { WhatsAppMensagemModal } from './WhatsAppMensagemModal';
+import { contatosVisiveis } from '../utils/contatos';
+import { corTipo } from '../utils/tipoCor';
+import { CATEGORIA_CANCELAMENTO_LABEL, ORIGEM_LABEL, type Contato, type EventoAgenda, type OrigemEvento, type ProdutoSituacaoItem } from '../types';
 
 /**
  * Precificação passou a usar o Registro da Monitoria unificado (modo
@@ -55,7 +59,8 @@ interface EventFormModalProps {
 
 export function EventFormModal({ initial, defaultDate, initialClientId, initialType, initialTime, onClose, onAgendarProximo }: EventFormModalProps) {
   const { clientes, agenda, criarEvento, atualizarEvento, enviarAnexoEvento, removerAnexoEvento, criarLembrete, criarAgendaSerie, opcoesPorTipo } = useCarteira();
-  const tipoOpcoes = opcoesPorTipo('tipo_evento');
+  // Solicitação só nasce pelo Hub: não é opção para criar evento à mão.
+  const tipoOpcoes = opcoesPorTipo('tipo_evento').filter((t) => !/solicita/i.test(t) || /solicita/i.test(initial?.type ?? ''));
   const statusOpcoes = opcoesPorTipo('status_evento');
   // "Serviços tratados" de um evento é só Monitoria/Precificação — os outros
   // serviços do cadastro são informacionais (ver `ehServicoDeReuniao`).
@@ -144,6 +149,11 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     return () => window.clearInterval(timer);
   }, [gerandoAtaIA]);
   const [mostrarPopupCancelamento, setMostrarPopupCancelamento] = useState(false);
+  const [waContato, setWaContato] = useState<Contato | null>(null);
+  // Reunião que já passou abre no Registro (é o que falta fazer nela); o resto, no Agendamento.
+  const [etapa, setEtapa] = useState<'agendamento' | 'registro'>(
+    initial && /reuni/i.test(initial.type) && new Date(initial.date) <= new Date() ? 'registro' : 'agendamento'
+  );
 
   const eventoAtual = initial ? agenda.find((a) => a.id === initial.id) : undefined;
 
@@ -153,7 +163,11 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   // reunião), mesmo espírito de Relatório. Match por palavra-chave porque
   // `type` vem de categorias editáveis (mesmo padrão de src/utils/badges.ts),
   // não igualdade exata.
-  const modoSimples = /contato|relat[óo]rio|liga[çc]|precific/i.test(type);
+  const modoSimples = /contato|relat[óo]rio|liga[çc]|precific|solicita/i.test(type);
+  // Solicitação: pedido do cliente pelo Hub. O monitor fala com o cliente, ajusta
+  // e aprova (vira Reunião) ou recusa (Cancelado com motivo).
+  const ehPedido = /solicita/i.test(type);
+  const aguardandoAprovacao = ehPedido && !/cancel/i.test(status);
   // Sala só faz sentido pra Reunião (não modoSimples, que já cobre o resto).
   const ehReuniao = /reuni/i.test(type);
   // Marcadores de produto/margem só no tipo avulso "Precificação" (registro
@@ -220,7 +234,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   // podem coexistir com qualquer outra coisa no mesmo dia/hora, inclusive entre
   // si. Por isso o conflito só existe quando AMBOS os lados são Reunião. Com
   // múltiplos monitores, conflita se QUALQUER monitor em comum já está ocupado.
-  const monitorConflitante = ehReuniao && monitores.length > 0
+  const monitorConflitante = (ehReuniao || ehPedido) && monitores.length > 0
     ? agenda.find((a) =>
         a.id !== initial?.id && /reuni/i.test(a.type) && !naoOcupaHorario(a) && mesmoDiaHora(a)
         && (a.monitores ?? []).some((m) => monitores.includes(m))
@@ -232,7 +246,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     : undefined;
   // Conflito de SALA: a mesma sala não pode ter 2 reuniões no mesmo dia/horário
   // (recurso físico único), independente do monitor.
-  const salaConflitante = ehReuniao && sala
+  const salaConflitante = (ehReuniao || ehPedido) && sala
     ? agenda.find((a) =>
         a.id !== initial?.id && /reuni/i.test(a.type) && a.sala === sala && !naoOcupaHorario(a) && mesmoDiaHora(a)
       )
@@ -324,6 +338,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     setStatus(statusConcluido);
     void salvar(statusConcluido);
   }
+  function handleAprovar() {
+    void salvar(statusOpcoes.find((s) => /^agend/i.test(s)) ?? 'Agendado', undefined, undefined, true);
+  }
 
   /**
    * `motivoOverride`: mesmo motivo do `statusOverride` (`handleConcluir`) —
@@ -332,12 +349,12 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
    * override, "Confirmar e Salvar" salvaria o motivo ANTERIOR (vazio, na
    * primeira vez), não o que acabou de ser digitado no popup.
    */
-  async function salvar(statusOverride?: string, motivoOverride?: string, categoriaOverride?: EventoAgenda['motivoCategoria']) {
+  async function salvar(statusOverride?: string, motivoOverride?: string, categoriaOverride?: EventoAgenda['motivoCategoria'], aprovar = false) {
     const cliente = clientes.find((c) => c.id === clientId);
     if (!cliente) { toastError('Selecione um cliente.'); return; }
     if (!dataValida) { toastError('Data inválida — confira o dia informado.'); return; }
     // Contato/Relatório podem ficar sem descrição — o display cai pro tipo (subject || type).
-    if (!modoSimples && !subject.trim()) { toastError('Informe a descrição da reunião.'); return; }
+    if ((!modoSimples || aprovar) && !subject.trim()) { toastError('Informe a descrição da reunião.'); return; }
     // Reunião sem serviço tratado marcado cai no fallback genérico "Reunião"
     // nos cards da Agenda (semana/mês) — obrigatório pra sempre saber o que foi tratado.
     if (servicos.length === 0) { toastError('Marque ao menos um serviço (Monitoria ou Precificação).'); return; }
@@ -361,17 +378,19 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
       // com o valor residual do state, então trocar Reunião→Contato gravava
       // serviços/resumo/duração/pré-análise que não pertencem ao registro
       // (mesmo tratamento que `sala` e `origem` já tinham).
+      const tipoFinal = aprovar ? (tipoOpcoes.find((t) => /reuni/i.test(t)) ?? 'Reunião') : type;
+      const simplesFinal = modoSimples && !aprovar;
       const comum = {
-        clientId, clientName: cliente.empresa, subject, type, time,
-        duracao: modoSimples ? undefined : (duracao || undefined),
+        clientId, clientName: cliente.empresa, subject, type: tipoFinal, time,
+        duracao: modoSimples && !ehPedido ? undefined : (duracao || undefined),
         description,
         status: statusFinal,
         servicos,
-        preAnalise: modoSimples ? undefined : pa.preAnalise,
-        resumo: modoSimples ? '' : resumo,
-        transcricao: modoSimples ? '' : transcricao,
+        preAnalise: simplesFinal ? undefined : pa.preAnalise,
+        resumo: simplesFinal ? '' : resumo,
+        transcricao: simplesFinal ? '' : transcricao,
         monitores,
-        sala: ehReuniao ? (sala || undefined) : undefined,
+        sala: ehReuniao || ehPedido ? (sala || undefined) : undefined,
         // Cancelamento de reunião Pendente pode ir sem motivo — não força mais
         // string vazia no campo.
         motivo: /reagend|cancel/i.test(statusFinal) && motivoFinal.trim() ? motivoFinal : undefined,
@@ -386,9 +405,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
       // Contato/Relatório não têm ata. Fora isso: ata manual tem prioridade;
       // se vazia, gera automaticamente.
       const ataDe = (iso: string, cl: EventoAgenda['checklist']) =>
-        modoSimples ? '' : (ata.trim() ? ata : gerarAta(
+        simplesFinal ? '' : (ata.trim() ? ata : gerarAta(
           {
-            clientName: cliente.empresa, date: iso, time, duracao, type, sala, monitores, subject, servicos,
+            clientName: cliente.empresa, date: iso, time, duracao, type: tipoFinal, sala, monitores, subject, servicos,
             checklist: cl, resumo, description,
           },
           { cliente }
@@ -446,6 +465,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         onAgendarProximo(clientId);
         return; // o pai abre uma nova modal (limpa); não fecha aqui
       }
+      if (aprovar) toastSuccess('Solicitação aprovada: virou reunião agendada.');
       onClose();
     } catch (err) {
       toastError(err instanceof Error ? err.message : 'Falha ao salvar o evento.');
@@ -527,156 +547,67 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     }
   }
 
+  const etapaVisivel = modoSimples ? 'agendamento' : etapa;
+  const textoDoPedido = description.replace(/\s*\[Hub #\d+\]\s*$/, '');
+  const contatosComTelefone = contatosVisiveis(clienteSelecionado, clientes).filter((c) => c.telefone?.trim());
+  const qtdLembretes = rec.lembretesOffsets.length;
+
   return (
     <>
     <ModalShell
-      title={`${editando ? 'Editar' : 'Novo'} ${modoSimples ? type : 'Evento'}`}
+      title={`${type} · ${clienteSelecionado?.empresa ?? (editando ? 'Editar' : 'Novo')}`}
       onClose={onClose}
       onSubmit={handleSubmit}
       size="lg"
-      // monitorIA na reunião ao lado do título: só em dev, só com o evento já salvo, e só em
-      // Reunião — os tipos simples não mostram a ata, e o Salvar deles a apaga.
-      titleNode={import.meta.env.DEV && initial?.id && !modoSimples ? (
-        <>
-          <h2>{`${editando ? 'Editar' : 'Novo'} ${modoSimples ? type : 'Evento'}`}</h2>
-          <ReuniaoMonitorIA eventId={initial.id} />
-        </>
-      ) : undefined}
+      titleNode={
+        <div className="flex items-center justify-between gap-3 w-full min-w-0">
+          <h2 className="min-w-0 truncate">
+            <span style={{ color: corTipo(type) }}>{type}</span>
+            <span className="text-text-muted"> · </span>
+            {clienteSelecionado?.empresa ?? (editando ? 'Editar evento' : 'Novo evento')}
+          </h2>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* monitorIA na reunião: só em dev, com o evento salvo e em Reunião. */}
+            {import.meta.env.DEV && initial?.id && !modoSimples && <ReuniaoMonitorIA eventId={initial.id} />}
+            {!ehPedido && (
+              <div className="w-[150px]">
+                <Dropdown variant="campo" label="Status" value={status} onChange={(v) => setStatus(v as string)} options={statusOpcoes.map((o) => ({ value: o, label: o }))} />
+              </div>
+            )}
+          </div>
+        </div>
+      }
       footer={
         <>
           {editando && (
             <Button variant="danger" onClick={handleDelete} disabled={saving} style={{ marginRight: 'auto' }}>
-              <Ban size={15} /> Cancelar evento
+              {ehPedido ? <><X size={15} /> Recusar</> : <><Ban size={15} /> Cancelar evento</>}
             </Button>
           )}
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button variant="success" onClick={handleConcluir} disabled={saving || clientes.length === 0} title="Salvar marcando a reunião como concluída">
-            <Check size={15} /> Concluir
-          </Button>
-          <Button type="submit" variant="primary" carregando={saving} disabled={clientes.length === 0}>
-            {saving ? 'Salvando...' : rec.recorrente && !editando ? 'Salvar recorrência' : 'Salvar'}
-          </Button>
+          <Button variant="secondary" onClick={onClose}>Fechar</Button>
+          {aguardandoAprovacao ? (
+            <>
+              <Button type="submit" variant="secondary" disabled={saving || clientes.length === 0}>Salvar</Button>
+              <Button variant="primary" onClick={handleAprovar} carregando={saving} disabled={clientes.length === 0}>
+                <Check size={15} /> Aprovar
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button type="submit" variant="primary" carregando={saving} disabled={clientes.length === 0}>
+                {saving ? 'Salvando...' : rec.recorrente && !editando ? 'Salvar recorrência' : 'Salvar'}
+              </Button>
+              {!ehPedido && (
+                <Button variant="success" onClick={handleConcluir} disabled={saving || clientes.length === 0} title="Salvar marcando a reunião como concluída">
+                  <Check size={15} /> Concluir
+                </Button>
+              )}
+            </>
+          )}
         </>
       }
     >
-            <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
-              <Field className="flex-1" labelSize="sm" label="Cliente">
-                <ClienteCombobox clientes={clientes} value={clientId} onChange={setClientId} tone="modal" />
-              </Field>
-
-              {/* Tipo vem logo depois do Cliente porque é ele que define quanta
-                  informação o formulário pede (Contato/Relatório são enxutos) —
-                  antes ficava em 4º lugar, depois de campos que ele mesmo
-                  esconde, e trocar o tipo fazia o formulário "pular". */}
-              <SelectField
-                className="w-[160px]"
-                labelSize="sm"
-                label="Tipo"
-                value={type}
-                onChange={setType}
-                options={tipoOpcoes.map((t) => ({ value: t, label: t }))}
-              />
-            </div>
-
-            {/* Campo de texto principal do evento (`subject`), agora em todos os
-                tipos. Antes, Reunião usava "Assunto" e os tipos simples usavam
-                um segundo campo (`description`) rotulado "Observação" — duas
-                caixas de texto para o mesmo papel. */}
-            <Field label="Descrição">
-              <Input
-                tone="modal"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder={modoSimples ? 'Ex.: Ligação para retomar contato' : 'Ex.: Revisão de precificação Q3'}
-                required={!modoSimples}
-              />
-            </Field>
-
-            <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
-              <Field className="flex-1" labelSize="sm" label="Data">
-                <Input tone="modal" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-              </Field>
-              <Field className="w-[100px]" labelSize="sm" label="Hora">
-                <Input tone="modal" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-              </Field>
-              {!modoSimples && (
-                <SelectField
-                  className="w-[110px]"
-                  labelSize="sm"
-                  label="Duração"
-                  value={String(duracao)}
-                  onChange={(v) => setDuracao(Number(v))}
-                  options={[
-                    { value: '0', label: '—' },
-                    { value: '30', label: '30 min' },
-                    { value: '60', label: '1h' },
-                    { value: '90', label: '1h30' },
-                    { value: '120', label: '2h' },
-                  ]}
-                />
-              )}
-            </div>
-
-            <Field as="div" label="Monitor(es)">
-              {monitorOpcoes.length === 0 ? (
-                <p className="text-text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>Nenhum monitor cadastrado — adicione em Configurações.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {monitorOpcoes.map((m) => (
-                    <Chip variant="toggle" key={m} active={monitores.includes(m)} onClick={() => toggleMonitor(m)}>{m}</Chip>
-                  ))}
-                </div>
-              )}
-              {/* Só informativo — nunca bloqueia, ao contrário do aviso de
-                  conflito pontual mais abaixo. */}
-              {reunioesNaSemanaPorMonitor.length > 0 && (
-                <p className="text-[0.76rem] text-text-muted" style={{ marginTop: 6 }}>
-                  {reunioesNaSemanaPorMonitor.map(({ monitor: m, total }, i) => (
-                    <span key={m}>
-                      {i > 0 && ' · '}
-                      {m}: {total} {total === 1 ? 'reunião' : 'reuniões'} nessa semana
-                    </span>
-                  ))}
-                </p>
-              )}
-            </Field>
-
-            {ehInteracao && (
-              <SelectField
-                label="Quem procurou"
-                value={origem}
-                onChange={(v) => setOrigem(v as OrigemEvento | '')}
-                options={[
-                  { value: '', label: '— não informado —' },
-                  { value: 'nos', label: ORIGEM_LABEL.nos },
-                  { value: 'cliente', label: ORIGEM_LABEL.cliente },
-                ]}
-              />
-            )}
-
-            <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
-              {ehReuniao && (
-                <SelectField
-                  className="flex-1"
-                  labelSize="sm"
-                  label="Sala"
-                  placeholder="— nenhuma —"
-                  value={sala}
-                  onChange={setSala}
-                  options={[{ value: '', label: '— nenhuma —' }, ...salaOpcoes.map((s) => ({ value: s, label: s }))]}
-                />
-              )}
-
-              <SelectField
-                className="flex-1"
-                labelSize="sm"
-                label="Status"
-                value={status}
-                onChange={setStatus}
-                options={statusOpcoes.map((s) => ({ value: s, label: s }))}
-              />
-            </div>
-
+            {/* Avisos e motivo ficam acima das abas: o status muda no cabeçalho, de qualquer aba. */}
             {conflitoMonitor && (
               <Badge variant="danger" style={{ marginBottom: 8 }}>
                 <AlertTriangle size={12} /> {nomeMonitorConflitante} já tem outro evento nesse dia e horário — não vai dar pra salvar.
@@ -687,7 +618,6 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                 <AlertTriangle size={12} /> Sala "{sala}" já ocupada nesse dia e horário por {clienteSalaConflitante} — não vai dar pra salvar.
               </Badge>
             )}
-
             {ehCancelamento && (
               <SelectField
                 label={`Quem cancelou${statusOriginalPendente ? '' : ' *'}`}
@@ -699,7 +629,6 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                 ]}
               />
             )}
-
             {precisaMotivo && (
               <Field label={ehCancelamento ? 'Motivo do cancelamento *' : 'Motivo do reagendamento *'}>
                 <Textarea
@@ -712,26 +641,188 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
               </Field>
             )}
 
-            {/* Recorrência + lembrete automático (agora multi-seleção): mantido
-                também no modo enxuto (follow-up do contato), só em criação. */}
-            {!editando && <RecorrenciaFields rec={rec} baseData={dataValida ? dataSegura : null} />}
+            {!modoSimples && (
+              <Tabs style={{ marginBottom: '1.25rem' }}>
+                <button type="button" className={`tab${etapaVisivel === 'agendamento' ? ' is-active' : ''}`} onClick={() => setEtapa('agendamento')}>Agendamento</button>
+                <button type="button" className={`tab${etapaVisivel === 'registro' ? ' is-active' : ''}`} onClick={() => setEtapa('registro')}>Registro</button>
+              </Tabs>
+            )}
 
-            <Field as="div" label="Serviços tratados *">
-              {servicoOpcoes.length === 0 ? (
-                <p className="text-text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>Nenhum serviço cadastrado — adicione em Configurações.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {servicoOpcoes.map((s) => (
-                    <Chip variant="toggle" key={s} active={servicos.includes(s)} onClick={() => toggleServico(s)}>{s}</Chip>
-                  ))}
+            {etapaVisivel === 'agendamento' && (
+            <div className={ehPedido ? 'grid gap-6 md:grid-cols-[minmax(0,1fr)_240px]' : undefined}>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-start gap-[10px]">
+                  <Field className="flex-1 min-w-[220px]" labelSize="sm" label="Cliente">
+                    <ClienteCombobox clientes={clientes} value={clientId} onChange={setClientId} tone="modal" />
+                  </Field>
+                  {!ehPedido && (
+                    <SelectField
+                      className="w-[160px]"
+                      labelSize="sm"
+                      label="Tipo"
+                      value={type}
+                      onChange={setType}
+                      options={tipoOpcoes.map((t) => ({ value: t, label: t }))}
+                    />
+                  )}
                 </div>
+
+                {/* Campo de texto principal do evento (`subject`), em todos os tipos. */}
+                <Field label="Descrição">
+                  <Input
+                    tone="modal"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder={modoSimples ? 'Ex.: Ligação para retomar contato' : 'Ex.: Revisão de precificação Q3'}
+                    required={!modoSimples}
+                  />
+                </Field>
+
+                <div className="flex flex-wrap items-start gap-[10px]">
+                  <Field className="flex-1 min-w-[150px]" labelSize="sm" label="Data">
+                    <Input tone="modal" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+                  </Field>
+                  <Field className="w-[100px]" labelSize="sm" label="Hora">
+                    <Input tone="modal" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+                  </Field>
+                  {(!modoSimples || ehPedido) && (
+                    <SelectField
+                      className="w-[110px]"
+                      labelSize="sm"
+                      label="Duração"
+                      value={String(duracao)}
+                      onChange={(v) => setDuracao(Number(v))}
+                      options={[
+                        { value: '0', label: '—' },
+                        { value: '30', label: '30 min' },
+                        { value: '60', label: '1h' },
+                        { value: '90', label: '1h30' },
+                        { value: '120', label: '2h' },
+                      ]}
+                    />
+                  )}
+                  {(ehReuniao || ehPedido) && (
+                    <SelectField
+                      className="flex-1 min-w-[140px]"
+                      labelSize="sm"
+                      label="Sala"
+                      placeholder="— nenhuma —"
+                      value={sala}
+                      onChange={setSala}
+                      options={[{ value: '', label: '— nenhuma —' }, ...salaOpcoes.map((o) => ({ value: o, label: o }))]}
+                    />
+                  )}
+                </div>
+
+                <Field as="div" label="Monitor(es)">
+                  {monitorOpcoes.length === 0 ? (
+                    <p className="text-text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>Nenhum monitor cadastrado — adicione em Configurações.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {monitorOpcoes.map((m) => (
+                        <Chip variant="toggle" key={m} active={monitores.includes(m)} onClick={() => toggleMonitor(m)}>{m}</Chip>
+                      ))}
+                    </div>
+                  )}
+                  {/* Só informativo — nunca bloqueia, ao contrário do aviso de conflito pontual. */}
+                  {reunioesNaSemanaPorMonitor.length > 0 && (
+                    <p className="text-[0.76rem] text-text-muted" style={{ marginTop: 6 }}>
+                      {reunioesNaSemanaPorMonitor.map(({ monitor: m, total }, i) => (
+                        <span key={m}>
+                          {i > 0 && ' · '}
+                          {m}: {total} {total === 1 ? 'reunião' : 'reuniões'} nessa semana
+                        </span>
+                      ))}
+                    </p>
+                  )}
+                </Field>
+
+                {ehInteracao && (
+                  <SelectField
+                    label="Quem procurou"
+                    value={origem}
+                    onChange={(v) => setOrigem(v as OrigemEvento | '')}
+                    options={[
+                      { value: '', label: '— não informado —' },
+                      { value: 'nos', label: ORIGEM_LABEL.nos },
+                      { value: 'cliente', label: ORIGEM_LABEL.cliente },
+                    ]}
+                  />
+                )}
+
+                <Field as="div" label="Serviços tratados *">
+                  {servicoOpcoes.length === 0 ? (
+                    <p className="text-text-muted" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 'normal' }}>Nenhum serviço cadastrado — adicione em Configurações.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {servicoOpcoes.map((o) => (
+                        <Chip variant="toggle" key={o} active={servicos.includes(o)} onClick={() => toggleServico(o)}>{o}</Chip>
+                      ))}
+                    </div>
+                  )}
+                </Field>
+
+                {/* Recorrência e lembrete: raros numa ficha normal, então ficam recolhidos. Só em criação. */}
+                {!editando && (
+                  <details className="mb-4">
+                    <summary className="cursor-pointer text-[0.8rem] font-medium text-text-secondary mb-3">
+                      Repetir e lembrar
+                      {(rec.recorrente || qtdLembretes > 0) && (
+                        <span className="text-text-muted font-normal">
+                          {rec.recorrente ? ' · repete' : ''}{qtdLembretes > 0 ? ` · ${qtdLembretes} ${qtdLembretes === 1 ? 'lembrete' : 'lembretes'}` : ''}
+                        </span>
+                      )}
+                    </summary>
+                    <RecorrenciaFields rec={rec} baseData={dataValida ? dataSegura : null} />
+                  </details>
+                )}
+
+                {/* Campo antigo (`description`): só aparece nos eventos que já têm texto
+                    nele, para não esconder o que alguém escreveu. No pedido, vai ao lado. */}
+                {!ehPedido && description.trim() && (
+                  <Field
+                    label={
+                      <>
+                        Observações{' '}
+                        <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>
+                          · registro antigo deste evento
+                        </span>
+                      </>
+                    }
+                  >
+                    <Textarea tone="modal" value={description} onChange={(e) => setDescription(e.target.value)} />
+                  </Field>
+                )}
+              </div>
+
+              {ehPedido && (
+                <aside className="min-w-0 order-first md:order-last">
+                  <h3 className="text-[0.8rem] font-semibold text-text-primary mb-2">Pedido do cliente</h3>
+                  <p className="text-[0.82rem] text-text-secondary whitespace-pre-line mb-5">{textoDoPedido || 'O Hub não enviou detalhes.'}</p>
+                  <h3 className="text-[0.8rem] font-semibold text-text-primary mb-2">Falar com o cliente</h3>
+                  {contatosComTelefone.length === 0 ? (
+                    <p className="text-[0.82rem] text-text-muted">Nenhum contato com telefone. Cadastre na ficha do cliente.</p>
+                  ) : (
+                    <ul className="flex flex-col gap-2">
+                      {contatosComTelefone.map((c) => (
+                        <li key={c.id} className="flex items-center justify-between gap-2">
+                          <span className="min-w-0 text-[0.82rem] text-text-primary" title={c.cargo ? `${c.nome} · ${c.cargo}` : c.nome}>
+                            <span className="block truncate">{c.nome}</span>
+                            {c.cargo && <span className="block truncate text-[0.74rem] text-text-muted">{c.cargo}</span>}
+                          </span>
+                          <Button variant="secondary" style={{ padding: '0.25rem 0.55rem', fontSize: 12 }} onClick={() => setWaContato(c)} aria-label={`WhatsApp de ${c.nome}`}>
+                            <MessageCircle size={13} /> WhatsApp
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </aside>
               )}
-            </Field>
+            </div>
+            )}
 
-            {!modoSimples && (<>
-
-            <SecaoLabel>Registro da reunião</SecaoLabel>
-
+            {etapaVisivel === 'registro' && (<>
             <Field
               label={
                 <>
@@ -742,34 +833,14 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                 </>
               }
             >
-              <Textarea tone="modal" value={resumo} onChange={(e) => setResumo(e.target.value)} rows={3} placeholder="Resumo do que foi tratado na reunião..." />
+              <Textarea tone="modal" value={resumo} onChange={(e) => setResumo(e.target.value)} rows={4} placeholder="Resumo do que foi tratado na reunião..." />
             </Field>
 
-            {/* Transcrição bruta (colada de Otter/Fireflies/Gemini Notes ou
-                digitada) — opcional, só alimenta o botão "Gerar ata com IA"
-                abaixo; não entra em nenhum outro lugar (dossiê/relatório
-                continuam lendo ata/resumo, não este campo). */}
-            <Field
-              label={
-                <>
-                  Transcrição{' '}
-                  <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>
-                    · opcional, usada pelo "Gerar ata com IA"
-                  </span>
-                </>
-              }
-            >
-              <Textarea tone="modal" value={transcricao} onChange={(e) => setTranscricao(e.target.value)} rows={3} placeholder="Cole aqui a transcrição da reunião (Otter, Fireflies, Gemini Notes...), se houver." />
-            </Field>
-
-            {/* Ata: um só significado. O texto aqui É a ata; vazia, ela é gerada
-                a partir de pauta/resumo ao salvar. Antes o rótulo dizia
-                "observações, editável" e o placeholder dizia outra coisa, o que
-                fazia o campo parecer um terceiro lugar para escrever texto. */}
+            {/* Ata: o texto aqui É a ata; vazia, é gerada a partir de pauta/resumo ao salvar. */}
             <Field as="div" label={
-              <span className="flex-between" style={{ marginBottom: 2 }}>
+              <span className="flex flex-wrap items-center justify-between gap-2" style={{ marginBottom: 2 }}>
                 <span>Ata <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>· vazia = gerada da pauta e do resumo</span></span>
-                <span className="flex-row" style={{ gap: 6 }}>
+                <span className="flex flex-wrap gap-[6px]">
                   <Button variant="secondary" style={{ padding: '0.25rem 0.55rem', fontSize: 12 }} onClick={() => setAta(ataAuto)}>
                     Preencher com a automática
                   </Button>
@@ -784,62 +855,48 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                       ? (<><Loader2 size={12} className="animate-spin" /> Gerando... {Math.floor(gerandoAtaSegundos / 60)}:{String(gerandoAtaSegundos % 60).padStart(2, '0')}</>)
                       : (<><Bot size={12} /> Gerar ata com IA</>)}
                   </Button>
+                  <Button
+                    variant="secondary"
+                    style={{ padding: '0.25rem 0.55rem', fontSize: 12 }}
+                    onClick={() => {
+                      if (!dataValida) { toastError('Data inválida — confira o dia informado.'); return; }
+                      gerarAtaPdf(
+                        {
+                          clientName: clienteSelecionado?.empresa ?? '',
+                          date: dataSegura.toISOString(),
+                          time, duracao, type, status, subject, servicos, sala, monitores,
+                          checklist: ck.checklist, preAnalise: pa.preAnalise, resumo,
+                          ata: ata.trim() ? ata : ataAuto,
+                          description,
+                        },
+                        { cliente: clienteSelecionado }
+                      );
+                    }}
+                  >
+                    <FileText size={12} /> PDF
+                  </Button>
                 </span>
               </span>
             }>
-              <Textarea tone="modal" value={ata} onChange={(e) => setAta(e.target.value)} rows={4} placeholder="Deixe vazio para gerar automaticamente ao salvar, ou escreva a ata aqui." />
-              <Button
-                variant="primary"
-                style={{ marginTop: 8, alignSelf: 'flex-start' }}
-                onClick={() => {
-                  if (!dataValida) { toastError('Data inválida — confira o dia informado.'); return; }
-                  gerarAtaPdf(
-                    {
-                      clientName: clienteSelecionado?.empresa ?? '',
-                      date: dataSegura.toISOString(),
-                      time, duracao, type, status, subject, servicos, sala, monitores,
-                      checklist: ck.checklist, preAnalise: pa.preAnalise, resumo,
-                      ata: ata.trim() ? ata : ataAuto,
-                      description,
-                    },
-                    { cliente: clienteSelecionado }
-                  );
-                }}
-              >
-                <FileText size={15} /> Gerar Ata (PDF)
-              </Button>
+              <Textarea tone="modal" value={ata} onChange={(e) => setAta(e.target.value)} rows={6} placeholder="Deixe vazio para gerar automaticamente ao salvar, ou escreva a ata aqui." />
             </Field>
+
+            {/* Transcrição bruta: opcional, só alimenta o "Gerar ata com IA". Recolhida quando vazia. */}
+            <details className="mb-4" open={Boolean(initial?.transcricao)}>
+              <summary className="cursor-pointer text-[0.8rem] font-medium text-text-secondary mb-3">
+                Transcrição <span className="text-text-muted font-normal">· opcional, usada pelo "Gerar ata com IA"</span>
+              </summary>
+              <Textarea tone="modal" value={transcricao} onChange={(e) => setTranscricao(e.target.value)} rows={4} aria-label="Transcrição" placeholder="Cole aqui a transcrição da reunião (Otter, Fireflies, Gemini Notes...), se houver." />
+            </details>
+
+            <AnexosField
+              editando={editando}
+              attachments={eventoAtual?.attachments ?? []}
+              uploading={uploading}
+              onRemove={(anexo) => initial && removerAnexoEvento(initial.id, anexo)}
+              onFilesSelected={handleFilesSelected}
+            />
             </>)}
-
-            {/* Campo antigo (`description`): saiu do formulário porque "Descrição"
-                agora é um só. Continua aparecendo — e editável — nos eventos que
-                já têm texto gravado nele, para não esconder o que alguém
-                escreveu. Segue sendo lido pela timeline do cliente, busca
-                global, relatórios e pela ata. */}
-            {description.trim() && (
-              <Field
-                label={
-                  <>
-                    Observações{' '}
-                    <span className="text-text-muted" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>
-                      · registro antigo deste evento
-                    </span>
-                  </>
-                }
-              >
-                <Textarea tone="modal" value={description} onChange={(e) => setDescription(e.target.value)} />
-              </Field>
-            )}
-
-            {!modoSimples && (
-              <AnexosField
-                editando={editando}
-                attachments={eventoAtual?.attachments ?? []}
-                uploading={uploading}
-                onRemove={(anexo) => initial && removerAnexoEvento(initial.id, anexo)}
-                onFilesSelected={handleFilesSelected}
-              />
-            )}
     </ModalShell>
     {mostrarPopupCancelamento && (
       <CancelarEventoPopup
@@ -850,6 +907,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
         permitirRegistrarContato={statusOriginalPendente}
       />
     )}
+    {waContato && <WhatsAppMensagemModal contato={waContato} empresa={clienteSelecionado?.empresa ?? ''} onClose={() => setWaContato(null)} />}
     </>
   );
 }

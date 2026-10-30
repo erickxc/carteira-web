@@ -1104,7 +1104,7 @@ input[type='month']::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 
 .modal-header h2 { margin: 0; font-size: 1.05rem; font-weight: 600; }
 .modal-body { padding: 1.35rem; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
-.modal-footer { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 0.9rem 1.35rem; border-top: 1px solid var(--border); background: var(--bg); }
+.modal-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.6rem; padding: 0.9rem 1.35rem; border-top: 1px solid var(--border); background: var(--bg); }
 
 /* Scrollbar: sem regra própria aqui — o estilo global (topo do arquivo) já
    cobre modal, dropdown e todo o resto com a mesma barra. */
