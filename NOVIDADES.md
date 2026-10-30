@@ -8,6 +8,14 @@ Sistema quando houver atualização disponível, e depois de atualizar.
 Regra: se a mudança não muda nada no dia a dia de quem usa (refatoração,
 teste, ajuste interno), não entra aqui.
 
+## 1.7.0
+
+- A ficha do cliente ganhou o bloco **Produtos**: cada produto tem fase (Em breve, Suspenso, Ativo, Cancelado), desde quando, link, login e senha, e mostra se está marcado no DW agora.
+- **Monitoria** agora se chama **Plataforma 2D** e **Precificação** virou **2D Price** nas telas. Os prazos continuam os mesmos, e só produto Ativo entra na cadência.
+- Mudar a fase de um produto pede o **motivo**. Meses passados da Visão Geral usam os produtos daquela época.
+- Produto que o cliente contrata depois não nasce mais atrasado: o prazo conta a partir de quando ele ficou Ativo.
+- O monitorIA enxerga os produtos de cada cliente e muda a fase depois que você confirmar.
+
 ## 1.6.18
 
 - Novo botão **Unir atendimentos** na Carteira: escolha o atendimento e marque as lojas que fazem parte dele (ex.: Altese Penha com CD e EC). As vendas passam a somar as lojas marcadas.
