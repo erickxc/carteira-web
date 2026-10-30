@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-const { relevante } = require('./posEvento.cjs');
+import { relevante } from './posEvento.cjs';
 
 describe('posEvento: relevante', () => {
   it('dispara para status de desfecho normal (concluído/realizado/cancelado/reagendado)', () => {
