@@ -7,10 +7,7 @@ import { limparStreamAtaIA } from '../utils/limparStreamAtaIA';
 import { registrarRemarcacao } from '../utils/reagendamento';
 import { ehServicoDeReuniao, servicoPadraoDoEvento } from '../utils/cadenciaServico';
 import { gerarAtaPdf } from '../utils/ataPdf';
-import {
-  gerarAtaComIAStream, buscarCatalogoAlvos,
-  type CatalogoAlvosCliente,
-} from '../api/client';
+import { gerarAtaComIAStream } from '../api/client';
 import { toastError, toastInfo, toastSuccess } from '../utils/toast';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ModalShell } from './ModalShell';
@@ -22,7 +19,6 @@ import { usePreAnalise } from './eventForm/usePreAnalise';
 import { useProdutosSituacao } from './eventForm/useProdutosSituacao';
 import { RecorrenciaFields } from './eventForm/RecorrenciaFields';
 import { AnexosField } from './eventForm/AnexosField';
-import { ProdutosSituacaoField } from './eventForm/ProdutosSituacaoField';
 import { Badge, Button, Chip, Field, Input, SecaoLabel, Textarea } from '../ui';
 import { ReuniaoMonitorIA } from './agenda/ReuniaoMonitorIA';
 import { SelectField } from './SelectField';
@@ -116,7 +112,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const [servicosEscolhidos, setServicosEscolhidos] = useState<string[] | null>(servicosGravados.length > 0 ? servicosGravados : null);
   const servicos = servicosEscolhidos ?? servicoPadraoDoEvento({ type }, clientes.find((c) => c.id === clientId)) ?? [];
   const [sala, setSala] = useState(initial?.sala ?? '');
-  const [priceSoDaLoja, setPriceSoDaLoja] = useState(initial?.escopoPrice === 'loja');
+  // Escolha "Grupo / Só esta loja" saiu da tela (30/10/2026, pouco usada): evento novo vale
+  // pro grupo; o que já estava gravado como 'loja' é mantido ao salvar.
+  const priceSoDaLoja = initial?.escopoPrice === 'loja';
   // Contato/Ligação criados aqui são, por definição, iniciativa nossa (quem
   // registra é o monitor). Contato recebido do cliente entra pelo
   // RegistroContatoModal, que grava 'cliente'. Em edição, preserva o que já
@@ -125,6 +123,8 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const rec = useRecorrencia();
   const ck = useChecklist(initial?.checklist ?? []);
   const pa = usePreAnalise(initial?.preAnalise);
+  // Registro da Monitoria saiu da tela (30/10/2026, pouco usado); os itens já gravados
+  // continuam no hook para não serem apagados ao salvar.
   const ps = useProdutosSituacao(migrarPrecificacaoLegada(initial), /precific/i.test(type) ? 'produto' : 'cliente_produto');
   const [ata, setAta] = useState(initial?.ata ?? '');
   const [resumo, setResumo] = useState(initial?.resumo ?? '');
@@ -143,7 +143,6 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
     const timer = window.setInterval(() => setGerandoAtaSegundos(Math.floor((Date.now() - inicio) / 1000)), 1000);
     return () => window.clearInterval(timer);
   }, [gerandoAtaIA]);
-  const [catalogoAlvos, setCatalogoAlvos] = useState<{ clientId: string; catalogo: CatalogoAlvosCliente | null } | null>(null);
   const [mostrarPopupCancelamento, setMostrarPopupCancelamento] = useState(false);
 
   const eventoAtual = initial ? agenda.find((a) => a.id === initial.id) : undefined;
@@ -168,22 +167,6 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   // Registro da Monitoria unificado: aparece tanto pro serviço Monitoria
   // (modos livres) quanto pro tipo Precificação (travado em "produto").
   const ehRegistroSituacao = ehMonitoriaServico || ehPrecificacaoTipo;
-  // Catálogo de Dados Alvos (produtos/clientes finais) pro autocomplete do
-  // Registro da Monitoria + tags compartilhadas do Ecossistema. NUNCA aquece o
-  // cache aqui (`aquecer` fica de fora de propósito): pode custar ~20s em
-  // arquivo grande. Com cache frio o backend devolve o ESPELHO persistido
-  // (`alvos/catalogoSnapshot.cjs`), atualizado a cada reunião concluída/
-  // cancelada — então a lista não desaparece por causa de cache.
-  // Guarda o clientId junto do resultado: sem isso, trocar de cliente no
-  // combobox deixaria a sugestão do cliente ANTERIOR na tela até a resposta
-  // nova chegar (e limpar com setState síncrono dentro do efeito é justamente
-  // o padrão que o lint do projeto proíbe).
-  useEffect(() => {
-    if (!clientId) return;
-    buscarCatalogoAlvos(clientId)
-      .then((c) => setCatalogoAlvos({ clientId, catalogo: c }))
-      .catch(() => setCatalogoAlvos({ clientId, catalogo: null }));
-  }, [clientId]);
 
   // Interação pontual (Contato/Ligação) — a única em que "quem procurou quem"
   // faz sentido. Relatório é entrega nossa; reunião é agendamento.
@@ -609,14 +592,6 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
               />
             </Field>
 
-            {ehPrecificacaoTipo && (
-              <ProdutosSituacaoField
-                ps={ps}
-                produtosDisponiveis={catalogoAlvos?.clientId === clientId ? (catalogoAlvos.catalogo?.produtos ?? []) : []}
-                modoFixo="produto"
-              />
-            )}
-
             <div className="flex-row" style={{ gap: 10, alignItems: 'flex-start' }}>
               <Field className="flex-1" labelSize="sm" label="Data">
                 <Input tone="modal" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
@@ -751,29 +726,9 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
                   ))}
                 </div>
               )}
-              {mostrarEscopoPrice && (
-                <div role="radiogroup" aria-label="Alcance do atendimento de precificação" className="flex flex-wrap items-center gap-2" style={{ marginTop: 10 }}>
-                  <span className="text-text-muted" style={{ fontSize: 12 }}>Atendimento:</span>
-                  <Chip variant="toggle" role="radio" aria-checked={!priceSoDaLoja} active={!priceSoDaLoja} onClick={() => setPriceSoDaLoja(false)}>
-                    Grupo {clienteSelecionado?.grupo} ({qtdOutrasDoGrupo + 1} lojas)
-                  </Chip>
-                  <Chip variant="toggle" role="radio" aria-checked={priceSoDaLoja} active={priceSoDaLoja} onClick={() => setPriceSoDaLoja(true)}>
-                    Só esta loja
-                  </Chip>
-                </div>
-              )}
             </Field>
 
             {!modoSimples && (<>
-            {ehMonitoriaServico && (
-              <ProdutosSituacaoField
-                ps={ps}
-                produtosDisponiveis={catalogoAlvos?.clientId === clientId ? (catalogoAlvos.catalogo?.produtos ?? []) : []}
-                clientesDisponiveis={catalogoAlvos?.clientId === clientId ? (catalogoAlvos.catalogo?.clientes ?? []) : []}
-                gruposReferencia={opcoesPorTipo('grupo_referencia')}
-              />
-            )}
-
 
             <SecaoLabel>Registro da reunião</SecaoLabel>
 
