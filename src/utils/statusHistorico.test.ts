@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { clientesEm } from './statusHistorico';
 import { isClienteAtivo } from './formatters';
-import type { Cliente, StatusHistoricoItem } from '../types';
+import type { Cliente, ProdutoHistoricoItem, StatusHistoricoItem } from '../types';
 
 const c = (id: string, extra: Partial<Cliente> = {}) =>
   ({ id, empresa: id, status: 'Suspenso', estado: 'Inativo', ...extra }) as Cliente;
@@ -29,5 +29,33 @@ describe('clientesEm', () => {
   it('cliente sem linha no log fica como está hoje', () => {
     const [x] = clientesEm([c('x', { status: 'Regular', estado: 'Ativo' })], [], fimDeJulho);
     expect(x.status).toBe('Regular');
+  });
+
+  it('com ProdutosHistorico, refaz servicos com os produtos Ativos na data', () => {
+    const ph = (produto: string, fase: string, mudouEm: string): ProdutoHistoricoItem =>
+      ({ id: `${produto}${mudouEm}`, clientId: 'a', produto, fase, motivo: '', mudouEm });
+    const historico = [h('a', 'Regular', 'Ativo', '2026-05-01T00:00:00.000Z')];
+    const produtosHistorico = [
+      ph('Plataforma 2D', 'Ativo', '2026-05-01T00:00:00.000Z'),
+      ph('2D Price', 'Ativo', '2026-05-01T00:00:00.000Z'),
+      ph('2D Price', 'Cancelado', '2026-10-20T12:00:00.000Z'),
+      ph('2D Nexus', 'Ativo', '2026-10-30T00:00:00.000Z'),
+    ];
+    const hoje = c('a', {
+      servicos: ['Plataforma 2D'],
+      produtos: [
+        { produto: 'Plataforma 2D', fase: 'Ativo', faseDesde: '2026-05-01T00:00:00.000Z', motivoFase: '' },
+        { produto: '2D Price', fase: 'Cancelado', faseDesde: '2026-10-20T12:00:00.000Z', motivoFase: 'saiu' },
+        { produto: '2D Nexus', fase: 'Ativo', faseDesde: '2026-10-30T00:00:00.000Z', motivoFase: '' },
+      ],
+    });
+    const [a] = clientesEm([hoje], historico, new Date(2026, 8, 15), produtosHistorico);
+    expect(a.servicos).toEqual(['Plataforma 2D', '2D Price']);
+    expect(a.produtos?.find((p) => p.produto === '2D Price')).toMatchObject({ fase: 'Ativo', faseDesde: '2026-05-01T00:00:00.000Z' });
+  });
+
+  it('cliente sem linha em ProdutosHistorico mantém os servicos de hoje', () => {
+    const [x] = clientesEm([c('x', { servicos: ['Plataforma 2D'] })], [], fimDeJulho, []);
+    expect(x.servicos).toEqual(['Plataforma 2D']);
   });
 });

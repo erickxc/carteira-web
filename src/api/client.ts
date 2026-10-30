@@ -1,4 +1,4 @@
-import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilCampoPersonalizado, AgilColuna, AgilComentario, AgilConexao, AgilFrente, AgilHistoricoItem, AgilSwimlane, AgilSubtarefa, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, LojaCadastro, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilConexao, NovaAgilFrente, NovaAgilSubtarefa, NovaAgilSwimlane, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilCampoPersonalizado, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoClienteTela, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao, StatusHistoricoItem } from '../types';
+import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilCampoPersonalizado, AgilColuna, AgilComentario, AgilConexao, AgilFrente, AgilHistoricoItem, AgilSwimlane, AgilSubtarefa, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, LojaCadastro, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilConexao, NovaAgilFrente, NovaAgilSubtarefa, NovaAgilSwimlane, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilCampoPersonalizado, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoClienteTela, ProdutoHistoricoItem, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao, StatusHistoricoItem } from '../types';
 
 const PRE_ANALISE_VAZIA: PreAnalise = { orientacoes: [], clientesGeral: '', produtosGeral: '' };
 function parsePreAnalise(raw: unknown): PreAnalise {
@@ -484,6 +484,7 @@ export async function buscarAnaliseIA(clienteId: string): Promise<AnaliseIA | nu
 export const buscarAnalisesIA = () => request<AnaliseIA[]>('/ia/analises');
 export const buscarHistoricoAnalisesIA = () => request<AnaliseIA[]>('/ia/analises/historico');
 export const listarStatusHistorico = () => request<StatusHistoricoItem[]>('/status-historico');
+export const listarProdutosHistorico = () => request<ProdutoHistoricoItem[]>('/produtos-historico');
 
 export interface MensagemChatIA {
   role: 'user' | 'assistant';

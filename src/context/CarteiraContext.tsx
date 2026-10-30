@@ -8,6 +8,7 @@ import type {
   AgendaSerie,
   AnaliseIA,
   StatusHistoricoItem,
+  ProdutoHistoricoItem,
   AgilBoard,
   AgilWorkspace,
   AgilColuna,
@@ -86,6 +87,8 @@ interface CarteiraContextValue {
   analisesIA: AnaliseIA[];
   /** Log de mudanças de status/estado dos clientes — base pra reconstruir a carteira de um mês passado. */
   statusHistorico: StatusHistoricoItem[];
+  /** Log de mudanças de fase dos produtos — produtos Ativos de um mês passado. */
+  produtosHistorico: ProdutoHistoricoItem[];
   modelos: Modelo[];
   cadencias: Cadencias;
   agilWorkspaces: AgilWorkspace[];
@@ -220,6 +223,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
   const [acoes, setAcoes] = useState<Acao[]>([]);
   const [analisesIA, setAnalisesIA] = useState<AnaliseIA[]>([]);
   const [statusHistorico, setStatusHistorico] = useState<StatusHistoricoItem[]>([]);
+  const [produtosHistorico, setProdutosHistorico] = useState<ProdutoHistoricoItem[]>([]);
   const [modelos, setModelos] = useState<Modelo[]>([]);
   const [cadencias, setCadencias] = useState<Cadencias>(CADENCIAS_PADRAO);
   const [agilWorkspaces, setAgilWorkspaces] = useState<AgilWorkspace[]>([]);
@@ -255,7 +259,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     const [
       clientesData, agendaData, agendaSeriesData, lembretesData, categoriasData, acoesData, modelosData, cadenciasData,
       agilWorkspacesData, agilBoardsData, agilColunasData, agilSwimlanesData, agilFrentesData, agilCamposPersonalizadosData, agilTarefasData, agilSubtarefasData, agilComentariosData, agilConexoesData, agilHistoricoData,
-      analisesIAData, statusHistoricoData,
+      analisesIAData, statusHistoricoData, produtosHistoricoData,
     ] = await Promise.all([
       api.listarClientes(),
       api.listarAgenda(),
@@ -282,11 +286,13 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       api.buscarAnalisesIA().catch(() => []),
       // Idem: sem o log, meses passados do Dashboard usam o cadastro de hoje.
       api.listarStatusHistorico().catch(() => []),
+      // Idem: sem ele, meses passados usam os produtos de hoje.
+      api.listarProdutosHistorico().catch(() => []),
     ]);
     return {
       clientesData, agendaData, agendaSeriesData, lembretesData, categoriasData, acoesData, modelosData, cadenciasData,
       agilWorkspacesData, agilBoardsData, agilColunasData, agilSwimlanesData, agilFrentesData, agilCamposPersonalizadosData, agilTarefasData, agilSubtarefasData, agilComentariosData, agilConexoesData, agilHistoricoData,
-      analisesIAData, statusHistoricoData,
+      analisesIAData, statusHistoricoData, produtosHistoricoData,
     };
   }, []);
 
@@ -312,6 +318,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
     setAgilHistorico(d.agilHistoricoData);
     setAnalisesIA(d.analisesIAData);
     setStatusHistorico(d.statusHistoricoData);
+    setProdutosHistorico(d.produtosHistoricoData);
   }, []);
 
   const recarregar = useCallback(async () => {
@@ -867,6 +874,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       acoes,
       analisesIA,
       statusHistorico,
+      produtosHistorico,
       modelos,
       cadencias,
       agilWorkspaces,
@@ -948,7 +956,7 @@ export function CarteiraProvider({ children }: { children: ReactNode }) {
       removerAgilConexao: removerAgilConexaoFn,
     }),
     [
-      clientes, filtroMonitor, definirFiltroMonitor, monitoresDisponiveis, agenda, agendaSeries, lembretes, categorias, acoes, analisesIA, statusHistorico, modelos, cadencias,
+      clientes, filtroMonitor, definirFiltroMonitor, monitoresDisponiveis, agenda, agendaSeries, lembretes, categorias, acoes, analisesIA, statusHistorico, produtosHistorico, modelos, cadencias,
       agilWorkspaces, agilBoards, agilColunas, agilSwimlanes, agilFrentes, agilCamposPersonalizados, agilTarefas, agilSubtarefas, agilComentarios, agilConexoes, agilHistorico,
       loading, error, recarregar, revalidarSilencioso, ceoAgenda, opcoesPorTipo, categoriasPorTipo,
       criarCliente, criarClientesEmLote, atualizarClienteFn, removerClienteFn,

@@ -148,3 +148,29 @@ describe('dbSqlite: guarda de escrita em APP_MODE=client (Etapa 2)', () => {
     delete require.cache[dbSqlitePath];
   });
 });
+
+describe('dbSqlite: snapshot antigo sem a tabela ProdutosHistorico (máquina client)', () => {
+  it('getSheetDataRemota devolve [] sem lançar', () => {
+    // Isola também ONEDRIVE_ROOT: o SNAPSHOT_FILE deriva dele.
+    const oneDrive = path.join(tmpDir, 'onedrive');
+    fs.mkdirSync(oneDrive);
+    process.env.ONEDRIVE_ROOT = oneDrive;
+    try {
+      delete require.cache[require.resolve('./config.cjs')];
+      delete require.cache[require.resolve('./dbSqlite.cjs')];
+      const { SNAPSHOT_FILE } = require('./config.cjs');
+      fs.mkdirSync(path.dirname(SNAPSHOT_FILE), { recursive: true });
+      const Database = require('better-sqlite3');
+      const snap = new Database(SNAPSHOT_FILE);
+      snap.exec('CREATE TABLE "Clientes" (id TEXT PRIMARY KEY)');
+      snap.close();
+      const dbRemoto: typeof import('./dbSqlite.cjs') = require('./dbSqlite.cjs');
+      expect(dbRemoto.getSheetDataRemota('ProdutosHistorico')).toEqual([]);
+      dbRemoto._fecharParaTestes();
+    } finally {
+      delete process.env.ONEDRIVE_ROOT;
+      delete require.cache[require.resolve('./config.cjs')];
+      delete require.cache[require.resolve('./dbSqlite.cjs')];
+    }
+  });
+});

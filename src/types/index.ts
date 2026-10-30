@@ -458,6 +458,19 @@ export interface StatusHistoricoItem {
   gravadoEm?: string;
 }
 
+// Linha do log de mudanças de fase de um produto do cliente
+// (server/dominio/produtosHistorico.cjs): vale de `mudouEm` até a próxima
+// linha do mesmo cliente+produto.
+export interface ProdutoHistoricoItem {
+  id: string;
+  clientId: string;
+  produto: string;
+  fase: string;
+  motivo: string;
+  mudouEm: string;
+  gravadoEm?: string;
+}
+
 export interface AnaliseIA {
   id: string;
   clientId: string;

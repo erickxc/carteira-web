@@ -47,7 +47,7 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   const { historicoAnalises } = opts;
   // `filtroMonitor` vem do Context — é o filtro GLOBAL ("quem sou eu"),
   // compartilhado com o header e com o monitorIA, não mais local desta tela.
-  const { clientes, agenda, acoes, cadencias, analisesIA, statusHistorico, filtroMonitor, setFiltroMonitor, monitoresDisponiveis } = useCarteira();
+  const { clientes, agenda, acoes, cadencias, analisesIA, statusHistorico, produtosHistorico, filtroMonitor, setFiltroMonitor, monitoresDisponiveis } = useCarteira();
   const [filtroTipo, setFiltroTipo] = usePersistedState<string>('filtro:dash:tipo', 'Todos');
   const [aderenciaSalvo, setFiltroServicoAderencia] = usePersistedState<string>('filtro:dash:servicoAderencia', 'Todos');
   const [vencendoSalvo, setFiltroServicoVencendo] = usePersistedState<string>('filtro:dash:servicoVencendo', 'Todos');
@@ -120,13 +120,13 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   // Serve tanto ao mês escolhido no topo quanto à comparação com um mês antes.
   // `todaCarteira`: ignora o filtro de monitor (usado pelo Ritmo mês a mês).
   const ativosEm = useCallback((data: Date, todaCarteira = false) => {
-    const base = isSameMonth(data, new Date()) ? clientes : clientesEm(clientes, statusHistorico, data);
+    const base = isSameMonth(data, new Date()) ? clientes : clientesEm(clientes, statusHistorico, data, produtosHistorico);
     return base.filter((c) =>
       (!c.createdAt || parseISO(c.createdAt) <= data) &&
       isClienteAtivo(c, data) &&
       (todaCarteira || filtroMonitor === 'Todos' || c.monitor === filtroMonitor)
     );
-  }, [clientes, statusHistorico, filtroMonitor]);
+  }, [clientes, statusHistorico, produtosHistorico, filtroMonitor]);
   /** Mesma data, um mês antes — referência de toda comparação da tela. */
   const referenciaAnterior = useMemo(() => subMonths(dataReferencia, 1), [dataReferencia]);
   const ativosNoPeriodo = useMemo(() => ativosEm(dataReferencia), [ativosEm, dataReferencia]);

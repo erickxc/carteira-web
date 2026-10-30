@@ -131,13 +131,19 @@ function rodarBackupSqliteELoggar(origem) {
 // rede de segurança pra caminhos de escrita sem gancho; cron diário idem.
 const { repoPlanilha: repoStatusHistorico } = require('./server/dominio/repo.cjs');
 const { sincronizarSemQuebrar: sincronizarStatusHistorico } = require('./server/dominio/statusHistorico.cjs');
+// Mesmo esquema para as fases dos produtos (ProdutosHistorico).
+const { sincronizarSemQuebrar: sincronizarProdutosHistorico } = require('./server/dominio/produtosHistorico.cjs');
 // Avisos de cancelamento antigos (antes do campo motivoContato): marca no boot.
 const { marcarSemQuebrar: marcarAvisosDeCancelamento } = require('./server/dominio/avisoCancelamento.cjs');
 
 if (isServer) {
   sincronizarStatusHistorico(repoStatusHistorico(), 'boot');
+  sincronizarProdutosHistorico(repoStatusHistorico(), 'boot');
   marcarAvisosDeCancelamento(repoStatusHistorico());
-  cron.schedule('0 4 * * *', () => sincronizarStatusHistorico(repoStatusHistorico(), 'cron diário'));
+  cron.schedule('0 4 * * *', () => {
+    sincronizarStatusHistorico(repoStatusHistorico(), 'cron diário');
+    sincronizarProdutosHistorico(repoStatusHistorico(), 'cron diário');
+  });
   rodarBackup('boot');
   cron.schedule('0 5 * * *', () => rodarBackup('cron diário'));
   rodarBackupSqliteELoggar('boot');
@@ -187,6 +193,7 @@ if (isServer) {
 registerUploads(app); // /uploads (estático) + /api/uploads (CRUD)
 app.use('/api/clients', require('./server/routes/clients.cjs'));
 app.use('/api/status-historico', require('./server/routes/statusHistorico.cjs'));
+app.use('/api/produtos-historico', require('./server/routes/produtosHistorico.cjs'));
 // Precisa vir ANTES de '/api/agenda' — senão o router de agenda (que tem
 // PUT '/:id') capturaria '/api/agenda/series/x' tratando "series" como id.
 app.use('/api/agenda/series', require('./server/routes/agendaSeries.cjs'));

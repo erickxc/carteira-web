@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { syncClienteColumns } = require('../db.cjs');
 const { gerarRelatoriosPendentes } = require('../relatoriosAutomaticos.cjs');
 const { sincronizarSemQuebrar } = require('./statusHistorico.cjs');
+const { sincronizarSemQuebrar: sincronizarProdutosHistorico } = require('./produtosHistorico.cjs');
 const { listaJSON } = require('../../shared/cadenciaServico.cjs');
 const {
   PRODUTOS_OFICIAIS, FASES, renomearProduto, produtosDeLegado, traduzirPatchLegado, mudancasDeFase,
@@ -110,6 +111,7 @@ function criar(repo, payload, opts = {}) {
   if (efeitosExternos) {
     gerarRelatorioSeConfigurado(novo.id, novo.relatorioCadencia);
     sincronizarSemQuebrar(repo, 'cliente criado');
+    sincronizarProdutosHistorico(repo, 'cliente criado');
   }
   return novo;
 }
@@ -143,6 +145,8 @@ function atualizar(repo, id, patch, opts = {}) {
     gerarRelatorioSeConfigurado(id, updated.relatorioCadencia);
   }
   if (updated && efeitosExternos && CAMPOS_SITUACAO.some((c) => c in patch)) sincronizarSemQuebrar(repo, 'cliente atualizado');
+  // `patch.produtos` também vem do patch da 1.6 traduzido (prepararPatchProdutos).
+  if (updated && efeitosExternos && 'produtos' in patch) sincronizarProdutosHistorico(repo, 'cliente atualizado');
   return updated;
 }
 
