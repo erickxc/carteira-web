@@ -185,6 +185,12 @@ describe('Ficha: aba Cadastro', () => {
   });
 });
 
+describe('Ficha: abas no celular', () => {
+  it('quebram linha: em 390px as 5 abas não cabem e a página não tem rolagem horizontal', () => {
+    expect(abrir(vazio)).toMatch(/class="tabs" style="[^"]*flex-wrap:wrap/);
+  });
+});
+
 describe('Ficha: Salvar anotação', () => {
   const comNota = { ...vazio, observacao: 'nota' };
 

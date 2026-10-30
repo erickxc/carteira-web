@@ -39,17 +39,22 @@ export default function ClienteDetailPage() {
   return <FichaCliente key={id} id={id} />;
 }
 
-/** Único lugar que edita `observacao`. Só monta com o cliente já carregado: montada
- *  antes (F5 na ficha), o texto começaria vazio e o Salvar apagaria a anotação. */
-function AnotacoesFicha({ cliente }: { cliente: Cliente }) {
+/** Único lugar que edita `observacao`. Só guarda o rascunho: sem digitação a tela
+ *  mostra o valor vivo, senão o texto velho salvo por cima apagaria a anotação de um
+ *  colega. Com digitação, vale a última gravação. */
+export function AnotacoesFicha({ cliente }: { cliente: Cliente }) {
   const { atualizarCliente } = useCarteira();
-  const [observacao, setObservacao] = useState(cliente.observacao ?? '');
+  const vivo = cliente.observacao ?? '';
+  const [rascunho, setRascunho] = useState<string | null>(null);
+  const texto = rascunho ?? vivo;
   const [salvando, setSalvando] = useState(false);
 
   async function salvar() {
     setSalvando(true);
     try {
-      await atualizarCliente(cliente.id, { observacao });
+      await atualizarCliente(cliente.id, { observacao: texto });
+      // O que foi digitado enquanto salvava continua sendo rascunho.
+      setRascunho((atual) => (atual === texto ? null : atual));
     } catch (err) {
       toastError(err instanceof Error ? err.message : 'Não foi possível salvar. Tente de novo.');
     } finally {
@@ -62,11 +67,11 @@ function AnotacoesFicha({ cliente }: { cliente: Cliente }) {
       <Textarea
         aria-label="Anotações"
         placeholder="Anotações sobre este cliente..."
-        value={observacao}
-        onChange={(e) => setObservacao(e.target.value)}
+        value={texto}
+        onChange={(e) => setRascunho(e.target.value === vivo ? null : e.target.value)}
         style={{ minHeight: 220, marginBottom: 12 }}
       />
-      <Button variant="primary" onClick={salvar} disabled={salvando || observacao === (cliente.observacao ?? '')}>
+      <Button variant="primary" onClick={salvar} disabled={salvando || texto === vivo}>
         <Save size={14} /> {salvando ? 'Salvando...' : 'Salvar anotação'}
       </Button>
     </Card>
@@ -288,7 +293,7 @@ function FichaCliente({ id }: { id: string | undefined }) {
       />
       <PainelFicha cliente={cliente} resumo={resumo} contatos={contatos} onWhatsApp={setWaContato} onVerContatos={() => setContatosOpen(true)} />
 
-      <Tabs style={{ margin: '0 0 1rem' }}>
+      <Tabs style={{ margin: '0 0 1rem', flexWrap: 'wrap' }}>
         {abas.map((a) => (
           <button key={a.id} type="button" className={`tab${aba === a.id ? ' is-active' : ''}`} onClick={() => setAba(a.id)}>{a.rotulo}</button>
         ))}
