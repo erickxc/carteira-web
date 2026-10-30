@@ -31,6 +31,9 @@ function renomearProduto(nome) {
   return String(nome || '').trim();
 }
 
+/** Mesmo produto, com nome antigo ou novo ("Monitoria" = "Plataforma 2D"). */
+const mesmoProduto = (a, b) => renomearProduto(a) === renomearProduto(b);
+
 /** `linksServicos` pode chegar como objeto ou texto JSON (mesma dupla
  * serialização descrita em `listaJSON`). */
 function objetoJSON(raw) {
@@ -235,6 +238,7 @@ exports.MOTIVO_VERSAO_ANTERIOR = MOTIVO_VERSAO_ANTERIOR;
 exports.ehPlataforma2D = ehPlataforma2D;
 exports.eh2DPrice = eh2DPrice;
 exports.renomearProduto = renomearProduto;
+exports.mesmoProduto = mesmoProduto;
 exports.linksRenomeados = linksRenomeados;
 exports.comNomesDaCategoria = comNomesDaCategoria;
 exports.derivarCamposLegados = derivarCamposLegados;

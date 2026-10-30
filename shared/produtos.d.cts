@@ -51,6 +51,7 @@ export const MOTIVO_VERSAO_ANTERIOR: string;
 export function ehPlataforma2D(nome: string): boolean;
 export function eh2DPrice(nome: string): boolean;
 export function renomearProduto(nome: string): string;
+export function mesmoProduto(a: string, b: string): boolean;
 /** `null` quando `produtos` está ausente (cliente não migrado). */
 export function derivarCamposLegados(
   produtos: ProdutoCliente[] | string | null | undefined,

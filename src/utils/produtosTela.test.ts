@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { opcoesProdutoEvento, passaFiltroProduto, servicosDaImportacao } from './produtosTela';
+import { clientesComProduto, opcoesProdutoEvento, passaFiltroProduto, servicosDaImportacao } from './produtosTela';
+import { servicosSemResponsavel, type ContatoVisivel } from './contatos';
 import { buildFilaCadencia, comPrecificacaoDoGrupo } from './cadenciaServico';
 import type { Cadencias, Cliente, EventoAgenda } from '../types';
 
@@ -94,6 +95,31 @@ describe('opcoesProdutoEvento — casos de borda', () => {
   });
 });
 
+describe('opcoesProdutoEvento — categoria e cliente fora de sincronia', () => {
+  it('categoria com os dois nomes do mesmo produto gera um chip só', () => {
+    expect(opcoesProdutoEvento(['Monitoria', 'Plataforma 2D', 'Apura'], undefined, ['Monitoria'], false)).toEqual(['Monitoria', 'Apura']);
+    expect(opcoesProdutoEvento(['Monitoria', 'Plataforma 2D', 'Apura'], undefined, [], false)).toEqual(['Monitoria', 'Apura']);
+  });
+  it('Ativo só em produto removido da categoria mostra todos — senão a reunião não pode ser salva', () => {
+    expect(opcoesProdutoEvento(CATEGORIAS, cli(['AutoTech', 'Ativo']), [], false)).toEqual(CATEGORIAS);
+  });
+});
+
+describe('clientesComProduto', () => {
+  const clientes = [
+    { ...cli(['2D Nexus', 'Em breve']), servicos: [] },
+    { ...cli(['Apura', 'Suspenso'], ['Plataforma 2D', 'Ativo']), servicos: ['Plataforma 2D'] },
+    { servicos: ['Monitoria', 'Plataforma 2D'] },
+  ] as unknown as Cliente[];
+  it('conta qualquer fase, uma vez por cliente, com nome antigo ou novo', () => {
+    expect(clientesComProduto(clientes, '2D Nexus')).toBe(1);
+    expect(clientesComProduto(clientes, 'Apura')).toBe(1);
+    expect(clientesComProduto(clientes, 'Plataforma 2D')).toBe(2);
+    expect(clientesComProduto(clientes, 'Monitoria')).toBe(2);
+    expect(clientesComProduto(clientes, 'Raptor')).toBe(0);
+  });
+});
+
 describe('passaFiltroProduto — casos de borda', () => {
   it('filtro salvo "Precificação" acha 2D Price, e produto gravado com nome antigo acha o filtro novo', () => {
     expect(passaFiltroProduto(cli(['2D Price', 'Ativo']), ['Precificação'], 'Ativo')).toBe(true);
@@ -152,5 +178,13 @@ describe('reunião com produto sem relógio (1.7: formulário oferece qualquer A
   it('não vira precificação do grupo: nenhuma cópia para a loja-irmã', () => {
     const agenda = [reuniao('a', '2026-10-29T00:00:00.000Z', 'Concluído', ['Apura'])];
     expect(comPrecificacaoDoGrupo(agenda, [cliente('a', 'Rede'), cliente('b', 'Rede')])).toHaveLength(1);
+  });
+});
+
+describe('servicosSemResponsavel com nome antigo no contato', () => {
+  const visivel = (servicos: string[]) => ({ nome: 'Ana', servicos }) as unknown as ContatoVisivel;
+  it('contato "Monitoria" responde por "Plataforma 2D", sem falso aviso', () => {
+    const c = { servicos: ['Plataforma 2D', '2D Price'] } as unknown as Cliente;
+    expect(servicosSemResponsavel(c, [visivel(['Monitoria'])])).toEqual(['2D Price']);
   });
 });

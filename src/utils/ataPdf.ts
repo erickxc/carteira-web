@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import { format, parseISO } from 'date-fns';
+import { mesmoProduto } from 'carteira-shared/produtos.cjs';
 import { preAnaliseParaTexto, type EventoAgenda } from '../types';
 import type { AtaContexto } from './ata';
 
@@ -113,7 +114,7 @@ export function gerarAtaPdf(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}) {
   const contatos = ctx.cliente?.contatos ?? [];
   const doCliente = ctx.participantesCliente?.filter(Boolean) ?? (
     servicosEv.length > 0
-      ? contatos.filter((c) => (c.servicos ?? []).length === 0 || (c.servicos ?? []).some((s) => servicosEv.includes(s)))
+      ? contatos.filter((c) => (c.servicos ?? []).length === 0 || (c.servicos ?? []).some((s) => servicosEv.some((e) => mesmoProduto(s, e))))
       : contatos
   ).map((c) => (c.cargo ? `${c.nome} (${c.cargo})` : c.nome));
   const monitoresEv = ev.monitores ?? [];

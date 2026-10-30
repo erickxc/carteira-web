@@ -17,7 +17,7 @@ const {
  *  loja-irmã (cópia com `doGrupo`; o `id` real é `doGrupo.origemId`). */
 const agendaPorAtendimento = (repo) => comPrecificacaoDoGrupo(repo.get('Agenda'), repo.get('Clientes'));
 const { servicoPadraoDoEvento, categoriaCancelamento } = require('../../shared/cadenciaServico.cjs');
-const { renomearProduto } = require('../../shared/produtos.cjs');
+const { renomearProduto, mesmoProduto } = require('../../shared/produtos.cjs');
 const { sugerirAgenda } = require('../dominio/sugestaoAgenda.cjs');
 const { getCache: getCacheCeoAgenda } = require('../ceoAgenda.cjs');
 const { CADENCIAS_SEED, UPLOADS_DIR } = require('../config.cjs');
@@ -59,8 +59,8 @@ function resolverOpcao(repo, tipo, valor, campo) {
 
   // Produto: "Monitoria" e "Plataforma 2D" são o mesmo, em qualquer sentido — o modelo
   // e a sugestão automática podem usar um nome e a categoria (migrada ou não) o outro.
-  const mesmoProduto = tipo === 'servico' && opcoes.find((o) => renomearProduto(o) === renomearProduto(valor));
-  if (mesmoProduto) return mesmoProduto;
+  const mesmoNome = tipo === 'servico' && opcoes.find((o) => mesmoProduto(o, valor));
+  if (mesmoNome) return mesmoNome;
 
   const parciais = opcoes.filter((o) => semAcento(o).startsWith(alvo) || semAcento(o).includes(alvo));
   if (parciais.length === 1) return parciais[0];
@@ -253,7 +253,7 @@ function buscarClientes(repo, { nome, estado, nivelRisco, status, servico, grupo
     // virava `status: "Ativo"` e devolvia zero, porque nenhum cliente tem esse
     // status. Visto no log de auditoria em produção.
     .filter(({ cliente }) => !estado || (cliente.estado || '') === estado)
-    .filter(({ cliente }) => !servico || listaJSON(cliente.servicos).includes(servico))
+    .filter(({ cliente }) => !servico || listaJSON(cliente.servicos).some((s) => mesmoProduto(s, servico)))
     .filter(({ analise }) => !nivelRisco || analise?.nivelRisco === nivelRisco)
     .filter(({ cliente }) => !grupoBusca || normalizar(cliente.grupo).includes(grupoBusca))
     .filter(({ cliente }) => !localBusca || normalizar(cliente.local) === localBusca)
@@ -1622,8 +1622,8 @@ function buscarCoberturaContatos(repo, { clientId }) {
   const contratados = listaJSON(cliente.servicos);
   let semResponsavel = [];
   if (contratados.length > 0 && visiveis.length > 0 && !visiveis.some((c) => listaJSON(c.servicos).length === 0)) {
-    const cobertos = new Set(visiveis.flatMap((c) => listaJSON(c.servicos)));
-    semResponsavel = contratados.filter((s) => !cobertos.has(s));
+    const cobertos = new Set(visiveis.flatMap((c) => listaJSON(c.servicos)).map(renomearProduto));
+    semResponsavel = contratados.filter((s) => !cobertos.has(renomearProduto(s)));
   }
 
   return {
@@ -1650,7 +1650,7 @@ function buscarContatos(repo, { nome, cargo, servico } = {}, ctx = {}) {
       const servicosContato = listaJSON(c.servicos);
       if (buscaNome && !(c.nome || '').toLowerCase().includes(buscaNome)) continue;
       if (buscaCargo && !(c.cargo || '').toLowerCase().includes(buscaCargo)) continue;
-      if (servico && servicosContato.length > 0 && !servicosContato.includes(servico)) continue;
+      if (servico && servicosContato.length > 0 && !servicosContato.some((s) => mesmoProduto(s, servico))) continue;
       todos.push({ nome: c.nome, cargo: c.cargo || '', telefone: c.telefone || '', empresa: cliente.empresa, servicos: servicosContato, escopo: c.escopo || 'loja' });
     }
   }

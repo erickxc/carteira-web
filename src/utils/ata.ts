@@ -1,4 +1,5 @@
 import { addMinutes, format, parseISO } from 'date-fns';
+import { mesmoProduto } from 'carteira-shared/produtos.cjs';
 import type { Cliente, EventoAgenda, ProdutoSituacaoItem } from '../types';
 
 /** Direção (aumento/queda) + observação, com fallback pro texto livre legado
@@ -124,7 +125,7 @@ export function gerarAta(ev: Partial<EventoAgenda>, ctx: AtaContexto = {}, ia?: 
     const contatos = ctx.cliente?.contatos ?? [];
     if (contatos.length === 0) return [];
     const doServico = servicos.length > 0
-      ? contatos.filter((c) => (c.servicos ?? []).length === 0 || (c.servicos ?? []).some((s) => servicos.includes(s)))
+      ? contatos.filter((c) => (c.servicos ?? []).length === 0 || (c.servicos ?? []).some((s) => servicos.some((e) => mesmoProduto(s, e))))
       : contatos;
     return doServico.map((c) => (c.cargo ? `${c.nome} (${c.cargo})` : c.nome));
   })();

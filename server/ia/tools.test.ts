@@ -208,6 +208,27 @@ describe('catálogo de ferramentas', () => {
 // ---------------------------------------------------------------------------
 // 9-20: buscar_clientes
 // ---------------------------------------------------------------------------
+describe('filtros de produto com nome antigo ou novo (base migrada ou não)', () => {
+  const contatos = [{ id: 'c', nome: 'Ana', servicos: ['Monitoria'] }];
+  const antigo = () => repoBase({ Clientes: [clienteBase({ servicos: ['Monitoria', 'Precificação'], contatos })] });
+  const novo = () => repoBase({ Clientes: [clienteBase({ servicos: ['Plataforma 2D', '2D Price'], contatos: [{ ...contatos[0], servicos: ['Plataforma 2D'] }] })] });
+  it('buscar_clientes acha nos dois sentidos', () => {
+    expect(exec('buscar_clientes', antigo(), { servico: '2D Price' })).toHaveLength(1);
+    expect(exec('buscar_clientes', novo(), { servico: 'Precificação' })).toHaveLength(1);
+    expect(exec('buscar_clientes', novo(), { servico: 'Apura' })).toHaveLength(0);
+  });
+  it('buscar_contatos acha nos dois sentidos', () => {
+    const total = (repo: unknown, servico: string) => (exec('buscar_contatos', repo, { servico }) as { total: number }).total;
+    expect(total(antigo(), 'Plataforma 2D')).toBe(1);
+    expect(total(novo(), 'Monitoria')).toBe(1);
+    expect(total(novo(), 'Apura')).toBe(0);
+  });
+  it('buscar_cobertura_contatos não acusa falta de responsável só pelo nome antigo', () => {
+    const repo = repoBase({ Clientes: [clienteBase({ servicos: ['Plataforma 2D'], contatos })] });
+    expect(exec('buscar_cobertura_contatos', repo, { clientId: clienteBase().id })).toMatchObject({ servicosSemResponsavel: [] });
+  });
+});
+
 describe('buscar_clientes', () => {
   it('lojas do atendimento (1.6.8): acha pelo nome da loja e pelo CNPJ, e devolve as lojas', () => {
     const repo = repoBase({ Clientes: [clienteBase({

@@ -1,25 +1,34 @@
-import { eh2DPrice, ehPlataforma2D, renomearProduto } from 'carteira-shared/produtos.cjs';
+import { eh2DPrice, ehPlataforma2D, mesmoProduto } from 'carteira-shared/produtos.cjs';
 import { truthy } from './formatters';
 import type { Cliente } from '../types';
 
-const mesmoProduto = (a: string, b: string) => renomearProduto(a) === renomearProduto(b);
-
 /**
  * Chips de produto do formulário de evento (spec §3): os Ativos do cliente, ou a
- * categoria inteira com "ver todos". Sem cliente ou sem nenhum Ativo mostra
- * todos — senão não haveria o que marcar num campo obrigatório. O que já está
+ * categoria inteira com "ver todos". Sem cliente ou sem nenhum Ativo que exista
+ * na categoria mostra todos — senão não haveria o que marcar num campo
+ * obrigatório. Um chip por produto, mesmo com os dois nomes na lista. O que já está
  * marcado nunca some: chip invisível seria regravado a cada Salvar sem ninguém
  * poder desmarcar. Compara pelo nome oficial porque, antes da migração, a
  * categoria ainda se chama "Monitoria" e `produtos` já diz "Plataforma 2D".
  */
 export function opcoesProdutoEvento(categorias: string[], cliente: Cliente | undefined, marcados: string[], verTodos: boolean): string[] {
   const ativos = (cliente?.produtos ?? []).filter((p) => p.fase === 'Ativo').map((p) => p.produto);
-  const todos = verTodos || ativos.length === 0;
+  const casados = categorias.filter((c) => ativos.some((p) => mesmoProduto(p, c)));
+  const todos = verTodos || casados.length === 0;
   const visiveis = categorias
-    .filter((c) => todos || ativos.some((p) => mesmoProduto(p, c)) || marcados.some((m) => mesmoProduto(m, c)))
+    .filter((c) => todos || casados.includes(c) || marcados.some((m) => mesmoProduto(m, c)))
     // Marcado com o outro nome ocupa o lugar da categoria: o chip compara texto.
     .map((c) => marcados.find((m) => mesmoProduto(m, c)) ?? c);
-  return [...visiveis, ...marcados.filter((m) => !categorias.some((c) => mesmoProduto(m, c)))];
+  return [...visiveis, ...marcados.filter((m) => !categorias.some((c) => mesmoProduto(m, c)))]
+    .filter((s, i, lista) => lista.findIndex((x) => mesmoProduto(x, s)) === i);
+}
+
+/** Clientes com o produto no cadastro, em qualquer fase e com qualquer dos nomes:
+ * `servicos` só tem os Ativos, então 2D Nexus (Em breve) contaria zero. */
+export function clientesComProduto(clientes: Cliente[], nome: string): number {
+  return clientes.filter((c) =>
+    [...(c.produtos ?? []).map((p) => p.produto), ...(c.servicos ?? [])].some((s) => mesmoProduto(s, nome))
+  ).length;
 }
 
 /**

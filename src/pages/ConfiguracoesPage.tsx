@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { clientesComProduto } from '../utils/produtosTela';
 import { Check, ChevronDown, ChevronUp, Download, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { toastError, toastInfo } from '../utils/toast';
@@ -222,7 +223,7 @@ function CategoriaCard({ tipo }: { tipo: CategoriaTipo }) {
     const v = valor.toLowerCase();
     if (tipo === 'monitor') return clientes.filter((c) => (c.monitor || '').toLowerCase() === v).length;
     if (tipo === 'status_cliente') return clientes.filter((c) => (c.status || '').toLowerCase() === v).length;
-    if (tipo === 'servico') return clientes.filter((c) => (c.servicos ?? []).some((s) => s.toLowerCase() === v)).length;
+    if (tipo === 'servico') return clientesComProduto(clientes, valor);
     if (tipo === 'tipo_evento') return agenda.filter((a) => (a.type || '').toLowerCase() === v).length;
     if (tipo === 'status_evento') return agenda.filter((a) => (a.status || '').toLowerCase() === v).length;
     if (tipo === 'tipo_lembrete') return lembretes.filter((r) => (r.type || '').toLowerCase() === v).length;
