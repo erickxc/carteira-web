@@ -16,10 +16,10 @@ describe('gruposPrazo', () => {
     const g = montarGruposPrazo({
       ritmo: { emDia: [], emDiaMarcada: [], agendaMarcada: [], contatoRecente: [], precisa: [] },
       cobertura: { cobertos: [], semContato: [] },
-      servicos: [{ servico: 'Price', descobertos: [{ id: 'a', nome: 'A' }] }],
+      servicos: [{ servico: '2D Price', descobertos: [{ id: 'a', nome: 'A' }] }],
       filtroServico: 'Todos', janela: 'ago + set', hoje: HOJE,
     });
-    const l = { id: 'a', nome: 'A', relogios: { Price: { ultimo: dias(20) } }, ultimaEntrega: { data: dias(2), tipo: 'Reunião' } } as unknown as LinhaAtendimento;
+    const l = { id: 'a', nome: 'A', relogios: { '2D Price': { ultimo: dias(20) } }, ultimaEntrega: { data: dias(2), tipo: 'Reunião' } } as unknown as LinhaAtendimento;
     const price = g.servico[0];
     expect(price.entrega(l)).toEqual(dias(20));
     expect(price.colunas.at(-1)!.titulo).toBe('Última entrega');

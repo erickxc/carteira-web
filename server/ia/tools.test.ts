@@ -824,7 +824,7 @@ describe('métricas de carteira', () => {
 
   it('89. buscar_cobertura_servicos devolve uma linha por serviço', () => {
     const r = exec('buscar_cobertura_servicos', repoBase()) as { servicos: { servico: string }[] };
-    expect(r.servicos.map((s) => s.servico)).toEqual(['Monitoria', 'Price']);
+    expect(r.servicos.map((s) => s.servico)).toEqual(['Plataforma 2D', '2D Price']);
   });
 
   it('90. buscar_cobertura_servicos aponta quem contratou e não foi atendido', () => {

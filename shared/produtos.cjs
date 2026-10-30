@@ -1,4 +1,4 @@
-const { listaJSON } = require('./cadenciaServico.cjs');
+const { listaJSON, ehPlataforma2D, eh2DPrice } = require('./cadenciaServico.cjs');
 
 /**
  * Regras puras de PRODUTO do cliente (1.7.0) — compartilhadas entre backend
@@ -22,10 +22,8 @@ const FASES = ['Em breve', 'Suspenso', 'Ativo', 'Cancelado'];
 
 const MOTIVO_VERSAO_ANTERIOR = 'alterado por versão anterior da Carteira';
 
-// Aceitam nome antigo E novo: dado antigo (eventos com "Monitoria") e máquina
-// ainda na 1.6 continuam reconhecidos depois da renomeação.
-const ehPlataforma2D = (nome) => /plataforma|monitor/i.test(String(nome || ''));
-const eh2DPrice = (nome) => /price|prec/i.test(String(nome || ''));
+// `ehPlataforma2D`/`eh2DPrice` moram no motor de cadência (reconhecimento num
+// lugar só) e são reexportados aqui.
 
 function renomearProduto(nome) {
   if (ehPlataforma2D(nome)) return 'Plataforma 2D';

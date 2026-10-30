@@ -12,7 +12,7 @@ import { usePersistedState } from './usePersistedState';
 import { isClienteAtivo } from '../utils/formatters';
 import { clienteStatusCor, riscoIACor } from '../utils/badges';
 import {
-  buildFilaCadencia, comPrecificacaoDoGrupo, ehEntrega, ehServicoDeReuniao, itensVencendo, type ServicoCad,
+  buildFilaCadencia, comPrecificacaoDoGrupo, ehEntrega, ehServicoDeReuniao, filtroServicoSalvo, itensVencendo, type ServicoCad,
 } from '../utils/cadenciaServico';
 import { mesesComDados } from '../utils/periodo';
 import { calcularIndicadoresPrazo, LIMIAR_SEM_ACOMPANHAMENTO_DIAS, recortarAte } from '../utils/indicadoresPrazo';
@@ -49,8 +49,11 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   // compartilhado com o header e com o monitorIA, não mais local desta tela.
   const { clientes, agenda, acoes, cadencias, analisesIA, statusHistorico, filtroMonitor, setFiltroMonitor, monitoresDisponiveis } = useCarteira();
   const [filtroTipo, setFiltroTipo] = usePersistedState<string>('filtro:dash:tipo', 'Todos');
-  const [filtroServicoAderencia, setFiltroServicoAderencia] = usePersistedState<ServicoCad | 'Todos'>('filtro:dash:servicoAderencia', 'Todos');
-  const [filtroServicoVencendo, setFiltroServicoVencendo] = usePersistedState<ServicoCad | 'Todos'>('filtro:dash:servicoVencendo', 'Todos');
+  const [aderenciaSalvo, setFiltroServicoAderencia] = usePersistedState<string>('filtro:dash:servicoAderencia', 'Todos');
+  const [vencendoSalvo, setFiltroServicoVencendo] = usePersistedState<string>('filtro:dash:servicoVencendo', 'Todos');
+  // O navegador pode ter guardado o nome de antes da 1.7 ("Monitoria"/"Price").
+  const filtroServicoAderencia = filtroServicoSalvo(aderenciaSalvo);
+  const filtroServicoVencendo = filtroServicoSalvo(vencendoSalvo);
   // Só Monitoria/Price aqui (não Relatório): Relatório é TIPO de evento e já
   // entra na conta de atendimento — não é um serviço marcado no evento.
 
@@ -294,7 +297,7 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   // (contratado e não independente), quantos estão no prazo. Vem de
   // `calcularIndicadoresPrazo` (mesma regra do Ritmo e do agente).
   const { servicosDist, totalAtendidos } = useMemo(() => {
-    const rotulo: Record<ServicoCad, string> = { Monitoria: 'Monitoria', Price: 'Price' };
+    const rotulo: Record<ServicoCad, string> = { 'Plataforma 2D': 'Monitoria', '2D Price': 'Price' };
     const dist = prazo.porServico.map((atual) => {
       const antes = prazoAnterior.porServico.find((x) => x.servico === atual.servico)!;
       return {
@@ -493,14 +496,14 @@ export function useDashboardData(opts: { historicoAnalises?: AnaliseIA[] } = {})
   const vencendo = useMemo(() => {
     const fila = buildFilaCadencia(ativos, agenda, acoes, cadencias, dataReferencia);
     const itens = itensVencendo(fila, 5)
-      // Filtro salvo antigo ('Relatório') vira 'Todos' — esse relógio não existe mais.
-      .filter((i) => !['Monitoria', 'Price'].includes(filtroServicoVencendo) || i.relogio.servico === filtroServicoVencendo)
+      // Filtro salvo antigo ('Relatório') vira 'Todos' em `filtroServicoSalvo`.
+      .filter((i) => filtroServicoVencendo === 'Todos' || i.relogio.servico === filtroServicoVencendo)
       .map((i) => ({ nome: i.cliente.empresa, servico: i.relogio.servico, data: addDays(dataReferencia, i.diasParaVencer), dias: i.diasParaVencer }));
     // Vencidos: prazo venceu há 1–15 dias e nenhuma entrega foi marcada depois.
     // Mesmo filtro de serviço; "nunca" entra quando a carência acabou nesses dias.
     const vencidos = fila
       .flatMap((f) => f.relogios.filter((r) => !r.proximo && r.atrasoReal >= 1 && r.atrasoReal <= 15).map((r) => ({ cliente: f.cliente, relogio: r })))
-      .filter((i) => !['Monitoria', 'Price'].includes(filtroServicoVencendo) || i.relogio.servico === filtroServicoVencendo)
+      .filter((i) => filtroServicoVencendo === 'Todos' || i.relogio.servico === filtroServicoVencendo)
       .sort((a, b) => a.relogio.atrasoReal - b.relogio.atrasoReal || a.cliente.empresa.localeCompare(b.cliente.empresa))
       .map((i) => ({ nome: i.cliente.empresa, servico: i.relogio.servico, data: subDays(dataReferencia, i.relogio.atrasoReal), dias: i.relogio.atrasoReal }));
     return { total: itens.length, itens, vencidos };

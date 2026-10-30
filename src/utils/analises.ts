@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, eachDayOfInterval, endOfMonth, parseISO, startOfMonth, subMonths } from 'date-fns';
-import { categoriaCancelamento, contatoRecenteNaoRefletido, ehAvisoDeCancelamento, ehConcluido, type CategoriaCancelamento } from './cadenciaServico';
+import { categoriaCancelamento, contatoRecenteNaoRefletido, eh2DPrice, ehAvisoDeCancelamento, ehConcluido, ehPlataforma2D, type CategoriaCancelamento } from './cadenciaServico';
 import type { LinhaAtendimento } from './indicadoresPrazo';
 import { isBusinessDay } from './holidays';
 import type { Acao, Cliente, EventoAgenda } from '../types';
@@ -52,7 +52,7 @@ export function dificeisDeMarcar(ativos: Cliente[], agenda: EventoAgenda[], acoe
     const x = por.get(e.clientId);
     const d = dataDe(e.date);
     if (!x || !ehConcluido(e) || !naJanela(d, inicio, agora)) continue;
-    const relatorioDePreco = /relat/i.test(e.type) && (e.servicos ?? []).some((s) => /prec|price/i.test(s));
+    const relatorioDePreco = /relat/i.test(e.type) && (e.servicos ?? []).some(eh2DPrice);
     if (ehReuniao(e) || /precific/i.test(e.type) || relatorioDePreco) x.entregas++;
     else if (/contato|liga/i.test(e.type) && e.origem !== 'cliente' && !ehAvisoDeCancelamento(e)) {
       x.tentativas++;
@@ -242,8 +242,8 @@ export function cargaPorMonitor(
     x.atendimentos++;
     const l = linhas.get(c.id);
     const rel = l ? Object.values(l.relogios).filter((r) => r !== undefined) : [];
-    const atrasadoM = atrasado(rel.find((r) => r.servico === 'Monitoria'));
-    const atrasadoP = atrasado(rel.find((r) => r.servico === 'Price'));
+    const atrasadoM = atrasado(rel.find((r) => r.servico === 'Plataforma 2D'));
+    const atrasadoP = atrasado(rel.find((r) => r.servico === '2D Price'));
     if (atrasadoM || atrasadoP) x.atrasados++;
     if (atrasadoM) x.atrasadosMonitoria++;
     if (atrasadoP) x.atrasadosPrice++;
@@ -256,7 +256,7 @@ export function cargaPorMonitor(
     monitores && monitores.length ? monitores : [cadastro.get(clientId) ?? 'Sem monitor'];
   for (const e of agenda) {
     if (!naJanela(dataDe(e.date), inicio, fim)) continue;
-    const servicos = (e.servicos ?? []).join(' ');
+    const servicos = e.servicos ?? [];
     for (const m of quemFez(e.monitores, e.clientId)) {
       const x = de(m);
       if (ehConcluido(e) && /relat/i.test(e.type || '')) x.relatorios++;
@@ -265,8 +265,8 @@ export function cargaPorMonitor(
       if (ehCancelado(e)) { x.canceladas++; continue; }
       if (!ehConcluido(e)) continue;
       x.reunioes++;
-      if (/monitor/i.test(servicos)) x.monitoria++;
-      if (/prec|price/i.test(servicos) || /precific/i.test(e.type || '')) x.price++;
+      if (servicos.some(ehPlataforma2D)) x.monitoria++;
+      if (servicos.some(eh2DPrice) || /precific/i.test(e.type || '')) x.price++;
     }
   }
   for (const a of acoes) {

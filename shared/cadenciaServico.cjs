@@ -145,6 +145,20 @@ function ehAvisoDeCancelamento(e) {
   return e.motivoContato === 'cancelamento';
 }
 
+/**
+ * Reconhecimento dos dois produtos com cadência (1.7.0: Monitoria → Plataforma
+ * 2D, Precificação → 2D Price). Aceitam nome antigo E novo: eventos antigos,
+ * cliente ainda não migrado e máquina na 1.6 continuam reconhecidos. Moram
+ * aqui (e não em `produtos.cjs`, que os reexporta) porque `produtos.cjs` já
+ * requer este arquivo — o contrário fecharia um ciclo de `require`.
+ */
+const RE_PLATAFORMA_2D = /plataforma|monitor/i;
+const RE_2D_PRICE = /price|prec/i;
+const ehPlataforma2D = (nome) => RE_PLATAFORMA_2D.test(String(nome || ''));
+const eh2DPrice = (nome) => RE_2D_PRICE.test(String(nome || ''));
+/** Nome do relógio (`RelogioServico.servico`) para um nome antigo ou novo. */
+const servicoDoRelogio = (nome) => (ehPlataforma2D(nome) ? 'Plataforma 2D' : eh2DPrice(nome) ? '2D Price' : nome);
+
 function temServico(c, re, flag) {
   return listaJSON(c.servicos).some((s) => re.test(s)) || Boolean(c[flag]);
 }
@@ -192,7 +206,7 @@ function categoriaCancelamento(e) {
 // preenchido; presumir Monitoria escondia qual prazo o evento cumpria.
 function ehToqueMonitoria(a) {
   if (!/reuni|relat/i.test(a.type || '')) return false;
-  return listaJSON(a.servicos).some((x) => /monitor/i.test(x));
+  return listaJSON(a.servicos).some(ehPlataforma2D);
 }
 
 // Zera o relógio de PRICE (histórico): reunião OU relatório com serviço Price
@@ -201,7 +215,7 @@ function ehToqueMonitoria(a) {
 function ehToquePrice(a) {
   if (/precific/i.test(a.type || '')) return true;
   if (!/reuni|relat/i.test(a.type || '')) return false;
-  return listaJSON(a.servicos).some((x) => /(price|prec)/i.test(x));
+  return listaJSON(a.servicos).some(eh2DPrice);
 }
 
 /** Próxima data (futura, não cancelada) que bate no MESMO critério `ehToque`
@@ -318,8 +332,8 @@ const ehEntrega = (a) => /reuni|relat|precific/i.test(a.type || '') && ehConclui
  */
 function servicoPadraoDoEvento(evento, cliente) {
   const contratados = listaJSON(cliente?.servicos);
-  const monitoria = contratados.find((s) => /monitor/i.test(s));
-  const price = contratados.find((s) => /(price|prec)/i.test(s));
+  const monitoria = contratados.find(ehPlataforma2D);
+  const price = contratados.find(eh2DPrice);
   const tipo = evento?.type || '';
   if (/precific/i.test(tipo)) return [price || 'Precificação'];
   if (/relat/i.test(tipo)) return [monitoria || 'Monitoria'];
@@ -423,6 +437,24 @@ function comPrecificacaoDoGrupo(agenda, clientes) {
   return copias.length ? agenda.concat(copias) : agenda;
 }
 
+/**
+ * Ponto de partida do relógio "nunca atendido" = o mais recente entre o
+ * cadastro do cliente e `faseDesde` do produto Ativo. Produto que entra
+ * depois do cadastro nascia vencido desde o cadastro (caso real: 8 clientes
+ * ganharam Price em 30/10/2026 com 143 dias de atraso no primeiro dia).
+ * Sem `faseDesde` (legado/não migrado) fica o cadastro — relógio igual ao de antes.
+ * Sem `createdAt` vira Invalid Date de propósito: `calcularRelogio` trata como
+ * "sem cadastro conhecido" (nunca atendido), em vez de dar carência a partir de hoje.
+ */
+function inicioDoPrazo(c, ehProduto) {
+  const cadastro = c.createdAt ? parseISO(c.createdAt) : new Date(NaN);
+  const produto = listaJSON(c.produtos).find((p) => p && p.fase === 'Ativo' && ehProduto(p.produto));
+  const fase = produto && produto.faseDesde ? parseISO(produto.faseDesde) : new Date(NaN);
+  if (isNaN(fase.getTime())) return cadastro;
+  if (isNaN(cadastro.getTime())) return fase;
+  return fase > cadastro ? fase : cadastro;
+}
+
 function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(), opts = {}) {
   const monDias = Number(cadencias?.monitoria_dias) || 30;
   const priceDias = Number(cadencias?.price_dias) || 15;
@@ -481,21 +513,20 @@ function buildFilaCadencia(clientes, agenda, acoes, cadencias, now = new Date(),
     const evs = (porCliente.get(c.id) ?? []).filter((a) => !a.doGrupo);
     const evsPrice = porClienteGrupo.get(c.id) ?? [];
     const acoesPrice = [c.id, ...irmas(c)].flatMap((id) => acoesPricePorCliente.get(id) ?? []);
-    // Sem `createdAt` vira Invalid Date de propósito: `calcularRelogio` trata como
-    // "sem cadastro conhecido" (nunca atendido), em vez de dar carência a partir de hoje.
-    const desde = c.createdAt ? parseISO(c.createdAt) : new Date(NaN);
-
     const todosRelogios = [];
-    if (temServico(c, /monitor/i, 'monitoria') && !ehIndependente(c, /monitor/i)) {
-      todosRelogios.push(calcularRelogio('Monitoria', evs, ehToqueMonitoria, monDias, now, desde, JANELA_VENCENDO, acoesRelatorioPorCliente.get(c.id) ?? []));
+    if (temServico(c, RE_PLATAFORMA_2D, 'monitoria') && !ehIndependente(c, RE_PLATAFORMA_2D)) {
+      todosRelogios.push(calcularRelogio('Plataforma 2D', evs, ehToqueMonitoria, monDias, now, inicioDoPrazo(c, ehPlataforma2D), JANELA_VENCENDO, acoesRelatorioPorCliente.get(c.id) ?? []));
     }
-    if (temServico(c, /(price|prec)/i, 'price') && !ehIndependente(c, /(price|prec)/i)) {
-      todosRelogios.push(calcularRelogio('Price', evsPrice, ehToquePrice, priceDias, now, desde, JANELA_VENCENDO, acoesPrice));
+    if (temServico(c, RE_2D_PRICE, 'price') && !ehIndependente(c, RE_2D_PRICE)) {
+      todosRelogios.push(calcularRelogio('2D Price', evsPrice, ehToquePrice, priceDias, now, inicioDoPrazo(c, eh2DPrice), JANELA_VENCENDO, acoesPrice));
     }
     // Recorte por serviço ANTES de derivar score/precisaAcao: tudo o que vem
     // depois (ordenação, agrupamento por severidade, contagem de "precisam de
     // ação", relógios exibidos no card) passa a falar só do serviço pedido.
-    const relogios = opts.servico ? todosRelogios.filter((r) => r.servico === opts.servico) : todosRelogios;
+    // Aceita o nome antigo ("Monitoria"/"Price"): filtro salvo no navegador e
+    // chamadas do monitorIA anteriores à 1.7.
+    const servicoPedido = opts.servico ? servicoDoRelogio(opts.servico) : null;
+    const relogios = servicoPedido ? todosRelogios.filter((r) => r.servico === servicoPedido) : todosRelogios;
     if (relogios.length === 0) continue; // sem serviço cadastrado (ou só independentes) → fora do modelo
     const score = Math.max(...relogios.map((r) => r.atraso));
     const precisaAcao = relogios.some((r) => r.status === 'vencido' || r.status === 'vencendo' || r.status === 'nunca');
@@ -561,6 +592,9 @@ exports.STATUS_EM_ATENDIMENTO = STATUS_EM_ATENDIMENTO;
 exports.JANELA_VENCENDO = JANELA_VENCENDO;
 exports.PESO_NUNCA = PESO_NUNCA;
 exports.listaJSON = listaJSON;
+exports.ehPlataforma2D = ehPlataforma2D;
+exports.eh2DPrice = eh2DPrice;
+exports.servicoDoRelogio = servicoDoRelogio;
 exports.isClienteAtivo = isClienteAtivo;
 exports.buildUltimaInteracaoMap = buildUltimaInteracaoMap;
 exports.ehAvisoDeCancelamento = ehAvisoDeCancelamento;

@@ -1839,7 +1839,7 @@ const FERRAMENTAS = [
     description: 'Mesmo cálculo do card "Aderência" da Visão Geral — pra "quantos % estão em dia", "quantos atrasados" etc. Sem "servico", conta todos os serviços contratados por cliente (contagem permissiva: 1 serviço em dia já basta); com "servico", olha só aquele (contagem estrita). Campos do resultado: "total" = clientes ativos considerados; "pct" = % em dia (pondera contato_recente pelo peso configurado, não é só emDia/total); "emDia" = cadência cumprida; "agendaMarcada" = atrasado mas já tem reunião futura marcada (não precisa de ação agora); "contatoRecente" = teve contato que ainda não resetou a cadência oficial mas já foi tratado; "precisaContato" = realmente precisa de ação, ninguém tratou.',
     parameters: {
       type: 'object',
-      properties: { servico: { type: 'string', enum: ['Monitoria', 'Price'], description: 'Filtra por um serviço específico — omitir considera todos.' } },
+      properties: { servico: { type: 'string', enum: ['Plataforma 2D', '2D Price'], description: 'Filtra por um produto específico (Plataforma 2D era "Monitoria"; 2D Price era "Precificação") — omitir considera todos.' } },
     },
     executar: buscarFilaPriorizacao,
   },

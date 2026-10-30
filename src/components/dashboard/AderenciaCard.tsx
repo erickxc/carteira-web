@@ -6,7 +6,7 @@ import { Card, Chip, NumeroRolante } from '../../ui';
 import type { ServicoCad } from '../../utils/cadenciaServico';
 
 type FiltroServico = ServicoCad | 'Todos';
-const SERVICOS: FiltroServico[] = ['Todos', 'Monitoria', 'Price'];
+const SERVICOS: FiltroServico[] = ['Todos', 'Plataforma 2D', '2D Price'];
 
 interface AderenciaCardProps {
   total: number;

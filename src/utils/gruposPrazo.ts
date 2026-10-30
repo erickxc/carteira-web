@@ -58,7 +58,7 @@ interface GrupoBase { key: string; label: string; cor: string; descricao: string
 
 /** Grupos das legendas dos cards de prazo, por card. */
 export function montarGruposPrazo(e: Entrada): Record<'ritmo' | 'cobertura' | 'servico', GrupoPrazo[]> {
-  const prazos = (e.filtroServico === 'Todos' ? (['Monitoria', 'Price'] as ServicoCad[]) : [e.filtroServico]).map(colServico);
+  const prazos = (e.filtroServico === 'Todos' ? (['Plataforma 2D', '2D Price'] as ServicoCad[]) : [e.filtroServico]).map(colServico);
   const geral = (l: LinhaAtendimento) => l.ultimaEntrega?.data ?? null;
   // Toda lista termina em "Última entrega": ordena e esmaece pela mesma data.
   const grupo = (g: GrupoBase, entrega = geral, comTipo = false): GrupoPrazo => ({

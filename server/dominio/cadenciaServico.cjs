@@ -18,7 +18,7 @@ const motor = require('../../shared/cadenciaServico.cjs');
 const {
   isClienteAtivo, buildUltimaInteracaoMap, buildFilaCadencia, classificarCadencia,
   contatoRecenteNaoRefletido, rotuloRelogio, listaJSON,
-  atendimentoEmDia, relogioNoPrazo, itensVencendo, ehEntrega, comPrecificacaoDoGrupo,
+  atendimentoEmDia, relogioNoPrazo, itensVencendo, ehEntrega, comPrecificacaoDoGrupo, servicoDoRelogio,
 } = motor;
 
 /**
@@ -29,11 +29,13 @@ const {
  */
 function calcularAderencia(clientes, agenda, acoes, cadencias, now = new Date(), opts = {}) {
   const fila = buildFilaCadencia(clientes, agenda, acoes, cadencias, now);
-  const relevantes = opts.servico ? fila.filter((f) => f.relogios.some((r) => r.servico === opts.servico)) : fila;
+  // Nome antigo ("Monitoria"/"Price") vale pelo novo — ver `servicoDoRelogio`.
+  const servico = opts.servico ? servicoDoRelogio(opts.servico) : null;
+  const relevantes = servico ? fila.filter((f) => f.relogios.some((r) => r.servico === servico)) : fila;
   const ultimaInteracaoMap = buildUltimaInteracaoMap(comPrecificacaoDoGrupo(agenda, clientes), acoes, { now, paraRetorno: true });
 
   function relogiosRelevantes(f) {
-    return opts.servico ? f.relogios.filter((r) => r.servico === opts.servico) : f.relogios;
+    return servico ? f.relogios.filter((r) => r.servico === servico) : f.relogios;
   }
   function classificar(f) {
     const rels = relogiosRelevantes(f);
@@ -115,7 +117,7 @@ function buscarCobertura(clientes, agenda, now = new Date()) {
  */
 function buscarCoberturaServicos(clientes, agenda, acoes, cadencias, now = new Date()) {
   const fila = buildFilaCadencia(clientes, agenda, acoes, cadencias, now);
-  return ['Monitoria', 'Price'].map((servico) => {
+  return ['Plataforma 2D', '2D Price'].map((servico) => {
     const comRelogio = fila
       .map((f) => ({ empresa: f.cliente.empresa, r: f.relogios.find((x) => x.servico === servico) }))
       .filter((x) => x.r);

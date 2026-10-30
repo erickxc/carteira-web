@@ -4,7 +4,7 @@
 // importam de `src/types` — este pacote é consumido também pelo backend, que
 // não tem (nem deve ter) dependência da pasta `src/`.
 
-export type ServicoCad = 'Monitoria' | 'Price';
+export type ServicoCad = 'Plataforma 2D' | '2D Price';
 export type CadStatus = 'coberto' | 'em_dia' | 'vencendo' | 'vencido' | 'nunca';
 export type ClassificacaoCadencia = 'vencido' | 'vencendo' | 'em_dia';
 
@@ -15,6 +15,8 @@ export interface ClienteCadencia {
   status?: string;
   servicos?: string[] | string;
   servicosIndependentes?: string[] | string;
+  /** Produtos do cliente (1.7.0): `faseDesde` do produto Ativo é o início do prazo. */
+  produtos?: { produto: string; fase: string; faseDesde?: string }[] | string;
   monitoria?: boolean;
   price?: boolean;
   /** Rede/grupo da loja: precificação de uma loja vale pras irmãs. */
@@ -91,6 +93,11 @@ export const JANELA_VENCENDO: number;
 export const PESO_NUNCA: number;
 
 export function listaJSON(raw: unknown): string[];
+/** Reconhecem nome antigo e novo (Monitoria/Plataforma 2D, Precificação/Price/2D Price). */
+export function ehPlataforma2D(nome: string): boolean;
+export function eh2DPrice(nome: string): boolean;
+/** Nome do relógio para um nome antigo ou novo; outros nomes inalterados. */
+export function servicoDoRelogio(nome: string): string;
 export function isClienteAtivo(cliente: { estado?: string; status?: string; pausadoAte?: string }, now?: Date): boolean;
 
 export function buildUltimaInteracaoMap(
@@ -151,7 +158,8 @@ export function buildFilaCadencia<C extends ClienteCadencia>(
   acoes: AcaoCadencia[],
   cadencias: CadenciasConfig,
   now?: Date,
-  opts?: { servico?: ServicoCad; riscoPorCliente?: Map<string, NivelRisco> }
+  /** Aceita também o nome antigo ("Monitoria"/"Price"). */
+  opts?: { servico?: ServicoCad | 'Monitoria' | 'Price'; riscoPorCliente?: Map<string, NivelRisco> }
 ): FilaCadItem<C>[];
 
 /** Agenda + cópia de cada precificação do grupo pra cada loja-irmã (medida por atendimento). */

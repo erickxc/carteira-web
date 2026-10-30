@@ -10,6 +10,7 @@ import { LineChart } from '../LineChart';
 import { dentroDaJanela, type Janela } from '../../utils/periodo';
 import { Card, Chip } from '../../ui';
 import { rotuloModo, type ModoContagem } from '../../utils/analises';
+import { eh2DPrice, ehPlataforma2D } from '../../utils/cadenciaServico';
 import type { Acao, EventoAgenda } from '../../types';
 import { corDeTexto } from '../../utils/corTexto';
 
@@ -38,14 +39,14 @@ const FILTROS: { key: FiltroServico; label: string }[] = [
 /** Evento do serviço: pelo serviço marcado; precificação avulsa é sempre Price. */
 function doServico(e: EventoAgenda, f: FiltroServico): boolean {
   if (f === 'Todos') return true;
-  const servicos = (e.servicos ?? []).join(' ');
-  return f === 'Price' ? /prec|price/i.test(servicos) || /precific/i.test(e.type || '') : /monitor/i.test(servicos);
+  const servicos = e.servicos ?? [];
+  return f === 'Price' ? servicos.some(eh2DPrice) || /precific/i.test(e.type || '') : servicos.some(ehPlataforma2D);
 }
 /** Ação do serviço: pelo serviço informado (ação sem serviço só entra em "Geral"). */
 function acaoDoServico(a: Acao, f: FiltroServico): boolean {
   if (f === 'Todos') return true;
   const servico = a.servico || '';
-  return f === 'Price' ? a.tipo === 'price' || /prec|price/i.test(servico) : /monitor/i.test(servico);
+  return f === 'Price' ? a.tipo === 'price' || eh2DPrice(servico) : ehPlataforma2D(servico);
 }
 const DIAS_CICLO = 90;
 

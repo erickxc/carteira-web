@@ -41,9 +41,9 @@ describe('calcularIndicadoresPrazo', () => {
 
   it('Cobertura por Serviço: base só com relógio do serviço', () => {
     const r = calcular(ativos, agenda);
-    const m = r.porServico.find((s) => s.servico === 'Monitoria')!;
+    const m = r.porServico.find((s) => s.servico === 'Plataforma 2D')!;
     expect([nomes(m.cobertos), nomes(m.descobertos)]).toEqual([['emdia', 'meio'], ['nunca']]);
-    const p = r.porServico.find((s) => s.servico === 'Price')!;
+    const p = r.porServico.find((s) => s.servico === '2D Price')!;
     expect([nomes(p.cobertos), nomes(p.descobertos)]).toEqual([[], ['meio']]);
   });
 
@@ -56,8 +56,8 @@ describe('calcularIndicadoresPrazo', () => {
   it('Linhas: prazos por serviço e última entrega de cada atendimento', () => {
     const r = calcular(ativos, agenda);
     const meio = r.linhas.get('meio')!;
-    expect(meio.relogios.Monitoria?.statusReal).toBe('em_dia');
-    expect(meio.relogios.Price?.statusReal).toBe('nunca');
+    expect(meio.relogios['Plataforma 2D']?.statusReal).toBe('em_dia');
+    expect(meio.relogios['2D Price']?.statusReal).toBe('nunca');
     expect(meio.ultimaEntrega?.tipo).toBe('Reunião');
     expect(r.linhas.get('nunca')!.ultimaEntrega).toBeNull();
   });

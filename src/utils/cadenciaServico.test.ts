@@ -113,8 +113,8 @@ describe('buildFilaCadencia', () => {
     const c = cliente({ servicos: ['Monitoria', 'Price'] });
     const evPrice = evento({ date: iso(-10), servicos: ['Price'] });
     const [item] = buildFilaCadencia([c], [evPrice], [], CADENCIAS, NOW);
-    const monitoria = item.relogios.find((r) => r.servico === 'Monitoria')!;
-    const price = item.relogios.find((r) => r.servico === 'Price')!;
+    const monitoria = item.relogios.find((r) => r.servico === 'Plataforma 2D')!;
+    const price = item.relogios.find((r) => r.servico === '2D Price')!;
     expect(monitoria.status).toBe('nunca');
     expect(price.status).toBe('coberto');
   });
@@ -123,7 +123,7 @@ describe('buildFilaCadencia', () => {
     const c = cliente({ servicos: ['Monitoria', 'Price'], servicosIndependentes: ['Price'] });
     const [item] = buildFilaCadencia([c], [], [], CADENCIAS, NOW);
     expect(item.relogios).toHaveLength(1);
-    expect(item.relogios[0].servico).toBe('Monitoria');
+    expect(item.relogios[0].servico).toBe('Plataforma 2D');
   });
 
   it('reunião dentro da cadência fica "em_dia"; fora da janela de vencimento fica "vencido"', () => {
@@ -173,7 +173,7 @@ describe('contatoRecenteNaoRefletido', () => {
 
   it('true quando o contato é mais recente que qualquer relógio', () => {
     const relogios: RelogioServico[] = [
-      { servico: 'Monitoria', cadencia: 30, ultimo: new Date('2026-01-01'), proximo: null, atraso: 0, status: 'em_dia', statusReal: 'em_dia', atrasoReal: 0 },
+      { servico: 'Plataforma 2D', cadencia: 30, ultimo: new Date('2026-01-01'), proximo: null, atraso: 0, status: 'em_dia', statusReal: 'em_dia', atrasoReal: 0 },
     ];
     expect(contatoRecenteNaoRefletido(relogios, new Date('2026-02-01'))).toBe(true);
     expect(contatoRecenteNaoRefletido(relogios, new Date('2025-12-01'))).toBe(false);
@@ -185,7 +185,7 @@ describe('classificarCadencia', () => {
     cliente: cliente(),
     score: 0,
     precisaAcao: false,
-    relogios: status.map((s) => ({ servico: 'Monitoria', cadencia: 30, ultimo: null, proximo: null, atraso: 0, status: s, statusReal: s === 'coberto' ? 'em_dia' : s, atrasoReal: 0 })),
+    relogios: status.map((s) => ({ servico: 'Plataforma 2D', cadencia: 30, ultimo: null, proximo: null, atraso: 0, status: s, statusReal: s === 'coberto' ? 'em_dia' : s, atrasoReal: 0 })),
   });
 
   it('"nunca" conta como vencido', () => {
@@ -202,22 +202,22 @@ describe('classificarCadencia', () => {
 });
 
 describe('rotuloRelogio', () => {
-  const base: RelogioServico = { servico: 'Monitoria', cadencia: 30, ultimo: null, proximo: null, atraso: 0, status: 'em_dia', statusReal: 'em_dia', atrasoReal: 0 };
+  const base: RelogioServico = { servico: 'Plataforma 2D', cadencia: 30, ultimo: null, proximo: null, atraso: 0, status: 'em_dia', statusReal: 'em_dia', atrasoReal: 0 };
 
   it('nunca atendido', () => {
-    expect(rotuloRelogio({ ...base, status: 'nunca' })).toBe('Monitoria: nunca atendido');
+    expect(rotuloRelogio({ ...base, status: 'nunca' })).toBe('Plataforma 2D: nunca atendido');
   });
 
   it('vencido mostra os dias de atraso', () => {
-    expect(rotuloRelogio({ ...base, status: 'vencido', atraso: 12 })).toBe('Monitoria vencida há 12d');
+    expect(rotuloRelogio({ ...base, status: 'vencido', atraso: 12 })).toBe('Plataforma 2D vencida há 12d');
   });
 
   it('vencendo mostra os dias restantes', () => {
-    expect(rotuloRelogio({ ...base, status: 'vencendo', atraso: -3 })).toBe('Monitoria vence em 3d');
+    expect(rotuloRelogio({ ...base, status: 'vencendo', atraso: -3 })).toBe('Plataforma 2D vence em 3d');
   });
 
   it('em dia', () => {
-    expect(rotuloRelogio({ ...base, status: 'em_dia' })).toBe('Monitoria em dia');
+    expect(rotuloRelogio({ ...base, status: 'em_dia' })).toBe('Plataforma 2D em dia');
   });
 });
 
@@ -232,27 +232,27 @@ describe('buildFilaCadencia com serviço restrito', () => {
 
   it('sem restrição, o cliente entra com os dois relógios e pede ação', () => {
     const [item] = buildFilaCadencia([doisServicos], [reuniaoMonitoriaRecente], [], CADENCIAS, NOW);
-    expect(item.relogios.map((r) => r.servico)).toEqual(['Monitoria', 'Price']);
+    expect(item.relogios.map((r) => r.servico)).toEqual(['Plataforma 2D', '2D Price']);
     expect(item.precisaAcao).toBe(true);
   });
 
   it('restrito a Monitoria, olha só o relógio de Monitoria e NÃO pede ação', () => {
-    const [item] = buildFilaCadencia([doisServicos], [reuniaoMonitoriaRecente], [], CADENCIAS, NOW, { servico: 'Monitoria' });
-    expect(item.relogios.map((r) => r.servico)).toEqual(['Monitoria']);
+    const [item] = buildFilaCadencia([doisServicos], [reuniaoMonitoriaRecente], [], CADENCIAS, NOW, { servico: 'Plataforma 2D' });
+    expect(item.relogios.map((r) => r.servico)).toEqual(['Plataforma 2D']);
     expect(item.precisaAcao).toBe(false);
     expect(classificarCadencia(item)).toBe('em_dia');
   });
 
   it('restrito a Price, pede ação pelo relógio de Price', () => {
-    const [item] = buildFilaCadencia([doisServicos], [reuniaoMonitoriaRecente], [], CADENCIAS, NOW, { servico: 'Price' });
-    expect(item.relogios.map((r) => r.servico)).toEqual(['Price']);
+    const [item] = buildFilaCadencia([doisServicos], [reuniaoMonitoriaRecente], [], CADENCIAS, NOW, { servico: '2D Price' });
+    expect(item.relogios.map((r) => r.servico)).toEqual(['2D Price']);
     expect(item.precisaAcao).toBe(true);
     expect(classificarCadencia(item)).toBe('vencido');
   });
 
   it('cliente sem o serviço pedido sai da fila', () => {
     const soMonitoria = cliente({ servicos: ['Monitoria'] });
-    const fila = buildFilaCadencia([soMonitoria], [], [], CADENCIAS, NOW, { servico: 'Price' });
+    const fila = buildFilaCadencia([soMonitoria], [], [], CADENCIAS, NOW, { servico: '2D Price' });
     expect(fila).toHaveLength(0);
   });
 });
@@ -288,8 +288,8 @@ describe('buildFilaCadencia — Ação de Price conta como toque', () => {
     const doisServicos = cliente({ servicos: ['Monitoria', 'Precificação'] });
     const acaoPrice = acao({ tipo: 'price', status: 'concluido', dueAt: iso(1) });
     const [item] = buildFilaCadencia([doisServicos], [], [acaoPrice], CADENCIAS, NOW);
-    const monitoria = item.relogios.find((r) => r.servico === 'Monitoria')!;
-    const price = item.relogios.find((r) => r.servico === 'Price')!;
+    const monitoria = item.relogios.find((r) => r.servico === 'Plataforma 2D')!;
+    const price = item.relogios.find((r) => r.servico === '2D Price')!;
     expect(monitoria.status).toBe('nunca');
     expect(price.status).not.toBe('nunca');
   });
@@ -311,7 +311,7 @@ describe('buildFilaCadencia — evento tipo Precificação conta como toque de P
     const c = cliente({ servicos: ['Monitoria', 'Precificação'] });
     const precificacao = evento({ type: 'Precificação', servicos: [], date: iso(2) });
     const [item] = buildFilaCadencia([c], [precificacao], [], CADENCIAS, NOW);
-    const monitoria = item.relogios.find((r) => r.servico === 'Monitoria')!;
+    const monitoria = item.relogios.find((r) => r.servico === 'Plataforma 2D')!;
     expect(monitoria.status).toBe('nunca');
   });
 });
@@ -346,8 +346,8 @@ describe('buildFilaCadencia — Ação de Relatório conta como toque de Monitor
     const doisServicos = cliente({ servicos: ['Monitoria', 'Precificação'] });
     const acaoRelatorio = acao({ tipo: 'relatorio', status: 'concluido', dueAt: iso(1) });
     const [item] = buildFilaCadencia([doisServicos], [], [acaoRelatorio], CADENCIAS, NOW);
-    const monitoria = item.relogios.find((r) => r.servico === 'Monitoria')!;
-    const price = item.relogios.find((r) => r.servico === 'Price')!;
+    const monitoria = item.relogios.find((r) => r.servico === 'Plataforma 2D')!;
+    const price = item.relogios.find((r) => r.servico === '2D Price')!;
     expect(monitoria.status).not.toBe('nunca');
     expect(price.status).toBe('nunca');
   });
@@ -359,8 +359,8 @@ describe('buildFilaCadencia — precificação vale pro grupo', () => {
   const recreio = cliente({ id: 'a1', empresa: 'Altese - Recreio', grupo: 'Altese', servicos: ['Monitoria', 'Precificação'] });
   const gm = cliente({ id: 'a2', empresa: 'Altese - GM', grupo: 'Altese', servicos: ['Monitoria', 'Precificação'] });
   const outra = cliente({ id: 'x1', empresa: 'Outra', servicos: ['Precificação'] });
-  const price = (item: FilaCadItem) => item.relogios.find((r) => r.servico === 'Price')!;
-  const monitoria = (item: FilaCadItem) => item.relogios.find((r) => r.servico === 'Monitoria')!;
+  const price = (item: FilaCadItem) => item.relogios.find((r) => r.servico === '2D Price')!;
+  const monitoria = (item: FilaCadItem) => item.relogios.find((r) => r.servico === 'Plataforma 2D')!;
   const precificacaoRecreio = (o: Partial<EventoAgenda> = {}) =>
     evento({ id: 'p1', clientId: 'a1', type: 'Precificação', servicos: ['Precificação'], date: iso(2), ...o });
 

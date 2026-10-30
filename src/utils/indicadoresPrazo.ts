@@ -89,7 +89,7 @@ export function calcularIndicadoresPrazo(e: EntradaIndicadores): IndicadoresPraz
   for (const k of ['emDia', 'agendaMarcada', 'contatoRecente', 'precisa'] as const) ritmo[k].sort(porNome);
 
   // Cobertura por Serviço: base = quem tem o relógio do serviço.
-  const porServico = (['Monitoria', 'Price'] as ServicoCad[]).map((servico) => {
+  const porServico = (['Plataforma 2D', '2D Price'] as ServicoCad[]).map((servico) => {
     const comRelogio = fila.flatMap((f) => {
       const r = f.relogios.find((x) => x.servico === servico);
       return r ? [{ item: item(f.cliente), noPrazo: relogioNoPrazo(r) }] : [];

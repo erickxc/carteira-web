@@ -102,9 +102,9 @@ describe('analises', () => {
       [id, { id, relogios: Object.fromEntries(relogios.map((r) => [r.servico, r])), ultimoContato } as LinhaAtendimento] as const;
     const linhas = new Map([
       // 'a': Monitoria vencida, contato concluído ontem depois da última entrega → aguardando retorno
-      linha('a', [rel('Monitoria', 'vencido', new Date(2026, 7, 1))], new Date(2026, 8, 24)),
-      linha('b', [rel('Monitoria', 'em_dia'), rel('Price', 'nunca')]),
-      linha('c', [rel('Monitoria', 'em_dia')]),
+      linha('a', [rel('Plataforma 2D', 'vencido', new Date(2026, 7, 1))], new Date(2026, 8, 24)),
+      linha('b', [rel('Plataforma 2D', 'em_dia'), rel('2D Price', 'nunca')]),
+      linha('c', [rel('Plataforma 2D', 'em_dia')]),
     ]);
     const agenda = [
       ev('a', 'Reunião', 'Concluído', dia(10), { servicos: ['Monitoria', 'Precificação'], monitores: ['Erick'] }), // Erick fez na carteira do Yann

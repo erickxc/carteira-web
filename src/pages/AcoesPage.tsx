@@ -14,7 +14,7 @@ import { Grupo } from '../components/acoes/Grupo';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { buildUltimaInteracaoMap } from '../utils/ultimaInteracao';
-import { buildFilaCadencia, classificarCadencia, comPrecificacaoDoGrupo, type FilaCadItem } from '../utils/cadenciaServico';
+import { buildFilaCadencia, classificarCadencia, comPrecificacaoDoGrupo, eh2DPrice, ehPlataforma2D, type FilaCadItem } from '../utils/cadenciaServico';
 import { confirmDialog } from '../utils/confirmDialog';
 import { eventoStatusBadge, isAtendidoMarco } from '../utils/badges';
 import { aguardandoRetorno, ordenarPorProximidade, type Item } from '../utils/acoesHelpers';
@@ -174,9 +174,9 @@ export default function AcoesPage() {
 
   const produtos = (c: Cliente) => {
     const out: string[] = [];
-    const has = (re: RegExp, f: keyof Cliente) => (c.servicos ?? []).some((s) => re.test(s)) || Boolean(c[f]);
-    if (has(/monitor/i, 'monitoria')) out.push('Monitoria');
-    if (has(/(price|prec)/i, 'price')) out.push('Price');
+    const has = (eh: (nome: string) => boolean, f: keyof Cliente) => (c.servicos ?? []).some(eh) || Boolean(c[f]);
+    if (has(ehPlataforma2D, 'monitoria')) out.push('Monitoria');
+    if (has(eh2DPrice, 'price')) out.push('Price');
     return out;
   };
 

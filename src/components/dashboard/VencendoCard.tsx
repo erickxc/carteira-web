@@ -6,9 +6,9 @@ import { AbasDeslizantes } from './AbasDeslizantes';
 import type { ServicoCad } from '../../utils/cadenciaServico';
 
 type FiltroServico = ServicoCad | 'Todos';
-const SERVICOS: FiltroServico[] = ['Todos', 'Monitoria', 'Price'];
+const SERVICOS: FiltroServico[] = ['Todos', 'Plataforma 2D', '2D Price'];
 const SERVICO_LABEL: Record<FiltroServico, string> = {
-  Todos: 'Geral', Monitoria: 'Monitoria', Price: 'Precificação',
+  Todos: 'Geral', 'Plataforma 2D': 'Monitoria', '2D Price': 'Precificação',
 };
 
 interface ItemVencendo {

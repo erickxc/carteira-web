@@ -5,7 +5,7 @@ import { useCarteira } from '../context/CarteiraContext';
 import { gerarAta } from '../utils/ata';
 import { limparStreamAtaIA } from '../utils/limparStreamAtaIA';
 import { registrarRemarcacao } from '../utils/reagendamento';
-import { ehServicoDeReuniao, servicoPadraoDoEvento } from '../utils/cadenciaServico';
+import { eh2DPrice, ehServicoDeReuniao, servicoPadraoDoEvento } from '../utils/cadenciaServico';
 import { gerarAtaPdf } from '../utils/ataPdf';
 import {
   gerarAtaComIAStream, buscarCatalogoAlvos,
@@ -220,7 +220,7 @@ export function EventFormModal({ initial, defaultDate, initialClientId, initialT
   const qtdOutrasDoGrupo = grupoDoCliente
     ? clientes.filter((c) => c.id !== clientId && c.grupo?.trim().toLowerCase() === grupoDoCliente).length
     : 0;
-  const contaComoPrice = /precific/i.test(type) || (/reuni|relat/i.test(type) && servicos.some((s) => /(price|prec)/i.test(s)));
+  const contaComoPrice = /precific/i.test(type) || (/reuni|relat/i.test(type) && servicos.some(eh2DPrice));
   const mostrarEscopoPrice = qtdOutrasDoGrupo > 0 && contaComoPrice;
   const ataAuto = gerarAta(
     {

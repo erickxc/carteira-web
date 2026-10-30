@@ -143,6 +143,6 @@ describe('sugerirAgenda', () => {
     const c = cliente({ servicos: ['Monitoria', 'Price'] });
     const monitoriaEmDia = evento({ servicos: ['Monitoria'], date: iso(5) });
     const sugestoes = sugerirAgenda([c], [monitoriaEmDia], SEM_ACOES, CADENCIAS, { agora: NOW });
-    expect(sugestoes[0].servico).toBe('Price'); // Price nunca atendido é mais urgente que Monitoria em dia
+    expect(sugestoes[0].servico).toBe('2D Price'); // Price nunca atendido é mais urgente que Monitoria em dia
   });
 });

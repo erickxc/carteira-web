@@ -37,8 +37,17 @@ export const buildFilaCadencia = motor.buildFilaCadencia as (
   acoes: Acao[],
   cadencias: Cadencias,
   now?: Date,
-  opts?: { servico?: ServicoCad; riscoPorCliente?: Map<string, NivelRisco> }
+  // Aceita também o nome antigo ("Monitoria"/"Price"), ver `servicoDoRelogio`.
+  opts?: { servico?: ServicoCad | 'Monitoria' | 'Price'; riscoPorCliente?: Map<string, NivelRisco> }
 ) => FilaCadItem[];
+
+/** Filtro de serviço guardado no navegador → relógio atual. Valor de antes da
+ * 1.7 ("Monitoria"/"Price") vira o nome novo; qualquer outro (ex.: o antigo
+ * "Relatório") vira 'Todos' — senão o card filtraria por um relógio que não existe. */
+export function filtroServicoSalvo(v: string): ServicoCad | 'Todos' {
+  const s = motor.servicoDoRelogio(v);
+  return s === 'Plataforma 2D' || s === '2D Price' ? s : 'Todos';
+}
 
 /**
  * Serviços que são TRATADOS numa reunião — só Monitoria e Precificação, que
@@ -56,7 +65,11 @@ export const comPrecificacaoDoGrupo = motor.comPrecificacaoDoGrupo as (agenda: E
 /** Evento conta como Price (precificação, ou reunião/relatório com Price). */
 export const ehToquePrice = motor.ehToquePrice as (a: EventoAgenda) => boolean;
 
-export const ehServicoDeReuniao = (nome: string) => /monitor|price|prec/i.test(nome);
+/** Reconhecem nome antigo e novo do produto (Monitoria/Plataforma 2D, Precificação/2D Price). */
+export const ehPlataforma2D = motor.ehPlataforma2D;
+export const eh2DPrice = motor.eh2DPrice;
+
+export const ehServicoDeReuniao = (nome: string) => motor.ehPlataforma2D(nome) || motor.eh2DPrice(nome);
 
 /** Relógios a menos de `janela` dias do prazo, sem reunião futura marcada — ver `shared/cadenciaServico.cjs`. */
 export const itensVencendo = motor.itensVencendo as (

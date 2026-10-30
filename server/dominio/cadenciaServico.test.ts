@@ -322,7 +322,7 @@ describe('regras de prazo (spec 2026-09-25)', () => {
       cli({ id: 'venc', empresa: 'Venc', servicos: ['Precificação'] }),
     ];
     const agenda = [{ clientId: 'venc', type: 'Precificação', status: 'Concluído', date: diasAtras(12), servicos: ['Precificação'] }];
-    const price = cadencia.buscarCoberturaServicos(clientes, agenda, [], { price_dias: 15 }, AGORA).find((s: { servico: string }) => s.servico === 'Price');
+    const price = cadencia.buscarCoberturaServicos(clientes, agenda, [], { price_dias: 15 }, AGORA).find((s: { servico: string }) => s.servico === '2D Price');
     expect(price).toMatchObject({ contrataram: 1, atendidos: 1 });
   });
 });
@@ -342,5 +342,67 @@ describe('categoriaCancelamento', () => {
     expect(['Cliente quis remarcar a reunião.', 'Cliente teve um problema e solicitou o cancelamento', 'Sistema do cliente caiu e precisou sair da reunião'].map((m) => cat(m))).toEqual(Array(3).fill('cliente_cancelou'));
     expect(['Foi feito um relatório para o cliente.', 'Cliente fez precificação recente.', 'domingo'].map((m) => cat(m))).toEqual(Array(3).fill('nos_cancelamos'));
     expect([undefined, 'cancelado'].map((m) => cat(m))).toEqual(['sem_categoria', 'sem_categoria']);
+  });
+});
+
+/**
+ * 1.7.0 (produtos do cliente): "Monitoria" virou Plataforma 2D e "Precificação"
+ * virou 2D Price. O motor reconhece os dois nomes (evento antigo continua
+ * zerando o relógio) e o relógio "nunca atendido" parte de quando o produto
+ * entrou (`faseDesde`), não só do cadastro do cliente.
+ */
+describe('buildFilaCadencia — Plataforma 2D / 2D Price e faseDesde', () => {
+  const AGORA = new Date('2026-10-31T12:00:00');
+  const base = { id: 'c1', empresa: 'Loja', estado: 'Ativo', status: 'Regular', createdAt: '2026-05-25T00:00:00' };
+  const relogio = (fila: { relogios: { servico: string }[] }[], servico: string) => fila[0]?.relogios.find((r) => r.servico === servico);
+
+  it('relógios com os nomes novos; reunião com Plataforma 2D zera só a Plataforma 2D', () => {
+    const c = { ...base, servicos: ['Plataforma 2D', '2D Price'] };
+    const reuniao = { clientId: 'c1', date: '2026-10-26', type: 'Reunião', status: 'Concluído', servicos: ['Plataforma 2D'] };
+    const fila = cadencia.buildFilaCadencia([c], [reuniao], [], {}, AGORA);
+    expect(relogio(fila, 'Plataforma 2D')?.status).toBe('em_dia');
+    expect(relogio(fila, '2D Price')?.status).toBe('nunca');
+  });
+
+  it('evento antigo marcado "Monitoria" zera o relógio da Plataforma 2D', () => {
+    const c = { ...base, servicos: ['Plataforma 2D'] };
+    const reuniao = { clientId: 'c1', date: '2026-10-26', type: 'Reunião', status: 'Concluído', servicos: ['Monitoria'] };
+    const fila = cadencia.buildFilaCadencia([c], [reuniao], [], {}, AGORA);
+    expect(relogio(fila, 'Plataforma 2D')?.status).toBe('em_dia');
+  });
+
+  it('nome antigo e novo juntos no cliente geram um relógio só', () => {
+    const fila = cadencia.buildFilaCadencia([{ ...base, servicos: ['Monitoria', 'Plataforma 2D'] }], [], [], {}, AGORA);
+    expect(fila[0].relogios.map((r: { servico: string }) => r.servico)).toEqual(['Plataforma 2D']);
+  });
+
+  it('opts.servico aceita o nome antigo (filtro salvo no navegador, monitorIA)', () => {
+    const c = { ...base, servicos: ['Plataforma 2D', '2D Price'] };
+    const fila = cadencia.buildFilaCadencia([c], [], [], {}, AGORA, { servico: 'Price' });
+    expect(fila[0].relogios.map((r: { servico: string }) => r.servico)).toEqual(['2D Price']);
+  });
+
+  it('produto que entrou depois do cadastro conta o prazo a partir de faseDesde', () => {
+    const c = { ...base, servicos: ['2D Price'], produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-10-30T00:00:00' }] };
+    const r = relogio(cadencia.buildFilaCadencia([c], [], [], { price_dias: 15 }, AGORA), '2D Price');
+    expect(r?.status).not.toBe('nunca');
+    expect(r?.atrasoReal).toBe(1 - 15);
+  });
+
+  it('produtos gravado como texto JSON (dupla serialização) também é lido', () => {
+    const c = { ...base, servicos: ['2D Price'], produtos: JSON.stringify([{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-10-30T00:00:00' }]) };
+    expect(relogio(cadencia.buildFilaCadencia([c], [], [], { price_dias: 15 }, AGORA), '2D Price')?.atrasoReal).toBe(1 - 15);
+  });
+
+  it('sem faseDesde (legado) o prazo continua contando do cadastro', () => {
+    const c = { ...base, servicos: ['2D Price'], produtos: [{ produto: '2D Price', fase: 'Ativo' }] };
+    const r = relogio(cadencia.buildFilaCadencia([c], [], [], { price_dias: 15 }, AGORA), '2D Price');
+    expect(r?.status).toBe('nunca');
+    expect(r?.atrasoReal).toBe(159 - 15);
+  });
+
+  it('faseDesde anterior ao cadastro não antecipa o prazo', () => {
+    const c = { ...base, servicos: ['2D Price'], produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2025-01-01T00:00:00' }] };
+    expect(relogio(cadencia.buildFilaCadencia([c], [], [], { price_dias: 15 }, AGORA), '2D Price')?.atrasoReal).toBe(159 - 15);
   });
 });
