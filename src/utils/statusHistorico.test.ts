@@ -59,3 +59,37 @@ describe('clientesEm', () => {
     expect(x.servicos).toEqual(['Plataforma 2D']);
   });
 });
+
+describe('clientesEm: casos de borda de produtos', () => {
+  const ph = (produto: string, fase: string, mudouEm: string): ProdutoHistoricoItem =>
+    ({ id: `${produto}${fase}${mudouEm}`, clientId: 'a', produto, fase, motivo: '', mudouEm });
+
+  it('produto independente na época continua independente no mês passado (não vira cobrança de cadência)', () => {
+    // Hoje: 2D Price Cancelado (era independente). Em setembro estava Ativo e independente.
+    const hoje = c('a', {
+      status: 'Regular', estado: 'Ativo',
+      servicos: ['Plataforma 2D'], servicosIndependentes: [],
+      produtos: [
+        { produto: 'Plataforma 2D', fase: 'Ativo', faseDesde: '2026-05-01T00:00:00.000Z', motivoFase: '' },
+        { produto: '2D Price', fase: 'Cancelado', faseDesde: '2026-10-20T12:00:00.000Z', motivoFase: 'saiu', independente: true },
+      ],
+    });
+    const [a] = clientesEm([hoje], [], new Date(2026, 8, 15), [
+      ph('Plataforma 2D', 'Ativo', '2026-05-01T00:00:00.000Z'),
+      ph('2D Price', 'Ativo', '2026-05-01T00:00:00.000Z'),
+      ph('2D Price', 'Cancelado', '2026-10-20T12:00:00.000Z'),
+    ]);
+    expect(a.servicos).toContain('2D Price');
+    expect(a.servicosIndependentes ?? []).toContain('2D Price');
+  });
+
+  it('nome antigo no histórico (Precificação) vira o nome oficial em servicos', () => {
+    const [a] = clientesEm([c('a', { servicos: [] })], [], new Date(2026, 8, 15), [ph('Precificação', 'Ativo', '2026-05-01T00:00:00.000Z')]);
+    expect(a.servicos).toEqual(['2D Price']);
+  });
+
+  it('data antes de qualquer linha de produto: servicos vazio', () => {
+    const [a] = clientesEm([c('a', { servicos: ['2D Price'] })], [], new Date(2026, 3, 1), [ph('2D Price', 'Ativo', '2026-05-01T00:00:00.000Z')]);
+    expect(a.servicos).toEqual([]);
+  });
+});
