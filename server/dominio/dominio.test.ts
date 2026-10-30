@@ -265,3 +265,54 @@ describe('dominio/acoes', () => {
     expect(updated?.updatedAt).not.toBe(nova.createdAt);
   });
 });
+
+describe('dominio/clientes: gravações do bloco Produtos da ficha', () => {
+  const D = '2026-01-01T00:00:00.000Z';
+  const prod = (produto: string, fase = 'Ativo', extra: Record<string, unknown> = {}) =>
+    ({ produto, fase, faseDesde: D, motivoFase: 'migração', ...extra });
+  const novoPrice = { produto: '2D Price', fase: 'Ativo', faseDesde: '', motivoFase: 'contratou' };
+  // Loja de grupo com o login do Price e sem o serviço marcado (comentário de
+  // derivarCamposLegados): sincronizarPriceDoDW acha o cliente por esse CNPJ.
+  const credencial = { loginPrice: '12345678000199', senhaPriceCifrada: 'cifrada' };
+
+  it('"Adicionar produto" 2D Price não apaga o login e a senha que o cliente já tinha', () => {
+    const repo = repoMemoria({ Clientes: [{ id: 'c1', empresa: 'T', createdAt: D, servicos: [], produtos: [prod('Apura')], ...credencial }] });
+    const salvo = clientesDominio.atualizar(repo, 'c1', { produtos: [prod('Apura'), novoPrice] }, SEM_EFEITOS);
+    expect(salvo.loginPrice).toBe(credencial.loginPrice);
+    expect(salvo.senhaPriceCifrada).toBe(credencial.senhaPriceCifrada);
+  });
+
+  it('idem em cliente ainda não migrado', () => {
+    const repo = repoMemoria({ Clientes: [{ id: 'c1', empresa: 'T', createdAt: D, servicos: ['Monitoria'], ...credencial }] });
+    const lista = clientesDominio.produtosDoCliente(repo.get('Clientes')[0]);
+    const salvo = clientesDominio.atualizar(repo, 'c1', { produtos: [...lista, novoPrice] }, SEM_EFEITOS);
+    expect(salvo.loginPrice).toBe(credencial.loginPrice);
+    expect(salvo.senhaPriceCifrada).toBe(credencial.senhaPriceCifrada);
+  });
+
+  it('idem quando uma máquina 1.6 marca Precificação', () => {
+    const repo = repoMemoria({ Clientes: [{ id: 'c1', empresa: 'T', createdAt: D, servicos: [], produtos: [prod('Apura')], ...credencial }] });
+    const salvo = clientesDominio.atualizar(repo, 'c1', { servicos: ['Apura', 'Precificação'] }, SEM_EFEITOS);
+    expect(salvo.loginPrice).toBe(credencial.loginPrice);
+    expect(salvo.senhaPriceCifrada).toBe(credencial.senhaPriceCifrada);
+  });
+
+  it('"Remover senha" do 2D Price apaga a senha e mantém o login', () => {
+    const repo = repoMemoria({ Clientes: [{ id: 'c1', empresa: 'T', createdAt: D, produtos: [prod('2D Price', 'Ativo', { login: 'L', senhaCifrada: 'x' })] }] });
+    const salvo = clientesDominio.atualizar(repo, 'c1', { produtos: [prod('2D Price', 'Ativo', { login: 'L', senhaCifrada: '' })] }, SEM_EFEITOS);
+    expect(salvo.senhaPriceCifrada).toBe('');
+    expect(salvo.loginPrice).toBe('L');
+  });
+
+  it('limpar o link tira o produto de linksServicos', () => {
+    const repo = repoMemoria({ Clientes: [{ id: 'c1', empresa: 'T', createdAt: D, produtos: [prod('Apura', 'Ativo', { link: 'L' })] }] });
+    const salvo = clientesDominio.atualizar(repo, 'c1', { produtos: [prod('Apura', 'Ativo', { link: '' })] }, SEM_EFEITOS);
+    expect(salvo.linksServicos).toEqual({});
+  });
+
+  it('produto novo sem motivo → 400', () => {
+    const repo = repoMemoria({ Clientes: [{ id: 'c1', empresa: 'T', createdAt: D, produtos: [] }] });
+    expect(() => clientesDominio.atualizar(repo, 'c1', { produtos: [{ ...novoPrice, motivoFase: '  ' }] }, SEM_EFEITOS))
+      .toThrow('Informe o motivo da mudança de fase.');
+  });
+});
