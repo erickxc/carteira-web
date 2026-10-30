@@ -23,16 +23,23 @@ const chaveOrdem = (a: EventoAgenda) => `${format(parseISO(a.date), 'yyyy-MM-dd'
 
 const primeiraLinha = (texto: string) => texto.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
 
+// A linha depois do cabeçalho da seção, desde que não seja já o cabeçalho seguinte.
+const SECOES_DA_ATA = /^(?:1\. RESUMO|2\. O QUE FOI TRATADO)[ \t]*\r?\n[ \t]*(?!\d+\. )(\S.*)$/gm;
+// "ATA DE REUNIÃO — Pecita" ou "ATA — RELATÓRIO — Pecita" (`src/utils/ata.ts`).
+const TITULO_DA_ATA = /^ATA (DE REUNIÃO|— )/;
+
 /**
- * Uma linha sobre o que foi conversado. A ata gerada começa com o título "ATA DE
- * REUNIÃO" e o cabeçalho: a linha que diz algo é a da seção "1. RESUMO" (`src/utils/ata.ts`).
+ * Uma linha sobre o que foi conversado. A ata gerada começa com título e cabeçalho:
+ * a linha que diz algo é a da seção "1. RESUMO" ou, na ata anterior a 02/09/2026
+ * (seção "1. PAUTA") e no resumo apagado à mão, a de "2. O QUE FOI TRATADO".
  */
 export function resumoDaConversa(evento: EventoAgenda): string {
   if (evento.resumo?.trim()) return primeiraLinha(evento.resumo);
   const ata = evento.ata ?? '';
-  const secao = ata.match(/^1\. RESUMO[ \t]*\r?\n[ \t]*(\S.*)$/m);
-  if (!secao) return primeiraLinha(ata);
-  return secao[1].includes('(a preencher)') ? '' : secao[1].trim();
+  const secoes = [...ata.matchAll(SECOES_DA_ATA)].map((m) => m[1].trim());
+  if (secoes.length) return secoes.find((l) => !l.includes('(a preencher)')) ?? '';
+  const primeira = primeiraLinha(ata);
+  return TITULO_DA_ATA.test(primeira) ? '' : primeira;
 }
 
 /** Painel da ficha: nenhuma conta de cadência aqui, tudo sai do motor da fila. */

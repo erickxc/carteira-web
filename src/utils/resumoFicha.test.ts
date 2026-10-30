@@ -248,6 +248,18 @@ describe('resumoDaConversa: a linha nunca é o título da ata', () => {
     expect(resumoDaConversa(ev('ATA — RELATÓRIO — Pecita\n12/08/2026\n\n1. PAUTA\n   (sem pauta registrada)\n'))).not.toMatch(TITULO);
   });
 
+  it('sem resumo, a linha vem de "O que foi tratado"; marcador e cabeçalho vizinho não valem', () => {
+    const fim = '2. O QUE FOI TRATADO\n   Margem subiu\n';
+    expect(resumoDaConversa(ev(`ATA DE REUNIÃO — Pecita\n\n1. PAUTA\n   (sem pauta registrada)\n\n${fim}`))).toBe('Margem subiu');
+    expect(resumoDaConversa(ev(`ATA DE REUNIÃO — Pecita\n\n1. RESUMO\n   (a preencher)\n\n${fim}`))).toBe('Margem subiu');
+    expect(resumoDaConversa(ev(`ATA DE REUNIÃO — Pecita\n\n1. RESUMO\n${fim}`))).toBe('Margem subiu');
+  });
+
+  it('ata escrita à mão continua na primeira linha, mesmo começando com a palavra ata', () => {
+    expect(resumoDaConversa(ev('Cliente pediu desconto\nOutra linha'))).toBe('Cliente pediu desconto');
+    expect(resumoDaConversa(ev('Ata curta: cliente pediu desconto'))).toBe('Ata curta: cliente pediu desconto');
+  });
+
   it('seção de resumo apagada à mão não mostra o título', () => {
     expect(resumoDaConversa(ev('ATA DE REUNIÃO — Pecita\n\n1. RESUMO\n\n2. O QUE FOI TRATADO\n   Algo\n'))).not.toMatch(TITULO);
   });
