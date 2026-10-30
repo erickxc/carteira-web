@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { getSheetData } = require('./db.cjs');
+const { repoPlanilha } = require('./dominio/repo.cjs');
 
 // Transcrições desse formato (Otter/Fireflies/Gemini Notes) sempre nomeiam os
 // blocos de abertura sobre áudio/vídeo/presença de forma previsível — dá pra
@@ -92,7 +92,7 @@ function bateNoTexto(identificador, texto) {
  * Não decide sozinho: é sinal pra confirmação humana, não substitui.
  */
 function identificarCliente(texto) {
-  const clientes = getSheetData('Clientes');
+  const clientes = repoPlanilha().get('Clientes');
   const candidatos = [];
   for (const c of clientes) {
     const motivos = identificadoresDoCliente(c).filter((id) => bateNoTexto(id, texto));
