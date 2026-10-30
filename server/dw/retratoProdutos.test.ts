@@ -75,3 +75,28 @@ describe('gerarRetrato', () => {
     expect(lerRetrato()).toEqual({ geradoEm: 'a', porCnpj: { '11111111000111': ['Apura'] } });
   });
 });
+
+describe('montarRetrato — bordas do DW', () => {
+  it('aceita s minúsculo e espaços, ignora null/vazio/outros valores, CNPJ com máscara vira dígitos', () => {
+    const { montarRetrato } = require('./retratoProdutos.cjs');
+    const r = montarRetrato([
+      { cnpj: '11.111.111/0001-11', monitoria: 's', apura: ' S ', nexus: null, alcance: '', optimarco: 'Sim', precificar: 'N' },
+    ], 'g');
+    expect(r.porCnpj).toEqual({ '11111111000111': ['Plataforma 2D', 'Apura'] });
+  });
+
+  it('ordem dos produtos segue o mapa de colunas, não a ordem das linhas repetidas', () => {
+    const { montarRetrato } = require('./retratoProdutos.cjs');
+    const r = montarRetrato([
+      { cnpj: '1', precificar: 'S' },
+      { cnpj: '1', monitoria: 'S' },
+    ], 'g');
+    expect(r.porCnpj['1']).toEqual(['Plataforma 2D', '2D Price']);
+  });
+
+  it('CNPJ repetido com a segunda linha toda N não apaga a marcação da primeira', () => {
+    const { montarRetrato } = require('./retratoProdutos.cjs');
+    const r = montarRetrato([linha('1', ['controladoria']), linha('1', [])], 'g');
+    expect(r.porCnpj['1']).toEqual(['Controladoria']);
+  });
+});

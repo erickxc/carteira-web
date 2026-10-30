@@ -39,3 +39,46 @@ describe('produtosNoDw', () => {
     expect(produtosNoDw(cliente('a', ['9']), retrato, [])).toEqual({});
   });
 });
+
+describe('produtosNoDw — bordas', () => {
+  it('clientes sem grupo não compartilham Plataforma 2D entre si', () => {
+    const a = cliente('A', ['1']);
+    const b = cliente('B', ['2'], '   ');
+    const retrato: RetratoDw = { geradoEm: 'x', porCnpj: { 1: ['Plataforma 2D'], 2: [] } };
+    expect(produtosNoDw(b, retrato, [a, b])['Plataforma 2D']).toEqual({ marcado: 0, total: 1 });
+  });
+
+  it('grupo casa ignorando maiúscula e espaço nas pontas', () => {
+    const a = cliente('A', ['1'], 'CBraga');
+    const b = cliente('B', ['2'], ' cbraga ');
+    const retrato: RetratoDw = { geradoEm: 'x', porCnpj: { 1: ['Plataforma 2D'], 2: [] } };
+    expect(produtosNoDw(b, retrato, [a, b])['Plataforma 2D']).toEqual({ marcado: 1, total: 1 });
+  });
+
+  it('Plataforma no grupo marca todas as lojas achadas do atendimento, não as que faltam no retrato', () => {
+    const a = cliente('A', ['1'], 'G');
+    const b = cliente('B', ['2', '3', '4'], 'G');
+    const retrato: RetratoDw = { geradoEm: 'x', porCnpj: { 1: ['Plataforma 2D'], 2: [], 3: [] } };
+    expect(produtosNoDw(b, retrato, [a, b])['Plataforma 2D']).toEqual({ marcado: 2, total: 2 });
+  });
+
+  it('Plataforma de outro grupo não conta', () => {
+    const a = cliente('A', ['1'], 'Outro');
+    const b = cliente('B', ['2'], 'G');
+    const retrato: RetratoDw = { geradoEm: 'x', porCnpj: { 1: ['Plataforma 2D'], 2: [] } };
+    expect(produtosNoDw(b, retrato, [a, b])['Plataforma 2D']).toEqual({ marcado: 0, total: 1 });
+  });
+
+  it('CNPJ com máscara no cadastro casa com os dígitos do retrato', () => {
+    const c = cliente('C', ['11.111.111/0001-11']);
+    const retrato: RetratoDw = { geradoEm: 'x', porCnpj: { '11111111000111': ['2D Price'] } };
+    expect(produtosNoDw(c, retrato, [c])['2D Price']).toEqual({ marcado: 1, total: 1 });
+  });
+
+  it('loja achada no retrato com lista vazia conta no total e zera tudo', () => {
+    const c = cliente('C', ['1']);
+    const r = produtosNoDw(c, { geradoEm: 'x', porCnpj: { 1: [] } }, [c]);
+    expect(Object.keys(r)).toEqual(['Plataforma 2D', 'Controladoria', 'Apura', '2D Alcance', '2D Nexus', 'OptiMarco', '2D Price']);
+    expect(Object.values(r).every((v) => v.marcado === 0 && v.total === 1)).toBe(true);
+  });
+});
