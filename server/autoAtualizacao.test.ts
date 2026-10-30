@@ -1,4 +1,7 @@
 import { createRequire } from 'module';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const require = createRequire(import.meta.url);
@@ -12,6 +15,7 @@ const require = createRequire(import.meta.url);
 type Modulo = typeof import('./autoAtualizacao.cjs');
 
 let mod: Modulo;
+let raizTemp: string;
 
 function carregar(env: Record<string, string | undefined> = {}) {
   vi.resetModules();
@@ -19,19 +23,35 @@ function carregar(env: Record<string, string | undefined> = {}) {
     if (v === undefined) delete process.env[k];
     else process.env[k] = v;
   }
+  // config.cjs guarda o caminho do OneDrive ao carregar: sem recarregá-lo junto,
+  // o teste leria o latest.json REAL e o resultado dependeria da versão publicada.
+  delete require.cache[require.resolve('./config.cjs')];
   delete require.cache[require.resolve('./autoAtualizacao.cjs')];
   return require('./autoAtualizacao.cjs') as Modulo;
 }
 
 const ENV_ORIGINAL = { ...process.env };
 
+/** Publica um manifesto na pasta temporária, como `publicarRelease` faria. */
+function publicar(versao: string) {
+  const dir = path.join(raizTemp, 'releases');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'latest.json'), JSON.stringify({ versao }));
+}
+
 beforeEach(() => {
+  raizTemp = fs.mkdtempSync(path.join(os.tmpdir(), 'carteira-autoatualizacao-'));
+  process.env.ONEDRIVE_ROOT = raizTemp;
+  process.env.BACKUP_ONEDRIVE_DIR = raizTemp;
+  process.env.SQLITE_DIR = path.join(raizTemp, 'sqlite');
   mod = carregar({ AUTO_ATUALIZACAO: undefined, AUTO_ATUALIZACAO_OCIOSO_MIN: '10' });
 });
 
 afterEach(() => {
   process.env = { ...ENV_ORIGINAL };
   vi.useRealTimers();
+  delete require.cache[require.resolve('./config.cjs')];
+  fs.rmSync(raizTemp, { recursive: true, force: true });
 });
 
 /** Simula uma requisição passando pelo middleware, do começo ao fim. */
@@ -108,14 +128,24 @@ describe('autoAtualizacao: quando o laço nem liga', () => {
     expect(log.mock.calls.join(' ')).toMatch(/não foi aberto pelo \.exe/i);
   });
 
-  it('com .exe e versão igual à publicada, não aplica', () => {
+  it('com .exe e versão maior publicada, aplica depois de ficar ocioso', () => {
+    publicar('999.0.0');
     const m = carregar({ AUTO_ATUALIZACAO: undefined, CARTEIRA_LAUNCHER_EXE: 'C:\\x\\2D_Carteira.exe' });
     const aplicar = vi.fn();
     vi.useFakeTimers();
     m.iniciarAutoAtualizacao({ aplicar, log: vi.fn() });
-    // `versaoNovaDisponivel` compara o package.json local com o latest.json do
-    // OneDrive; nesta máquina de teste eles batem (ou o manifesto não existe),
-    // então nada deve ser aplicado por mais que o tempo passe.
+    vi.advanceTimersByTime(9 * 60_000);
+    expect(aplicar).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(2 * 60_000);
+    expect(aplicar).toHaveBeenCalled();
+  });
+
+  it('com .exe e versão igual à publicada, não aplica', () => {
+    publicar(require('../package.json').version);
+    const m = carregar({ AUTO_ATUALIZACAO: undefined, CARTEIRA_LAUNCHER_EXE: 'C:\\x\\2D_Carteira.exe' });
+    const aplicar = vi.fn();
+    vi.useFakeTimers();
+    m.iniciarAutoAtualizacao({ aplicar, log: vi.fn() });
     vi.advanceTimersByTime(24 * 3_600_000);
     expect(aplicar).not.toHaveBeenCalled();
   });
