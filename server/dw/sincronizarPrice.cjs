@@ -10,10 +10,11 @@
  * login existente mas de outra empresa): tudo isso exige julgamento humano.
  * Por isso esta função:
  *
- *  1. NUNCA vincula CNPJ novo sozinha — só atualiza quem já tem `loginPrice`.
+ *  1. NUNCA vincula CNPJ novo sozinha — só atualiza quem já tem login do
+ *     Price (item 2D Price de `produtos`, ou `loginPrice` sem esse item).
  *     Cliente sem CNPJ continua exigindo o mesmo processo manual (achar a
  *     loja certa no DW, decidir qual login usar num grupo).
- *  2. NUNCA mexe em `servicos` (não liga/desliga "Precificação" sozinha) —
+ *  2. NUNCA mexe em `servicos`/`produtos` (não cria o 2D Price nem muda fase) —
  *     isso é controle interno da monitoria, decisão do time, não do DW.
  *  3. Só preenche `local`/`linha` quando VAZIOS na Carteira — nunca
  *     sobrescreve um valor já preenchido manualmente, mesmo que divirja do
@@ -28,8 +29,10 @@ const { repoPlanilha } = require('../dominio/repo.cjs');
 const { cifrar } = require('../crypto.cjs');
 const { DW_PLATAFORMA_CONFIGURADO } = require('../config.cjs');
 const { buscarDadosPrice } = require('./dwPlataforma.cjs');
+const { syncClienteColumns } = require('../db.cjs');
+const { listaJSON, eh2DPrice } = require('../../shared/cadenciaServico.cjs');
 
-const repo = repoPlanilha();
+const repoPadrao = repoPlanilha();
 
 // Confirmado manualmente (ver auditoria) — só o que está aqui é aplicado;
 // qualquer outro valor do DW (vazio, "Auto Center", "Tecnologia", "atacado",
@@ -41,18 +44,37 @@ function normalizar(s) {
   return (s || '').toLowerCase().trim();
 }
 
-async function sincronizarPriceDoDW() {
-  if (!DW_PLATAFORMA_CONFIGURADO) return { rodou: false, motivo: 'DW_PLATAFORMA não configurado nesta máquina.' };
+/**
+ * Produtos (1.7): com `produtos` gravado, o login/senha do Price moram no item
+ * 2D Price e `loginPrice`/`senhaPriceCifrada` são derivados dele em
+ * `syncClienteColumns` — gravar só no campo legado seria desfeito pela próxima
+ * derivação. Sem item 2D Price (loja irmã com o login do grupo) ou sem
+ * `produtos` (cliente não migrado), o campo legado continua sendo a fonte.
+ */
+function itemPrice(cliente) {
+  if (cliente.produtos == null || cliente.produtos === '') return null;
+  return listaJSON(cliente.produtos).find((p) => p && eh2DPrice(p.produto)) || null;
+}
+
+/** `deps` só existe pra teste (repo em memória, DW falso). */
+async function sincronizarPriceDoDW(deps = {}) {
+  const repo = deps.repo || repoPadrao;
+  const buscar = deps.buscarDadosPrice || buscarDadosPrice;
+  const configurado = deps.configurado ?? DW_PLATAFORMA_CONFIGURADO;
+  if (!configurado) return { rodou: false, motivo: 'DW_PLATAFORMA não configurado nesta máquina.' };
 
   const clientes = repo.get('Clientes');
   const comCnpj = clientes
-    .map((c) => ({ cliente: c, cnpjDigitos: (c.loginPrice || '').replace(/\D/g, '') }))
+    .map((c) => {
+      const price = itemPrice(c);
+      return { cliente: c, cnpjDigitos: ((price && price.login) || c.loginPrice || '').replace(/\D/g, '') };
+    })
     .filter((x) => x.cnpjDigitos.length === 14);
 
   if (comCnpj.length === 0) return { rodou: true, atualizados: 0, semCorrespondencia: 0 };
 
   const cnpjsUnicos = [...new Set(comCnpj.map((x) => x.cnpjDigitos))];
-  const dadosPorCnpj = await buscarDadosPrice(cnpjsUnicos);
+  const dadosPorCnpj = await buscar(cnpjsUnicos);
 
   let atualizados = 0;
   let semCorrespondencia = 0;
@@ -66,7 +88,16 @@ async function sincronizarPriceDoDW() {
 
     const patch = {};
 
-    if (dados.senha) patch.senhaPriceCifrada = cifrar(dados.senha);
+    if (dados.senha) {
+      const senhaCifrada = cifrar(dados.senha);
+      // Só troca a senha do item existente — nunca cria produto nem muda fase
+      // (regra 2 acima).
+      if (itemPrice(cliente)) {
+        patch.produtos = listaJSON(cliente.produtos).map((p) => (p && eh2DPrice(p.produto) ? { ...p, senhaCifrada } : p));
+      } else {
+        patch.senhaPriceCifrada = senhaCifrada;
+      }
+    }
 
     if (!cliente.local) {
       const mapeado = MAPA_SEGMENTO[normalizar(dados.segmento)];
@@ -78,7 +109,8 @@ async function sincronizarPriceDoDW() {
     }
 
     if (Object.keys(patch).length > 0) {
-      repo.update('Clientes', cliente.id, patch);
+      // `syncClienteColumns` rederiva `senhaPriceCifrada` do item 2D Price.
+      repo.update('Clientes', cliente.id, patch, syncClienteColumns);
       atualizados++;
     }
   }
