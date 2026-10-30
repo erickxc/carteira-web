@@ -212,3 +212,74 @@ describe('CabecalhoFicha', () => {
     expect(html).not.toContain('Excluir');
   });
 });
+
+describe('dados fiscais na ficha: bordas', () => {
+  const emDias = (dias: number) => format(addDays(new Date(), dias), 'yyyy-MM-dd');
+  const retrato: RetratoDw = {
+    geradoEm: 'x',
+    porCnpj: {
+      '11111111000111': { certificadoValidade: '2020-01-01', telefone: 'tel-venc', receita: { situacao: 'ATIVA', desde: null, consultadoEm: 'x' } },
+      '22222222000122': { certificadoValidade: '2099-01-01', telefone: 'tel-ok' },
+      '33333333000133': { certificadoValidade: emDias(10) },
+      '44444444000144': { certificadoValidade: null, apura: { usuarios: 0, ultimoAcesso: '2026-10-28T12:00:00.000Z' } },
+      '55555555000155': { receita: { situacao: 'ativa', desde: null, consultadoEm: 'x' } },
+      '66666666000166': { receita: { situacao: 'INAPTA', desde: null, consultadoEm: 'x' } },
+    },
+  };
+  const comLojas = (...cnpjs: string[]) => ({ ...cliente, lojasCadastro: cnpjs.map((cnpj) => ({ nome: `Loja ${cnpj}`, cnpj, endereco: '' })) }) as Cliente;
+  const lojas = (c: Cliente, r: RetratoDw | null | undefined = retrato) =>
+    renderToStaticMarkup(createElement(MemoryRouter, null, createElement(LojasFicha, { cliente: c, lojasDoGrupo: [], retrato: r })));
+  const painel = (c: Cliente, r: RetratoDw | null | undefined = retrato) =>
+    renderToStaticMarkup(createElement(MemoryRouter, null, createElement(PainelFicha, { cliente: c, resumo: VAZIO, contatos: [], onWhatsApp: () => {}, onVerContatos: () => {}, retrato: r })));
+
+  it('cada loja mostra os próprios dados, sem misturar com a vizinha', () => {
+    const [venc, ok] = lojas(comLojas('11111111000111', '22222222000122')).match(/<p[\s\S]*?<\/p>/g)!;
+    expect(venc).toContain('01/01/2020 vencido');
+    expect(venc).toContain('tel-venc');
+    expect(venc).not.toContain('tel-ok');
+    expect(ok).toContain('01/01/2099');
+    expect(ok).toContain('tel-ok');
+    expect(ok).not.toContain('--danger-fg');
+  });
+
+  it('CNPJ formatado no cadastro acha a loja no retrato', () => {
+    expect(lojas(comLojas('11.111.111/0001-11'))).toContain('01/01/2020 vencido');
+  });
+
+  it('certificado perto do vencimento: cor no próprio texto, e sem "vencido"', () => {
+    const html = lojas(comLojas('33333333000133'));
+    expect(html).toMatch(new RegExp(`--warning-fg[^>]*>${format(addDays(new Date(), 10), 'dd/MM/yyyy')}<`));
+    expect(html).not.toContain('vencido');
+  });
+
+  it('loja no retrato sem data de certificado mostra "—" apagado, sem cor de alerta', () => {
+    const html = lojas(comLojas('44444444000144'));
+    expect(html).toMatch(/text-text-muted[^>]*>—</);
+    expect(html).not.toMatch(/--(danger|warning)-fg/);
+  });
+
+  it('situação: só ATIVA (em qualquer caixa) fica sem destaque', () => {
+    expect(lojas(comLojas('55555555000155'))).not.toContain('--danger-fg');
+    expect(lojas(comLojas('66666666000166'))).toMatch(/--danger-fg[^>]*>INAPTA</);
+  });
+
+  it('sem situação da Receita a loja não ganha o rótulo', () => {
+    expect(lojas(comLojas('22222222000122'))).not.toContain('Situação CNPJ');
+  });
+
+  it('design 1.6: dado fiscal sem pílula nem ponto colorido', () => {
+    const html = lojas(comLojas('11111111000111', '33333333000133', '66666666000166'));
+    expect(html.match(/<p[\s\S]*?<\/p>/g)!.join('')).not.toMatch(/rounded-full|\bbg-|border-l-/);
+  });
+
+  it('loja sem CNPJ e cliente sem loja não quebram nem inventam linha fiscal', () => {
+    expect(lojas(comLojas(''))).not.toContain('Certificado');
+    expect(painel(comLojas(''))).not.toContain('Apura');
+    expect(painel(cliente)).not.toContain('Apura');
+  });
+
+  it('Apura: loja com zero usuários ativos não ganha linha, e retrato ainda não lido também não', () => {
+    expect(painel(comLojas('44444444000144'))).not.toContain('Apura');
+    expect(painel(comLojas('11111111000111'), null)).not.toContain('Apura');
+  });
+});

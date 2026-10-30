@@ -20,3 +20,29 @@ describe('vencimentoCert', () => {
     expect(vencimentoCert('lixo', HOJE)).toEqual({ texto: '—', nivel: 'sem' });
   });
 });
+
+describe('vencimentoCert: bordas', () => {
+  it('a hora de "agora" não muda o dia: fim e começo do dia dão o mesmo nível', () => {
+    for (const hora of [new Date(2026, 9, 30, 0, 0, 0), new Date(2026, 9, 30, 23, 59, 59)]) {
+      expect(vencimentoCert('2026-10-29', hora).nivel).toBe('vencido');
+      expect(vencimentoCert('2026-10-30', hora).nivel).toBe('perto');
+      expect(vencimentoCert('2026-12-29', hora).nivel).toBe('perto');
+      expect(vencimentoCert('2026-12-30', hora).nivel).toBe('ok');
+    }
+  });
+
+  it('a data é a do calendário: não volta um dia no fuso do Brasil', () => {
+    expect(vencimentoCert('2027-01-01', HOJE).texto).toBe('01/01/2027');
+  });
+
+  it('vazio, ausente e data impossível viram "sem", sem lançar', () => {
+    for (const data of ['', undefined, '2026-02-31', '01/12/2026']) {
+      expect(vencimentoCert(data, HOJE)).toEqual({ texto: '—', nivel: 'sem' });
+    }
+  });
+
+  it('sem "hoje" informado usa a data atual (é assim que as telas chamam)', () => {
+    expect(vencimentoCert('2000-01-01').nivel).toBe('vencido');
+    expect(vencimentoCert('2999-01-01').nivel).toBe('ok');
+  });
+});

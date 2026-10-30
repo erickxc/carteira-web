@@ -131,3 +131,39 @@ describe('produtosNoDw — bordas', () => {
     expect(Object.values(r).every((v) => v.marcado === 0 && v.total === 1)).toBe(true);
   });
 });
+
+describe('dados fiscais por atendimento: bordas', () => {
+  const retrato: RetratoDw = {
+    geradoEm: 'x',
+    porCnpj: {
+      11111111000111: { certificadoValidade: '2026-03-01', apura: { usuarios: 0, ultimoAcesso: '2026-10-29T10:00:00.000Z' } },
+      22222222000122: { certificadoValidade: '', apura: { usuarios: 1, ultimoAcesso: null } },
+    },
+  };
+  const comCnpj = (...cnpjs: string[]) =>
+    ({ id: 'A', empresa: 'A', lojasCadastro: cnpjs.map((cnpj) => ({ nome: cnpj, cnpj, endereco: '' })) }) as unknown as Cliente;
+
+  it('CNPJ formatado no cadastro acha a loja na soma do atendimento', () => {
+    expect(certMaisProximo([comCnpj('11.111.111/0001-11')], retrato)).toBe('2026-03-01');
+  });
+
+  it('atendimento sem loja, loja sem CNPJ e lista vazia não têm data nem quebram', () => {
+    const semLojas = { id: 'B', empresa: 'B' } as unknown as Cliente;
+    expect(certMaisProximo([semLojas], retrato)).toBeNull();
+    expect(certMaisProximo([comCnpj('')], retrato)).toBeNull();
+    expect(certMaisProximo([], retrato)).toBeNull();
+    expect(apuraDoAtendimento(semLojas, retrato)).toBeNull();
+    expect(fiscalDaLoja(retrato, undefined as unknown as string)).toBeUndefined();
+  });
+
+  it('certificado vazio não vira a "pior data"', () => {
+    expect(certMaisProximo([comCnpj('22222222000122', '11111111000111')], retrato)).toBe('2026-03-01');
+    expect(certMaisProximo([comCnpj('22222222000122')], retrato)).toBeNull();
+  });
+
+  it('Apura com zero usuários ativos não conta, mesmo com data de acesso', () => {
+    expect(apuraDoAtendimento(comCnpj('11111111000111'), retrato)).toBeNull();
+    // A loja sem usuário não empresta o acesso dela à loja que nunca acessou.
+    expect(apuraDoAtendimento(comCnpj('11111111000111', '22222222000122'), retrato)).toEqual({ ultimoAcesso: null });
+  });
+});
