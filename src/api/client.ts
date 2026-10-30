@@ -1,4 +1,4 @@
-import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilCampoPersonalizado, AgilColuna, AgilComentario, AgilConexao, AgilFrente, AgilHistoricoItem, AgilSwimlane, AgilSubtarefa, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, LojaCadastro, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilConexao, NovaAgilFrente, NovaAgilSubtarefa, NovaAgilSwimlane, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilCampoPersonalizado, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao, StatusHistoricoItem } from '../types';
+import type { Acao, AcaoIA, AgendaSerie, AgilBoard, AgilCampoPersonalizado, AgilColuna, AgilComentario, AgilConexao, AgilFrente, AgilHistoricoItem, AgilSwimlane, AgilSubtarefa, AgilTarefa, AgilWorkspace, AnaliseIA, Anexo, Cadencias, CeoAgendaCache, Categoria, ChecklistItem, Cliente, ClienteCandidato, Contato, EventoAgenda, ExtraLinkServico, Lembrete, LojaCadastro, Modelo, NovaAgendaSerie, NovaAgilColuna, NovaAgilConexao, NovaAgilFrente, NovaAgilSubtarefa, NovaAgilSwimlane, NovaAgilTarefa, NovaAgilWorkspace, NovoAgilBoard, NovoAgilCampoPersonalizado, NovoAgilComentario, PrecificacaoItem, PreAnalise, ProdutoClienteTela, ProdutoSituacaoItem, RegraRecorrencia, RelatorioCadencia, SecoesReuniao, StatusHistoricoItem } from '../types';
 
 const PRE_ANALISE_VAZIA: PreAnalise = { orientacoes: [], clientesGeral: '', produtosGeral: '' };
 function parsePreAnalise(raw: unknown): PreAnalise {
@@ -206,6 +206,7 @@ function deserializeCliente(raw: Record<string, unknown>): Cliente {
     servicosIndependentes: parseListaJSON<string>(raw.servicosIndependentes),
     contatos: parseListaJSON<Contato>(raw.contatos),
     lojasCadastro: parseListaJSON<LojaCadastro>(raw.lojasCadastro),
+    produtos: parseListaJSON<ProdutoClienteTela>(raw.produtos),
     observacao: (raw.observacao as string) ?? '',
     // Compatibilidade com a base anterior, que usava status para estado.
     estado: (raw.estado as string) ?? (/^(ativ|gratuidade)/i.test(String(raw.status ?? '')) ? 'Ativo' : 'Inativo'),
@@ -267,6 +268,9 @@ export const removerCliente = (id: string) => request<{ success: boolean }>(`/cl
  */
 export const revelarCredenciaisPrice = (id: string) =>
   request<{ loginPrice: string; senhaPrice: string }>(`/clients/${id}/price-credenciais/revelar`, { method: 'POST' });
+/** Idem, para qualquer produto do cliente (1.7.0). 404 = produto sem senha. */
+export const revelarCredenciaisProduto = (id: string, produto: string) =>
+  request<{ login: string; senha: string }>(`/clients/${id}/produtos/${encodeURIComponent(produto)}/credenciais/revelar`, { method: 'POST' });
 
 // --- Agenda ---
 export const listarAgenda = async () => (await request<Record<string, unknown>[]>('/agenda')).map(deserializeEvento);

@@ -1,3 +1,10 @@
+import type { ProdutoCliente } from 'carteira-shared/produtos.cjs';
+
+/** Produto como a tela vê: sem `senhaCifrada` (nunca sai do servidor), com
+ *  `temSenha`. `senha` é ESCRITA APENAS — texto puro só na requisição;
+ *  ausente/vazia = manter a salva, `null` = apagar. */
+export type ProdutoClienteTela = Omit<ProdutoCliente, 'senhaCifrada'> & { temSenha?: boolean; senha?: string | null };
+
 // --- Categorias (CRUD editável) ---
 export type CategoriaTipo = 'servico' | 'tipo_evento' | 'status_cliente' | 'status_evento' | 'monitor' | 'tipo_lembrete' | 'sala' | 'prioridade_tarefa' | 'local_cliente' | 'grupo_referencia' | 'linha_cliente';
 
@@ -160,6 +167,11 @@ export interface Cliente {
    *  (`parametro_bi` + `empresas`). Diferente de `loginPrice`, que é o login do
    *  grupo e se repete entre lojas irmãs. */
   lojasCadastro?: LojaCadastro[];
+  /** Cadastro por produto (1.7.0) — a FONTE; `servicos`/`servicosIndependentes`/
+   *  `linksServicos`/`loginPrice` são derivados dele pelo backend. Sempre vem
+   *  preenchido na leitura (cliente ainda não migrado: montado do formato
+   *  antigo, fase Ativo). Mudar `fase` exige `motivoFase` novo (400). */
+  produtos?: ProdutoClienteTela[];
   /** Login do cliente no Price (site externo de precificação) — vai junto
    *  dos outros links de acesso (`AcessosExternosButton`). A senha NUNCA
    *  chega aqui em texto puro: o backend nunca devolve `senhaPriceCifrada`

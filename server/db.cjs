@@ -2,6 +2,7 @@ const xlsx = require('xlsx');
 const fs = require('fs');
 const crypto = require('crypto');
 const { DB_FILE, HEADERS_BY_SHEET } = require('./config.cjs');
+const { derivarCamposLegados, ehPlataforma2D, eh2DPrice } = require('../shared/produtos.cjs');
 
 // Sleep síncrono (bloqueia o event loop por poucos ms). Uso pontual para
 // aguardar o OneDrive liberar o lock do arquivo entre tentativas de I/O.
@@ -163,9 +164,15 @@ function normalizarLojas(valor) {
 }
 
 function syncClienteColumns(cliente) {
+  // Produtos (1.7.0): com `produtos` gravado, os campos antigos são DERIVADOS
+  // dele e sobrescritos aqui — cadência, cards, monitorIA e espelho `.xlsx`
+  // continuam lendo `servicos` sem saber que a fonte mudou. Sem `produtos`
+  // (cliente ainda não migrado), `derivado` é null e nada muda.
+  const derivado = derivarCamposLegados(cliente.produtos) || {};
   let servicos = [];
+  const bruto = derivado.servicos ?? cliente.servicos;
   try {
-    servicos = Array.isArray(cliente.servicos) ? cliente.servicos : JSON.parse(cliente.servicos || '[]');
+    servicos = Array.isArray(bruto) ? bruto : JSON.parse(bruto || '[]');
   } catch {
     console.error(`syncClienteColumns: servicos não era JSON válido para "${cliente.empresa}" — resetado para [] em vez de perder o save. Valor recebido:`, cliente.servicos);
     servicos = [];
@@ -177,8 +184,10 @@ function syncClienteColumns(cliente) {
   return {
     ...cliente,
     ...normalizado,
-    monitoria: has('monitoria'),
-    price: has('precificação') || has('precificacao') || has('price'),
+    ...derivado,
+    // Nome antigo e novo (Monitoria/Plataforma 2D, Precificação/2D Price).
+    monitoria: servicos.some((s) => ehPlataforma2D(String(s))),
+    price: servicos.some((s) => eh2DPrice(String(s))),
     controladoria: has('controladoria'),
     suspenso: String(cliente.status || '').toLowerCase() === 'suspenso',
   };

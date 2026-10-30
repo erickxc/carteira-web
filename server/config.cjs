@@ -397,7 +397,10 @@ const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, 'carteira-snapshot.sqlite');
 // sempre o resultado de `cifrar()`. Nenhuma rota devolve isso pronto pra
 // exibir; só `POST /api/clients/:id/price-credenciais/revelar` descriptografa,
 // sob demanda, pro helper local (Selenium) preencher o login no Price.
-const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'servicosIndependentes', 'contatos', 'observacao', 'estado', 'status', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'lastPricing', 'userId', 'lojas', 'relatorioCadencia', 'local', 'linksServicos', 'endereco', 'linha', 'loginPrice', 'senhaPriceCifrada', 'pausadoAte', 'motivoPausa', 'lojasCadastro'];
+// produtos (1.7.0): cadastro por produto (fase, motivo, acesso) — a FONTE;
+// servicos/servicosIndependentes/linksServicos/loginPrice/senhaPriceCifrada
+// passam a ser derivados dele em `syncClienteColumns` (shared/produtos.cjs).
+const CLIENTES_HEADERS = ['id', 'createdAt', 'empresa', 'monitor', 'servicos', 'servicosIndependentes', 'contatos', 'observacao', 'estado', 'status', 'tipoAnalise', 'grupo', 'suspenso', 'monitoria', 'price', 'controladoria', 'lastContact', 'lastMeeting', 'lastPricing', 'userId', 'lojas', 'relatorioCadencia', 'local', 'linksServicos', 'endereco', 'linha', 'loginPrice', 'senhaPriceCifrada', 'pausadoAte', 'motivoPausa', 'lojasCadastro', 'produtos'];
 // `origem` = de quem partiu a interação ('nos' | 'cliente'). Vazio nos eventos
 // antigos (tratado como não informado, nunca como 'nos') — é o que permite
 // separar contato que NÓS fizemos de contato que o CLIENTE fez.

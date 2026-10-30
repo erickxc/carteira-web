@@ -160,11 +160,129 @@ describe('clients: login/senha do Price', () => {
     }
   });
 
+  it('rota antiga do Price lê login/senha do produto 2D Price', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const criado = await (await fetch(url, { method: 'POST', ...jsonBody({
+        empresa: 'Cliente P', produtos: [{ produto: '2D Price', fase: 'Ativo', faseDesde: '2026-10-30', motivoFase: 'm', login: 'L', senha: 'segP' }],
+      }) })).json();
+      const revelado = await (await fetch(`${url}/${criado.id}/price-credenciais/revelar`, { method: 'POST' })).json();
+      expect(revelado).toEqual({ loginPrice: 'L', senhaPrice: 'segP' });
+    } finally {
+      fechar();
+    }
+  });
+
   it('revelar em cliente inexistente devolve 404', async () => {
     const { url, fechar } = await subirAppDeTeste();
     try {
       const res = await fetch(`${url}/id-que-nao-existe/price-credenciais/revelar`, { method: 'POST' });
       expect(res.status).toBe(404);
+    } finally {
+      fechar();
+    }
+  });
+});
+
+describe('clients: produtos (1.7)', () => {
+  const produto = (nome: string, extra: Record<string, unknown> = {}) =>
+    ({ produto: nome, fase: 'Ativo', faseDesde: '2026-10-30T00:00:00.000Z', motivoFase: 'cadastro', ...extra });
+
+  it('nenhuma resposta (POST, GET, PUT, /bulk) contém senhaCifrada nem senhaPriceCifrada', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const respostas: string[] = [];
+      const resPost = await fetch(url, { method: 'POST', ...jsonBody({
+        empresa: 'Cliente S',
+        produtos: [produto('2D Price', { login: 'cnpj', senha: 'segredoPrice' }), produto('Apura', { login: 'u', senha: 'segredoApura' })],
+      }) });
+      const textoPost = await resPost.text();
+      respostas.push(textoPost);
+      const criado = JSON.parse(textoPost);
+      const apura = criado.produtos.find((p: { produto: string }) => p.produto === 'Apura');
+      expect(apura.temSenha).toBe(true);
+      expect(criado.temSenhaPrice).toBe(true);
+
+      respostas.push(await (await fetch(url)).text());
+      respostas.push(await (await fetch(`${url}/${criado.id}`, { method: 'PUT', ...jsonBody({ observacao: 'x' }) })).text());
+      respostas.push(await (await fetch(`${url}/bulk`, { method: 'POST', ...jsonBody([
+        { id: 'b1', empresa: 'Bulk', produtos: [produto('2D Price', { senha: 'segredoBulk' })] },
+      ]) })).text());
+
+      for (const r of respostas) {
+        expect(r).not.toContain('senhaCifrada');
+        expect(r).not.toContain('senhaPriceCifrada');
+        expect(r).not.toContain('segredo');
+      }
+      // A senha foi gravada cifrada, não perdida.
+      const bruto = require('../dbSqlite.cjs').getSheetData('Clientes');
+      const doBulk = bruto.find((c: { id: string }) => c.id === 'b1');
+      expect(doBulk.produtos[0].senhaCifrada).toBeTruthy();
+      expect(doBulk.produtos[0].senha).toBeUndefined();
+    } finally {
+      fechar();
+    }
+  });
+
+  it('revelar credenciais de um produto devolve a senha decifrada; produto sem senha → 404', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const criado = await (await fetch(url, { method: 'POST', ...jsonBody({
+        empresa: 'Cliente R', produtos: [produto('Apura', { login: 'u@a', senha: 'senhaApura' }), produto('Plataforma 2D')],
+      }) })).json();
+      const ok = await fetch(`${url}/${criado.id}/produtos/${encodeURIComponent('Apura')}/credenciais/revelar`, { method: 'POST' });
+      expect(ok.status).toBe(200);
+      expect(await ok.json()).toEqual({ login: 'u@a', senha: 'senhaApura' });
+
+      const sem = await fetch(`${url}/${criado.id}/produtos/${encodeURIComponent('Plataforma 2D')}/credenciais/revelar`, { method: 'POST' });
+      expect(sem.status).toBe(404);
+    } finally {
+      fechar();
+    }
+  });
+
+  it('PUT mudando fase sem motivo → 400 com a mensagem; trocar senha não apaga as outras', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const criado = await (await fetch(url, { method: 'POST', ...jsonBody({
+        empresa: 'Cliente F', produtos: [produto('Apura', { senha: 'a1' }), produto('2D Price', { senha: 'p1' })],
+      }) })).json();
+      const semMotivo = await fetch(`${url}/${criado.id}`, { method: 'PUT', ...jsonBody({
+        produtos: [produto('Apura', { fase: 'Suspenso' }), produto('2D Price')],
+      }) });
+      expect(semMotivo.status).toBe(400);
+      expect((await semMotivo.json()).error).toBe('Informe o motivo da mudança de fase.');
+
+      // Tela manda os produtos como recebeu (sem senhaCifrada, com temSenha) e uma senha nova só no Apura.
+      const lista = criado.produtos.map((p: { produto: string }) => (p.produto === 'Apura' ? { ...p, senha: 'a2' } : p));
+      const ok = await fetch(`${url}/${criado.id}`, { method: 'PUT', ...jsonBody({ produtos: lista }) });
+      expect(ok.status).toBe(200);
+      const revelar = async (nome: string) =>
+        (await (await fetch(`${url}/${criado.id}/produtos/${encodeURIComponent(nome)}/credenciais/revelar`, { method: 'POST' })).json()).senha;
+      expect(await revelar('Apura')).toBe('a2');
+      expect(await revelar('2D Price')).toBe('p1');
+    } finally {
+      fechar();
+    }
+  });
+
+  it('cliente sem produtos (pré-migração): GET monta do legado e o banco segue sem a coluna', async () => {
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      const criado = await (await fetch(url, { method: 'POST', ...jsonBody({
+        empresa: 'Legado', servicos: ['Monitoria', 'Precificação'], servicosIndependentes: ['Monitoria'],
+        linksServicos: { Monitoria: 'http://bi' }, loginPrice: 'lp', senhaPrice: 'sp',
+      }) })).json();
+      const lista = await (await fetch(url)).json();
+      const c = lista.find((x: { id: string }) => x.id === criado.id);
+      expect(c.produtos).toEqual([
+        expect.objectContaining({ produto: 'Plataforma 2D', fase: 'Ativo', independente: true, link: 'http://bi', temSenha: false }),
+        expect.objectContaining({ produto: '2D Price', fase: 'Ativo', login: 'lp', temSenha: true }),
+      ]);
+      await fetch(`${url}/${criado.id}`, { method: 'PUT', ...jsonBody({ observacao: 'outra coisa' }) });
+      const bruto = require('../dbSqlite.cjs').getSheetData('Clientes').find((x: { id: string }) => x.id === criado.id);
+      expect(bruto.produtos == null || bruto.produtos === '').toBe(true);
+      expect(bruto.servicos).toEqual(['Monitoria', 'Precificação']);
     } finally {
       fechar();
     }
