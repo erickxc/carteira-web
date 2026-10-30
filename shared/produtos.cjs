@@ -87,10 +87,10 @@ function derivarCamposLegados(produtos) {
     servicos: ativos.map((p) => p.produto),
     servicosIndependentes: ativos.filter((p) => p.independente).map((p) => p.produto),
     linksServicos,
-    // Vazio (e não ausente) quando não há 2D Price: o derivado sobrescreve o
-    // campo antigo, então tirar o produto também limpa o login/senha legado.
-    loginPrice: (price && price.login) || '',
-    senhaPriceCifrada: (price && price.senhaCifrada) || '',
+    // Sem item 2D Price, login/senha legados ficam como estão (loja irmã com o
+    // login do grupo; `sincronizarPriceDoDW` acha o cliente por esse CNPJ).
+    // Tirar o produto não apaga: vira Cancelado e o item continua na lista.
+    ...(price ? { loginPrice: price.login || '', senhaPriceCifrada: price.senhaCifrada || '' } : {}),
   };
 }
 

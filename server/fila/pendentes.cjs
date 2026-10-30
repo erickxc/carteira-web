@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const { PENDENTES_DIR, RESULTADOS_DIR } = require('./caminhos.cjs');
 const { machineId } = require('../machine.cjs');
-const { repoMemoria } = require('../dominio/repo.cjs');
+const { repoPlanilha, repoMemoria } = require('../dominio/repo.cjs');
 const { aplicarOperacao } = require('./aplicar.cjs');
 const { ENTIDADES } = require('./entidades.cjs');
 
@@ -52,7 +52,8 @@ function listarPendentesProprias() {
 function aplicarOverlay(sheet, dados) {
   const pendentes = listarPendentesProprias().filter((op) => ENTIDADES[op.entity]?.sheet === sheet);
   if (pendentes.length === 0) return dados;
-  const memRepo = repoMemoria({ [sheet]: dados });
+  // Categorias: a validação de produto do cliente consulta a categoria `servico`.
+  const memRepo = repoMemoria({ Categorias: repoPlanilha().get('Categorias'), [sheet]: dados });
   for (const op of pendentes) {
     try {
       aplicarOperacao(memRepo, op, { efeitosExternos: false });

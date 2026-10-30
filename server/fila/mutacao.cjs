@@ -43,7 +43,8 @@ function executarMutacaoCliente(entityKey, sheet, dominio, operation, { id, patc
   const changes = operation === 'create' ? payload : operation === 'update' ? patch : {};
 
   const dadosAtuais = aplicarOverlay(sheet, repoPlanilha().get(sheet));
-  const memRepo = repoMemoria({ [sheet]: dadosAtuais });
+  // Categorias: a validação de produto do cliente consulta a categoria `servico`.
+  const memRepo = repoMemoria({ Categorias: repoPlanilha().get('Categorias'), [sheet]: dadosAtuais });
 
   let resultado;
   if (operation === 'create') {

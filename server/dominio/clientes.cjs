@@ -54,13 +54,13 @@ function produtosDoCliente(cliente) {
 }
 
 /**
- * Integridade de `produtos` (o SQLite daqui não tem constraint): nome na
- * lista oficial ou na categoria `servico`, sem repetir (nome antigo e novo
- * contam como o mesmo), fase válida. Grava com o nome oficial e sem `senha`
- * (texto puro) nem `temSenha` (derivado da leitura) — a rota já cifrou.
+ * Integridade de `produtos` (o SQLite daqui não tem constraint): produto NOVO
+ * com nome na lista oficial ou na categoria `servico` (o que já estava gravado
+ * não é revalidado — categoria apagada depois não pode travar a edição de
+ * outros campos nem o patch de uma máquina 1.6), sem repetir (nome antigo e
+ * novo contam como o mesmo), fase válida. Grava com o nome oficial e sem
+ * `senha` (texto puro) nem `temSenha` (derivado da leitura) — a rota já cifrou.
  * Produto que chega sem `senhaCifrada` (a tela nunca a recebe) mantém a salva.
- * ponytail: no modo client o cálculo otimista roda num repo só com `Clientes`
- * — produto que exista só em Categorias é recusado ali; o servidor aceitaria.
  */
 function normalizarProdutos(repo, lista, anteriores, agora) {
   const validos = new Set([
@@ -71,17 +71,25 @@ function normalizarProdutos(repo, lista, anteriores, agora) {
   return listaJSON(lista).map((item) => {
     if (!item || typeof item !== 'object') throw erro400('Produto inválido.');
     const produto = renomearProduto(item.produto);
-    if (!validos.has(produto)) throw erro400(`Produto desconhecido: "${item.produto}".`);
+    const antes = anteriores.find((a) => renomearProduto(a.produto) === produto);
+    if (!antes && !validos.has(produto)) throw erro400(`Produto desconhecido: "${item.produto}".`);
     if (vistos.has(produto)) throw erro400(`Produto repetido: "${produto}".`);
     vistos.add(produto);
     if (!FASES.includes(item.fase)) throw erro400(`Fase inválida para ${produto}: "${item.fase}". Use: ${FASES.join(', ')}.`);
     const { senha: _senha, temSenha: _temSenha, ...resto } = item;
-    const antes = anteriores.find((a) => renomearProduto(a.produto) === produto);
     const out = { ...resto, produto };
     if (!('senhaCifrada' in item) && antes && antes.senhaCifrada) out.senhaCifrada = antes.senhaCifrada;
-    // Fase nova sem data informada: começa agora (é o início do relógio
-    // "nunca atendido" do produto — ver buildFilaCadencia).
-    if (!out.faseDesde || (antes && antes.fase !== out.fase && out.faseDesde === antes.faseDesde)) out.faseDesde = agora;
+    // `faseDesde` é o início do relógio "nunca atendido" (buildFilaCadencia).
+    // Produto novo ou fase nova sem data informada: começa agora. Fase igual:
+    // mantém a data salva, mesmo '' (cliente sem createdAt não ganha carência
+    // só porque alguém editou o link).
+    if (!antes) {
+      if (!out.faseDesde) out.faseDesde = agora;
+    } else if (antes.fase !== out.fase) {
+      if (!out.faseDesde || out.faseDesde === antes.faseDesde) out.faseDesde = agora;
+    } else if (!out.faseDesde) {
+      out.faseDesde = antes.faseDesde || '';
+    }
     return out;
   });
 }

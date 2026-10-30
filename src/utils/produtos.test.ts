@@ -187,9 +187,11 @@ describe('casos de borda (testador)', () => {
     expect(r.find((x) => x.produto === '2D Price')!.link).toBeUndefined();
   });
 
-  it('derivarCamposLegados aceita produtos como texto JSON e limpa login/senha sem 2D Price', () => {
+  it('derivarCamposLegados aceita produtos como texto JSON e não toca login/senha sem 2D Price', () => {
     expect(derivarCamposLegados(JSON.stringify(cadastro))!.servicos).toEqual(['Plataforma 2D', '2D Price']);
-    expect(derivarCamposLegados([p('Apura', 'Ativo')])).toMatchObject({ loginPrice: '', senhaPriceCifrada: '' });
+    const semPrice = derivarCamposLegados([p('Apura', 'Ativo')])!;
+    expect('loginPrice' in semPrice).toBe(false);
+    expect('senhaPriceCifrada' in semPrice).toBe(false);
   });
 
   it('produto novo sem motivo é mudança com motivoMudou=false', () => {

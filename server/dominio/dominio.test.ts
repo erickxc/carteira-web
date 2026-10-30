@@ -192,9 +192,37 @@ describe('dominio/clientes: produtos (1.7)', () => {
       .toThrow('Informe o motivo da mudança de fase.');
   });
 
-  // BUG conhecido (testador da Task 3): normalizarProdutos troca faseDesde '' por agora
-  // a cada save. Ao corrigir, trocar `it.fails` por `it`.
-  it.fails('salvar sem mudar a fase preserva faseDesde vazio (cliente sem createdAt não ganha carência)', () => {
+  it('cliente legado sem createdAt: eco da lista montada pela tela 1.7 mantém faseDesde vazio', () => {
+    const repo = repoMemoria({ Clientes: [{ id: 'c1', empresa: 'T', servicos: ['Monitoria'] }] });
+    const legado = clientesDominio.produtosDoCliente(repo.get('Clientes')[0]);
+    const salvo = clientesDominio.atualizar(repo, 'c1', { produtos: legado }, SEM_EFEITOS);
+    expect(achar(salvo.produtos, 'Plataforma 2D')?.faseDesde).toBe('');
+  });
+
+  it('produto órfão já gravado (fora da lista e das categorias) não trava patch de outro campo nem patch 1.6', () => {
+    const repo = clienteCom([prod('Plataforma 2D', 'Ativo'), prod('Consultoria', 'Ativo')]);
+    expect(clientesDominio.atualizar(repo, 'c1', { observacao: 'nota' }, SEM_EFEITOS)?.observacao).toBe('nota');
+    const salvo = clientesDominio.atualizar(repo, 'c1', { servicos: ['Plataforma 2D', 'Consultoria'], observacao: 'n2' }, SEM_EFEITOS);
+    expect(salvo.observacao).toBe('n2');
+    expect(salvo.servicos).toEqual(['Plataforma 2D', 'Consultoria']);
+    // eco da tela 1.7 com o órfão também passa; produto órfão NOVO continua 400
+    expect(() => clientesDominio.atualizar(repo, 'c1', { produtos: salvo.produtos }, SEM_EFEITOS)).not.toThrow();
+    expect(() => clientesDominio.atualizar(repo, 'c1', {
+      produtos: [...salvo.produtos, prod('Inventado', 'Ativo', { motivoFase: 'x' })],
+    }, SEM_EFEITOS)).toThrow(expect.objectContaining({ status: 400 }));
+  });
+
+  it('cliente sem 2D Price mantém loginPrice/senhaPriceCifrada legados (login do grupo)', () => {
+    const repo = repoMemoria({
+      Clientes: [{ id: 'c1', empresa: 'T', servicos: ['Monitoria'], loginPrice: '12345678000199', senhaPriceCifrada: 'X' }],
+    });
+    const legado = clientesDominio.produtosDoCliente(repo.get('Clientes')[0]);
+    const salvo = clientesDominio.atualizar(repo, 'c1', { produtos: legado }, SEM_EFEITOS);
+    expect(salvo.loginPrice).toBe('12345678000199');
+    expect(salvo.senhaPriceCifrada).toBe('X');
+  });
+
+  it('salvar sem mudar a fase preserva faseDesde vazio (cliente sem createdAt não ganha carência)', () => {
     // produtosDeLegado grava faseDesde '' quando não há createdAt ("nunca agora").
     const repo = repoMemoria({
       Clientes: [{ id: 'c1', empresa: 'T', servicos: [], produtos: [prod('Plataforma 2D', 'Ativo', { faseDesde: '' })] }],
