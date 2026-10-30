@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ModalShell } from '../ModalShell';
-import { Badge, Button } from '../../ui';
+import { Badge, Button, Field, Textarea } from '../../ui';
 import { SelectField } from '../SelectField';
 import { toastError, toastSuccess } from '../../utils/toast';
 import {
@@ -33,8 +33,11 @@ const CONFIANCA_LABEL: Record<LojaVinculoAlvos['candidatos'][number]['confianca'
  * esperado e sinalizado.
  */
 export function VincularLojaModal({ empresa, onClose, onVinculado }: VincularLojaModalProps) {
-  const { clientes } = useCarteira();
+  const { clientes, filtroMonitor } = useCarteira();
   const [lojas, setLojas] = useState<LojaVinculoAlvos[] | null>(null);
+  // Toda mudança de vínculo exige motivo (vai pro histórico) — um campo só pra
+  // todas as lojas desta empresa, que é como a pessoa resolve aqui (em lote).
+  const [motivo, setMotivo] = useState('');
   const [relendo, setRelendo] = useState(false);
   const [salvandoLoja, setSalvandoLoja] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -61,9 +64,10 @@ export function VincularLojaModal({ empresa, onClose, onVinculado }: VincularLoj
   }
 
   async function confirmar(loja: string, clientId: string | null) {
+    if (!motivo.trim()) { toastError('Informe o motivo antes de mudar o vínculo.'); return; }
     setSalvandoLoja(loja);
     try {
-      await vincularLojaAlvos(empresa, loja, clientId);
+      await vincularLojaAlvos(empresa, loja, clientId, motivo.trim(), filtroMonitor !== 'Todos' ? filtroMonitor : undefined);
       toastSuccess(clientId ? 'Loja vinculada.' : 'Vínculo removido.');
       onVinculado();
       await carregar();
@@ -96,6 +100,10 @@ export function VincularLojaModal({ empresa, onClose, onVinculado }: VincularLoj
       )}
 
       {erro && <p className="text-[0.85rem]" style={{ color: 'var(--danger-fg)' }}>{erro}</p>}
+
+      <Field label="Motivo da mudança (obrigatório — fica no histórico)">
+        <Textarea tone="modal" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Ex.: loja nova da rede" />
+      </Field>
 
       {lojas && lojas.length === 0 && !erro && (
         <p className="text-[0.85rem] text-text-muted">Nenhuma loja encontrada no arquivo desta empresa.</p>

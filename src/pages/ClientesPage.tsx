@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { Link, useNavigate } from 'react-router-dom';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { Bot, ChevronDown, ChevronRight, ChevronUp, FileUp, LayoutDashboard, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { Bot, ChevronDown, ChevronRight, ChevronUp, Combine, FileUp, LayoutDashboard, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useCarteira } from '../context/CarteiraContext';
 import { useSearchFilter } from '../hooks/useSearchFilter';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -13,6 +13,7 @@ import { comPrecificacaoDoGrupo } from '../utils/cadenciaServico';
 import { confirmDialog } from '../utils/confirmDialog';
 import { ClientFormModal } from '../components/ClientFormModal';
 import PainelCadastroAlvos from '../components/alvos/PainelCadastroAlvos';
+import { UnirAtendimentosModal } from '../components/alvos/UnirAtendimentosModal';
 import { AnaliseIACard } from '../components/cliente/AnaliseIACard';
 import { AcessosExternosButton } from '../components/cliente/AcessosExternosButton';
 import { buscarAnalisesIA } from '../api/client';
@@ -170,6 +171,9 @@ export default function ClientesPage() {
   const [sortBy, setSortBy] = usePersistedState<SortCol>('filtro:clientes:sortBy', 'empresa');
   const [sortDir, setSortDir] = usePersistedState<'asc' | 'desc'>('filtro:clientes:sortDir', 'asc');
   const [modalState, setModalState] = useState<{ editing: Cliente | null } | null>(null);
+  const [unindo, setUnindo] = useState(false);
+  // Remonta o painel dos Dados Alvos depois de unir atendimentos — ele guarda o próprio estado.
+  const [versaoVinculos, setVersaoVinculos] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Uma chamada só, no mount da tela — não por linha — pra colorir o ícone
@@ -618,6 +622,9 @@ export default function ClientesPage() {
           <Button variant="secondary" onClick={() => navigate('/clientes/dashboard')}>
             <LayoutDashboard size={16} /> Dashboard da Carteira
           </Button>
+          <Button variant="secondary" onClick={() => setUnindo(true)}>
+            <Combine size={16} /> Unir atendimentos
+          </Button>
           <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
             <FileUp size={16} /> Importar
           </Button>
@@ -628,7 +635,7 @@ export default function ClientesPage() {
         </div>
       </div>
 
-      <PainelCadastroAlvos />
+      <PainelCadastroAlvos key={versaoVinculos} />
 
       {/* Barra de filtros */}
       <Card flat className="mb-4">
@@ -781,6 +788,10 @@ export default function ClientesPage() {
 
       {modalState && (
         <ClientFormModal initial={modalState.editing ?? undefined} onClose={() => setModalState(null)} />
+      )}
+
+      {unindo && (
+        <UnirAtendimentosModal onClose={() => setUnindo(false)} onSalvo={() => setVersaoVinculos((v) => v + 1)} />
       )}
     </div>
   );

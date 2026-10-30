@@ -1,4 +1,5 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { DATA_DIR } = require('../config.cjs');
 
@@ -66,6 +67,41 @@ function vincular(empresa, loja, clientId, caminho = ARQUIVO_VINCULOS) {
   if (clientId) daEmpresa[loja] = String(clientId);
   else delete daEmpresa[loja];
   return salvar({ ...vinculos, [empresa]: daEmpresa }, caminho);
+}
+
+/**
+ * Histórico das mudanças de vínculo — regra do usuário: toda mudança de estado
+ * carrega o motivo. JSONL (uma linha por mudança, só acrescenta) ao lado do
+ * arquivo de vínculos: o vínculo diz COMO está, o histórico diz POR QUE ficou
+ * assim (ex.: "CD faz parte da Penha" — não dá pra deduzir isso do dado).
+ */
+const ARQUIVO_HISTORICO = process.env.ALVOS_VINCULOS_HISTORICO_PATH || path.join(DATA_DIR, 'alvos-vinculos-historico.jsonl');
+
+/**
+ * Único caminho de escrita usado pelas telas ("Unir atendimentos" e o modal
+ * por empresa). `vincular` continua sendo o primitivo sem histórico.
+ * Repetir o vínculo que já existe não gera linha — clique repetido não é mudança.
+ */
+function alterarVinculo({ empresa, loja, clientId, motivo, autor }, caminhos = {}) {
+  const motivoLimpo = String(motivo ?? '').trim();
+  if (!motivoLimpo) throw new Error('Informe o motivo da mudança de vínculo.');
+  const caminho = caminhos.vinculos || ARQUIVO_VINCULOS;
+  const de = clienteDaLoja(empresa, loja, caminho);
+  const para = clientId ? String(clientId) : null;
+  if (de === para) return { mudou: false };
+  vincular(empresa, loja, para, caminho);
+  const linha = {
+    em: new Date().toISOString(), empresa, loja, de, para, motivo: motivoLimpo, autor: autor ? String(autor) : null, maquina: os.hostname(),
+  };
+  fs.appendFileSync(caminhos.historico || ARQUIVO_HISTORICO, `${JSON.stringify(linha)}\n`, 'utf8');
+  return { mudou: true };
+}
+
+/** Linha corrompida (ex.: cópia de conflito do OneDrive) é pulada, não derruba a leitura. */
+function historicoVinculos(caminho = ARQUIVO_HISTORICO) {
+  let bruto;
+  try { bruto = fs.readFileSync(caminho, 'utf8'); } catch { return []; }
+  return bruto.split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } });
 }
 
 function clienteDaLoja(empresa, loja, caminho = ARQUIVO_VINCULOS) {
@@ -198,9 +234,12 @@ function sugerir(empresa, agregado, clientes) {
 
 module.exports = {
   ARQUIVO_VINCULOS,
+  ARQUIVO_HISTORICO,
   carregar,
   salvar,
   vincular,
+  alterarVinculo,
+  historicoVinculos,
   clienteDaLoja,
   pistasDaLoja,
   trechoDaLoja,

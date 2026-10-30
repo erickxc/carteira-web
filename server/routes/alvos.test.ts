@@ -178,7 +178,7 @@ describe('POST /api/alvos/vinculo', () => {
     try {
       const res = await fetch(`${url}/vinculo`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ empresa: 'X', loja: 'loja_1', clientId: 'fantasma' }),
+        body: JSON.stringify({ empresa: 'X', loja: 'loja_1', clientId: 'fantasma', motivo: 'teste' }),
       });
       expect(res.status).toBe(404);
     } finally { fechar(); }
@@ -191,7 +191,7 @@ describe('POST /api/alvos/vinculo', () => {
     try {
       const post = await fetch(`${url}/vinculo`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ empresa: 'Empresa Teste', loja: 'loja_teste', clientId: 'c1' }),
+        body: JSON.stringify({ empresa: 'Empresa Teste', loja: 'loja_teste', clientId: 'c1', motivo: 'loja nova do cliente' }),
       });
       expect(post.status).toBe(200);
 
@@ -200,6 +200,46 @@ describe('POST /api/alvos/vinculo', () => {
 
       const cadastro = await (await fetch(`${url}/cadastro`)).json();
       expect(cadastro.linhas[0]).toMatchObject({ clientId: 'c1', estadoAlvos: 'ok' });
+    } finally { fechar(); }
+  });
+
+  // Regra do usuário: toda mudança de estado precisa de motivo.
+  it('400 sem motivo (ou só espaços), e nada é gravado', async () => {
+    criarCliente('c1', 'Empresa Teste');
+    const { url, fechar } = await subirAppDeTeste();
+    try {
+      for (const motivo of [undefined, '   ']) {
+        const res = await fetch(`${url}/vinculo`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ empresa: 'Empresa Teste', loja: 'loja_teste', clientId: 'c1', motivo }),
+        });
+        expect(res.status).toBe(400);
+      }
+      expect(await (await fetch(`${url}/vinculos`)).json()).toEqual({});
+      expect(await (await fetch(`${url}/vinculos/historico`)).json()).toEqual([]);
+    } finally { fechar(); }
+  });
+
+  it('registra no histórico de onde a loja saiu, pra onde foi, o motivo e quem; repetir o mesmo vínculo não gera linha', async () => {
+    criarCliente('c1', 'Penha');
+    criarCliente('c2', 'Smart');
+    const { url, fechar } = await subirAppDeTeste();
+    const post = (clientId: string | null, motivo: string) => fetch(`${url}/vinculo`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ empresa: 'Altese', loja: 'altese_cd', clientId, motivo, monitor: 'Erick Cardoso' }),
+    });
+    try {
+      expect((await post('c1', 'CD faz parte da Penha')).status).toBe(200);
+      expect((await post('c1', 'clique repetido')).status).toBe(200);
+      expect((await post('c2', 'CD passou a abastecer a Smart')).status).toBe(200);
+      expect((await post(null, 'CD fechou')).status).toBe(200);
+
+      const historico = await (await fetch(`${url}/vinculos/historico`)).json();
+      expect(historico).toHaveLength(3);
+      expect(historico.map((h: { de: string | null; para: string | null }) => [h.de, h.para]))
+        .toEqual([[null, 'c1'], ['c1', 'c2'], ['c2', null]]);
+      expect(historico[1]).toMatchObject({ empresa: 'Altese', loja: 'altese_cd', motivo: 'CD passou a abastecer a Smart', autor: 'Erick Cardoso' });
+      expect(typeof historico[1].em).toBe('string');
     } finally { fechar(); }
   });
 });

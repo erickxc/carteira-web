@@ -768,8 +768,25 @@ export interface LojaVinculoAlvos {
 export const buscarSugestoesVinculo = (empresa: string, forcar?: boolean) =>
   request<LojaVinculoAlvos[]>(`/alvos/sugestoes/${encodeURIComponent(empresa)}${forcar ? '?forcar=1' : ''}`);
 
-export const vincularLojaAlvos = (empresa: string, loja: string, clientId: string | null) =>
-  request<{ success: true }>('/alvos/vinculo', { method: 'POST', body: JSON.stringify({ empresa, loja, clientId }) });
+/** `motivo` é obrigatório (o servidor recusa sem ele) — toda mudança de vínculo vai pro histórico. */
+export const vincularLojaAlvos = (empresa: string, loja: string, clientId: string | null, motivo: string, monitor?: string) =>
+  request<{ success: true; mudou: boolean }>('/alvos/vinculo', { method: 'POST', body: JSON.stringify({ empresa, loja, clientId, motivo, monitor }) });
+
+/** `{ "<pasta da empresa>": { "<ID_LOJA>": "<clientId>" } }` — ver server/alvos/mapa.cjs. */
+export const buscarVinculosAlvos = () => request<Record<string, Record<string, string>>>('/alvos/vinculos');
+
+export interface MudancaVinculoAlvos {
+  em: string;
+  empresa: string;
+  loja: string;
+  de: string | null;
+  para: string | null;
+  motivo: string;
+  autor: string | null;
+  maquina: string;
+}
+
+export const buscarHistoricoVinculosAlvos = () => request<MudancaVinculoAlvos[]>('/alvos/vinculos/historico');
 
 export interface CatalogoAlvosCliente {
   disponivel: boolean;

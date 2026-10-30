@@ -2,7 +2,7 @@ const express = require('express');
 const { repoPlanilha } = require('../dominio/repo.cjs');
 const { linhasCadastro, resumoCadastro, gerarAlertasAlvos } = require('../alvos/painel.cjs');
 const { catalogoDoCliente, resumoGeralDoCliente, analiseEstrategicaDoCliente } = require('../alvos/consulta.cjs');
-const { sugerir, vincular, carregar } = require('../alvos/mapa.cjs');
+const { sugerir, alterarVinculo, historicoVinculos, carregar } = require('../alvos/mapa.cjs');
 const { empresasDisponiveis } = require('../alvos/leitor.cjs');
 const { agregadoDaEmpresa } = require('../alvos/cache.cjs');
 
@@ -59,13 +59,18 @@ router.get('/vinculos', (_req, res) => {
 });
 
 router.post('/vinculo', (req, res) => {
-  const { empresa, loja, clientId } = req.body || {};
+  const { empresa, loja, clientId, motivo, monitor } = req.body || {};
   if (!empresa || !loja) return res.status(400).json({ error: 'empresa e loja são obrigatórios.' });
+  if (!String(motivo ?? '').trim()) return res.status(400).json({ error: 'Informe o motivo da mudança de vínculo.' });
   if (clientId && !repo.get('Clientes').some((c) => String(c.id) === String(clientId))) {
     return res.status(404).json({ error: `Cliente "${clientId}" não encontrado.` });
   }
-  vincular(empresa, loja, clientId || null);
-  res.json({ success: true });
+  const { mudou } = alterarVinculo({ empresa, loja, clientId: clientId || null, motivo, autor: monitor });
+  res.json({ success: true, mudou });
+});
+
+router.get('/vinculos/historico', (_req, res) => {
+  res.json(historicoVinculos());
 });
 
 /**

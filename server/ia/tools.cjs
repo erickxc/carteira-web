@@ -1224,6 +1224,7 @@ function buscarResumoVendasAlvos(repo, { clientId }) {
   return {
     ...identidadeCliente(cliente),
     estado: 'ok',
+    lojas: r.lojas,
     primeiroPeriodo: r.primeiroPeriodo,
     ultimoPeriodo: r.ultimoPeriodo,
     totalReceita: r.totalReceita,
@@ -2125,7 +2126,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_resumo_vendas_alvos',
-    description: 'Dados de VENDA gerais do cliente (Dados Alvos), por mês/ano: receita total, quantidade e quantos clientes finais distintos compraram em cada período. Sem interpretação nenhuma — use pra responder "quanto ele vendeu em [mês]", "a receita está subindo ou caindo", "quantos clientes ele tem". Pra saber se um combinado específico de reunião deu resultado, use buscar_fatos_alvos, não esta. Se "estado" não for "ok", diga o motivo em vez de inventar número.',
+    description: 'Dados de VENDA gerais do cliente (Dados Alvos), por mês/ano: receita total, quantidade e quantos clientes finais distintos compraram em cada período. Sem interpretação nenhuma — use pra responder "quanto ele vendeu em [mês]", "a receita está subindo ou caindo", "quantos clientes ele tem". Traz também "lojas": as lojas dos Dados Alvos unidas neste atendimento (os números já somam todas) — use pra responder "quais lojas fazem parte desse atendimento". Pra saber se um combinado específico de reunião deu resultado, use buscar_fatos_alvos, não esta. Se "estado" não for "ok", diga o motivo em vez de inventar número.',
     parameters: {
       type: 'object',
       properties: { clientId: { type: 'string', description: 'ID do cliente da carteira.' } },
